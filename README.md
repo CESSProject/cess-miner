@@ -51,56 +51,38 @@ $ mv parameterfile/v28-* .
 ### Polkadot wallet
 1. Browser access:https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fcess.today%2Frpc2-hacknet%2Fws%2F#/accounts
 2. Click Add Account to add two accounts. The first account is used to authenticate and operate the cess chain, and the second account is used to save income.
-3. Open the faucet address, enter the address of account one, and receive TCESS coins.
+3. Open the faucet address:http://data.cesslab.co.uk/faucet/, enter the address of account one, and receive TCESS coins.
 4. We need the public key of the account two address to issue rewards, and the public key can be obtained by converting the ss58 address online:https://polkadot.subscan.io/tools/ss58_transform
 
 ## Operation mining
-
-* View help information for the node program
-
+1. Download the mining software package at: https://github.com/CESSProject/storage-mining-tool/releases/tag/v0.1.0
+2. Modify the following configuration items in the start-mining.sh file：
 ```
-$ sudo chmod +x ./cessmining
-$ sudo ./cessmining -h 
-CESS-Storage-Mining
-
-Usage:
-    ./cessmining [arguments] [file]
-
-Arguments:
-  -c configuration file
-        Run the program directly to generate
-        Specify the configuration file to ensure that the program runs correctly
-  -h    Print Help (this message) and exit
-  -v    Print version information and exit
-```
-
-* Configuration file description
-Running the mining program will generate the `conf_default.toml` configuration file by default
-```
-[cessChain]
-# RPC address of CES public chain
-rpcAddr = "wss://cess.today/rpc2-hacknet/ws/"
-
-[minerData]
-# The cess coin that the miner needs to pledge when registering, the unit is TCESS.
-pledgeTokens                 = 2000
-# Total space used to store files, the unit is GB.
-storageSpaceForCessMining    = 1024
 # Path to the mounted disk where the data is saved
-mountedPathForCessMining     = "/"
-# The IP address of the machine's public network used by the mining program.
-serviceIpAddress             = ""
-# Port number monitored by the mining program.
-servicePort                  = "15001"
-# Public key of income account.
-incomeAccountPublicKey       = ""
-# Phrase words or seeds for identity accounts.
-identifyAccountPhraseOrSeed  = ""
+mountedPath=''
+# Installation path of Fastdfs, you should install it in the mounted path
+dfsInstallPath=''
+# RPC address of CESS test chain
+rpcAddr='ws://106.15.44.155:9947/'
+# The CESS token  that the miner needs to pledge when registering, the unit is TCESS
+pledgeTokens=2000
+# Total space used to mining, the unit is GB
+storageSpace=0
+# The IP address of the machine's public network used by the mining program
+serviceIpAddr=''
+# Port number monitored by the mining program
+servicePort=15001
+# Port number for file service monitoring
+filePort=15002
+# Public key of income account
+incomeAccountPubkey=''
+# Phrase words or seeds for identity account
+idAccountPhraseOrSeed=''
 ```
 
 ## Usage
-
 * Start mining
 ```
-$ sudo ./cessmining -c conf.toml
+$ sudo chmod +x start-mining.sh
+$ sudo ./start-mining.sh
 ```
