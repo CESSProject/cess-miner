@@ -63,7 +63,7 @@ mountedPath=''
 # Installation path of Fastdfs, you should install it in the mounted path
 dfsInstallPath=''
 # RPC address of CESS test chain
-rpcAddr='ws://106.15.44.155:9947/'
+rpcAddr='wss://cesslab.co.uk/rpc2-hacknet/ws/'
 # The CESS token  that the miner needs to pledge when registering, the unit is TCESS
 pledgeTokens=2000
 # Total space used to mining, the unit is GB
