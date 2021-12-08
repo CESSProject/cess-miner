@@ -38,7 +38,7 @@ $ sudo firewall-cmd --reload
 ```
 
 #### Parameter file
-Download link：http://cess.today/FAQ, Article 12.
+Download link：http://cess.cloud/FAQ, Article 12.
 Unzip the parameter file and put it in the `/usr/cess-proof-parameters/` directory of the miner
 ```
 $ sudo mkdir -p /usr/cess-proof-parameters
