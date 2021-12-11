@@ -1,16 +1,16 @@
 # storage-mining-tool
 Storage mining tool for Polkadot Hackathon
 
-## Feature
+## Features
 * Automatically register to cess chain
 * Mining TCESS coins
 * Proof of Copy and Proof of Time and Space
 * Violation punishment
 
-## Minimum system version
+## Minimum OS version requirements
 CentOS_x64 8.2
 
-## system configuration
+## System configuration
 
 ### CentOS
 
