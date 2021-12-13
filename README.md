@@ -55,7 +55,7 @@ $ mv parameterfile/v28-* .
 4. We need the public key of the account two address to issue rewards, and the public key can be obtained by converting the ss58 address online:https://polkadot.subscan.io/tools/ss58_transform
 
 ## Operation mining
-1. Download the mining software package at: https://github.com/CESSProject/storage-mining-tool/releases/tag/v0.1.0
+1. Download the mining software package at: https://github.com/CESSProject/storage-mining-tool/releases/tag/v0.1.1
 2. Modify the following configuration items in the start-mining.sh file：
 ```
 # Path to the mounted disk where the data is saved
