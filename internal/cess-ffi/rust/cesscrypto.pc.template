@@ -1,0 +1,4 @@
+Name: cesscrypto
+Version: @VERSION@
+Description: C bindings for CESS Proofs
+Libs: @PRIVATE_LIBS@
