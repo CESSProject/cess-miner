@@ -8,7 +8,8 @@ Storage mining tool is a client program developed for miners, through which mine
 * Violation punishment
 
 ## Minimum OS version requirements
-CentOS_x64 8.2
+* CentOS_x64 ≥ 8.2
+* Ubuntu_x64 ≥ 18.04
 
 ## System configuration
 
