@@ -1,5 +1,5 @@
 # storage-mining-tool
-Storage mining tool for Polkadot Hackathon
+Storage mining tool is a client program developed for miners, through which miners can participate in storage mining on the CESS network.
 
 ## Features
 * Automatically register to cess chain
@@ -8,7 +8,8 @@ Storage mining tool for Polkadot Hackathon
 * Violation punishment
 
 ## Minimum OS version requirements
-CentOS_x64 8.2
+* CentOS_x64 ≥ 8.2
+* Ubuntu_x64 ≥ 18.04
 
 ## System configuration
 
