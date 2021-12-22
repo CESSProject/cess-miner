@@ -58,16 +58,14 @@ func Proof_Main() {
 
 func segmentVpa() {
 	var (
-		err           error
-		segType       uint8
-		segsizeType   uint8
-		segmentNum    uint32
-		enableS       uint64
-		segmentPath   = ""
+		err         error
+		segType     uint8
+		segsizeType uint8
+		enableS uint64
 		porepRandData chain.ParamInfo
 	)
 	segType = 1
-	segmentPath = filepath.Join(configs.MinerDataPath, configs.SegmentData)
+	segsizeType = 1
 	for range time.Tick(time.Second) {
 		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
 		enableS, err = getEnableSpace()
@@ -75,16 +73,7 @@ func segmentVpa() {
 			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 		}
 		if enableS > 0 {
-			segmentNum, err = getSegmentNumForTypeOne(segmentPath, configs.SegMentType_8M_S)
-			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
-				continue
-			}
-			if segmentNum >= 100 {
-				segsizeType = configs.SegMentType_512M
-			} else {
-				segsizeType = configs.SegMentType_8M
-			}
+
 
 			err = chain.IntentSubmitToChain(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
