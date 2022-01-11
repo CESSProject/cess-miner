@@ -226,7 +226,7 @@ func segmentVpb() {
 				temp := fmt.Sprintf("%c", verifiedPorepData[i].Sealed_cid[j])
 				sealcid += temp
 			}
-			prf, err := generateSenmentVpb(secid, abi.RegisteredPoStProof(postproofType), []string{sealcid}, seed)
+			prf, err := generateSenmentVpb(secid, segsizetype, abi.RegisteredPoStProof(postproofType), []string{sealcid}, seed)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
