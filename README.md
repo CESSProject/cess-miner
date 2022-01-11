@@ -4,7 +4,7 @@ Storage mining tool is a client program developed for miners, through which mine
 ## Features
 * Automatically register to cess chain
 * Mining TCESS coins
-* Proof of Copy and Proof of Time and Space
+* Proof of Replication and Proof of Spacetime
 * Violation punishment
 
 ## Minimum OS version requirements
