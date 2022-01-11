@@ -58,14 +58,17 @@ func Proof_Main() {
 
 func segmentVpa() {
 	var (
-		err         error
-		segType     uint8
-		segsizeType uint8
-		enableS uint64
+		err           error
+		segType       uint8
+		segsizeType   uint8
+		segmentNum    uint32
+		enableS       uint64
+		segmentPath   = ""
 		porepRandData chain.ParamInfo
 	)
 	segType = 1
-	segsizeType = 1
+	//segsizeType = 1
+	segmentPath = filepath.Join(configs.MinerDataPath, configs.SegmentData)
 	for range time.Tick(time.Second) {
 		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
 		enableS, err = getEnableSpace()
@@ -73,7 +76,16 @@ func segmentVpa() {
 			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 		}
 		if enableS > 0 {
-
+			segmentNum, err = getSegmentNumForTypeOne(segmentPath, configs.SegMentType_8M_S)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				continue
+			}
+			if segmentNum >= 100 {
+				segsizeType = configs.SegMentType_512M
+			} else {
+				segsizeType = configs.SegMentType_8M
+			}
 
 			err = chain.IntentSubmitToChain(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
@@ -110,37 +122,30 @@ func segmentVpa() {
 			}
 			var cid cid.Cid
 			var prf []byte
-			for {
-				cid, prf, err = GenerateSenmentVpa(secid, seed, seed, abi.RegisteredSealProof(segsizeType))
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("%v", err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
-					continue
-				} else {
-					break
-				}
+			cid, prf, err = GenerateSenmentVpa(secid, seed, seed, abi.RegisteredSealProof(segsizeType))
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				continue
 			}
+
+			fmt.Println(configs.MinerId_I, "生成了vpa证明, [scid] ", secid, "[rand-u32] ", porepRandData.Rand, " [rand-byte] ", seed, " [segsizeType] ", segsizeType, " [cid] ", cid, " [prf] ", prf)
 			sproof := ""
 			for i := 0; i < len(prf); i++ {
 				var tmp = fmt.Sprintf("%#02x", prf[i])
 				sproof += tmp[2:]
 			}
-			for {
-				err = chain.SegmentSubmitToVpaOrVpb(
-					configs.Confile.MinerData.IdAccountPhraseOrSeed,
-					configs.ChainTx_SegmentBook_SubmitToVpa,
-					configs.MinerId_I,
-					uint64(porepRandData.Segment_id),
-					[]byte(sproof),
-					[]byte(cid.String()),
-				)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String(), err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
-				} else {
-					logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String())
-					break
-				}
+			err = chain.SegmentSubmitToVpaOrVpb(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainTx_SegmentBook_SubmitToVpa,
+				configs.MinerId_I,
+				uint64(porepRandData.Segment_id),
+				[]byte(sproof),
+				[]byte(cid.String()),
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String(), err)
+			} else {
+				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String())
 			}
 		} else {
 			time.Sleep(time.Minute * 10)
@@ -158,7 +163,7 @@ func segmentVpb() {
 		postRandData  chain.ParamInfo
 	)
 	segType = 1
-	tk := time.NewTicker(time.Minute * time.Duration(configs.Vpb_SubmintPeriod))
+	tk := time.NewTicker(time.Minute)
 	for range tk.C {
 		var verifiedPorepData []chain.IpostParaInfo
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
@@ -231,22 +236,19 @@ func segmentVpb() {
 				var tmp = fmt.Sprintf("%#02x", prf[0].ProofBytes[j])
 				spostproof += tmp[2:]
 			}
-			for {
-				err = chain.SegmentSubmitToVpaOrVpb(
-					configs.Confile.MinerData.IdAccountPhraseOrSeed,
-					configs.ChainTx_SegmentBook_SubmitToVpb,
-					uint64(verifiedPorepData[i].Peer_id),
-					uint64(verifiedPorepData[i].Segment_id),
-					[]byte(spostproof),
-					verifiedPorepData[i].Sealed_cid,
-				)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid, err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
-				} else {
-					logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid)
-					break
-				}
+
+			err = chain.SegmentSubmitToVpaOrVpb(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainTx_SegmentBook_SubmitToVpb,
+				uint64(verifiedPorepData[i].Peer_id),
+				uint64(verifiedPorepData[i].Segment_id),
+				[]byte(spostproof),
+				verifiedPorepData[i].Sealed_cid,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid, err)
+			} else {
+				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid)
 			}
 		}
 	}
@@ -341,22 +343,19 @@ func segmentVpc() {
 				sealedcid[m] = make(types.Bytes, 0)
 				sealedcid[m] = append(sealedcid[m], types.NewBytes([]byte(sealcid[m].String()))...)
 			}
-			for {
-				err = chain.SegmentSubmitToVpc(
-					configs.Confile.MinerData.IdAccountPhraseOrSeed,
-					configs.ChainTx_SegmentBook_SubmitToVpc,
-					uint64(unsealedcidData[i].Peer_id),
-					uint64(unsealedcidData[i].Segment_id),
-					prf,
-					sealedcid,
-				)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid, err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
-				} else {
-					logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid)
-					break
-				}
+
+			err = chain.SegmentSubmitToVpc(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainTx_SegmentBook_SubmitToVpc,
+				uint64(unsealedcidData[i].Peer_id),
+				uint64(unsealedcidData[i].Segment_id),
+				prf,
+				sealedcid,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid, err)
+			} else {
+				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid)
 			}
 		}
 	}
@@ -470,22 +469,18 @@ func segmentVpd() {
 				proof[j] = make([]byte, 0)
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
-			for {
-				err = chain.SegmentSubmitToVpd(
-					configs.Confile.MinerData.IdAccountPhraseOrSeed,
-					configs.ChainTx_SegmentBook_SubmitToVpd,
-					uint64(verifiedPorepData[i].Peer_id),
-					uint64(verifiedPorepData[i].Segment_id),
-					proof,
-					verifiedPorepData[i].Sealed_cid,
-				)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid, err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
-				} else {
-					logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid)
-					break
-				}
+			err = chain.SegmentSubmitToVpd(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainTx_SegmentBook_SubmitToVpd,
+				uint64(verifiedPorepData[i].Peer_id),
+				uint64(verifiedPorepData[i].Segment_id),
+				proof,
+				verifiedPorepData[i].Sealed_cid,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid, err)
+			} else {
+				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid)
 			}
 		}
 	}

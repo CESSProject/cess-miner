@@ -3,7 +3,7 @@ package proof
 import (
 	"io/ioutil"
 	"os"
-	ffi "storage-mining/internal/cess-ffi"
+	ffi "storage-mining/internal/cessffi"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	cid "github.com/ipfs/go-cid"

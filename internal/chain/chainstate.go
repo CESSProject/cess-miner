@@ -1,8 +1,10 @@
 package chain
 
 import (
+	"fmt"
 	"storage-mining/internal/logger"
 
+	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -235,4 +237,29 @@ func GetVpcPostOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 func RenewalTokens() error {
 	//TODO:
 	return errors.New("test")
+}
+
+//not use
+func GetLatestBlockHeight() {
+	api, err := gsrpc.NewSubstrateAPI("ws://106.15.44.155:9947")
+	if err != nil {
+		panic(err)
+	}
+	sub, err := api.RPC.Chain.SubscribeNewHeads()
+	if err != nil {
+		panic(err)
+	}
+	defer sub.Unsubscribe()
+
+	count := 0
+
+	for {
+		head := <-sub.Chan()
+		fmt.Printf("Chain is at block: #%v\n", head.Number)
+		count++
+		if count == 10 {
+			sub.Unsubscribe()
+			break
+		}
+	}
 }

@@ -50,14 +50,14 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 }
 
 //Generate Segment Post
-func generateSenmentVpb(sectorId SectorID, postProofType abi.RegisteredPoStProof, sealedCIDsStr []string, randomness []byte) ([]prf.PoStProof, error) {
+func generateSenmentVpb(sectorId SectorID, segsizetype uint8, postProofType abi.RegisteredPoStProof, sealedCIDsStr []string, randomness []byte) ([]prf.PoStProof, error) {
 	defer func() {
 		err := recover()
 		if err != nil {
 			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	segPath := fmt.Sprintf("%v_%v", SealProofType, sectorId.SectorNum)
+	segPath := fmt.Sprintf("%v_%v", segsizetype, sectorId.SectorNum)
 	path := filepath.Join(configs.MinerDataPath, configs.SegmentData, segPath)
 
 	_, err := os.Stat(path)

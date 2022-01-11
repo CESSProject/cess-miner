@@ -417,8 +417,6 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 			}
 		case <-timeout:
 			return errors.Errorf("[%v] tx timeout", TransactionName)
-		default:
-			time.Sleep(time.Second)
 		}
 	}
 }
