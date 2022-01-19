@@ -13,26 +13,24 @@ import (
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 )
 
-type mySubstrateApi struct {
+var (
 	wlock *sync.Mutex
-	//c     chan bool
-	r *gsrpc.SubstrateAPI
-}
-
-var api = new(mySubstrateApi)
+	r     *gsrpc.SubstrateAPI
+)
 
 func Chain_Init() {
 	var (
 		err     error
+		ok      bool
 		isfirst bool
 	)
-	api.r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
+	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		os.Exit(configs.Exit_Normal)
 	}
-	api.wlock = new(sync.Mutex)
+	wlock = new(sync.Mutex)
 	// api.c = make(chan bool, 1)
 	// api.c <- true
 	//go waitBlock(api.c)
@@ -58,7 +56,7 @@ func Chain_Init() {
 		logger.InfoLogger.Sugar().Infof("    ServiceIpAddress:%v", configs.Confile.MinerData.ServiceIpAddr)
 		logger.InfoLogger.Sugar().Infof("    IdentifyAccountPhraseOrSeed:%v", configs.Confile.MinerData.IdAccountPhraseOrSeed)
 		logger.InfoLogger.Sugar().Infof("    IncomeAccountPublicKey:%v", configs.Confile.MinerData.IncomeAccountPubkey)
-		err = RegisterToChain(
+		ok, err = RegisterToChain(
 			configs.Confile.MinerData.IdAccountPhraseOrSeed,
 			configs.Confile.MinerData.IncomeAccountPubkey,
 			configs.Confile.MinerData.ServiceIpAddr,
@@ -67,7 +65,7 @@ func Chain_Init() {
 			configs.Confile.MinerData.ServicePort,
 			configs.Confile.MinerData.FilePort,
 		)
-		if err != nil {
+		if !ok || err != nil {
 			logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
 			logger.ErrLogger.Sugar().Errorf("%v", err)
 			fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to register miner to cess chain: %v\n", 41, err)
@@ -147,7 +145,7 @@ func substrateAPIKeepAlive() {
 
 	for range time.Tick(time.Second * 25) {
 		if count_r <= 1 {
-			peer, err = healthchek(api.r)
+			peer, err = healthchek(r)
 			//fmt.Println(peer, err)
 			if err != nil || peer == 0 {
 				count_r++
@@ -155,7 +153,7 @@ func substrateAPIKeepAlive() {
 		}
 		if count_r > 1 {
 			count_r = 2
-			api.r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
+			r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 			} else {
@@ -188,15 +186,15 @@ func healthchek(a *gsrpc.SubstrateAPI) (uint64, error) {
 // }
 
 func getSubstrateAPI() *gsrpc.SubstrateAPI {
-	api.wlock.Lock()
+	wlock.Lock()
 	// for len(api.c) == 0 {
 	// 	time.Sleep(time.Millisecond * 200)
 	// }
 	// <-api.c
-	return api.r
+	return r
 }
 func releaseSubstrateAPI() {
-	api.wlock.Unlock()
+	wlock.Unlock()
 }
 
 func Chain_Main() {

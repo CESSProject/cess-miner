@@ -62,8 +62,9 @@ const (
 )
 
 const (
-	Vpb_SubmintPeriod = 72
-	Vpd_SubmintPeriod = 72
+	Vpb_SubmintPeriod  = 72
+	Vpd_SubmintPeriod  = 72
+	TimeToWaitEvents_S = 20
 )
 
 const (

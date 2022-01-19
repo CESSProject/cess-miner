@@ -16,6 +16,7 @@ require (
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-ipfs-chunker v0.0.5
 	github.com/klauspost/reedsolomon v1.9.14
+	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil v3.21.10+incompatible
