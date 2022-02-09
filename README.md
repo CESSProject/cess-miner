@@ -34,19 +34,17 @@ sudo newgrp docker
 If the firewall is turned on, you need to open the running port.
 
 ```
-$ sudo firewall-cmd --permanent --add-port=15001-15010/tcp
-$ sudo firewall-cmd --reload
+sudo firewall-cmd --permanent --add-port=15001-15010/tcp
+sudo firewall-cmd --reload
 ```
 
 #### Parameter file
 Download link：http://cess.cloud/FAQ, Article 12.
 Unzip the parameter file and put it in the `/usr/cess-proof-parameters/` directory of the miner
 ```
-$ sudo mkdir -p /usr/cess-proof-parameters
-$ wget https://d2gxbb5i8u5h7r.cloudfront.net/parameterfile.zip
-$ unzip -d /usr/cess-proof-parameters parameterfile.zip
-$ cd /usr/cess-proof-parameters
-$ mv parameterfile/v28-* .
+sudo mkdir -p /usr/cess-proof-parameters
+wget https://d2gxbb5i8u5h7r.cloudfront.net/parameterfile.zip
+sudo unzip -j -d /usr/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
 ```
 
 ### Polkadot wallet
@@ -84,6 +82,6 @@ idAccountPhraseOrSeed=''
 ## Usage
 * Start mining
 ```
-$ sudo chmod +x start-mining.sh
-$ sudo ./start-mining.sh
+sudo chmod +x start-mining.sh
+sudo ./start-mining.sh
 ```
