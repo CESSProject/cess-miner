@@ -44,9 +44,7 @@ Unzip the parameter file and put it in the `/usr/cess-proof-parameters/` directo
 ```
 sudo mkdir -p /usr/cess-proof-parameters
 wget https://d2gxbb5i8u5h7r.cloudfront.net/parameterfile.zip
-sudo unzip -d /usr/cess-proof-parameters parameterfile.zip
-cd /usr/cess-proof-parameters
-mv parameterfile/v28-* .
+sudo unzip -j -d /usr/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
 ```
 
 ### Polkadot wallet
