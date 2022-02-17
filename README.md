@@ -92,7 +92,7 @@ idAccountPhraseOrSeed=''
 1. Clone the source code to your working directory
 
 ```
-git clone https://github.com/CESSProject/storage-mining-tool.git
+git clone --recurse-submodules https://github.com/tehsunnliu/storage-mining-tool
 cd storage-mining-tool
 ```
 
@@ -104,6 +104,10 @@ go build -o mining cmd/main/main.go
 ```
 
 This will create an executable file called **'mining'**
+
+```
+sudo ./mining -c conf.toml
+```
 
 ## Usage
 

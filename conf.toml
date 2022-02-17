@@ -1,5 +1,5 @@
 [cessChain]
-rpcAddr = "wss://cesslab.co.uk/rpc2-hacknet/ws/"
+rpcAddr = "ws://106.15.44.155:9949/"
 
 [minerData]
 # The cess coin that the miner needs to pledge when registering, the unit is TCESS.
