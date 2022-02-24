@@ -1,7 +1,7 @@
 package proof
 
 import (
-	ffi "storage-mining/internal/cessffi"
+	ffi "github.com/CESSProject/cess-ffi"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	prf "github.com/filecoin-project/specs-actors/actors/runtime/proof"
