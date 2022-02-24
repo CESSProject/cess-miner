@@ -100,7 +100,7 @@ idAccountPhraseOrSeed=''
 1. Clone the source code to your working directory
 
 ```
-git clone --recurse-submodules https://github.com/tehsunnliu/storage-mining-tool
+git clone --recurse-submodules https://github.com/CESSProject/storage-mining-tool
 cd storage-mining-tool
 ```
 
