@@ -59,9 +59,17 @@ sudo unzip -j -d /usr/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
 3. Open the faucet address:http://data.cesslab.co.uk/faucet/, enter the address of account one, and receive TCESS coins.
 4. We need the public key of the account two address to issue rewards, and the public key can be obtained by converting the ss58 address online:https://polkadot.subscan.io/tools/ss58_transform
 
-## Operation mining
 
-1. Download the mining software package at: https://github.com/CESSProject/storage-mining-tool/releases/tag/v0.1.1
+## Start mining client
+1. Download prebuild software package at: https://github.com/CESSProject/storage-mining-tool/releases/tag/v0.1.1 or execute the following commands
+
+```
+mkdir CESSMiningClient
+cd CESSMiningClient
+wget https://github.com/CESSProject/storage-mining-tool/releases/download/v0.1.1/MiningClient_V0.1.1.tar.gz
+tar -zxvf MiningClient_V0.1.1.tar.gz
+```
+
 2. Modify the following configuration items in the start-mining.sh file：
 
 ```
