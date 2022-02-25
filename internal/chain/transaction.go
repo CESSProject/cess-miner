@@ -43,9 +43,21 @@ type Event_Sminer_Registered struct {
 	Topics  []types.Hash
 }
 
+type Event_UnsignedPhaseStarted struct {
+	Phase  types.Phase
+	Round  types.U32
+	Topics []types.Hash
+}
+
+type Event_SolutionStored struct {
+	Phase            types.Phase
+	Election_compute types.ElectionCompute
+	Prev_ejected     types.Bool
+	Topics           []types.Hash
+}
+
 type MyEventRecords struct {
-	System_ExtrinsicSuccess  []types.EventSystemExtrinsicSuccess
-	System_ExtrinsicFailed   []types.EventSystemExtrinsicFailed
+	types.EventRecords
 	SegmentBook_ParamSet     []Event_SegmentBook_ParamSet
 	SegmentBook_VPASubmitted []Event_VPABCD_Submit_Verify
 	SegmentBook_VPBSubmitted []Event_VPABCD_Submit_Verify
@@ -57,6 +69,9 @@ type MyEventRecords struct {
 	SegmentBook_VPDVerified  []Event_VPABCD_Submit_Verify
 	Sminer_TimedTask         []Event_Sminer_TimedTask
 	Sminer_Registered        []Event_Sminer_Registered
+	//
+	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
+	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
 }
 
 // miner register

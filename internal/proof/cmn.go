@@ -2,11 +2,11 @@ package proof
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"sort"
+	"storage-mining/internal/logger"
 	"strconv"
 	"strings"
 
@@ -68,6 +68,7 @@ func Chunking(fileDir, dir string, cs int64) (num int, poi int64) {
 		}
 
 		_, err = file.Seek(0, 0)
+		RequireNoError(err)
 	}
 }
 
@@ -85,8 +86,11 @@ func Padding(fileDir, dir string, num int, cs int64) int {
 		file, err := os.Create(dir + arr[len(arr)-1] + "_" + strconv.Itoa(num-1+n))
 		RequireNoError(err)
 		err = file.Truncate(cs)
-		file.Sync()
+		RequireNoError(err)
+		err = file.Sync()
+		RequireNoError(err)
 		_, err = file.Seek(0, 0)
+		RequireNoError(err)
 	}
 	return times
 }
@@ -107,7 +111,8 @@ func NewSortedSectorInfo(sectorInfo []prf.SectorInfo) []prf.SectorInfo {
 
 func RequireNoError(err error, msgAndArgs ...interface{}) {
 	if err != nil {
-		fmt.Println("error happened!", err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		//fmt.Println("error happened!", err)
 	}
 }
 

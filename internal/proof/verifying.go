@@ -57,7 +57,7 @@ func VerifyFileOnceForIdle(sectorId SectorID, seed abi.InteractiveSealRandomness
 
 	//for idle sector, the unsealedCID can be computed in here
 	preGeneratedUnsealedCIDForIdle, err := ffi.GenerateUnsealedCID(SealProofType, []abi.PieceInfo{})
-
+	RequireNoError(err)
 	isValid, err := ffi.VerifySeal(prf.SealVerifyInfo{
 		SectorID: abi.SectorID{
 			Miner:  sectorId.PeerID,

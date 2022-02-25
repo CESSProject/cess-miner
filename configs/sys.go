@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Storage-Mining_0.1.1_Alpha"
+const Version = "CESS-Storage-Mining_0.2.0_Alpha"
 
 // system exit code
 const (
@@ -72,6 +72,7 @@ const (
 	Space_1GB                    = 1073741824    // 1GB
 	TokenAccuracy                = "000000000000"
 	DefaultConfigurationFileName = "config_template.toml"
+	LengthOfFileShardMeta        = 100
 )
 
 // Storage mining client function

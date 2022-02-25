@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/fs"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -355,37 +354,37 @@ func walkParShards(filePath string) ([]string, error) {
 	return orderDirs, nil
 }
 
-func walkDirOrderly(filePath string) ([]string, error) {
-	dirs := make([]string, 0)
-	chunkslice := make([]int, 0)
-	chunkmap := make(map[int]*fs.FileInfo)
-	files, err := ioutil.ReadDir(filePath)
-	if err != nil {
-		logger.ErrLogger.Error("File Sector Path error.")
-		return dirs, err
-	} else {
-
-		for _, v := range files {
-			if !v.IsDir() {
-				num := strings.Split(v.Name(), ".")
-				chunknum, err := strconv.Atoi(num[len(num)-1])
-				if err != nil {
-					continue
-				}
-				chunkslice = append(chunkslice, chunknum)
-				chunkmap[chunknum] = &v
-			}
-		}
-		quickSort(chunkslice, 0, len(chunkslice))
-		for _, v := range chunkslice {
-			if fileinfo, ok := chunkmap[v]; ok {
-				path := filepath.Join(filePath, (*fileinfo).Name())
-				dirs = append(dirs, path)
-			}
-		}
-	}
-	return dirs, nil
-}
+//func walkDirOrderly(filePath string) ([]string, error) {
+//	dirs := make([]string, 0)
+//	chunkslice := make([]int, 0)
+//	chunkmap := make(map[int]*fs.FileInfo)
+//	files, err := ioutil.ReadDir(filePath)
+//	if err != nil {
+//		logger.ErrLogger.Error("File Sector Path error.")
+//		return dirs, err
+//	} else {
+//
+//		for _, v := range files {
+//			if !v.IsDir() {
+//				num := strings.Split(v.Name(), ".")
+//				chunknum, err := strconv.Atoi(num[len(num)-1])
+//				if err != nil {
+//					continue
+//				}
+//				chunkslice = append(chunkslice, chunknum)
+//				chunkmap[chunknum] = &v
+//			}
+//		}
+//		quickSort(chunkslice, 0, len(chunkslice))
+//		for _, v := range chunkslice {
+//			if fileinfo, ok := chunkmap[v]; ok {
+//				path := filepath.Join(filePath, (*fileinfo).Name())
+//				dirs = append(dirs, path)
+//			}
+//		}
+//	}
+//	return dirs, nil
+//}
 func quickSort(p []int, start, end int) {
 	x, i, j := p[start], start+1, end
 	for i <= j {
