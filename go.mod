@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
+	github.com/CESSProject/cess-ffi v0.0.0-20220217052609-6c35c99d795c // indirect
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.0
 	github.com/filecoin-project/go-address v0.0.6
 	github.com/filecoin-project/go-fil-commcid v0.1.0
@@ -27,3 +28,5 @@ require (
 )
 
 //replace storage-mining/internal/cess-ffi => ./internal/cess-ffi
+
+replace github.com/CESSProject/cess-ffi => ./internal/ffi

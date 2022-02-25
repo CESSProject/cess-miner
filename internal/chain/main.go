@@ -56,7 +56,7 @@ func Chain_Init() {
 		logger.InfoLogger.Sugar().Infof("    ServiceIpAddress:%v", configs.Confile.MinerData.ServiceIpAddr)
 		logger.InfoLogger.Sugar().Infof("    IdentifyAccountPhraseOrSeed:%v", configs.Confile.MinerData.IdAccountPhraseOrSeed)
 		logger.InfoLogger.Sugar().Infof("    IncomeAccountPublicKey:%v", configs.Confile.MinerData.IncomeAccountPubkey)
-		ok, err = RegisterToChain(
+		err = RegisterToChain(
 			configs.Confile.MinerData.IdAccountPhraseOrSeed,
 			configs.Confile.MinerData.IncomeAccountPubkey,
 			configs.Confile.MinerData.ServiceIpAddr,
@@ -65,7 +65,7 @@ func Chain_Init() {
 			configs.Confile.MinerData.ServicePort,
 			configs.Confile.MinerData.FilePort,
 		)
-		if !ok || err != nil {
+		if err != nil {
 			logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
 			logger.ErrLogger.Sugar().Errorf("%v", err)
 			fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to register miner to cess chain: %v\n", 41, err)

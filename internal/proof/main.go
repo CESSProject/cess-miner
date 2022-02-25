@@ -58,15 +58,16 @@ func Proof_Main() {
 
 func segmentVpa() {
 	var (
-		err         error
-		ok          bool
-		segType     uint8
-		segsizeType uint8
-		segmentNum  uint32
-		enableS     uint64
-		segmentPath = ""
+		err           error
+		segType       uint8
+		segsizeType   uint8
+		segmentNum    uint32
+		enableS       uint64
+		segmentPath   = ""
+		porepRandData chain.ParamInfo
 	)
 	segType = 1
+	//segsizeType = 1
 	segmentPath = filepath.Join(configs.MinerDataPath, configs.SegmentData)
 	for range time.Tick(time.Second) {
 		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
@@ -86,7 +87,7 @@ func segmentVpa() {
 				segsizeType = configs.SegMentType_8M
 			}
 
-			segmentId, randnum, err := chain.IntentSubmitToChain(
+			err = chain.IntentSubmitToChain(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_IntentSubmit,
 				segsizeType,
@@ -96,25 +97,27 @@ func segmentVpa() {
 				nil,
 				nil,
 			)
-			if err != nil || randnum == 0 || segmentId == 0 {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v]", err, segmentId, randnum)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
-			// porepRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetA,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m IntentSubmit Vpa\n", 42)
+			porepRandData, err = chain.GetSeedNumOnChain(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainModule_SegmentBook,
+				configs.ChainModule_SegmentBook_ParamSetA,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				continue
+			}
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m porepRandData:%v\n", 42, porepRandData)
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(configs.MinerId_I),
-				SectorNum: abi.SectorNumber(segmentId),
+				SectorNum: abi.SectorNumber(porepRandData.Segment_id),
 			}
-			seed, err := tools.IntegerToBytes(randnum)
+			seed, err := tools.IntegerToBytes(porepRandData.Rand)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
@@ -126,23 +129,27 @@ func segmentVpa() {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
+
+			//fmt.Println(configs.MinerId_I, "vpa, [scid] ", secid, "[rand-u32] ", porepRandData.Rand, " [rand-byte] ", seed, " [segsizeType] ", segsizeType, " [cid] ", cid, " [prf] ", prf)
 			sproof := ""
 			for i := 0; i < len(prf); i++ {
 				var tmp = fmt.Sprintf("%#02x", prf[i])
 				sproof += tmp[2:]
 			}
-			ok, err = chain.SegmentSubmitToVpaOrVpb(
+			//fmt.Println(configs.MinerId_I, "vpa, [segmentId] ", porepRandData.Segment_id, " [prf] ", sproof, " [cid] ", cid.String())
+			err = chain.SegmentSubmitToVpaOrVpb(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_SubmitToVpa,
 				configs.MinerId_I,
-				uint64(segmentId),
+				uint64(porepRandData.Segment_id),
 				[]byte(sproof),
 				[]byte(cid.String()),
 			)
-			if !ok || err != nil {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segmentId, sproof, cid.String(), err)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String(), err)
+				//time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
 			} else {
-				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segmentId, sproof, cid.String())
+				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, porepRandData.Segment_id, sproof, cid.String())
 			}
 		} else {
 			time.Sleep(time.Minute * 10)
@@ -153,16 +160,17 @@ func segmentVpa() {
 func segmentVpb() {
 	var (
 		err           error
-		ok            bool
 		segsizetype   uint8
 		postproofType uint8
 		segType       uint8
-		randnum       uint32
 		sealcid       string
+		postRandData  chain.ParamInfo
 	)
 	segType = 1
 	tk := time.NewTicker(time.Minute)
 	for range tk.C {
+		tall := time.Now().Unix()
+		//logger.InfoLogger.Sugar().Infof("---------- A new round of VPB(%v) begins to be submitted, time:%v", tall, time.Now().Unix())
 		var verifiedPorepData []chain.IpostParaInfo
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
 			configs.Confile.MinerData.IdAccountPhraseOrSeed,
@@ -190,32 +198,37 @@ func segmentVpb() {
 				segsizetype = 2
 				postproofType = 7
 			}
-			randnum, err = chain.IntentSubmitPostToChain(
+			err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
 				segType,
 			)
-			if err != nil || randnum == 0 {
+			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
+				//fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetB,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m IntentSubmit post vpa\n", 42)
+
+			postRandData, err = chain.GetSeedNumOnChain(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainModule_SegmentBook,
+				configs.ChainModule_SegmentBook_ParamSetB,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				//fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+				continue
+			}
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m vpb post rand:%v\n", 42, postRandData)
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(verifiedPorepData[i].Peer_id),
 				SectorNum: abi.SectorNumber(verifiedPorepData[i].Segment_id),
 			}
-			seed, err := tools.IntegerToBytes(randnum)
+			seed, err := tools.IntegerToBytes(postRandData.Rand)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
@@ -235,7 +248,7 @@ func segmentVpb() {
 				spostproof += tmp[2:]
 			}
 
-			ok, err = chain.SegmentSubmitToVpaOrVpb(
+			err = chain.SegmentSubmitToVpaOrVpb(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_SubmitToVpb,
 				uint64(verifiedPorepData[i].Peer_id),
@@ -243,20 +256,20 @@ func segmentVpb() {
 				[]byte(spostproof),
 				verifiedPorepData[i].Sealed_cid,
 			)
-			if !ok || err != nil {
+			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid, err)
+				//time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
 			} else {
 				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid)
 			}
+			//logger.InfoLogger.Sugar().Infof("---------- The %v segment submission end, time:%v", i, time.Now().Unix())
 		}
+		//logger.InfoLogger.Sugar().Infof("---------- VPB(%v) submitted end, time:%v", tall, time.Now().Unix())
 	}
 }
 
 func segmentVpc() {
-	var (
-		err error
-		ok  bool
-	)
+	var err error
 	fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
 	tk := time.NewTicker(time.Second)
 	for range tk.C {
@@ -267,6 +280,7 @@ func segmentVpc() {
 			configs.ChainModule_SegmentBook_MinerHoldSlice,
 		)
 		if err != nil {
+			//fmt.Printf("\x1b[%dm[err]\x1b[0m GetunsealcidOnChain err: %v\n", 41, err)
 			logger.ErrLogger.Sugar().Errorf("%v", err)
 			time.Sleep(time.Minute)
 			continue
@@ -279,6 +293,7 @@ func segmentVpc() {
 				continue
 			}
 		}
+		//fmt.Println("Number of uncid data: ", len(unsealedcidData))
 		if len(unsealedcidData) == 0 {
 			time.Sleep(time.Minute)
 		}
@@ -345,7 +360,7 @@ func segmentVpc() {
 				sealedcid[m] = append(sealedcid[m], types.NewBytes([]byte(sealcid[m].String()))...)
 			}
 
-			ok, err = chain.SegmentSubmitToVpc(
+			err = chain.SegmentSubmitToVpc(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_SubmitToVpc,
 				uint64(unsealedcidData[i].Peer_id),
@@ -353,8 +368,9 @@ func segmentVpc() {
 				prf,
 				sealedcid,
 			)
-			if !ok || err != nil {
+			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid, err)
+				//time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
 			} else {
 				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid)
 			}
@@ -364,12 +380,10 @@ func segmentVpc() {
 
 func segmentVpd() {
 	var (
-		err         error
-		ok          bool
-		segType     uint8
-		segsizetype uint8
-		randnum     uint32
-		// postRandData chain.ParamInfo
+		err          error
+		segType      uint8
+		segsizetype  uint8
+		postRandData chain.ParamInfo
 	)
 	segsizetype = 1
 	segType = 2
@@ -393,26 +407,31 @@ func segmentVpd() {
 			tk.Reset(time.Minute)
 		}
 		for i := 0; i < len(verifiedPorepData); i++ {
-			randnum, err = chain.IntentSubmitPostToChain(
+			err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
 				segType,
 			)
-			if err != nil || randnum == 0 {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v]", err, randnum)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				//fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetD,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m IntentSubmit post Vpc\n", 42)
+
+			postRandData, err = chain.GetSeedNumOnChain(
+				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.ChainModule_SegmentBook,
+				configs.ChainModule_SegmentBook_ParamSetD,
+			)
+			if err != nil {
+				logger.ErrLogger.Sugar().Errorf("%v", err)
+				//fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+				continue
+			}
+			//fmt.Printf("\x1b[%dm[ok]\x1b[0m postRandData vpd:%v\n", 42, postRandData)
 
 			sealcidstring := ""
 			sealcid := make([]string, 0)
@@ -424,17 +443,20 @@ func segmentVpd() {
 				}
 				sealcid = append(sealcid, sealcidstring)
 			}
-			seed, err := tools.IntegerToBytes(randnum)
+			seed, err := tools.IntegerToBytes(postRandData.Rand)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
+			// fmt.Println("sealcid:", sealcid)
+			// fmt.Println("rand:", seed)
 
 			fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
 			_, err = os.Stat(fileSegPath)
 			if err != nil {
 				err = os.MkdirAll(fileSegPath, os.ModePerm)
 				if err != nil {
+					//fmt.Printf("\x1b[%dm[err]\x1b[0m MkdirAll [%v] err: %v\n", 41, fileSegPath, err)
 					logger.ErrLogger.Sugar().Errorf("%v", err)
 					continue
 				}
@@ -472,7 +494,7 @@ func segmentVpd() {
 				proof[j] = make([]byte, 0)
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
-			ok, err = chain.SegmentSubmitToVpd(
+			err = chain.SegmentSubmitToVpd(
 				configs.Confile.MinerData.IdAccountPhraseOrSeed,
 				configs.ChainTx_SegmentBook_SubmitToVpd,
 				uint64(verifiedPorepData[i].Peer_id),
@@ -480,8 +502,9 @@ func segmentVpd() {
 				proof,
 				verifiedPorepData[i].Sealed_cid,
 			)
-			if !ok || err != nil {
+			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid, err)
+				//time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 15)))
 			} else {
 				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid)
 			}

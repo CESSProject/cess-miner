@@ -6,7 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
-	ffi "storage-mining/internal/cessffi"
+
+	ffi "github.com/CESSProject/cess-ffi"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	prf "github.com/filecoin-project/specs-actors/actors/runtime/proof"
@@ -161,7 +162,6 @@ func GetPoSt(sectorId SectorID, windowPostProofType abi.RegisteredPoStProof, sea
 	psInfos := make([]ffi.PrivateSectorInfo, 0)
 
 	for _, sc := range sealedCIDs {
-
 		psInfos = append(psInfos, ffi.PrivateSectorInfo{
 			SectorInfo: prf.SectorInfo{
 				SealProof:    SealProofType,

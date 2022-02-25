@@ -26,6 +26,7 @@ const (
 const (
 	ChainModule_Sminer      = "Sminer"
 	ChainModule_SegmentBook = "SegmentBook"
+	ChainModule_FileBank    = "FileBank"
 )
 
 // cess chain module method
@@ -38,6 +39,8 @@ const (
 	ChainModule_SegmentBook_ConProofInfoA  = "ConProofInfoA"
 	ChainModule_SegmentBook_ConProofInfoC  = "ConProofInfoC"
 	ChainModule_SegmentBook_MinerHoldSlice = "MinerHoldSlice"
+	ChainModule_SegmentBook_PrePoolA       = "PrePoolA"
+	ChainModule_FileBank_File              = "File"
 )
 
 // cess chain Transaction name
@@ -62,9 +65,8 @@ const (
 )
 
 const (
-	Vpb_SubmintPeriod  = 72
-	Vpd_SubmintPeriod  = 72
-	TimeToWaitEvents_S = 20
+	Vpb_SubmintPeriod = 72
+	Vpd_SubmintPeriod = 72
 )
 
 const (
