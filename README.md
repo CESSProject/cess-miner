@@ -44,12 +44,12 @@ sudo firewall-cmd --reload
 #### Parameter file
 
 Download link：http://cess.cloud/FAQ, Article 12.
-Unzip the parameter file and put it in the `/usr/cess-proof-parameters/` directory of the miner
+Unzip the parameter file and put it in the `/usr/local/cess-proof-parameters/` directory of the miner
 
 ```
-sudo mkdir -p /usr/cess-proof-parameters
+sudo mkdir -p /usr/local/cess-proof-parameters
 wget https://d2gxbb5i8u5h7r.cloudfront.net/parameterfile.zip
-sudo unzip -j -d /usr/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
+sudo unzip -j -d /usr/local/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
 ```
 
 ### Polkadot wallet
