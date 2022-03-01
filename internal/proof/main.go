@@ -330,9 +330,9 @@ func segmentVpc() {
 			}
 			filefullpath := ""
 			if hash == shardhash {
-				filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, hash+".cess")
+				//filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, hash+".cess")
 			} else {
-				filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, shardhash)
+				//filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, shardhash)
 			}
 			sealcid, prf, err := generateSegmentVpc(filefullpath, filesegid, uint64(unsealedcidData[i].Segment_id), seed, uncid)
 			if err != nil {

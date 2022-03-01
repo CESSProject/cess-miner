@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Storage-Mining_0.2.0_Alpha"
+const Version = "CESS-Storage-Mining_0.3.0_Alpha"
 
 // system exit code
 const (

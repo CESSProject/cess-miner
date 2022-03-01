@@ -5,7 +5,6 @@ import (
 	"os"
 	"storage-mining/configs"
 	"storage-mining/internal/chain"
-	"storage-mining/internal/cmdline"
 	"storage-mining/internal/logger"
 	"storage-mining/internal/proof"
 	"storage-mining/tools"
@@ -13,7 +12,6 @@ import (
 
 func SystemInit() {
 	sysInit()
-	cmdline.CmdlineInit()
 	logger.LoggerInit()
 	chain.Chain_Init()
 	proof.Proof_Init()

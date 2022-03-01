@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"storage-mining/configs"
 	"storage-mining/internal/logger"
-	"strings"
 	"sync"
 	"time"
 
@@ -52,7 +51,6 @@ func Chain_Init() {
 	} else {
 		logger.InfoLogger.Info("Start registration......")
 		logger.InfoLogger.Sugar().Infof("    RpcAddr:%v", configs.Confile.CessChain.RpcAddr)
-		logger.InfoLogger.Sugar().Infof("    PledgeTokens:%v", configs.Confile.MinerData.PledgeTokens)
 		logger.InfoLogger.Sugar().Infof("    ServiceIpAddress:%v", configs.Confile.MinerData.ServiceIpAddr)
 		logger.InfoLogger.Sugar().Infof("    IdentifyAccountPhraseOrSeed:%v", configs.Confile.MinerData.IdAccountPhraseOrSeed)
 		logger.InfoLogger.Sugar().Infof("    IncomeAccountPublicKey:%v", configs.Confile.MinerData.IncomeAccountPubkey)
@@ -61,9 +59,7 @@ func Chain_Init() {
 			configs.Confile.MinerData.IncomeAccountPubkey,
 			configs.Confile.MinerData.ServiceIpAddr,
 			configs.ChainTx_Sminer_Register,
-			configs.Confile.MinerData.PledgeTokens,
 			configs.Confile.MinerData.ServicePort,
-			configs.Confile.MinerData.FilePort,
 		)
 		if !ok || err != nil {
 			logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
@@ -109,30 +105,30 @@ func Chain_Init() {
 		}
 	}
 
-	if configs.Confile.MinerData.MountedPath != "/" {
-		paths_mount := strings.Split(configs.Confile.MinerData.MountedPath, "/")
-		paths_dfs := strings.Split(configs.Confile.FileSystem.DfsInstallPath, "/")
-		if len(paths_dfs) < 2 || len(paths_mount) < 2 {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Your file service is not installed on the mount path.\n", 41)
-			logger.ErrLogger.Sugar().Errorf("Your file service [%v] is not installed on the mount path [%v].", configs.Confile.FileSystem.DfsInstallPath, configs.Confile.MinerData.MountedPath)
-			os.Exit(configs.Exit_CreateFolder)
-		}
-		if paths_mount[1] != paths_dfs[1] {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Your file service is not installed on the mount path.\n", 41)
-			logger.ErrLogger.Sugar().Errorf("Your file service [%v] is not installed on the mount path [%v].", configs.Confile.FileSystem.DfsInstallPath, configs.Confile.MinerData.MountedPath)
-			os.Exit(configs.Exit_CreateFolder)
-		}
-	}
-	dfscache := filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", configs.Cache)
-	_, err = os.Stat(dfscache)
-	if err != nil {
-		err = os.MkdirAll(dfscache, os.ModePerm)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			os.Exit(configs.Exit_CreateFolder)
-		}
-	}
+	// if configs.Confile.MinerData.MountedPath != "/" {
+	// 	paths_mount := strings.Split(configs.Confile.MinerData.MountedPath, "/")
+	// 	paths_dfs := strings.Split(configs.Confile.FileSystem.DfsInstallPath, "/")
+	// 	if len(paths_dfs) < 2 || len(paths_mount) < 2 {
+	// 		fmt.Printf("\x1b[%dm[err]\x1b[0m Your file service is not installed on the mount path.\n", 41)
+	// 		logger.ErrLogger.Sugar().Errorf("Your file service [%v] is not installed on the mount path [%v].", configs.Confile.FileSystem.DfsInstallPath, configs.Confile.MinerData.MountedPath)
+	// 		os.Exit(configs.Exit_CreateFolder)
+	// 	}
+	// 	if paths_mount[1] != paths_dfs[1] {
+	// 		fmt.Printf("\x1b[%dm[err]\x1b[0m Your file service is not installed on the mount path.\n", 41)
+	// 		logger.ErrLogger.Sugar().Errorf("Your file service [%v] is not installed on the mount path [%v].", configs.Confile.FileSystem.DfsInstallPath, configs.Confile.MinerData.MountedPath)
+	// 		os.Exit(configs.Exit_CreateFolder)
+	// 	}
+	// }
+	// dfscache := filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", configs.Cache)
+	// _, err = os.Stat(dfscache)
+	// if err != nil {
+	// 	err = os.MkdirAll(dfscache, os.ModePerm)
+	// 	if err != nil {
+	// 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	// 		logger.ErrLogger.Sugar().Errorf("%v", err)
+	// 		os.Exit(configs.Exit_CreateFolder)
+	// 	}
+	// }
 	fmt.Printf("\x1b[%dm[ok]\x1b[0m Your data is stored in %v\n", 42, path)
 }
 

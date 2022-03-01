@@ -1,9 +1,8 @@
 [cessChain]
+# CESS chain address
 rpcAddr = "ws://106.15.44.155:9949/"
 
 [minerData]
-# The cess coin that the miner needs to pledge when registering, the unit is TCESS.
-pledgeTokens           = 2000
 # Total space used to store files, the unit is GB.
 storageSpace           = 1024
 # Path to the mounted disk where the data is saved
@@ -12,13 +11,7 @@ mountedPath            = "/"
 serviceIpAddr          = "127.0.0.1"
 # Port number monitored by the mining program.
 servicePort           = 15001
-# Port number for file service monitoring.
-filePort              = 15002
 # Public key of income account.
 incomeAccountPubkey    = ""
 # Phrase words or seeds for identity accounts.
 idAccountPhraseOrSeed  = ""
-
-[fileSystem]
-# Installation path of Fastdfs 
-dfsInstallPath = "/"

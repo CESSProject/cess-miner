@@ -2,12 +2,10 @@ package chain
 
 import (
 	"fmt"
-	"math/big"
 
 	"storage-mining/configs"
 	"storage-mining/internal/logger"
 	"storage-mining/tools"
-	"strconv"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -75,7 +73,7 @@ type MyEventRecords struct {
 }
 
 // miner register
-func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, TransactionName string, pledgeTokens uint64, port, fileport uint32) (bool, error) {
+func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, TransactionName string, port uint32) (bool, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -93,14 +91,6 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "InetAtoN err")
 	}
 
-	pTokens := strconv.FormatUint(pledgeTokens, 10)
-	pTokens += configs.TokenAccuracy
-	realTokens, ok := new(big.Int).SetString(pTokens, 10)
-	if !ok {
-		return false, errors.New("SetString err")
-	}
-	amount := types.NewUCompact(realTokens)
-
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
 	if err != nil {
 		return false, errors.Wrap(err, "KeyringPairFromSecret err")
@@ -116,7 +106,7 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "NewMultiAddressFromHexAccountID err")
 	}
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewU32(uint32(ipint)), types.NewU32(port), types.NewU32(fileport), amount)
+	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewU32(uint32(ipint)), types.NewU32(port))
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -146,7 +136,7 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "CreateStorageKey System Events err")
 	}
 
-	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
+	ok, err := api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
 		return false, errors.Wrap(err, "GetStorageLatest err")
 	}
