@@ -31,6 +31,7 @@ const (
 // cess chain module method
 const (
 	ChainModule_Sminer_MinerItems          = "MinerItems"
+	ChainModule_Sminer_MinerDetails        = "MinerDetails"
 	ChainModule_Sminer_SegInfo             = "SegInfo"
 	ChainModule_SegmentBook_ParamSetA      = "ParamSetA"
 	ChainModule_SegmentBook_ParamSetB      = "ParamSetB"

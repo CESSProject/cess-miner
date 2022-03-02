@@ -3,7 +3,6 @@ package chain
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"storage-mining/configs"
 	"storage-mining/internal/logger"
 	"sync"
@@ -32,32 +31,32 @@ func Chain_Init() {
 	// api.c <- true
 	//go waitBlock(api.c)
 	go substrateAPIKeepAlive()
-	mData, err := GetMinerDataOnChain(
-		configs.Confile.MinerData.TransactionPrK,
-		configs.ChainModule_Sminer,
-		configs.ChainModule_Sminer_MinerItems,
-	)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(configs.Exit_Normal)
-	}
+	// mData, err := GetMinerDataOnChain(
+	// 	configs.Confile.MinerData.TransactionPrK,
+	// 	configs.ChainModule_Sminer,
+	// 	configs.ChainModule_Sminer_MinerItems,
+	// )
+	// if err != nil {
+	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	// 	logger.ErrLogger.Sugar().Errorf("%v", err)
+	// 	os.Exit(configs.Exit_Normal)
+	// }
 
-	configs.MinerDataPath = fmt.Sprintf("Miner_C%v", mData.Peerid)
-	configs.MinerId_I = uint64(mData.Peerid)
-	configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
-	path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
-	configs.MinerDataPath = path
+	// configs.MinerDataPath = fmt.Sprintf("Miner_C%v", mData.Peerid)
+	// configs.MinerId_I = uint64(mData.Peerid)
+	// configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
+	// path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
+	// configs.MinerDataPath = path
 
-	_, err = os.Stat(path)
-	if err != nil {
-		err = os.MkdirAll(path, os.ModePerm)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			os.Exit(configs.Exit_CreateFolder)
-		}
-	}
+	// _, err = os.Stat(path)
+	// if err != nil {
+	// 	err = os.MkdirAll(path, os.ModePerm)
+	// 	if err != nil {
+	// 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	// 		logger.ErrLogger.Sugar().Errorf("%v", err)
+	// 		os.Exit(configs.Exit_CreateFolder)
+	// 	}
+	// }
 
 	// if configs.Confile.MinerData.MountedPath != "/" {
 	// 	paths_mount := strings.Split(configs.Confile.MinerData.MountedPath, "/")
@@ -83,7 +82,7 @@ func Chain_Init() {
 	// 		os.Exit(configs.Exit_CreateFolder)
 	// 	}
 	// }
-	fmt.Printf("\x1b[%dm[ok]\x1b[0m Your data is stored in %v\n", 42, path)
+	//fmt.Printf("\x1b[%dm[ok]\x1b[0m Your data is stored in %v\n", 42, path)
 }
 
 func substrateAPIKeepAlive() {

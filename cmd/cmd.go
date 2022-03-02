@@ -141,7 +141,7 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerInfo()
+	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
@@ -157,8 +157,21 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 }
 
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
+	minerInfo, err := chain.GetMinerDetailInfo(
+		configs.Confile.MinerData.TransactionPrK,
+		configs.ChainModule_Sminer,
+		configs.ChainModule_Sminer_MinerItems,
+		configs.ChainModule_Sminer_MinerDetails,
+	)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	fmt.Printf("MinerId:C%v\nState:%v\nStorageSpace:%vGB\nUsedSpace:%vGB\nPledgeTokens:%vCESS\nAccountAddr:%v\n",
+		minerInfo.Peerid, string(minerInfo.State), minerInfo.Power, minerInfo.Space, minerInfo.Collaterals1, minerInfo.Address)
+	os.Exit(0)
 }
 
 func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
@@ -234,8 +247,8 @@ func parseProfile() {
 }
 
 //
-func queryMinerInfo() (uint64, error) {
-	mData, err := chain.GetMinerDataOnChain(
+func queryMinerId() (uint64, error) {
+	mData, err := chain.GetMinerInfo1(
 		configs.Confile.MinerData.TransactionPrK,
 		configs.ChainModule_Sminer,
 		configs.ChainModule_Sminer_MinerItems,
@@ -270,7 +283,7 @@ func register() {
 		os.Exit(configs.Exit_RegisterToChain)
 	}
 
-	id, err := queryMinerInfo()
+	id, err := queryMinerId()
 	if err == nil {
 		logger.InfoLogger.Sugar().Infof("Your peerId is [C%v]", id)
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m registration success, your id is C%v\n", 42, id)

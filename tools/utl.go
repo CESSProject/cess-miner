@@ -189,6 +189,9 @@ func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())
 	return rand.Intn(max-min) + min
 }
+
+var base58 = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
 //Base58 encode
 func Base58Encoding(str string) string {
 	strByte := []byte(str)

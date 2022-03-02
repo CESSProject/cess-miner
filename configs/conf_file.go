@@ -27,14 +27,14 @@ ChainAddr = ""
 
 [MinerData]
 # Total space used to store files, the unit is GB
-StorageSpace           = 0
+StorageSpace   = 0
 # Path to the mounted disk where the data is saved
-MountedPath            = "/"
+MountedPath    = "/"
 # The IP address of the machine's public network used by the mining program
-ServiceAddr          = ""
+ServiceAddr    = ""
 # Port number monitored by the mining program
-ServicePort           = 15000
+ServicePort    = 15000
 # Public key of revenue account
-RevenuePuK    = ""
+RevenuePuK     = ""
 # Phrase words or seeds for transaction account
-TransactionPrK  = ""`
+TransactionPrK = ""`
