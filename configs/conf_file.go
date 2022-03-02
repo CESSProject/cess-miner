@@ -1,40 +1,40 @@
 package configs
 
-type MinerOnChain struct {
-	CessChain CessChain `json:"cessChain"`
-	MinerData MinerData `json:"minerData"`
+type MinerInfoOnChain struct {
+	CessChain CessChain `toml:"CessChain"`
+	MinerData MinerData `toml:"MinerData"`
 }
 
 type CessChain struct {
-	RpcAddr string `json:"rpcAddr"`
+	ChainAddr string `toml:"ChainAddr"`
 }
 
 type MinerData struct {
-	StorageSpace          uint64 `json:"storageSpace"`
-	MountedPath           string `json:"mountedPath"`
-	ServiceIpAddr         string `json:"serviceIpAddr"`
-	ServicePort           uint32 `json:"servicePort"`
-	IncomeAccountPubkey   string `json:"incomeAccountPubkey"`
-	IdAccountPhraseOrSeed string `json:"idAccountPhraseOrSeed"`
+	StorageSpace   uint64 `toml:"StorageSpace"`
+	MountedPath    string `toml:"MountedPath"`
+	ServiceAddr    string `toml:"ServiceAddr"`
+	ServicePort    uint32 `toml:"ServicePort"`
+	RevenuePuK     string `toml:"RevenuePuK"`
+	TransactionPrK string `toml:"TransactionPrK"`
 }
 
-var Confile = new(MinerOnChain)
+var Confile = new(MinerInfoOnChain)
 var ConfFilePath string
 
-const ConfigFile_Templete = `[cessChain]
-# RPC address of CES public chain
-rpcAddr = ""
+const ConfigFile_Templete = `[CessChain]
+# CESS chain address
+ChainAddr = ""
 
-[minerData]
-# Total space used to store files, the unit is GB.
-storageSpace           = 1024
+[MinerData]
+# Total space used to store files, the unit is GB
+StorageSpace           = 0
 # Path to the mounted disk where the data is saved
-mountedPath            = ""
-# The IP address of the machine's public network used by the mining program.
-serviceIpAddr          = ""
-# Port number monitored by the mining program.
-servicePort            = 15001
-# Public key of income account.
-incomeAccountPubkey    = ""
-# Phrase words or seeds for identity accounts.
-idAccountPhraseOrSeed  = ""`
+MountedPath            = "/"
+# The IP address of the machine's public network used by the mining program
+ServiceAddr          = ""
+# Port number monitored by the mining program
+ServicePort           = 15000
+# Public key of revenue account
+RevenuePuK    = ""
+# Phrase words or seeds for transaction account
+TransactionPrK  = ""`

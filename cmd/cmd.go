@@ -1,13 +1,11 @@
-/*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
 	"fmt"
 	"os"
 	"storage-mining/configs"
+	"storage-mining/internal/chain"
+	"storage-mining/internal/logger"
 	"storage-mining/tools"
 
 	"github.com/spf13/cobra"
@@ -133,15 +131,29 @@ func Command_Obtain() *cobra.Command {
 
 func Command_Version_Runfunc(cmd *cobra.Command, args []string) {
 	fmt.Println(configs.Version)
+	os.Exit(0)
 }
 
 func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 	tools.WriteStringtoFile(configs.ConfigFile_Templete, configs.DefaultConfigurationFileName)
+	os.Exit(0)
 }
 
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
+	peerid, err := queryMinerInfo()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	if peerid > 0 {
+		fmt.Printf("\x1b[%dm[ok]\x1b[0m Already registered [C%v]\n", 42, peerid)
+		logger.InfoLogger.Sugar().Infof("Already registered [C%v]", peerid)
+		os.Exit(0)
+	} else {
+		register()
+	}
 }
 
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
@@ -219,4 +231,51 @@ func parseProfile() {
 		os.Exit(configs.Exit_ConfFileFormatError)
 	}
 	fmt.Println(configs.Confile)
+}
+
+//
+func queryMinerInfo() (uint64, error) {
+	mData, err := chain.GetMinerDataOnChain(
+		configs.Confile.MinerData.TransactionPrK,
+		configs.ChainModule_Sminer,
+		configs.ChainModule_Sminer_MinerItems,
+	)
+	return uint64(mData.Peerid), err
+}
+
+//
+func register() {
+	var pledgeTokens uint64
+	pledgeTokens = 2000 * (configs.Confile.MinerData.StorageSpace / (1024 * 1024 * 1024 * 1024))
+	if configs.Confile.MinerData.StorageSpace%(1024*1024*1024*1024) != 0 {
+		pledgeTokens += 2000
+	}
+
+	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
+
+	logger.InfoLogger.Sugar().Infof("Start registration......\n    CessAddr:%v\n    PledgeTokens:%v\n    ServiceAddr:%v\n    TransactionPrK:%v\n    RevenuePuK :%v",
+		configs.Confile.CessChain.ChainAddr, pledgeTokens, configs.Confile.MinerData.ServiceAddr, configs.Confile.MinerData.TransactionPrK, configs.Confile.MinerData.RevenuePuK)
+
+	ok, err := chain.RegisterToChain(
+		configs.Confile.MinerData.TransactionPrK,
+		configs.Confile.MinerData.RevenuePuK,
+		res,
+		configs.ChainTx_Sminer_Register,
+		pledgeTokens,
+	)
+	if !ok || err != nil {
+		logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(configs.Exit_RegisterToChain)
+	}
+
+	id, err := queryMinerInfo()
+	if err == nil {
+		logger.InfoLogger.Sugar().Infof("Your peerId is [C%v]", id)
+		fmt.Printf("\x1b[%dm[ok]\x1b[0m registration success, your id is C%v\n", 42, id)
+		os.Exit(0)
+	}
+	fmt.Println("success")
+	os.Exit(0)
 }

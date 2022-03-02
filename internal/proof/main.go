@@ -87,7 +87,7 @@ func segmentVpa() {
 			}
 
 			segmentId, randnum, err := chain.IntentSubmitToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmit,
 				segsizeType,
 				segType,
@@ -132,7 +132,7 @@ func segmentVpa() {
 				sproof += tmp[2:]
 			}
 			ok, err = chain.SegmentSubmitToVpaOrVpb(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_SubmitToVpa,
 				configs.MinerId_I,
 				uint64(segmentId),
@@ -165,7 +165,7 @@ func segmentVpb() {
 	for range tk.C {
 		var verifiedPorepData []chain.IpostParaInfo
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_ConProofInfoA,
 		)
@@ -191,7 +191,7 @@ func segmentVpb() {
 				postproofType = 7
 			}
 			randnum, err = chain.IntentSubmitPostToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
@@ -236,7 +236,7 @@ func segmentVpb() {
 			}
 
 			ok, err = chain.SegmentSubmitToVpaOrVpb(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_SubmitToVpb,
 				uint64(verifiedPorepData[i].Peer_id),
 				uint64(verifiedPorepData[i].Segment_id),
@@ -262,7 +262,7 @@ func segmentVpc() {
 	for range tk.C {
 		var unsealedcidData []chain.UnsealedCidInfo
 		unsealedcidData, err = chain.GetunsealcidOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_MinerHoldSlice,
 		)
@@ -346,7 +346,7 @@ func segmentVpc() {
 			}
 
 			ok, err = chain.SegmentSubmitToVpc(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_SubmitToVpc,
 				uint64(unsealedcidData[i].Peer_id),
 				uint64(unsealedcidData[i].Segment_id),
@@ -378,7 +378,7 @@ func segmentVpd() {
 	for range tk.C {
 		var verifiedPorepData []chain.FpostParaInfo
 		verifiedPorepData, err = chain.GetVpcPostOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_ConProofInfoC,
 		)
@@ -394,7 +394,7 @@ func segmentVpd() {
 		}
 		for i := 0; i < len(verifiedPorepData); i++ {
 			randnum, err = chain.IntentSubmitPostToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
@@ -473,7 +473,7 @@ func segmentVpd() {
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
 			ok, err = chain.SegmentSubmitToVpd(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_SubmitToVpd,
 				uint64(verifiedPorepData[i].Peer_id),
 				uint64(verifiedPorepData[i].Segment_id),

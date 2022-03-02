@@ -2,10 +2,11 @@ package chain
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
 
 	"storage-mining/configs"
 	"storage-mining/internal/logger"
-	"storage-mining/tools"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -73,7 +74,7 @@ type MyEventRecords struct {
 }
 
 // miner register
-func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, TransactionName string, port uint32) (bool, error) {
+func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64) (bool, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -86,12 +87,8 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	ipint, err := tools.InetAtoN(ipAddr)
-	if err != nil {
-		return false, errors.Wrap(err, "InetAtoN err")
-	}
 
-	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	keyring, err := signature.KeyringPairFromSecret(transactionPrK, 0)
 	if err != nil {
 		return false, errors.Wrap(err, "KeyringPairFromSecret err")
 	}
@@ -101,12 +98,20 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	incomeAccount, err := types.NewMultiAddressFromHexAccountID(incomeAccountPublicKey)
+	incomeAccount, err := types.NewMultiAddressFromHexAccountID(revenuePuK)
 	if err != nil {
 		return false, errors.Wrap(err, "NewMultiAddressFromHexAccountID err")
 	}
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewU32(uint32(ipint)), types.NewU32(port))
+	pTokens := strconv.FormatUint(pledgeTokens, 10)
+	pTokens += configs.TokenAccuracy
+	realTokens, ok := new(big.Int).SetString(pTokens, 10)
+	if !ok {
+		return false, errors.New("big.Int.SetString err")
+	}
+	tokens := types.NewUCompact(realTokens)
+
+	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewBytes([]byte(ipAddr)), tokens)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -136,7 +141,7 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "CreateStorageKey System Events err")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &accountInfo)
+	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
 		return false, errors.Wrap(err, "GetStorageLatest err")
 	}
@@ -187,6 +192,8 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 							return true, nil
 						}
 					}
+				} else {
+					fmt.Println("+++ Not found events.Sminer_Registered ")
 				}
 				return false, nil
 			}

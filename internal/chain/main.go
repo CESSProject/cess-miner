@@ -19,11 +19,9 @@ var (
 
 func Chain_Init() {
 	var (
-		err     error
-		ok      bool
-		isfirst bool
+		err error
 	)
-	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
+	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
@@ -35,7 +33,7 @@ func Chain_Init() {
 	//go waitBlock(api.c)
 	go substrateAPIKeepAlive()
 	mData, err := GetMinerDataOnChain(
-		configs.Confile.MinerData.IdAccountPhraseOrSeed,
+		configs.Confile.MinerData.TransactionPrK,
 		configs.ChainModule_Sminer,
 		configs.ChainModule_Sminer_MinerItems,
 	)
@@ -45,56 +43,12 @@ func Chain_Init() {
 		os.Exit(configs.Exit_Normal)
 	}
 
-	if mData.Peerid > 0 {
-		fmt.Printf("\x1b[%dm[ok]\x1b[0m Already registered [C%v]\n", 42, mData.Peerid)
-		logger.InfoLogger.Sugar().Infof("Already registered [C%v]", mData.Peerid)
-	} else {
-		logger.InfoLogger.Info("Start registration......")
-		logger.InfoLogger.Sugar().Infof("    RpcAddr:%v", configs.Confile.CessChain.RpcAddr)
-		logger.InfoLogger.Sugar().Infof("    ServiceIpAddress:%v", configs.Confile.MinerData.ServiceIpAddr)
-		logger.InfoLogger.Sugar().Infof("    IdentifyAccountPhraseOrSeed:%v", configs.Confile.MinerData.IdAccountPhraseOrSeed)
-		logger.InfoLogger.Sugar().Infof("    IncomeAccountPublicKey:%v", configs.Confile.MinerData.IncomeAccountPubkey)
-		ok, err = RegisterToChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			configs.Confile.MinerData.IncomeAccountPubkey,
-			configs.Confile.MinerData.ServiceIpAddr,
-			configs.ChainTx_Sminer_Register,
-			configs.Confile.MinerData.ServicePort,
-		)
-		if !ok || err != nil {
-			logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to register miner to cess chain: %v\n", 41, err)
-			os.Exit(configs.Exit_RegisterToChain)
-		}
-		isfirst = true
-		mData, err = GetMinerDataOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			configs.ChainModule_Sminer,
-			configs.ChainModule_Sminer_MinerItems,
-		)
-		logger.InfoLogger.Info("Registration success......")
-		if err == nil {
-			logger.InfoLogger.Sugar().Infof("Your peerId is [C%v]", mData.Peerid)
-			fmt.Printf("\x1b[%dm[ok]\x1b[0m Complete automatic registration [C%v]\n", 42, mData.Peerid)
-		}
-	}
 	configs.MinerDataPath = fmt.Sprintf("Miner_C%v", mData.Peerid)
 	configs.MinerId_I = uint64(mData.Peerid)
 	configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
 	path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
 	configs.MinerDataPath = path
-	_, err = os.Stat(path)
-	if err == nil {
-		if isfirst {
-			err = os.RemoveAll(path)
-			if err != nil {
-				fmt.Printf("\x1b[%dm[err]\x1b[0m Please delete the old miner data first [%v]\n", 41, path)
-				logger.ErrLogger.Sugar().Errorf("%v", err)
-				os.Exit(configs.Exit_CreateFolder)
-			}
-		}
-	}
+
 	_, err = os.Stat(path)
 	if err != nil {
 		err = os.MkdirAll(path, os.ModePerm)
@@ -149,7 +103,7 @@ func substrateAPIKeepAlive() {
 		}
 		if count_r > 1 {
 			count_r = 2
-			r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.RpcAddr)
+			r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 			} else {
