@@ -55,6 +55,12 @@ type Event_SolutionStored struct {
 	Topics           []types.Hash
 }
 
+type Event_Sminer_ExitMining struct {
+	Phase  types.Phase
+	PeerId types.U64
+	Topics []types.Hash
+}
+
 type MyEventRecords struct {
 	types.EventRecords
 	SegmentBook_ParamSet     []Event_SegmentBook_ParamSet
@@ -68,6 +74,7 @@ type MyEventRecords struct {
 	SegmentBook_VPDVerified  []Event_VPABCD_Submit_Verify
 	Sminer_TimedTask         []Event_Sminer_TimedTask
 	Sminer_Registered        []Event_Sminer_Registered
+	Sminer_ExitMining        []Event_Sminer_ExitMining
 	//
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
@@ -813,6 +820,125 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 							return true, nil
 						}
 					}
+				}
+				return false, nil
+			}
+		case err = <-sub.Err():
+			return false, err
+		case <-timeout:
+			return false, errors.New("SubmitAndWatchExtrinsic timeout")
+		}
+	}
+}
+
+//
+func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (bool, error) {
+	var (
+		err         error
+		ok          bool
+		accountInfo types.AccountInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	if err != nil {
+		return false, errors.Wrap(err, "KeyringPairFromSecret err")
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetMetadataLatest err")
+	}
+
+	c, err := types.NewCall(meta, TransactionName, types.NewUCompact(tokens))
+	if err != nil {
+		return false, errors.Wrap(err, "NewCall err")
+	}
+
+	ext := types.NewExtrinsic(c)
+	if err != nil {
+		return false, errors.Wrap(err, "NewExtrinsic err")
+	}
+
+	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return false, errors.Wrap(err, "GetBlockHash err")
+	}
+
+	rv, err := api.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetRuntimeVersionLatest err")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey err")
+	}
+
+	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey System Events err")
+	}
+
+	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return false, errors.Wrap(err, "GetStorageLatest err")
+	}
+	if !ok {
+		return false, errors.New("GetStorageLatest return value is empty")
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(keyring, o)
+	if err != nil {
+		return false, errors.Wrap(err, "Sign err")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
+	}
+	defer sub.Unsubscribe()
+
+	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := MyEventRecords{}
+				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
+				if err != nil {
+					return false, err
+				}
+				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+				if err != nil {
+					fmt.Println("+++ DecodeEvent err: ", err)
+				}
+				if events.Sminer_ExitMining != nil {
+					for i := 0; i < len(events.Sminer_ExitMining); i++ {
+						if events.Sminer_ExitMining[i].PeerId == types.NewU64(configs.MinerId_I) {
+							return true, nil
+						}
+					}
+				} else {
+					fmt.Println("+++ Not found events.Sminer_ExitMining", err)
 				}
 				return false, nil
 			}

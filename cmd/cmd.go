@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"storage-mining/configs"
 	"storage-mining/internal/chain"
 	"storage-mining/internal/logger"
 	"storage-mining/tools"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -182,15 +184,19 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	//TODO
 	refreshProfile(cmd)
+	exitmining()
 }
+
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	//TODO
 	refreshProfile(cmd)
+	increase()
 }
 
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	//TODO
 	refreshProfile(cmd)
+	withdraw()
 }
 func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
 	//TODO
@@ -291,4 +297,47 @@ func register() {
 	}
 	fmt.Println("success")
 	os.Exit(0)
+}
+
+//
+func increase() {
+	if len(os.Args) < 3 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
+		os.Exit(-1)
+	}
+	_, err := strconv.ParseUint(os.Args[2], 10, 64)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
+		os.Exit(-1)
+	}
+
+	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
+	if !ok {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
+		os.Exit(-1)
+	}
+
+	ok, err = chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
+	if err != nil {
+		logger.InfoLogger.Sugar().Infof("Increase failed......,err:%v", err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	if !ok {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	fmt.Println("success")
+	os.Exit(0)
+}
+
+//
+func exitmining() {
+
+}
+
+//
+func withdraw() {
+
 }
