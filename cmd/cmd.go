@@ -351,5 +351,17 @@ func exitmining() {
 
 //
 func withdraw() {
-
+	ok, err := chain.Withdraw(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Withdraw)
+	if err != nil {
+		logger.InfoLogger.Sugar().Infof("withdraw failed......,err:%v", err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	if !ok {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	fmt.Println("success")
+	os.Exit(0)
 }
