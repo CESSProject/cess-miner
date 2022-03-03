@@ -334,7 +334,19 @@ func increase() {
 
 //
 func exitmining() {
-
+	ok, err := chain.ExitMining(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_ExitMining)
+	if err != nil {
+		logger.InfoLogger.Sugar().Infof("Exit failed......,err:%v", err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	if !ok {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(-1)
+	}
+	fmt.Println("success")
+	os.Exit(0)
 }
 
 //
