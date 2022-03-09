@@ -1,6 +1,6 @@
-# storage-mining-tool
+# cess-mining
 
-Storage mining tool is a client program developed for miners, through which miners can participate in storage mining on the CESS network.
+cess-mining is a mining program provided by cess platform for storage miners.
 
 ## Features
 
