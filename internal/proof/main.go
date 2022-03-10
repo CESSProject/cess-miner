@@ -9,6 +9,7 @@ import (
 	"storage-mining/internal/chain"
 	"storage-mining/internal/logger"
 	"storage-mining/tools"
+	"strings"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -122,15 +123,6 @@ func segmentVpa() {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v]", err, segmentId, randnum)
 				continue
 			}
-			// porepRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetA,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(configs.MinerId_I),
@@ -196,6 +188,33 @@ func segmentVpb() {
 			tk.Reset(time.Minute)
 			continue
 		} else {
+			effictiveDir := make([]string, 0)
+			for m := 0; m < len(verifiedPorepData); m++ {
+				segsizetype := ""
+				sizetypes := fmt.Sprintf("%v", verifiedPorepData[m].Size_type)
+				switch sizetypes {
+				case "8":
+					segsizetype = "1"
+				case "512":
+					segsizetype = "2"
+				}
+				dir := segsizetype + "_" + fmt.Sprintf("%d", verifiedPorepData[m].Segment_id)
+				effictiveDir = append(effictiveDir, dir)
+			}
+			localdir, _ := tools.WalkDir(configs.SpaceDir)
+			ishave := false
+			for _, v1 := range localdir {
+				ishave = false
+				for _, v2 := range effictiveDir {
+					if v1 == v2 {
+						ishave = true
+						break
+					}
+				}
+				if !ishave {
+					os.RemoveAll(v1)
+				}
+			}
 			tk.Reset(time.Minute * time.Duration(configs.Vpb_SubmintPeriod))
 		}
 		if len(verifiedPorepData) == 0 {
@@ -351,11 +370,10 @@ func segmentVpc() {
 				continue
 			}
 			filefullpath := ""
-			if hash == shardhash {
-				//filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, hash+".cess")
-			} else {
-				//filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, shardhash)
-			}
+
+			fid := strings.Split(hash, ".")[0]
+			filefullpath = filepath.Join(configs.ServiceDir, fid, hash)
+
 			sealcid, prf, err := generateSegmentVpc(filefullpath, filesegid, uint64(unsealedcidData[i].Segment_id), seed, uncid)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)

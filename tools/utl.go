@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net"
@@ -251,4 +252,20 @@ func CreatDirIfNotExist(dir string) error {
 		return os.MkdirAll(dir, os.ModeDir)
 	}
 	return nil
+}
+
+//
+func WalkDir(filePath string) ([]string, error) {
+	dirs := make([]string, 0)
+	files, err := ioutil.ReadDir(filePath)
+	if err != nil {
+		return dirs, err
+	} else {
+		for _, v := range files {
+			if v.IsDir() {
+				dirs = append(dirs, v.Name())
+			}
+		}
+	}
+	return dirs, nil
 }

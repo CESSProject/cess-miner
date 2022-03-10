@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"storage-mining/configs"
 	"storage-mining/tools"
 	"strings"
@@ -49,6 +53,25 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		return &Err{Code: 400, Msg: "body format error"}, nil
 	}
 
+	err = tools.CreatDirIfNotExist(configs.ServiceDir)
+	if err != nil {
+		return &Err{Code: 500, Msg: err.Error()}, nil
+	}
+	fid := strings.Split(b.FileId, ".")[0]
+	fpath := filepath.Join(configs.ServiceDir, fid)
+	if err = os.MkdirAll(fpath, os.ModeDir); err != nil {
+		return &Err{Code: 500, Msg: err.Error()}, nil
+	}
+
+	fii, err := os.OpenFile(fpath+b.FileId, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		//TODO
+		fmt.Println(err)
+		return &Err{Code: 500, Msg: err.Error()}, nil
+	}
+	defer fii.Close()
+	fii.Write(b.Data)
+
 	return &Err{Code: 0, Msg: "sucess"}, nil
 }
 
@@ -59,10 +82,25 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	)
 	err := proto.Unmarshal(body, &b)
 	if err != nil {
-		return &Err{Code: 400, Msg: "body format error"}, nil
+		return &Err{Code: 400, Msg: err.Error()}, nil
 	}
-
-	return &Err{Code: 500, Msg: "fail"}, nil
+	fid := strings.Split(b.FileId, ".")[0]
+	fpath := filepath.Join(configs.ServiceDir, fid, b.FileId)
+	_, err = os.Stat(fpath)
+	if err != nil {
+		return &Err{Code: 400, Msg: err.Error()}, nil
+	}
+	f, err := os.Open(fpath)
+	if err != nil {
+		return &Err{Code: 400, Msg: err.Error()}, nil
+	}
+	defer f.Close()
+	buf := bytes.NewBuffer(nil)
+	if _, err = io.Copy(buf, f); err != nil {
+		fmt.Println(err)
+		return &Err{Code: 400, Msg: err.Error()}, nil
+	}
+	return &RespMsg{Body: buf.Bytes()}, nil
 }
 
 //
