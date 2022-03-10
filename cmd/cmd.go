@@ -4,18 +4,23 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"storage-mining/configs"
+	"storage-mining/initlz"
 	"storage-mining/internal/chain"
 	"storage-mining/internal/logger"
+	"storage-mining/internal/proof"
+	"storage-mining/rpc"
 	"storage-mining/tools"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 const (
-	Name        = "mining-cli"
+	Name        = "cess-bucket"
 	Description = "Mining program of CESS platform"
 )
 
@@ -138,6 +143,12 @@ func Command_Version_Runfunc(cmd *cobra.Command, args []string) {
 
 func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 	tools.WriteStringtoFile(configs.ConfigFile_Templete, configs.DefaultConfigurationFileName)
+	pwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("[err] ", err)
+	}
+	path := filepath.Join(pwd, configs.DefaultConfigurationFileName)
+	fmt.Println("[ok] ", path)
 	os.Exit(0)
 }
 
@@ -146,7 +157,6 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
 		os.Exit(-1)
 	}
 	if peerid > 0 {
@@ -154,49 +164,118 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 		logger.InfoLogger.Sugar().Infof("Already registered [C%v]", peerid)
 		os.Exit(0)
 	} else {
+		if configs.Confile.MinerData.MountedPath == "" ||
+			configs.Confile.MinerData.ServiceAddr == "" ||
+			configs.Confile.MinerData.ServicePort == 0 ||
+			configs.Confile.MinerData.StorageSpace == 0 ||
+			configs.Confile.MinerData.RevenuePuK == "" ||
+			configs.Confile.MinerData.TransactionPrK == "" {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries.\n", 41)
+			os.Exit(-1)
+		}
 		register()
 	}
 }
 
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	minerInfo, err := chain.GetMinerDetailInfo(
-		configs.Confile.MinerData.TransactionPrK,
-		configs.ChainModule_Sminer,
-		configs.ChainModule_Sminer_MinerItems,
-		configs.ChainModule_Sminer_MinerDetails,
-	)
+	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		os.Exit(-1)
 	}
-	fmt.Printf("MinerId:C%v\nState:%v\nStorageSpace:%vGB\nUsedSpace:%vGB\nPledgeTokens:%vCESS\nAccountAddr:%v\n",
-		minerInfo.Peerid, string(minerInfo.State), minerInfo.Power, minerInfo.Space, minerInfo.Collaterals1, minerInfo.Address)
+	if peerid == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		os.Exit(0)
+	} else {
+		minerInfo, err := chain.GetMinerDetailInfo(
+			configs.Confile.MinerData.TransactionPrK,
+			configs.ChainModule_Sminer,
+			configs.ChainModule_Sminer_MinerItems,
+			configs.ChainModule_Sminer_MinerDetails,
+		)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			logger.ErrLogger.Sugar().Errorf("%v", err)
+			os.Exit(-1)
+		}
+		fmt.Printf("MinerId:C%v\nState:%v\nStorageSpace:%vGB\nUsedSpace:%vGB\nPledgeTokens:%vCESS\nAccountAddr:%v\n",
+			minerInfo.Peerid, string(minerInfo.State), minerInfo.Power, minerInfo.Space, minerInfo.Collaterals1, minerInfo.Address)
+	}
 	os.Exit(0)
 }
 
 func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
+	peerid, err := queryMinerId()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	if peerid == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		os.Exit(0)
+	} else {
+		// init
+		initlz.SystemInit()
+
+		// start-up
+		//chain.Chain_Main()
+		proof.Proof_Main()
+
+		// web service
+		rpc.Rpc_Main()
+	}
 }
 
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
-	exitmining()
+	peerid, err := queryMinerId()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	if peerid == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		os.Exit(0)
+	} else {
+		exitmining()
+	}
 }
 
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
-	increase()
+	peerid, err := queryMinerId()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	if peerid == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		os.Exit(0)
+	} else {
+		increase()
+	}
 }
 
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
 	refreshProfile(cmd)
-	withdraw()
+	peerid, err := queryMinerId()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		logger.ErrLogger.Sugar().Errorf("%v", err)
+		os.Exit(-1)
+	}
+	if peerid == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		os.Exit(0)
+	} else {
+		withdraw()
+	}
 }
 func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
 	//TODO
@@ -213,6 +292,7 @@ func refreshProfile(cmd *cobra.Command) {
 		configs.ConfFilePath = configpath2
 	}
 	parseProfile()
+	chain.Chain_Init()
 }
 
 func parseProfile() {
@@ -259,7 +339,36 @@ func queryMinerId() (uint64, error) {
 		configs.ChainModule_Sminer,
 		configs.ChainModule_Sminer_MinerItems,
 	)
-	return uint64(mData.Peerid), err
+	if err != nil {
+		return 0, err
+	}
+
+	configs.MinerDataPath += fmt.Sprintf("%d", mData.Peerid)
+	configs.MinerId_I = uint64(mData.Peerid)
+	configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
+	path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
+	configs.MinerDataPath = path
+
+	_, err = os.Stat(path)
+	if err != nil {
+		err = os.MkdirAll(path, os.ModeDir)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			os.Exit(configs.Exit_CreateFolder)
+		}
+	}
+
+	saddr := tools.Base58Decoding(string(mData.ServiceAddr))
+	tmp := strings.Split(saddr, ":")
+	if len(tmp) == 2 {
+		configs.MinerServiceAddr = tmp[0]
+		configs.MinerServicePort, _ = strconv.Atoi(tmp[1])
+	} else {
+		configs.MinerServiceAddr = tmp[0]
+		configs.MinerServicePort = 80
+	}
+	logger.LoggerInit()
+	return uint64(mData.Peerid), nil
 }
 
 //
@@ -270,7 +379,7 @@ func register() {
 		pledgeTokens += 2000
 	}
 
-	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
+	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
 
 	logger.InfoLogger.Sugar().Infof("Start registration......\n    CessAddr:%v\n    PledgeTokens:%v\n    ServiceAddr:%v\n    TransactionPrK:%v\n    RevenuePuK :%v",
 		configs.Confile.CessChain.ChainAddr, pledgeTokens, configs.Confile.MinerData.ServiceAddr, configs.Confile.MinerData.TransactionPrK, configs.Confile.MinerData.RevenuePuK)

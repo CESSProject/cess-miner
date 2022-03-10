@@ -57,6 +57,12 @@ const (
 )
 
 const (
+	RpcService_Scheduler          = "wservice"
+	RpcMethod_Scheduler_Writefile = "writefile"
+	RpcMethod_Scheduler_Readfile  = "readfile"
+)
+
+const (
 	SegMentType_8M     uint8 = 1
 	SegMentType_8M_S         = "1"
 	SegMentType_512M   uint8 = 2
@@ -79,26 +85,21 @@ const (
 	LengthOfFileShardMeta        = 100
 )
 
-// Storage mining client function
-var (
-	//MinerEvent_Mining        bool
-	MinerEvent_Exit          bool
-	MinerEvent_RenewalTokens bool
-)
-
 // Miner data updated at runtime
 var (
-	MinerId_S     string = ""
-	MinerId_I     uint64 = 0
-	MinerDataPath        = ""
-	MinerUseSpace uint64 = 0
+	MinerId_S        string = ""
+	MinerId_I        uint64 = 0
+	MinerDataPath    string = "cessminer_c"
+	MinerUseSpace    uint64 = 0
+	MinerServiceAddr string = ""
+	MinerServicePort int    = 0
 )
 
 var (
-	LogfilePathPrefix = "./log/"
-	SegmentData       = "segmentData"
+	LogfilePathPrefix = "/log/"
+	SpaceDir          = "space"
+	ServiceDir        = "service"
 	Cache             = "cache"
 	TmpltFileFolder   = "temp"
 	TmpltFileName     = "template"
-	FileData          = "fileData"
 )

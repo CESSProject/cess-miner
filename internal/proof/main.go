@@ -25,9 +25,31 @@ type mountpathInfo struct {
 }
 
 func Proof_Init() {
+	configs.SpaceDir = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
+	configs.ServiceDir = filepath.Join(configs.MinerDataPath, configs.ServiceDir)
+	configs.Cache = filepath.Join(configs.MinerDataPath, configs.Cache)
+	_, err := os.Stat(configs.SpaceDir)
+	if err != nil {
+		if err = os.MkdirAll(configs.SpaceDir, os.ModeDir); err != nil {
+			panic(err)
+		}
+	}
+	_, err = os.Stat(configs.ServiceDir)
+	if err != nil {
+		if err = os.MkdirAll(configs.ServiceDir, os.ModeDir); err != nil {
+			panic(err)
+		}
+	}
+	_, err = os.Stat(configs.Cache)
+	if err != nil {
+		if err = os.MkdirAll(configs.Cache, os.ModeDir); err != nil {
+			panic(err)
+		}
+	}
+
 	path := filepath.Join(configs.MinerDataPath, configs.TmpltFileFolder)
 	configs.TmpltFileFolder = path
-	_, err := os.Stat(configs.TmpltFileFolder)
+	_, err = os.Stat(configs.TmpltFileFolder)
 	if err != nil {
 		err = os.MkdirAll(configs.TmpltFileFolder, os.ModePerm)
 		if err != nil {
@@ -45,7 +67,7 @@ func Proof_Init() {
 		os.Exit(configs.Exit_CreateFile)
 	}
 	configs.TmpltFileName = tmpFile
-	deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
+	deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SpaceDir))
 	spaceReasonable()
 }
 
@@ -67,9 +89,9 @@ func segmentVpa() {
 		segmentPath = ""
 	)
 	segType = 1
-	segmentPath = filepath.Join(configs.MinerDataPath, configs.SegmentData)
+	segmentPath = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
 	for range time.Tick(time.Second) {
-		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
+		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SpaceDir))
 		enableS, err = getEnableSpace()
 		if err != nil {
 			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -257,7 +279,7 @@ func segmentVpc() {
 		err error
 		ok  bool
 	)
-	fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
+	fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
 	tk := time.NewTicker(time.Second)
 	for range tk.C {
 		var unsealedcidData []chain.UnsealedCidInfo
@@ -430,7 +452,7 @@ func segmentVpd() {
 				continue
 			}
 
-			fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
+			fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
 			_, err = os.Stat(fileSegPath)
 			if err != nil {
 				err = os.MkdirAll(fileSegPath, os.ModePerm)

@@ -1,0 +1,27 @@
+syntax = "proto3";
+option go_package = "./;module";
+package client;
+
+message file_upload_info {
+  string  file_id = 1;
+  string  file_hash = 2;
+  string  backups = 3;
+  int32   blocks = 4;
+  int32   block_size=5;
+  int32   block_num=6;
+  bytes   data=7;
+}
+
+message file_download_info {
+  string  file_id=1;
+  int32   blocks=2;
+  int32   block_size=3;
+  int32   block_num=4;
+  bytes   data=5;
+}
+
+message file_download_req{
+  string  file_id=1;
+  string  walletAddress=2;
+  int32   blocks=3;
+}

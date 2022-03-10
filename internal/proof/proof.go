@@ -22,7 +22,7 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", sealProofType, sectorId.SectorNum)
-	path := filepath.Join(configs.MinerDataPath, configs.SegmentData, segPath)
+	path := filepath.Join(configs.MinerDataPath, configs.SpaceDir, segPath)
 
 	_, err := os.Stat(path)
 	if err == nil {
@@ -58,7 +58,7 @@ func generateSenmentVpb(sectorId SectorID, segsizetype uint8, postProofType abi.
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", segsizetype, sectorId.SectorNum)
-	path := filepath.Join(configs.MinerDataPath, configs.SegmentData, segPath)
+	path := filepath.Join(configs.MinerDataPath, configs.SpaceDir, segPath)
 
 	_, err := os.Stat(path)
 	if err != nil {

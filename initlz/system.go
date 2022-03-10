@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"os"
 	"storage-mining/configs"
-	"storage-mining/internal/chain"
-	"storage-mining/internal/logger"
 	"storage-mining/internal/proof"
 	"storage-mining/tools"
 )
 
 func SystemInit() {
 	sysInit()
-	logger.LoggerInit()
-	chain.Chain_Init()
+	//logger.LoggerInit()
+	//chain.Chain_Init()
 	proof.Proof_Init()
 }
 

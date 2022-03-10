@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/pkg/errors"
 )
@@ -232,4 +233,22 @@ func Base58Decoding(str string) string {
 		ret.Add(ret, big.NewInt(int64(index)))
 	}
 	return string(ret.Bytes())
+}
+
+//
+func B2S(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func S2B(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s))
+}
+
+//
+func CreatDirIfNotExist(dir string) error {
+	_, err := os.Stat(dir)
+	if err != nil {
+		return os.MkdirAll(dir, os.ModeDir)
+	}
+	return nil
 }

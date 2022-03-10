@@ -1,6 +1,6 @@
-# cess-mining
+# cess-bucket
 
-cess-mining is a mining program provided by cess platform for storage miners.
+cess-bucket is a mining program provided by cess platform for storage miners.
 
 ## Features
 

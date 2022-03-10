@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package rpc;
+
+option go_package = "./;rpc";
+
+message ReqMsg {
+    int32   version = 1;
+    uint64  id = 2;
+    string  method = 3;
+    string  service = 4;
+    bytes   body = 5;
+}
+
+message RespMsg {
+    uint64  id = 1;
+    bytes   body = 2;
+}
+
+message Err {
+    int32    code = 1;
+    string   msg = 2;
+}

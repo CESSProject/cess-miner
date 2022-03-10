@@ -17,12 +17,16 @@ var (
 )
 
 func LoggerInit() {
-	_, err := os.Stat(configs.LogfilePathPrefix)
+	_, err := os.Stat(configs.MinerDataPath + configs.LogfilePathPrefix)
 	if err != nil {
-		err = os.MkdirAll(configs.LogfilePathPrefix, os.ModePerm)
+		err = os.MkdirAll(configs.MinerDataPath+configs.LogfilePathPrefix, os.ModeDir)
 		if err != nil {
 			configs.LogfilePathPrefix = "./log/"
+		} else {
+			configs.LogfilePathPrefix = configs.MinerDataPath + configs.LogfilePathPrefix
 		}
+	} else {
+		configs.LogfilePathPrefix = configs.MinerDataPath + configs.LogfilePathPrefix
 	}
 	initInfoLogger()
 	initErrLogger()
