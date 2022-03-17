@@ -51,7 +51,7 @@ const (
 	ChainTx_SegmentBook_SubmitToVpb      = "SegmentBook.submit_to_vpb"
 	ChainTx_SegmentBook_SubmitToVpc      = "SegmentBook.submit_to_vpc"
 	ChainTx_SegmentBook_SubmitToVpd      = "SegmentBook.submit_to_vpd"
-	ChainTx_Sminer_ExitMining            = "Sminer.exit_mining"
+	ChainTx_Sminer_ExitMining            = "Sminer.exit_miner"
 	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
 	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
 )

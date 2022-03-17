@@ -55,26 +55,41 @@ type Event_SolutionStored struct {
 	Topics           []types.Hash
 }
 
-type Event_Sminer_ExitMining struct {
+type Event_Sminer_IncreaseCollateral struct {
+	Phase   types.Phase
+	Acc     types.AccountID
+	Balance types.U128
+	Topics  []types.Hash
+}
+
+type Event_Sminer_MinerExit struct {
 	Phase  types.Phase
-	PeerId types.U64
+	Acc    types.AccountID
+	Topics []types.Hash
+}
+
+type Event_Sminer_MinerClaim struct {
+	Phase  types.Phase
+	Acc    types.AccountID
 	Topics []types.Hash
 }
 
 type MyEventRecords struct {
 	types.EventRecords
-	SegmentBook_ParamSet     []Event_SegmentBook_ParamSet
-	SegmentBook_VPASubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPAVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDVerified  []Event_VPABCD_Submit_Verify
-	Sminer_TimedTask         []Event_Sminer_TimedTask
-	Sminer_Registered        []Event_Sminer_Registered
-	Sminer_ExitMining        []Event_Sminer_ExitMining
+	SegmentBook_ParamSet      []Event_SegmentBook_ParamSet
+	SegmentBook_VPASubmitted  []Event_VPABCD_Submit_Verify
+	SegmentBook_VPBSubmitted  []Event_VPABCD_Submit_Verify
+	SegmentBook_VPCSubmitted  []Event_VPABCD_Submit_Verify
+	SegmentBook_VPDSubmitted  []Event_VPABCD_Submit_Verify
+	SegmentBook_VPAVerified   []Event_VPABCD_Submit_Verify
+	SegmentBook_VPBVerified   []Event_VPABCD_Submit_Verify
+	SegmentBook_VPCVerified   []Event_VPABCD_Submit_Verify
+	SegmentBook_VPDVerified   []Event_VPABCD_Submit_Verify
+	Sminer_TimedTask          []Event_Sminer_TimedTask
+	Sminer_Registered         []Event_Sminer_Registered
+	Sminer_IncreaseCollateral []Event_Sminer_IncreaseCollateral
+	Sminer_MinerExit          []Event_Sminer_MinerExit
+	Sminer_MinerClaim         []Event_Sminer_MinerClaim
 	//
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
@@ -931,14 +946,14 @@ func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (b
 				if err != nil {
 					fmt.Println("+++ DecodeEvent err: ", err)
 				}
-				if events.Sminer_ExitMining != nil {
-					for i := 0; i < len(events.Sminer_ExitMining); i++ {
-						if events.Sminer_ExitMining[i].PeerId == types.NewU64(configs.MinerId_I) {
+				if events.Sminer_IncreaseCollateral != nil {
+					for i := 0; i < len(events.Sminer_IncreaseCollateral); i++ {
+						if events.Sminer_IncreaseCollateral[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
 				} else {
-					fmt.Println("+++ Not found events.Sminer_ExitMining", err)
+					fmt.Println("+++ Not found events.Sminer_IncreaseCollateral", err)
 				}
 				return false, nil
 			}
@@ -1050,14 +1065,14 @@ func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 				if err != nil {
 					fmt.Println("+++ DecodeEvent err: ", err)
 				}
-				if events.Sminer_ExitMining != nil {
-					for i := 0; i < len(events.Sminer_ExitMining); i++ {
-						if events.Sminer_ExitMining[i].PeerId == types.NewU64(configs.MinerId_I) {
+				if events.Sminer_MinerExit != nil {
+					for i := 0; i < len(events.Sminer_MinerExit); i++ {
+						if events.Sminer_MinerExit[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
 				} else {
-					fmt.Println("+++ Not found events.Sminer_ExitMining", err)
+					fmt.Println("+++ Not found events.Sminer_MinerExit", err)
 				}
 				return false, nil
 			}
@@ -1169,14 +1184,14 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 				if err != nil {
 					fmt.Println("+++ DecodeEvent err: ", err)
 				}
-				if events.Sminer_ExitMining != nil {
-					for i := 0; i < len(events.Sminer_ExitMining); i++ {
-						if events.Sminer_ExitMining[i].PeerId == types.NewU64(configs.MinerId_I) {
+				if events.Sminer_MinerClaim != nil {
+					for i := 0; i < len(events.Sminer_MinerClaim); i++ {
+						if events.Sminer_MinerClaim[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
 				} else {
-					fmt.Println("+++ Not found events.Sminer_ExitMining", err)
+					fmt.Println("+++ Not found events.Sminer_MinerClaim", err)
 				}
 				return false, nil
 			}

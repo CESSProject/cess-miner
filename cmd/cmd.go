@@ -200,8 +200,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 			logger.ErrLogger.Sugar().Errorf("%v", err)
 			os.Exit(-1)
 		}
-		fmt.Printf("MinerId:C%v\nState:%v\nStorageSpace:%vGB\nUsedSpace:%vGB\nPledgeTokens:%vCESS\nAccountAddr:%v\n",
-			minerInfo.Peerid, string(minerInfo.State), minerInfo.Power, minerInfo.Space, minerInfo.Collaterals1, minerInfo.Address)
+		tokens := minerInfo.Collaterals1.Div(minerInfo.Collaterals1.Int, big.NewInt(1000000000000))
+		addr := tools.Base58Decoding(string(minerInfo.ServiceAddr))
+		fmt.Printf("MinerId:C%v\nState:%v\nStorageSpace:%vGB\nUsedSpace:%vGB\nPledgeTokens:%vCESS\nServiceAddr:%v\n",
+			minerInfo.Peerid, string(minerInfo.State), minerInfo.Power, minerInfo.Space, tokens, addr)
 	}
 	os.Exit(0)
 }
