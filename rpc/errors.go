@@ -4,12 +4,12 @@ import "fmt"
 
 // Error wraps RPC errors, which contain an error code in addition to the message.
 type Error interface {
-	Error() string  // returns the message
+	Error() string    // returns the message
 	ErrorCode() int32 // returns the code
 }
 
 const (
-	defaultErrorCode = -10-iota
+	defaultErrorCode = -1 - iota
 	ParseErrorCode
 	MethodNotFoundErrorCode
 )

@@ -22,7 +22,7 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", sealProofType, sectorId.SectorNum)
-	path := filepath.Join(configs.MinerDataPath, configs.SpaceDir, segPath)
+	path := filepath.Join(configs.SpaceDir, segPath)
 
 	_, err := os.Stat(path)
 	if err == nil {
@@ -31,13 +31,13 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 			return cid.Cid{}, nil, errors.Wrapf(err, "Remove %v err", path)
 		}
 	}
-	err = os.MkdirAll(path, os.ModePerm)
+	err = os.MkdirAll(path, os.ModeDir)
 	if err != nil {
 		return cid.Cid{}, nil, errors.Wrapf(err, "Mkdir %v err", path)
 	}
 
 	cachePath := filepath.Join(path, configs.Cache)
-	err = os.MkdirAll(cachePath, os.ModePerm)
+	err = os.MkdirAll(cachePath, os.ModeDir)
 	if err != nil {
 		return cid.Cid{}, nil, errors.Wrapf(err, "Mkdir %v err", cachePath)
 	}
@@ -58,7 +58,7 @@ func generateSenmentVpb(sectorId SectorID, segsizetype uint8, postProofType abi.
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", segsizetype, sectorId.SectorNum)
-	path := filepath.Join(configs.MinerDataPath, configs.SpaceDir, segPath)
+	path := filepath.Join(configs.SpaceDir, segPath)
 
 	_, err := os.Stat(path)
 	if err != nil {
@@ -103,7 +103,7 @@ func generateSegmentVpc(file, filesegpath string, segid uint64, rand []byte, unc
 		}
 	}()
 	cachefilepath := filepath.Join(filesegpath, configs.Cache)
-	if err = os.MkdirAll(cachefilepath, os.ModePerm); err != nil {
+	if err = os.MkdirAll(cachefilepath, os.ModeDir); err != nil {
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		return nil, nil, err
 	}

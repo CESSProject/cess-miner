@@ -68,7 +68,7 @@ func Proof_Init() {
 		os.Exit(configs.Exit_CreateFile)
 	}
 	configs.TmpltFileName = tmpFile
-	deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SpaceDir))
+	deleteFailedSegment(configs.SpaceDir)
 	spaceReasonable()
 }
 
@@ -87,18 +87,18 @@ func segmentVpa() {
 		segsizeType uint8
 		segmentNum  uint32
 		enableS     uint64
-		segmentPath = ""
+		//segmentPath = ""
 	)
 	segType = 1
-	segmentPath = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
+	//segmentPath = configs.SpaceDir
 	for range time.Tick(time.Second) {
-		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SpaceDir))
+		deleteFailedSegment(configs.SpaceDir)
 		enableS, err = getEnableSpace()
 		if err != nil {
 			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 		}
 		if enableS > 0 {
-			segmentNum, err = getSegmentNumForTypeOne(segmentPath, configs.SegMentType_8M_S)
+			segmentNum, err = getSegmentNumForTypeOne(configs.SpaceDir, configs.SegMentType_8M_S)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
@@ -298,7 +298,7 @@ func segmentVpc() {
 		err error
 		ok  bool
 	)
-	fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
+	//fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
 	tk := time.NewTicker(time.Second)
 	for range tk.C {
 		var unsealedcidData []chain.UnsealedCidInfo
@@ -312,9 +312,9 @@ func segmentVpc() {
 			time.Sleep(time.Minute)
 			continue
 		}
-		_, err = os.Stat(fileSegPath)
+		_, err = os.Stat(configs.ServiceDir)
 		if err != nil {
-			err = os.MkdirAll(fileSegPath, os.ModePerm)
+			err = os.MkdirAll(configs.ServiceDir, os.ModeDir)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
@@ -350,7 +350,7 @@ func segmentVpc() {
 				continue
 			}
 
-			filehashid := filepath.Join(fileSegPath, fmt.Sprintf("%v", hash))
+			filehashid := filepath.Join(configs.ServiceDir, fmt.Sprintf("%v", hash))
 			_, err = os.Stat(filehashid)
 			if err != nil {
 				err = os.MkdirAll(filehashid, os.ModePerm)

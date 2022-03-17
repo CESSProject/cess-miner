@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"storage-mining/log"
+	. "storage-mining/rpc/proto"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type testService struct{}
 
 func (testService) HelloAction(body []byte) (proto.Message, error) {
-	return &Err{Msg: "test hello"}, nil
+	buf := make([]byte, 0)
+	return &RespBody{Code: 0, Msg: "test hello", Data: buf}, nil
 }
 
 func TestDialWebsocket(t *testing.T) {
@@ -37,11 +39,11 @@ func TestDialWebsocket(t *testing.T) {
 		Service: "test",
 		Method:  "hello",
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	resp, err := client.Call(ctx, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cancel()
+	defer cancel()
 	fmt.Println(resp)
 }

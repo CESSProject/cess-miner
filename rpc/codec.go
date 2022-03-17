@@ -2,17 +2,18 @@ package rpc
 
 import (
 	"io"
+	. "storage-mining/rpc/proto"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 )
 
 type protoCodec struct {
-	conn         *websocket.Conn
-	closedCh      chan struct{}
+	conn     *websocket.Conn
+	closedCh chan struct{}
 }
 
-func (p *protoCodec) closed() <- chan struct{} {
+func (p *protoCodec) closed() <-chan struct{} {
 	return p.closedCh
 }
 
@@ -60,12 +61,12 @@ func (p *protoCodec) getConn() *websocket.Conn {
 }
 
 func errorMessage(err error) *RespMsg {
-	msg := &RespMsg{
-	}
+	msg := &RespMsg{}
 	ec, ok := err.(Error)
-	errMsg := &Err{
+	errMsg := &RespBody{
 		Code: defaultErrorCode,
 		Msg:  err.Error(),
+		Data: nil,
 	}
 	if ok {
 		errMsg.Code = ec.ErrorCode()

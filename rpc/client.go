@@ -2,19 +2,20 @@ package rpc
 
 import (
 	"context"
+	. "storage-mining/rpc/proto"
 	"sync"
 	"sync/atomic"
 )
 
-type ID     uint32
+type ID uint32
 
 type call struct {
-	id     ID
-	ch     chan<-RespMsg
+	id ID
+	ch chan<- *RespMsg
 }
 
 type Client struct {
-	conn    *ClientConn
+	conn *ClientConn
 
 	sync.Mutex
 	pending   map[ID]call
@@ -26,13 +27,13 @@ type Client struct {
 func newClient(codec *websocketCodec) *Client {
 	ch := make(chan struct{})
 	c := &ClientConn{
-		codec: codec,
+		codec:   codec,
 		closeCh: ch,
 	}
 	client := &Client{
 		closeCh: ch,
-		conn: c,
-		pending:  make(map[ID]call),
+		conn:    c,
+		pending: make(map[ID]call),
 	}
 	client.receive()
 	client.dispatch()
@@ -62,7 +63,7 @@ func (c *Client) receive() {
 		c.Unlock()
 
 		if exist {
-			ca.ch<-msg
+			ca.ch <- &msg
 		}
 	})
 }
@@ -73,7 +74,7 @@ func (c *Client) nextId() ID {
 }
 
 func (c *Client) Call(ctx context.Context, msg *ReqMsg) (*RespMsg, error) {
-	ch := make(chan RespMsg)
+	ch := make(chan *RespMsg)
 	ca := call{
 		id: c.nextId(),
 		ch: ch,
@@ -91,7 +92,7 @@ func (c *Client) Call(ctx context.Context, msg *ReqMsg) (*RespMsg, error) {
 
 	select {
 	case resp := <-ch:
-		return &resp, nil
+		return resp, nil
 	case <-ctx.Done():
 		c.Lock()
 		delete(c.pending, ca.id)

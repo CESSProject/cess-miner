@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"storage-mining/log"
-
-	"github.com/golang/protobuf/proto"
+	. "storage-mining/rpc/proto"
 )
 
 type SrvConn struct {
@@ -18,7 +17,7 @@ func (c *SrvConn) readLoop() {
 	for {
 		msg := ReqMsg{}
 		err := c.codec.read(&msg)
-		if _, ok := err.(*proto.ParseError); ok {
+		if _, ok := err.(*parseError); ok {
 			c.codec.WriteMsg(context.Background(), errorMessage(&parseError{err.Error()}))
 			continue
 		}
@@ -42,7 +41,7 @@ func (c *ClientConn) readLoop(recv func(msg RespMsg)) {
 	for {
 		msg := RespMsg{}
 		err := c.codec.read(&msg)
-		if _, ok := err.(*proto.ParseError); ok {
+		if _, ok := err.(*parseError); ok {
 			continue
 		}
 

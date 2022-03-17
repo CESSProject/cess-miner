@@ -1,6 +1,27 @@
 syntax = "proto3";
-option go_package = "./;module";
-package client;
+
+package rpc;
+
+option go_package = "./;rpc";
+
+message ReqMsg {
+    int32   version = 1;
+    uint64  id = 2;
+    string  method = 3;
+    string  service = 4;
+    bytes   body = 5;
+}
+
+message RespMsg {
+    uint64  id = 1;
+    bytes   body = 2;
+}
+
+message RespBody {
+    int32   code = 1;
+    string  msg = 2;
+    bytes   data = 3;
+}
 
 message file_upload_info {
   string  file_id = 1;

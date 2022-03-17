@@ -2,8 +2,9 @@ package rpc
 
 import (
 	"context"
+	. "storage-mining/rpc/proto"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type handleWrapper func(id uint64, body []byte) *RespMsg
@@ -29,9 +30,10 @@ func (s *Server) processMsg(fn func(ctx context.Context)) {
 func (s *Server) callMethod(msg *ReqMsg) *RespMsg {
 	handler := s.router.lookup(msg.Service, msg.Method)
 	if handler == nil {
-		err := &methodNotFoundError{msg.Service+"."+msg.Method}
+		err := &methodNotFoundError{msg.Service + "." + msg.Method}
 		answer := errorMessage(err)
 		answer.Id = msg.Id
+		return answer
 	}
 	answer := handler(msg.Id, msg.Body)
 	return answer
