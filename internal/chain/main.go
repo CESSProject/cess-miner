@@ -23,12 +23,10 @@ func Chain_Init() {
 	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(configs.Exit_Normal)
+		os.Exit(1)
 	}
 	wlock = new(sync.Mutex)
 	go substrateAPIKeepAlive()
-	//fmt.Printf("\x1b[%dm[ok]\x1b[0m Your data is stored in %v\n", 42, path)
 }
 
 func substrateAPIKeepAlive() {

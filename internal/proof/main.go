@@ -28,23 +28,20 @@ type mountpathInfo struct {
 func Proof_Init() {
 	configs.SpaceDir = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
 	configs.ServiceDir = filepath.Join(configs.MinerDataPath, configs.ServiceDir)
-	configs.Cache = filepath.Join(configs.MinerDataPath, configs.Cache)
 	_, err := os.Stat(configs.SpaceDir)
 	if err != nil {
 		if err = os.MkdirAll(configs.SpaceDir, os.ModeDir); err != nil {
-			panic(err)
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			os.Exit(1)
 		}
 	}
 	_, err = os.Stat(configs.ServiceDir)
 	if err != nil {
 		if err = os.MkdirAll(configs.ServiceDir, os.ModeDir); err != nil {
-			panic(err)
-		}
-	}
-	_, err = os.Stat(configs.Cache)
-	if err != nil {
-		if err = os.MkdirAll(configs.Cache, os.ModeDir); err != nil {
-			panic(err)
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			os.Exit(1)
 		}
 	}
 
@@ -52,11 +49,11 @@ func Proof_Init() {
 	configs.TmpltFileFolder = path
 	_, err = os.Stat(configs.TmpltFileFolder)
 	if err != nil {
-		err = os.MkdirAll(configs.TmpltFileFolder, os.ModePerm)
+		err = os.MkdirAll(configs.TmpltFileFolder, os.ModeDir)
 		if err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			os.Exit(configs.Exit_CreateFolder)
+			os.Exit(1)
 		}
 	}
 
@@ -65,7 +62,7 @@ func Proof_Init() {
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-		os.Exit(configs.Exit_CreateFile)
+		os.Exit(1)
 	}
 	configs.TmpltFileName = tmpFile
 	deleteFailedSegment(configs.SpaceDir)
@@ -87,10 +84,8 @@ func segmentVpa() {
 		segsizeType uint8
 		segmentNum  uint32
 		enableS     uint64
-		//segmentPath = ""
 	)
 	segType = 1
-	//segmentPath = configs.SpaceDir
 	for range time.Tick(time.Second) {
 		deleteFailedSegment(configs.SpaceDir)
 		enableS, err = getEnableSpace()
@@ -115,7 +110,6 @@ func segmentVpa() {
 				segsizeType,
 				segType,
 				configs.MinerId_I,
-				nil,
 				nil,
 				nil,
 			)
@@ -145,6 +139,8 @@ func segmentVpa() {
 				var tmp = fmt.Sprintf("%#02x", prf[i])
 				sproof += tmp[2:]
 			}
+			//fmt.Println(prf)
+			//fmt.Println(cid.String())
 			ok, err = chain.SegmentSubmitToVpaOrVpb(
 				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_SubmitToVpa,
@@ -242,15 +238,6 @@ func segmentVpb() {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetB,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(verifiedPorepData[i].Peer_id),
@@ -298,7 +285,6 @@ func segmentVpc() {
 		err error
 		ok  bool
 	)
-	//fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
 	tk := time.NewTicker(time.Second)
 	for range tk.C {
 		var unsealedcidData []chain.UnsealedCidInfo
@@ -324,14 +310,9 @@ func segmentVpc() {
 			time.Sleep(time.Minute)
 		}
 		for i := 0; i < len(unsealedcidData); i++ {
-			hash := ""
 			shardhash := ""
 			uncidstring := ""
 			uncid := make([]string, 0)
-			for j := 0; j < len(unsealedcidData[i].Hash); j++ {
-				temp := fmt.Sprintf("%c", unsealedcidData[i].Hash[j])
-				hash += temp
-			}
 			for j := 0; j < len(unsealedcidData[i].Shardhash); j++ {
 				temp := fmt.Sprintf("%c", unsealedcidData[i].Shardhash[j])
 				shardhash += temp
@@ -349,11 +330,12 @@ func segmentVpc() {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
+			fid := strings.Split(shardhash, ".")[0]
 
-			filehashid := filepath.Join(configs.ServiceDir, fmt.Sprintf("%v", hash))
+			filehashid := filepath.Join(configs.ServiceDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
-				err = os.MkdirAll(filehashid, os.ModePerm)
+				err = os.MkdirAll(filehashid, os.ModeDir)
 				if err != nil {
 					logger.ErrLogger.Sugar().Errorf("%v", err)
 					continue
@@ -364,16 +346,14 @@ func segmentVpc() {
 			if err == nil {
 				os.RemoveAll(filesegid)
 			}
-			err = os.MkdirAll(filesegid, os.ModePerm)
+			err = os.MkdirAll(filesegid, os.ModeDir)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
 				continue
 			}
-			filefullpath := ""
 
-			fid := strings.Split(hash, ".")[0]
-			filefullpath = filepath.Join(configs.ServiceDir, fid, hash)
-
+			filefullpath := filepath.Join(configs.ServiceDir, fid, shardhash)
+			fmt.Println("file path: ", filefullpath)
 			sealcid, prf, err := generateSegmentVpc(filefullpath, filesegid, uint64(unsealedcidData[i].Segment_id), seed, uncid)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
@@ -392,6 +372,7 @@ func segmentVpc() {
 				uint64(unsealedcidData[i].Segment_id),
 				prf,
 				sealedcid,
+				types.Bytes([]byte(fid)),
 			)
 			if !ok || err != nil {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid, err)
@@ -444,15 +425,6 @@ func segmentVpd() {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v]", err, randnum)
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetD,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 
 			sealcidstring := ""
 			sealcid := make([]string, 0)
@@ -470,21 +442,13 @@ func segmentVpd() {
 				continue
 			}
 
-			fileSegPath := filepath.Join(configs.MinerDataPath, configs.ServiceDir)
-			_, err = os.Stat(fileSegPath)
-			if err != nil {
-				err = os.MkdirAll(fileSegPath, os.ModePerm)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("%v", err)
-					continue
-				}
-			}
 			hash := ""
 			for j := 0; j < len(verifiedPorepData[i].Hash); j++ {
 				temp := fmt.Sprintf("%c", verifiedPorepData[i].Hash[j])
 				hash += temp
 			}
-			filehashid := filepath.Join(fileSegPath, fmt.Sprintf("%v", hash))
+			fid := strings.Split(hash, ".")[0]
+			filehashid := filepath.Join(configs.ServiceDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
 				logger.ErrLogger.Sugar().Errorf("%v", err)
@@ -519,6 +483,7 @@ func segmentVpd() {
 				uint64(verifiedPorepData[i].Segment_id),
 				proof,
 				verifiedPorepData[i].Sealed_cid,
+				types.Bytes([]byte(fid)),
 			)
 			if !ok || err != nil {
 				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid, err)
@@ -560,28 +525,28 @@ func spaceReasonable() {
 	configs.MinerUseSpace, err = tools.DirSize(configs.MinerDataPath)
 	if err != nil {
 		logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-		os.Exit(configs.Exit_DirSizeError)
+		os.Exit(1)
 	}
 
 	sspace := configs.Confile.MinerData.StorageSpace * configs.Space_1GB
 	mountP, err := getMountPathInfo(configs.Confile.MinerData.MountedPath)
 	if err != nil {
 		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(configs.Exit_CreateFile)
+		os.Exit(1)
 	}
 	if mountP.Total < sspace {
 		logger.ErrLogger.Sugar().Errorf("[%v] The storage space cannot be greater than the total hard disk space", configs.MinerId_S)
-		os.Exit(configs.Exit_SspaceInvalid)
+		os.Exit(1)
 	}
 	if (sspace + configs.Space_1GB) < configs.MinerUseSpace {
 		logger.ErrLogger.Sugar().Errorf("[%v] You cannot reduce your storage space", configs.MinerId_S)
-		os.Exit(configs.Exit_ReduceStorageSpace)
+		os.Exit(1)
 	}
 	if sspace > configs.MinerUseSpace {
 		enableSpace := sspace - configs.MinerUseSpace
 		if (enableSpace > mountP.Free) || ((mountP.Free - enableSpace) < configs.Space_1GB*20) {
 			logger.ErrLogger.Sugar().Errorf("[%v] Please reserve at least 20GB of space for your disk", configs.MinerId_S)
-			os.Exit(configs.Exit_FreeSpaceInvalid)
+			os.Exit(1)
 		}
 	}
 }
@@ -599,6 +564,9 @@ func getEnableSpace() (uint64, error) {
 	if err != nil {
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		return 0, err
+	}
+	if sspace <= configs.MinerUseSpace {
+		return 0, nil
 	}
 	enableSpace := sspace - configs.MinerUseSpace
 	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB*20) {

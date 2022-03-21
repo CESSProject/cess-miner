@@ -4,7 +4,7 @@ import (
 	"context"
 	. "storage-mining/rpc/proto"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type handleWrapper func(id uint64, body []byte) *RespMsg

@@ -3,25 +3,6 @@ package configs
 // type and version
 const Version = "CESS-Storage-Mining_0.3.0_Alpha"
 
-// system exit code
-const (
-	Exit_Normal                   = 0
-	Exit_RunningSystemError       = -1
-	Exit_ExecutionPermissionError = -2
-	Exit_GetMinerDataOnChain      = -3
-	Exit_RegisterToChain          = -4
-	Exit_RenewalTokens            = -5
-	Exit_CreateFolder             = -6
-	Exit_CreateFile               = -7
-	Exit_ConfFileNotExist         = -8
-	Exit_ConfFileFormatError      = -9
-	Exit_ConfFileTypeError        = -10
-	Exit_SspaceInvalid            = -11
-	Exit_DirSizeError             = -12
-	Exit_ReduceStorageSpace       = -13
-	Exit_FreeSpaceInvalid         = -14
-)
-
 // cess chain module
 const (
 	ChainModule_Sminer      = "Sminer"
@@ -96,7 +77,7 @@ var (
 )
 
 var (
-	LogfilePathPrefix = "/log/"
+	LogfilePathPrefix = "/log"
 	SpaceDir          = "space"
 	ServiceDir        = "service"
 	Cache             = "cache"

@@ -5,7 +5,7 @@ import (
 	. "storage-mining/rpc/proto"
 
 	"github.com/gorilla/websocket"
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type protoCodec struct {

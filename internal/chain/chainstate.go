@@ -55,7 +55,6 @@ type UnsealedCidInfo struct {
 	Segment_id types.U64     `json:"segment_id"`
 	Uncid      []types.Bytes `json:"uncid"`
 	Rand       types.U32     `json:"rand"`
-	Hash       types.Bytes   `json:"hash"`
 	Shardhash  types.Bytes   `json:"shardhash"`
 }
 

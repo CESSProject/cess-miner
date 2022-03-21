@@ -3,7 +3,6 @@ package initlz
 import (
 	"fmt"
 	"os"
-	"storage-mining/configs"
 	"storage-mining/internal/proof"
 	"storage-mining/tools"
 )
@@ -18,11 +17,11 @@ func SystemInit() {
 func sysInit() {
 	if !tools.RunOnLinuxSystem() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute on Linux system\n", 41)
-		os.Exit(configs.Exit_RunningSystemError)
+		os.Exit(1)
 	}
 	if !tools.RunWithRootPrivileges() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute with root privileges\n", 41)
-		os.Exit(configs.Exit_ExecutionPermissionError)
+		os.Exit(1)
 	}
 	tools.SetAllCores()
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type testService struct{}

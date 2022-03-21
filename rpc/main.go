@@ -1,11 +1,9 @@
 package rpc
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,9 +11,8 @@ import (
 	. "storage-mining/rpc/proto"
 	"storage-mining/tools"
 	"strings"
-	"time"
 
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 type MService struct {
@@ -37,13 +34,10 @@ func Rpc_Main() {
 }
 
 // Test
-func (MService) TestAction(body []byte) (proto.Message, error) {
-	fmt.Println("**** recv a test connect1 ****")
-	fmt.Printf("**** recv a test connect2 ****\n")
-	print("**** recv a test connect3 ****")
-	log.Printf("**** recv a test connect4 ****\n")
-	return &RespMsg{Body: []byte("test hello")}, nil
-}
+// func (MService) TestAction(body []byte) (proto.Message, error) {
+// 	fmt.Println("**** recv a test connect ****")
+// 	return &RespMsg{Body: []byte("test hello")}, nil
+// }
 
 // Write file from scheduler
 func (MService) WritefileAction(body []byte) (proto.Message, error) {
@@ -131,65 +125,66 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 }
 
 //
-func writeFile(dst string, body []byte) error {
-	dstip := tools.Base58Decoding(dst)
-	wsURL := "ws:" + strings.TrimPrefix(dstip, "http:")
-	req := &ReqMsg{
-		Service: configs.RpcService_Scheduler,
-		Method:  configs.RpcMethod_Scheduler_Writefile,
-		Body:    body,
-	}
-	client, err := DialWebsocket(context.Background(), wsURL, "")
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	resp, err := client.Call(ctx, req)
-	if err != nil {
-		return err
-	}
-	cancel()
-	var b RespBody
-	err = proto.Unmarshal(resp.Body, &b)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if b.Code == 0 {
-		return nil
-	}
-	errstr := fmt.Sprintf("%d", b.Code)
-	return errors.New("return code:" + errstr)
-}
+// func writeFile(dst string, body []byte) error {
+// 	dstip := tools.Base58Decoding(dst)
+// 	wsURL := "ws:" + strings.TrimPrefix(dstip, "http:")
+// 	req := &ReqMsg{
+// 		Service: configs.RpcService_Scheduler,
+// 		Method:  configs.RpcMethod_Scheduler_Writefile,
+// 		Body:    body,
+// 	}
+// 	client, err := DialWebsocket(context.Background(), wsURL, "")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
+// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// 	defer cancel()
+// 	resp, err := client.Call(ctx, req)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	var b RespBody
+// 	err = proto.Unmarshal(resp.Body, &b)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	if b.Code == 0 {
+// 		return nil
+// 	}
+// 	errstr := fmt.Sprintf("%d", b.Code)
+// 	return errors.New("return code:" + errstr)
+// }
 
 //
-func readFile(dst string, body []byte) ([]byte, error) {
-	dstip := tools.Base58Decoding(dst)
-	wsURL := "ws:" + strings.TrimPrefix(dstip, "http:")
-	req := &ReqMsg{
-		Service: configs.RpcService_Scheduler,
-		Method:  configs.RpcMethod_Scheduler_Readfile,
-		Body:    body,
-	}
-	client, err := DialWebsocket(context.Background(), wsURL, "")
-	if err != nil {
-		return nil, err
-	}
+// func readFile(dst string, body []byte) ([]byte, error) {
+// 	dstip := tools.Base58Decoding(dst)
+// 	wsURL := "ws:" + strings.TrimPrefix(dstip, "http:")
+// 	req := &ReqMsg{
+// 		Service: configs.RpcService_Scheduler,
+// 		Method:  configs.RpcMethod_Scheduler_Readfile,
+// 		Body:    body,
+// 	}
+// 	client, err := DialWebsocket(context.Background(), wsURL, "")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer client.Close()
+// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// 	defer cancel()
+// 	resp, err := client.Call(ctx, req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	resp, err := client.Call(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	cancel()
-	var b RespBody
-	err = proto.Unmarshal(resp.Body, &b)
-	if err != nil {
-		return resp.Body, nil
-	}
-	errstr := fmt.Sprintf("%d", b.Code)
-	return nil, errors.New(errstr)
-}
+// 	var b RespBody
+// 	err = proto.Unmarshal(resp.Body, &b)
+// 	if err != nil {
+// 		return resp.Body, nil
+// 	}
+// 	errstr := fmt.Sprintf("%d", b.Code)
+// 	return nil, errors.New(errstr)
+// }
 
 func cutDataRule(size int) (int, int, uint8, error) {
 	if size <= 0 {

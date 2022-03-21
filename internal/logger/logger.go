@@ -21,7 +21,7 @@ func LoggerInit() {
 	if err != nil {
 		err = os.MkdirAll(configs.MinerDataPath+configs.LogfilePathPrefix, os.ModeDir)
 		if err != nil {
-			configs.LogfilePathPrefix = "./log/"
+			configs.LogfilePathPrefix = "./log"
 		} else {
 			configs.LogfilePathPrefix = configs.MinerDataPath + configs.LogfilePathPrefix
 		}
@@ -34,7 +34,7 @@ func LoggerInit() {
 
 // info log
 func initInfoLogger() {
-	infologpath := configs.LogfilePathPrefix + "info.log"
+	infologpath := configs.LogfilePathPrefix + "/info.log"
 	hook := lumberjack.Logger{
 		Filename:   infologpath,
 		MaxSize:    10,  //MB
@@ -68,7 +68,7 @@ func initInfoLogger() {
 
 // error log
 func initErrLogger() {
-	errlogpath := configs.LogfilePathPrefix + "error.log"
+	errlogpath := configs.LogfilePathPrefix + "/error.log"
 	hook := lumberjack.Logger{
 		Filename:   errlogpath,
 		MaxSize:    10,  //MB

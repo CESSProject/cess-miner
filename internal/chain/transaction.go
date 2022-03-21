@@ -214,10 +214,9 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 							return true, nil
 						}
 					}
-				} else {
-					fmt.Println("+++ Not found events.Sminer_Registered ")
+					return false, errors.New("events.Sminer_Registered data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_Registered not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -228,7 +227,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 }
 
 //
-func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizetype, segtype uint8, peerid uint64, unsealedcid [][]byte, hash, shardhash []byte) (uint64, uint32, error) {
+func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizetype, segtype uint8, peerid uint64, unsealedcid [][]byte, shardhash []byte) (uint64, uint32, error) {
 	var (
 		err         error
 		ok          bool
@@ -256,7 +255,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		uncid[i] = make(types.Bytes, 0)
 		uncid[i] = append(uncid[i], unsealedcid[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU8(segsizetype), types.NewU8(segtype), types.NewU64(peerid), uncid, types.NewBytes(hash), types.NewBytes(shardhash))
+	c, err := types.NewCall(meta, TransactionName, types.NewU8(segsizetype), types.NewU8(segtype), types.NewU64(peerid), uncid, types.NewBytes(shardhash))
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "NewCall err")
 	}
@@ -337,8 +336,9 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 							return uint64(events.SegmentBook_ParamSet[i].SegmentId), uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
+					return 0, 0, errors.New("events.SegmentBook_ParamSet data err")
 				}
-				return 0, 0, nil
+				return 0, 0, errors.New("events.SegmentBook_ParamSet not found")
 			}
 		case err = <-sub.Err():
 			return 0, 0, err
@@ -454,8 +454,9 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 							return uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
+					return 0, errors.New("events.SegmentBook_ParamSet data err")
 				}
-				return 0, nil
+				return 0, errors.New("events.SegmentBook_ParamSet not found")
 			}
 		case err = <-sub.Err():
 			return 0, err
@@ -573,9 +574,9 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 								return true, nil
 							}
 						}
-					} else {
-						return false, nil
+						return false, errors.New("events.SegmentBook_VPASubmitted data err")
 					}
+					return false, errors.New("events.SegmentBook_VPASubmitted not found")
 				case configs.ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPBSubmitted); i++ {
@@ -583,11 +584,11 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 								return true, nil
 							}
 						}
-					} else {
-						return false, nil
+						return false, errors.New("events.SegmentBook_VPBSubmitted data err")
 					}
+					return false, errors.New("events.SegmentBook_VPBSubmitted not found")
 				}
-				return false, nil
+				return false, errors.New("events.ChainTx_SegmentBook_SubmitToVpa/b not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -598,7 +599,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 }
 
 // Submit To Vpc
-func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes) (bool, error) {
+func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes, fid types.Bytes) (bool, error) {
 	var (
 		err         error
 		ok          bool
@@ -627,12 +628,8 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpc[i] = make(types.Bytes, 0)
 		fileVpc[i] = append(fileVpc[i], proofs[i]...)
 	}
-	// var sealedcid []types.Bytes = make([]types.Bytes, len(sealcid))
-	// for i := 0; i < len(sealcid); i++ {
-	// 	sealedcid[i] = make(types.Bytes, 0)
-	// 	sealedcid[i] = append(sealedcid[i], sealcid[i]...)
-	// }
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpc, sealcid)
+
+	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpc, sealcid, fid)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -713,8 +710,9 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 							return true, nil
 						}
 					}
+					return false, errors.New("events.SegmentBook_VPCSubmitted data err")
 				}
-				return false, nil
+				return false, errors.New("Not found events.SegmentBook_VPCSubmitted")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -725,7 +723,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 }
 
 // Submit To Vpd
-func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes) (bool, error) {
+func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes, fid types.Bytes) (bool, error) {
 	var (
 		err         error
 		ok          bool
@@ -754,7 +752,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpd[i] = make(types.Bytes, 0)
 		fileVpd[i] = append(fileVpd[i], proofs[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpd, sealcid)
+	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpd, sealcid, fid)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -835,8 +833,9 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 							return true, nil
 						}
 					}
+					return false, errors.New("events.SegmentBook_VPDSubmitted data err")
 				}
-				return false, nil
+				return false, errors.New("events.SegmentBook_VPDSubmitted not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -952,10 +951,9 @@ func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (b
 							return true, nil
 						}
 					}
-				} else {
-					fmt.Println("+++ Not found events.Sminer_IncreaseCollateral", err)
+					return false, errors.New("events.Sminer_IncreaseCollateral data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_IncreaseCollateral not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -1071,10 +1069,9 @@ func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 							return true, nil
 						}
 					}
-				} else {
-					fmt.Println("+++ Not found events.Sminer_MinerExit", err)
+					return false, errors.New("events.Sminer_MinerExit data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_MinerExit not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -1190,10 +1187,9 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 							return true, nil
 						}
 					}
-				} else {
-					fmt.Println("+++ Not found events.Sminer_MinerClaim", err)
+					return false, errors.New("events.Sminer_MinerClaim data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_MinerClaim not found")
 			}
 		case err = <-sub.Err():
 			return false, err

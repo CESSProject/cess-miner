@@ -36,6 +36,7 @@ func Execute() {
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 }
@@ -145,7 +146,8 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 	tools.WriteStringtoFile(configs.ConfigFile_Templete, configs.DefaultConfigurationFileName)
 	pwd, err := os.Getwd()
 	if err != nil {
-		fmt.Println("[err] ", err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
 	}
 	path := filepath.Join(pwd, configs.DefaultConfigurationFileName)
 	fmt.Println("[ok] ", path)
@@ -157,11 +159,10 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if peerid > 0 {
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m Already registered [C%v]\n", 42, peerid)
-		logger.InfoLogger.Sugar().Infof("Already registered [C%v]", peerid)
 		os.Exit(0)
 	} else {
 		if configs.Confile.MinerData.MountedPath == "" ||
@@ -171,7 +172,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 			configs.Confile.MinerData.RevenuePuK == "" ||
 			configs.Confile.MinerData.TransactionPrK == "" {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries.\n", 41)
-			os.Exit(-1)
+			os.Exit(1)
 		}
 		register()
 	}
@@ -183,7 +184,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if peerid == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
@@ -214,10 +215,10 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if peerid == 0 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 42)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	} else {
 		// init
@@ -311,11 +312,11 @@ func parseProfile() {
 	f, err := os.Stat(confFilePath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' file does not exist\n", 41, confFilePath)
-		os.Exit(configs.Exit_ConfFileNotExist)
+		os.Exit(1)
 	}
 	if f.IsDir() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' is not a file\n", 41, confFilePath)
-		os.Exit(configs.Exit_ConfFileNotExist)
+		os.Exit(1)
 	}
 
 	viper.SetConfigFile(confFilePath)
@@ -324,14 +325,19 @@ func parseProfile() {
 	err = viper.ReadInConfig()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' file type error\n", 41, confFilePath)
-		os.Exit(configs.Exit_ConfFileTypeError)
+		os.Exit(1)
 	}
 	err = viper.Unmarshal(configs.Confile)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' file format error\n", 41, confFilePath)
-		os.Exit(configs.Exit_ConfFileFormatError)
+		os.Exit(1)
 	}
-	fmt.Println(configs.Confile)
+
+	_, err = os.Stat(configs.Confile.MinerData.MountedPath)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(-1)
+	}
 }
 
 //
@@ -356,7 +362,7 @@ func queryMinerId() (uint64, error) {
 		err = os.MkdirAll(path, os.ModeDir)
 		if err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			os.Exit(configs.Exit_CreateFolder)
+			os.Exit(1)
 		}
 	}
 
@@ -394,19 +400,19 @@ func register() {
 		pledgeTokens,
 	)
 	if !ok || err != nil {
-		logger.InfoLogger.Sugar().Infof("Registration failed......,err:%v", err)
+		logger.InfoLogger.Sugar().Infof("Registration failed,err:%v", err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(configs.Exit_RegisterToChain)
+		os.Exit(1)
 	}
 
 	id, err := queryMinerId()
 	if err == nil {
 		logger.InfoLogger.Sugar().Infof("Your peerId is [C%v]", id)
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m registration success, your id is C%v\n", 42, id)
-		os.Exit(0)
+	} else {
+		fmt.Println("success")
 	}
-	fmt.Println("success")
 	os.Exit(0)
 }
 
@@ -414,18 +420,18 @@ func register() {
 func increase() {
 	if len(os.Args) < 3 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	_, err := strconv.ParseUint(os.Args[2], 10, 64)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
 	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	ok, err = chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
@@ -433,11 +439,11 @@ func increase() {
 		logger.InfoLogger.Sugar().Infof("Increase failed......,err:%v", err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	fmt.Println("success")
 	os.Exit(0)
@@ -450,11 +456,11 @@ func exitmining() {
 		logger.InfoLogger.Sugar().Infof("Exit failed......,err:%v", err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	fmt.Println("success")
 	os.Exit(0)
@@ -467,11 +473,11 @@ func withdraw() {
 		logger.InfoLogger.Sugar().Infof("withdraw failed......,err:%v", err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	fmt.Println("success")
 	os.Exit(0)
