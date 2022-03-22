@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Storage-Mining_0.3.0_Alpha"
+const Version = "CESS-Bucket_V0.3.0"
 
 // cess chain module
 const (

@@ -58,81 +58,90 @@ func init() {
 
 func Command_Version() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run:   Command_Version_Runfunc,
+		Use:                   "version",
+		Short:                 "Print version information",
+		Run:                   Command_Version_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Default() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "default",
-		Short: "Generate profile template",
-		Run:   Command_Default_Runfunc,
+		Use:                   "default",
+		Short:                 "Generate profile template",
+		Run:                   Command_Default_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Register() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "register",
-		Short: "Register miner information to cess chain",
-		Run:   Command_Register_Runfunc,
+		Use:                   "register",
+		Short:                 "Register miner information to cess chain",
+		Run:                   Command_Register_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_State() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "state",
-		Short: "List miners' own information",
-		Run:   Command_State_Runfunc,
+		Use:                   "state",
+		Short:                 "List miners' own information",
+		Run:                   Command_State_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Mining() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "mining",
-		Short: "Start mining at CESS mining platform",
-		Run:   Command_Mining_Runfunc,
+		Use:                   "mining",
+		Short:                 "Start mining at CESS mining platform",
+		Run:                   Command_Mining_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Exit() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "exit",
-		Short: "Exit CESS mining platform",
-		Run:   Command_Exit_Runfunc,
+		Use:                   "exit",
+		Short:                 "Exit CESS mining platform",
+		Run:                   Command_Exit_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Increase() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "increase",
-		Short: "Increase the deposit of miners",
-		Run:   Command_Increase_Runfunc,
+		Use:                   "increase <number of tokens>",
+		Short:                 "Increase the deposit of miners",
+		Run:                   Command_Increase_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Withdraw() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "withdraw",
-		Short: "Redemption deposit",
-		Run:   Command_Withdraw_Runfunc,
+		Use:                   "withdraw",
+		Short:                 "Redemption deposit",
+		Run:                   Command_Withdraw_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
 func Command_Obtain() *cobra.Command {
 	cc := &cobra.Command{
-		Use:   "obtain",
-		Short: "Get cess test coin",
-		Run:   Command_Obtain_Runfunc,
+		Use:                   "obtain <pubkey> <faucet address>",
+		Short:                 "Get cess test coin",
+		Run:                   Command_Obtain_Runfunc,
+		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
@@ -250,6 +259,15 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 }
 
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
+	if len(os.Args) < 3 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
+		os.Exit(1)
+	}
+	_, err := strconv.ParseUint(os.Args[2], 10, 64)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
+		os.Exit(1)
+	}
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
 	if err != nil {
@@ -281,8 +299,18 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
-	//TODO
-	refreshProfile(cmd)
+	if len(os.Args) < 4 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter wallet address public key and faucet address.\n", 41)
+		os.Exit(1)
+	}
+	err := chain.ObtainFromFaucet(os.Args[3], os.Args[2])
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err.Error())
+		os.Exit(1)
+	} else {
+		fmt.Println("success")
+		os.Exit(0)
+	}
 }
 
 //
@@ -418,23 +446,13 @@ func register() {
 
 //
 func increase() {
-	if len(os.Args) < 3 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
-		os.Exit(1)
-	}
-	_, err := strconv.ParseUint(os.Args[2], 10, 64)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
-		os.Exit(1)
-	}
-
 	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
 	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
 		os.Exit(1)
 	}
 
-	ok, err = chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
+	ok, err := chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
 	if err != nil {
 		logger.InfoLogger.Sugar().Infof("Increase failed......,err:%v", err)
 		logger.ErrLogger.Sugar().Errorf("%v", err)

@@ -1,12 +1,14 @@
 package chain
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
 
 	"storage-mining/configs"
 	"storage-mining/internal/logger"
+	"storage-mining/tools"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -1196,5 +1198,40 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 		case <-timeout:
 			return false, errors.New("SubmitAndWatchExtrinsic timeout")
 		}
+	}
+}
+
+type faucet struct {
+	Ans    answer `json:"Result"`
+	Status string `json:"Status"`
+}
+type answer struct {
+	Err       string `json:"Err"`
+	AsInBlock bool   `json:"AsInBlock"`
+}
+
+func ObtainFromFaucet(faucetaddr, pbk string) error {
+	var ob = struct {
+		Address string `json:"Address"`
+	}{
+		pbk,
+	}
+	var res faucet
+	resp, err := tools.Post(faucetaddr, ob)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(resp, &res)
+	if err != nil {
+		return err
+	}
+	if res.Ans.Err != "" {
+		return err
+	}
+
+	if res.Ans.AsInBlock {
+		return nil
+	} else {
+		return errors.New("The address has been picked up today, please come back after 1 day.")
 	}
 }
