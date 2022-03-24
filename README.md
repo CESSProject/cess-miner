@@ -103,12 +103,12 @@ cd cess-bucket
 3. build mining
 
 ```
-go build -o mining cmd/main/main.go
+go build -o bucket cmd/main/main.go
 ```
 
-This will create an executable file called **'mining'**
+This will create an executable file called **'bucket'**
 
-## Usage for mining
+## Usage for bucket
 
 **flag**:
 | Flag      | Description                             |
@@ -133,7 +133,7 @@ This will create an executable file called **'mining'**
 
 1. Generate configuration file template
 ```
-sudo chmod +x mining && ./mining default
+sudo chmod +x bucket && ./bucket default
 ```
 
 2. Modify the configuration file name to conf.toml and modify the following configuration items:
@@ -163,12 +163,12 @@ TransactionPrK = ""
 
 3. Register to the CESS chain
 ```
-sudo ./mining register
+sudo ./bucket register
 ```
 
-4. Start mining normally
+4. Start bucket normally
 ```
-sudo nohup ./mining mining 2>&1 &
+sudo nohup ./bucket mining 2>&1 &
 ```
 
 ## License
