@@ -26,13 +26,13 @@ Building cess-bucket requires some system dependencies, usually provided by your
 **Ubuntu/Debian**:
 - Ubuntu_x64 ≥ 18.04
 ```
-sudo apt install ocl-icd-* gcc git curl hwloc *hwloc* wget util-linux -y && sudo apt upgrade -y
+sudo apt install ocl-icd-* gcc git curl *hwloc* wget util-linux -y && sudo apt upgrade -y
 ```
 
 **RedHat/CentOS**:
 - CentOS_x64 ≥ 8.2
 ```
-sudo yum install ocl-icd-* gcc git curl hwloc *hwloc* wget util-linux -y && sudo apt upgrade -y
+sudo yum install ocl-icd-* gcc git curl *hwloc* wget util-linux -y && sudo apt upgrade -y
 ```
 
 For other Linux distributions, please refer to the corresponding technical documentation.
