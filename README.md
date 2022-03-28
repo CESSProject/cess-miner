@@ -131,7 +131,6 @@ This will create an executable file called **'bucket'**
 | obtain   | Get CESS coins from the faucet       |
 
 ## How to use mining
-
 1. Generate configuration file template
 ```
 sudo chmod +x bucket && ./bucket default
