@@ -171,5 +171,6 @@ sudo ./bucket register
 sudo nohup ./bucket mining 2>&1 &
 ```
 
+
 ## License
 Licensed under [Apache 2.0](https://github.com/CESSProject/cess/blob/main/LICENSE)
