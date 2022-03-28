@@ -16,7 +16,7 @@ For complete instructions on how to build, install and use cess-bucket, Please r
 ## Reporting a Vulnerability
 
 If you find out any vulnerability, Please send an email to tech@cess.one.
-we are happy to communicate with you !!!
+we are happy to communicate with you
 
 ## Basic Build Instructions
 
