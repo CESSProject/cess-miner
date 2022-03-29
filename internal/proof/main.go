@@ -10,6 +10,7 @@ import (
 	. "storage-mining/internal/logger"
 	"storage-mining/tools"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -172,12 +173,13 @@ func segmentVpa() {
 // normally it will run forever.
 func segmentVpb() {
 	var (
-		err               error
-		segsizetype       uint8
-		postproofType     uint8
-		randnum           uint32
-		sealcid           string
-		verifiedPorepData []chain.IpostParaInfo
+		err                 error
+		segsizetype         uint8
+		postproofType       uint8
+		randnum             uint32
+		sealcid             string
+		verifiedPorepData   []chain.IpostParaInfo
+		segDeduplicationVpb sync.Map
 	)
 	for {
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
@@ -223,6 +225,9 @@ func segmentVpb() {
 		}
 
 		for i := 0; i < len(verifiedPorepData); i++ {
+			if _, ok := segDeduplicationVpb.Load(uint64(verifiedPorepData[i].Segment_id)); ok {
+				continue
+			}
 			sealcid = ""
 			sizetypes := fmt.Sprintf("%v", verifiedPorepData[i].Size_type)
 			switch sizetypes {
@@ -271,6 +276,8 @@ func segmentVpb() {
 			}
 			// put the proof on the chain
 			go func(t int64, peerid, segid uint64, sprf string, cids types.Bytes) {
+				segDeduplicationVpb.Store(segid, true)
+				defer segDeduplicationVpb.Delete(segid)
 				for {
 					_, errs := chain.SegmentSubmitToVpaOrVpb(
 						configs.Confile.MinerData.TransactionPrK,
@@ -299,8 +306,9 @@ func segmentVpb() {
 // normally it will run forever.
 func segmentVpc() {
 	var (
-		err             error
-		unsealedcidData []chain.UnsealedCidInfo
+		err                 error
+		unsealedcidData     []chain.UnsealedCidInfo
+		segDeduplicationVpc sync.Map
 	)
 	for {
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
@@ -325,6 +333,9 @@ func segmentVpc() {
 			continue
 		}
 		for i := 0; i < len(unsealedcidData); i++ {
+			if _, ok := segDeduplicationVpc.Load(uint64(unsealedcidData[i].Segment_id)); ok {
+				continue
+			}
 			shardhash := ""
 			uncidstring := ""
 			uncid := make([]string, 0)
@@ -380,6 +391,8 @@ func segmentVpc() {
 			}
 			// put the proof on the chain
 			go func(t int64, peerid, segid uint64, proof [][]byte, cids []types.Bytes, fileid string) {
+				segDeduplicationVpc.Store(segid, true)
+				defer segDeduplicationVpc.Delete(segid)
 				for {
 					_, errs := chain.SegmentSubmitToVpc(
 						configs.Confile.MinerData.TransactionPrK,
@@ -409,12 +422,13 @@ func segmentVpc() {
 // normally it will run forever.
 func segmentVpd() {
 	var (
-		err               error
-		randnum           uint32
-		verifiedPorepData []chain.FpostParaInfo
+		err                 error
+		randnum             uint32
+		verifiedPorepData   []chain.FpostParaInfo
+		segDeduplicationVpd sync.Map
 	)
 	for {
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
+		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 		verifiedPorepData, err = chain.GetVpcPostOnChain(
 			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
@@ -428,6 +442,9 @@ func segmentVpd() {
 			continue
 		}
 		for i := 0; i < len(verifiedPorepData); i++ {
+			if _, ok := segDeduplicationVpd.Load(uint64(verifiedPorepData[i].Segment_id)); ok {
+				continue
+			}
 			randnum, err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
@@ -491,6 +508,8 @@ func segmentVpd() {
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
 			go func(t int64, peerid, segid uint64, prf [][]byte, cids []types.Bytes, fileid string) {
+				segDeduplicationVpd.Store(segid, true)
+				defer segDeduplicationVpd.Delete(segid)
 				for {
 					_, errs := chain.SegmentSubmitToVpd(
 						configs.Confile.MinerData.TransactionPrK,
@@ -509,7 +528,7 @@ func segmentVpd() {
 						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, peerid, segid, err)
 						return
 					}
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 20)))
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 				}
 			}(time.Now().Unix(), uint64(verifiedPorepData[i].Peer_id), uint64(verifiedPorepData[i].Segment_id), proof, verifiedPorepData[i].Sealed_cid, fid)
 		}
