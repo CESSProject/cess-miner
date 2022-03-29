@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"storage-mining/configs"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	prf "github.com/filecoin-project/specs-actors/actors/runtime/proof"
@@ -18,7 +18,7 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", sealProofType, sectorId.SectorNum)
@@ -43,7 +43,8 @@ func GenerateSenmentVpa(sectorId SectorID, seed abi.InteractiveSealRandomness, t
 	}
 
 	sealedCID, proof := GetPoRepForIdle(sectorId, seed, ticket, sealProofType, configs.TmpltFileName, path, cachePath)
-	if (proof == nil) || (sealedCID == cid.Cid{}) {
+	if proof == nil {
+		os.RemoveAll(path)
 		return cid.Cid{}, nil, errors.Wrap(err, "PoRepForIdle is nil")
 	}
 	return sealedCID, proof, nil
@@ -54,7 +55,7 @@ func generateSenmentVpb(sectorId SectorID, segsizetype uint8, postProofType abi.
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	segPath := fmt.Sprintf("%v_%v", segsizetype, sectorId.SectorNum)
@@ -62,33 +63,28 @@ func generateSenmentVpb(sectorId SectorID, segsizetype uint8, postProofType abi.
 
 	_, err := os.Stat(path)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("[%v] not found, %v", path, err)
-		return nil, errors.Wrap(err, "os.Stat(path) err")
+		return nil, errors.Wrapf(err, "os.Stat(%v)", path)
 	}
 	cachePath := filepath.Join(path, configs.Cache)
 	_, err = os.Stat(cachePath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("[%v] not found, %v", cachePath, err)
-		return nil, errors.Wrap(err, "os.Stat(cachePath) err")
+		return nil, errors.Wrapf(err, "os.Stat(%v)", cachePath)
 	}
 	var sealedCIDs = make([]cid.Cid, 0)
 	for i := 0; i < len(sealedCIDsStr); i++ {
 		tmp, err := cid.Parse(sealedCIDsStr[i])
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[%v] cid parse err, %v", sealedCIDsStr[i], err)
-			return nil, errors.Wrap(err, "cid.Parse err")
+			return nil, errors.Wrapf(err, "cid.Parse(%v)", sealedCIDsStr[i])
 		}
 		sealedCIDs = append(sealedCIDs, tmp)
 	}
 
 	postProof, faultySectorsl, err := GetPoSt(sectorId, postProofType, sealedCIDs, randomness, path, cachePath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("[C%v] GetPoSt err, %v", sectorId.PeerID, err)
-		return nil, errors.Wrap(err, "GetPoSt err")
+		return nil, errors.Wrapf(err, "GetPoSt err")
 	}
 	if faultySectorsl != nil {
-		logger.ErrLogger.Sugar().Errorf("Failed sealedcid: %v", faultySectorsl)
-		return nil, errors.Wrap(err, "GetPoSt err II")
+		return nil, errors.Wrapf(err, "GetPoSt failed:%v", faultySectorsl)
 	}
 	return postProof, nil
 }
@@ -99,12 +95,11 @@ func generateSegmentVpc(file, filesegpath string, segid uint64, rand []byte, unc
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	cachefilepath := filepath.Join(filesegpath, configs.Cache)
 	if err = os.MkdirAll(cachefilepath, os.ModeDir); err != nil {
-		logger.ErrLogger.Sugar().Errorf("%v", err)
 		return nil, nil, err
 	}
 
@@ -112,7 +107,6 @@ func generateSegmentVpc(file, filesegpath string, segid uint64, rand []byte, unc
 	for i := 0; i < len(uncid); i++ {
 		tmp, err := cid.Parse(uncid[i])
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("Parse cid error:%v", err)
 			return nil, nil, err
 		}
 		unsealedCids = append(unsealedCids, tmp)
@@ -135,7 +129,7 @@ func generateSenmentVpd(sealpath, cachePath string, segid uint64, rand []byte, s
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	_, err := os.Stat(sealpath)

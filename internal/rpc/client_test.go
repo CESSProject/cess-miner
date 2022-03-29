@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
-	"storage-mining/log"
-	. "storage-mining/rpc/proto"
+	. "storage-mining/internal/rpc/proto"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +24,6 @@ func TestDialWebsocket(t *testing.T) {
 	srv.Register("test", testService{})
 	s := httptest.NewServer(srv.WebsocketHandler([]string{"*"}))
 	defer s.Close()
-	defer log.Flush()
 	defer srv.Close()
 
 	wsURL := "ws:" + strings.TrimPrefix(s.URL, "http:")

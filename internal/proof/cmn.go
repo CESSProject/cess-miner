@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sort"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"strconv"
 	"strings"
 
@@ -111,8 +111,7 @@ func NewSortedSectorInfo(sectorInfo []prf.SectorInfo) []prf.SectorInfo {
 
 func RequireNoError(err error, msgAndArgs ...interface{}) {
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("%v", err)
-		//fmt.Println("error happened!", err)
+		Err.Sugar().Errorf("%v", err)
 	}
 }
 

@@ -43,6 +43,7 @@ message file_download_info {
 
 message file_download_req{
   string  file_id=1;
-  string  walletAddress=2;
-  int32   blocks=3;
+  bytes   publickey=2;
+  bytes   sign=3;
+  int32   blocks=4;
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"storage-mining/configs"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"sync"
 	"time"
 
@@ -17,9 +17,7 @@ var (
 )
 
 func Chain_Init() {
-	var (
-		err error
-	)
+	var err error
 	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -47,7 +45,7 @@ func substrateAPIKeepAlive() {
 			count_r = 2
 			r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 			} else {
 				count_r = 0
 			}
@@ -59,7 +57,7 @@ func healthchek(a *gsrpc.SubstrateAPI) (uint64, error) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	h, err := a.RPC.System.Health()

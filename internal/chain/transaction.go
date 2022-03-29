@@ -2,12 +2,11 @@ package chain
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"strconv"
 
 	"storage-mining/configs"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"storage-mining/tools"
 	"time"
 
@@ -76,6 +75,34 @@ type Event_Sminer_MinerClaim struct {
 	Topics []types.Hash
 }
 
+type Event_DeleteFile struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Fileid types.Bytes
+	Topics []types.Hash
+}
+
+type Event_BuySpace struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Size   types.U128
+	Fee    types.U128
+	Topics []types.Hash
+}
+
+type Event_FileUpload struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Topics []types.Hash
+}
+
+type Event_FileUpdate struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Fileid types.Bytes
+	Topics []types.Hash
+}
+
 type MyEventRecords struct {
 	types.EventRecords
 	SegmentBook_ParamSet      []Event_SegmentBook_ParamSet
@@ -93,7 +120,13 @@ type MyEventRecords struct {
 	Sminer_MinerExit          []Event_Sminer_MinerExit
 	Sminer_MinerClaim         []Event_Sminer_MinerClaim
 	//
+	FileBank_DeleteFile []Event_DeleteFile
+	FileBank_BuySpace   []Event_BuySpace
+	FileBank_FileUpload []Event_FileUpload
+	FileBank_FileUpdate []Event_FileUpdate
+	//other
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
+	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
 }
 
@@ -108,7 +141,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 
@@ -208,7 +241,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
@@ -240,7 +273,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -330,7 +363,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -362,7 +395,7 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -448,7 +481,7 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -480,7 +513,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -566,7 +599,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				switch TransactionName {
 				case configs.ChainTx_SegmentBook_SubmitToVpa:
@@ -612,7 +645,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -704,7 +737,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.SegmentBook_VPCSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPCSubmitted); i++ {
@@ -736,7 +769,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -827,7 +860,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.SegmentBook_VPDSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPDSubmitted); i++ {
@@ -859,7 +892,7 @@ func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (b
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -945,7 +978,7 @@ func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (b
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.Sminer_IncreaseCollateral != nil {
 					for i := 0; i < len(events.Sminer_IncreaseCollateral); i++ {
@@ -977,7 +1010,7 @@ func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -1063,7 +1096,7 @@ func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.Sminer_MinerExit != nil {
 					for i := 0; i < len(events.Sminer_MinerExit); i++ {
@@ -1095,7 +1128,7 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -1181,7 +1214,7 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.Sminer_MinerClaim != nil {
 					for i := 0; i < len(events.Sminer_MinerClaim); i++ {

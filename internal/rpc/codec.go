@@ -2,10 +2,10 @@ package rpc
 
 import (
 	"io"
-	. "storage-mining/rpc/proto"
+	. "storage-mining/internal/rpc/proto"
 
-	"github.com/gorilla/websocket"
 	"github.com/golang/protobuf/proto"
+	"github.com/gorilla/websocket"
 )
 
 type protoCodec struct {

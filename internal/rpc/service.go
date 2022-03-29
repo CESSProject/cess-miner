@@ -3,7 +3,7 @@ package rpc
 import (
 	"fmt"
 	"reflect"
-	. "storage-mining/rpc/proto"
+	. "storage-mining/internal/rpc/proto"
 	"strings"
 	"sync"
 	"unicode"

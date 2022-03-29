@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -11,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"storage-mining/log"
+	"storage-mining/internal/logger"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/golang/protobuf/proto"
@@ -40,7 +39,7 @@ func (s *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Debug("WebSocket upgrade failed", "err", err)
+			logger.Err.Sugar().Errorf("WebSocket upgrade failed, err:%v", err)
 			return
 		}
 		codec := newWebsocketCodec(conn, r.Host, r.Header)
@@ -67,7 +66,6 @@ func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
 			origins.Add("http://" + hostname)
 		}
 	}
-	log.Debug(fmt.Sprintf("Allowed origin(s) for WS RPC interface %v", origins.ToSlice()))
 
 	f := func(req *http.Request) bool {
 		// Skip origin verification if no Origin header is present. The origin check
@@ -82,7 +80,7 @@ func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
 		if allowAllOrigins || originIsAllowed(origins, origin) {
 			return true
 		}
-		log.Warn("Rejected WebSocket connection", "origin", origin)
+		logger.Warn.Sugar().Warnf("Rejected WebSocket connection origin:%v", origin)
 		return false
 	}
 
@@ -107,12 +105,12 @@ func ruleAllowsOrigin(allowedOrigin string, browserOrigin string) bool {
 	)
 	allowedScheme, allowedHostname, allowedPort, err = parseOriginURL(allowedOrigin)
 	if err != nil {
-		log.Warn("Error parsing allowed origin specification", "spec", allowedOrigin, "error", err)
+		logger.Warn.Sugar().Warnf("Error parsing allowed origin specification, spec:%v err:%v", allowedOrigin, err)
 		return false
 	}
 	browserScheme, browserHostname, browserPort, err = parseOriginURL(browserOrigin)
 	if err != nil {
-		log.Warn("Error parsing browser 'Origin' field", "Origin", browserOrigin, "error", err)
+		logger.Warn.Sugar().Warnf("parsing browser 'Origin' field, Origin:%v err:%v", browserOrigin, err)
 		return false
 	}
 	if allowedScheme != "" && allowedScheme != browserScheme {

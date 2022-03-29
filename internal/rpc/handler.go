@@ -2,7 +2,7 @@ package rpc
 
 import (
 	"context"
-	. "storage-mining/rpc/proto"
+	. "storage-mining/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 )

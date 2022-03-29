@@ -2,10 +2,8 @@ package chain
 
 import (
 	"encoding/binary"
-	"fmt"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 
-	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -77,7 +75,7 @@ func GetMinerInfo1(identifyAccountPhrase, chainModule, chainModuleMethod string)
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -115,7 +113,7 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -183,7 +181,7 @@ func GetSeedNumOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -222,7 +220,7 @@ func GetVpaPostOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -258,7 +256,7 @@ func GetunsealcidOnChain(identifyAccountPhrase, chainModule, chainModuleMethod s
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -294,7 +292,7 @@ func GetVpcPostOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
@@ -317,35 +315,4 @@ func GetVpcPostOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 		return paramdata, errors.Wrap(err, "GetStorageLatest err")
 	}
 	return paramdata, nil
-}
-
-// Renewal tokens
-func RenewalTokens() error {
-	//TODO:
-	return errors.New("test")
-}
-
-//not use
-func GetLatestBlockHeight() {
-	api, err := gsrpc.NewSubstrateAPI("ws://106.15.44.155:9947")
-	if err != nil {
-		panic(err)
-	}
-	sub, err := api.RPC.Chain.SubscribeNewHeads()
-	if err != nil {
-		panic(err)
-	}
-	defer sub.Unsubscribe()
-
-	count := 0
-
-	for {
-		head := <-sub.Chan()
-		fmt.Printf("Chain is at block: #%v\n", head.Number)
-		count++
-		if count == 10 {
-			sub.Unsubscribe()
-			break
-		}
-	}
 }

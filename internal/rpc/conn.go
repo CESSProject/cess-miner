@@ -3,9 +3,10 @@ package rpc
 import (
 	"context"
 
+	"storage-mining/internal/logger"
+	. "storage-mining/internal/rpc/proto"
+
 	"github.com/golang/protobuf/proto"
-	"storage-mining/log"
-	. "storage-mining/rpc/proto"
 )
 
 type SrvConn struct {
@@ -24,7 +25,7 @@ func (c *SrvConn) readLoop() {
 		}
 
 		if err != nil {
-			log.Debug("server RPC connection read error ", err)
+			logger.Warn.Sugar().Warnf("RPC service connection read err:%v", err)
 			c.codec.Close()
 			break
 		}
@@ -47,7 +48,7 @@ func (c *ClientConn) readLoop(recv func(msg RespMsg)) {
 		}
 
 		if err != nil {
-			log.Debug("client RPC connection read error ", err)
+			logger.Warn.Sugar().Warnf("RPC client service connection read err:%v", err)
 			c.closeCh <- struct{}{}
 			break
 		}

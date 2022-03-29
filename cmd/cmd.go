@@ -8,9 +8,9 @@ import (
 	"storage-mining/configs"
 	"storage-mining/initlz"
 	"storage-mining/internal/chain"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"storage-mining/internal/proof"
-	"storage-mining/rpc"
+	"storage-mining/internal/rpc"
 	"storage-mining/tools"
 	"strconv"
 	"strings"
@@ -192,7 +192,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Err.Sugar().Errorf("%v", err)
 		os.Exit(1)
 	}
 	if peerid == 0 {
@@ -207,7 +207,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		)
 		if err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			logger.ErrLogger.Sugar().Errorf("%v", err)
+			Err.Sugar().Errorf("%v", err)
 			os.Exit(-1)
 		}
 		tokens := minerInfo.Collaterals1.Div(minerInfo.Collaterals1.Int, big.NewInt(1000000000000))
@@ -223,7 +223,7 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Err.Sugar().Errorf("%v", err)
 		os.Exit(1)
 	}
 	if peerid == 0 {
@@ -247,7 +247,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Err.Sugar().Errorf("%v", err)
 		os.Exit(-1)
 	}
 	if peerid == 0 {
@@ -272,7 +272,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Err.Sugar().Errorf("%v", err)
 		os.Exit(-1)
 	}
 	if peerid == 0 {
@@ -288,7 +288,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	peerid, err := queryMinerId()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Err.Sugar().Errorf("%v", err)
 		os.Exit(-1)
 	}
 	if peerid == 0 {
@@ -378,32 +378,35 @@ func queryMinerId() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+	if mData.Peerid == 0 {
+		return 0, nil
+	}
 
-	configs.MinerDataPath += fmt.Sprintf("%d", mData.Peerid)
-	configs.MinerId_I = uint64(mData.Peerid)
-	configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
-	path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
-	configs.MinerDataPath = path
-
-	_, err = os.Stat(path)
-	if err != nil {
-		err = os.MkdirAll(path, os.ModeDir)
+	if configs.MinerId_I == 0 {
+		configs.MinerDataPath += fmt.Sprintf("%d", mData.Peerid)
+		configs.MinerId_I = uint64(mData.Peerid)
+		configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
+		path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
+		configs.MinerDataPath = path
+		_, err = os.Stat(path)
 		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			os.Exit(1)
+			err = os.MkdirAll(path, os.ModeDir)
+			if err != nil {
+				fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+				os.Exit(1)
+			}
 		}
+		saddr := tools.Base58Decoding(string(mData.ServiceAddr))
+		tmp := strings.Split(saddr, ":")
+		if len(tmp) == 2 {
+			configs.MinerServiceAddr = tmp[0]
+			configs.MinerServicePort, _ = strconv.Atoi(tmp[1])
+		} else {
+			configs.MinerServiceAddr = tmp[0]
+			configs.MinerServicePort = 80
+		}
+		LoggerInit()
 	}
-
-	saddr := tools.Base58Decoding(string(mData.ServiceAddr))
-	tmp := strings.Split(saddr, ":")
-	if len(tmp) == 2 {
-		configs.MinerServiceAddr = tmp[0]
-		configs.MinerServicePort, _ = strconv.Atoi(tmp[1])
-	} else {
-		configs.MinerServiceAddr = tmp[0]
-		configs.MinerServicePort = 80
-	}
-	logger.LoggerInit()
 	return uint64(mData.Peerid), nil
 }
 
@@ -417,8 +420,8 @@ func register() {
 
 	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
 
-	logger.InfoLogger.Sugar().Infof("Start registration......\n    CessAddr:%v\n    PledgeTokens:%v\n    ServiceAddr:%v\n    TransactionPrK:%v\n    RevenuePuK :%v",
-		configs.Confile.CessChain.ChainAddr, pledgeTokens, configs.Confile.MinerData.ServiceAddr, configs.Confile.MinerData.TransactionPrK, configs.Confile.MinerData.RevenuePuK)
+	// Out.Sugar().Infof("Start registration......\n    CessAddr:%v\n    PledgeTokens:%v\n    ServiceAddr:%v\n    TransactionPrK:%v\n    RevenuePuK :%v",
+	// 	configs.Confile.CessChain.ChainAddr, pledgeTokens, configs.Confile.MinerData.ServiceAddr, configs.Confile.MinerData.TransactionPrK, configs.Confile.MinerData.RevenuePuK)
 
 	ok, err := chain.RegisterToChain(
 		configs.Confile.MinerData.TransactionPrK,
@@ -428,18 +431,16 @@ func register() {
 		pledgeTokens,
 	)
 	if !ok || err != nil {
-		logger.InfoLogger.Sugar().Infof("Registration failed,err:%v", err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
 
 	id, err := queryMinerId()
-	if err == nil {
-		logger.InfoLogger.Sugar().Infof("Your peerId is [C%v]", id)
+	if err == nil && id > 0 {
+		Out.Sugar().Infof("Your peerId is [C%v]", id)
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m registration success, your id is C%v\n", 42, id)
 	} else {
-		fmt.Println("success")
+		fmt.Println("Network timed out, please try again!")
 	}
 	os.Exit(0)
 }
@@ -454,8 +455,8 @@ func increase() {
 
 	ok, err := chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
 	if err != nil {
-		logger.InfoLogger.Sugar().Infof("Increase failed......,err:%v", err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Out.Sugar().Infof("Increase failed......,err:%v", err)
+		Err.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
@@ -471,8 +472,8 @@ func increase() {
 func exitmining() {
 	ok, err := chain.ExitMining(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_ExitMining)
 	if err != nil {
-		logger.InfoLogger.Sugar().Infof("Exit failed......,err:%v", err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Out.Sugar().Infof("Exit failed......,err:%v", err)
+		Err.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
@@ -488,8 +489,8 @@ func exitmining() {
 func withdraw() {
 	ok, err := chain.Withdraw(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Withdraw)
 	if err != nil {
-		logger.InfoLogger.Sugar().Infof("withdraw failed......,err:%v", err)
-		logger.ErrLogger.Sugar().Errorf("%v", err)
+		Out.Sugar().Infof("withdraw failed......,err:%v", err)
+		Err.Sugar().Errorf("%v", err)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
