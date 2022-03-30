@@ -113,20 +113,29 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
@@ -134,9 +143,17 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 							return true, nil
 						}
 					}
-					return false, errors.New("events.Sminer_Registered data err")
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.Sminer_Registered data err", head.Number)
+					} else {
+						return false, errors.New("events.Sminer_Registered data err")
+					}
 				}
-				return false, errors.New("events.Sminer_Registered not found")
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]events.Sminer_Registered not found", head.Number)
+				} else {
+					return false, errors.New("events.Sminer_Registered not found")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
