@@ -1,4 +1,4 @@
-module storage-mining
+module cess-bucket
 
 go 1.16
 

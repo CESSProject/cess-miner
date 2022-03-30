@@ -1,10 +1,10 @@
 package chain
 
 import (
+	"cess-bucket/configs"
+	. "cess-bucket/internal/logger"
 	"fmt"
 	"os"
-	"storage-mining/configs"
-	. "storage-mining/internal/logger"
 	"sync"
 	"time"
 

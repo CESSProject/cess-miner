@@ -1,8 +1,8 @@
 package chain
 
 import (
+	. "cess-bucket/internal/logger"
 	"encoding/binary"
-	. "storage-mining/internal/logger"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"

@@ -2,11 +2,11 @@ package proof
 
 import (
 	"bytes"
+	. "cess-bucket/internal/logger"
 	"io"
 	"io/ioutil"
 	"os"
 	"sort"
-	. "storage-mining/internal/logger"
 	"strconv"
 	"strings"
 

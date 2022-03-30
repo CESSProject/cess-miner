@@ -1,7 +1,7 @@
 package main
 
 import (
-	"storage-mining/cmd"
+	"cess-bucket/cmd"
 )
 
 // program entry

@@ -1,8 +1,8 @@
 package rpc
 
 import (
+	. "cess-bucket/internal/rpc/proto"
 	"context"
-	. "storage-mining/internal/rpc/proto"
 	"sync"
 	"sync/atomic"
 )

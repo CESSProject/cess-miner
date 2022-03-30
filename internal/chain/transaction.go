@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"storage-mining/configs"
-	. "storage-mining/internal/logger"
-	"storage-mining/tools"
+	"cess-bucket/configs"
+	. "cess-bucket/internal/logger"
+	"cess-bucket/tools"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"

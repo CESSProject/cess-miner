@@ -1,10 +1,10 @@
 package initlz
 
 import (
+	"cess-bucket/internal/proof"
+	"cess-bucket/tools"
 	"fmt"
 	"os"
-	"storage-mining/internal/proof"
-	"storage-mining/tools"
 )
 
 func SystemInit() {
