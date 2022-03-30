@@ -3,10 +3,13 @@ package tools
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/pkg/errors"
 )
@@ -188,4 +192,104 @@ func EscapeURISpecialCharacters(in string) string {
 func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())
 	return rand.Intn(max-min) + min
+}
+
+var base58 = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+//Base58 encode
+func Base58Encoding(str string) string {
+	strByte := []byte(str)
+	strTen := big.NewInt(0).SetBytes(strByte)
+	var modSlice []byte
+	for strTen.Cmp(big.NewInt(0)) > 0 {
+		mod := big.NewInt(0)
+		strTen58 := big.NewInt(58)
+		strTen.DivMod(strTen, strTen58, mod)
+		modSlice = append(modSlice, base58[mod.Int64()])
+	}
+
+	for _, elem := range strByte {
+		if elem != 0 {
+			break
+		} else if elem == 0 {
+			modSlice = append(modSlice, byte('1'))
+		}
+	}
+	ReverseModSlice := ReverseByteArr(modSlice)
+	return string(ReverseModSlice)
+}
+
+func ReverseByteArr(bytes []byte) []byte {
+	for i := 0; i < len(bytes)/2; i++ {
+		bytes[i], bytes[len(bytes)-1-i] = bytes[len(bytes)-1-i], bytes[i]
+	}
+	return bytes
+}
+
+//Base58 Decode
+func Base58Decoding(str string) string {
+	strByte := []byte(str)
+	ret := big.NewInt(0)
+	for _, byteElem := range strByte {
+		index := bytes.IndexByte(base58, byteElem)
+		ret.Mul(ret, big.NewInt(58))
+		ret.Add(ret, big.NewInt(int64(index)))
+	}
+	return string(ret.Bytes())
+}
+
+//
+func B2S(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func S2B(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s))
+}
+
+//
+func CreatDirIfNotExist(dir string) error {
+	_, err := os.Stat(dir)
+	if err != nil {
+		return os.MkdirAll(dir, os.ModeDir)
+	}
+	return nil
+}
+
+//
+func WalkDir(filePath string) ([]string, error) {
+	dirs := make([]string, 0)
+	files, err := ioutil.ReadDir(filePath)
+	if err != nil {
+		return dirs, err
+	} else {
+		for _, v := range files {
+			if v.IsDir() {
+				dirs = append(dirs, v.Name())
+			}
+		}
+	}
+	return dirs, nil
+}
+
+//
+func Post(url string, para interface{}) ([]byte, error) {
+	body, err := json.Marshal(para)
+	if err != nil {
+		return nil, err
+	}
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	var resp = new(http.Response)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp != nil {
+		respBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return respBody, err
+	}
+	return nil, err
 }

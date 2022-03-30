@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 	"storage-mining/configs"
 	"storage-mining/internal/chain"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"storage-mining/tools"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/filecoin-project/go-state-types/abi"
-	"github.com/ipfs/go-cid"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
 )
@@ -24,16 +25,36 @@ type mountpathInfo struct {
 	Free  uint64
 }
 
+// init
 func Proof_Init() {
+	configs.SpaceDir = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
+	configs.ServiceDir = filepath.Join(configs.MinerDataPath, configs.ServiceDir)
+	_, err := os.Stat(configs.SpaceDir)
+	if err != nil {
+		if err = os.MkdirAll(configs.SpaceDir, os.ModeDir); err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			os.Exit(1)
+		}
+	}
+	_, err = os.Stat(configs.ServiceDir)
+	if err != nil {
+		if err = os.MkdirAll(configs.ServiceDir, os.ModeDir); err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			os.Exit(1)
+		}
+	}
+
 	path := filepath.Join(configs.MinerDataPath, configs.TmpltFileFolder)
 	configs.TmpltFileFolder = path
-	_, err := os.Stat(configs.TmpltFileFolder)
+	_, err = os.Stat(configs.TmpltFileFolder)
 	if err != nil {
-		err = os.MkdirAll(configs.TmpltFileFolder, os.ModePerm)
+		err = os.MkdirAll(configs.TmpltFileFolder, os.ModeDir)
 		if err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			os.Exit(configs.Exit_CreateFolder)
+			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			os.Exit(1)
 		}
 	}
 
@@ -41,14 +62,15 @@ func Proof_Init() {
 	_, err = os.Create(tmpFile)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-		os.Exit(configs.Exit_CreateFile)
+		Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+		os.Exit(1)
 	}
 	configs.TmpltFileName = tmpFile
-	deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
+	deleteFailedSegment(configs.SpaceDir)
 	spaceReasonable()
 }
 
+// Start the proof module
 func Proof_Main() {
 	go segmentVpa()
 	go segmentVpb()
@@ -56,59 +78,47 @@ func Proof_Main() {
 	go segmentVpd()
 }
 
+// segmentVpa is used to generate the porep of idle data segments.
+// it also has a space management and space synchronization mechanism.
+// normally it will run forever.
 func segmentVpa() {
 	var (
 		err         error
-		ok          bool
-		segType     uint8
 		segsizeType uint8
-		segmentNum  uint32
 		enableS     uint64
-		segmentPath = ""
 	)
-	segType = 1
-	segmentPath = filepath.Join(configs.MinerDataPath, configs.SegmentData)
-	for range time.Tick(time.Second) {
-		deleteFailedSegment(filepath.Join(configs.MinerDataPath, configs.SegmentData))
-		enableS, err = getEnableSpace()
+	for {
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+		deleteFailedSegment(configs.SpaceDir)
+		enableS, err = calcAvailableSpace()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			continue
 		}
 		if enableS > 0 {
-			segmentNum, err = getSegmentNumForTypeOne(segmentPath, configs.SegMentType_8M_S)
-			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
-				continue
-			}
-			if segmentNum >= 100 {
+			// segmentNum, err := getSegmentNumForTypeOne(configs.SpaceDir, configs.SegMentType_8M_S)
+			// if err != nil {
+			// 	Err.Sugar().Errorf("%v", err)
+			// 	continue
+			// }
+			if enableS > 512*1024*1024 {
 				segsizeType = configs.SegMentType_512M
 			} else {
 				segsizeType = configs.SegMentType_8M
 			}
-
 			segmentId, randnum, err := chain.IntentSubmitToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmit,
 				segsizeType,
-				segType,
+				configs.SegMentType_Idle,
 				configs.MinerId_I,
-				nil,
 				nil,
 				nil,
 			)
 			if err != nil || randnum == 0 || segmentId == 0 {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v]", err, segmentId, randnum)
+				Err.Sugar().Errorf("[%v][%v][%v]", err, segmentId, randnum)
 				continue
 			}
-			// porepRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetA,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(configs.MinerId_I),
@@ -116,14 +126,13 @@ func segmentVpa() {
 			}
 			seed, err := tools.IntegerToBytes(randnum)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
-			var cid cid.Cid
-			var prf []byte
-			cid, prf, err = GenerateSenmentVpa(secid, seed, seed, abi.RegisteredSealProof(segsizeType))
+			// Generate proof
+			cid, prf, err := GenerateSenmentVpa(secid, seed, seed, abi.RegisteredSealProof(segsizeType))
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			sproof := ""
@@ -131,55 +140,94 @@ func segmentVpa() {
 				var tmp = fmt.Sprintf("%#02x", prf[i])
 				sproof += tmp[2:]
 			}
-			ok, err = chain.SegmentSubmitToVpaOrVpb(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
-				configs.ChainTx_SegmentBook_SubmitToVpa,
-				configs.MinerId_I,
-				uint64(segmentId),
-				[]byte(sproof),
-				[]byte(cid.String()),
-			)
-			if !ok || err != nil {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segmentId, sproof, cid.String(), err)
-			} else {
-				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segmentId, sproof, cid.String())
-			}
+			// put the proof on the chain
+			go func(t int64, segid uint64, prf, cids string) {
+				for {
+					_, errs := chain.SegmentSubmitToVpaOrVpb(
+						configs.Confile.MinerData.TransactionPrK,
+						configs.ChainTx_SegmentBook_SubmitToVpa,
+						configs.MinerId_I,
+						uint64(segid),
+						[]byte(prf),
+						[]byte(cids),
+					)
+					if errs == nil {
+						Out.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids)
+						return
+					}
+					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
+						Err.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids, err)
+						return
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+				}
+			}(time.Now().Unix(), segmentId, sproof, cid.String())
 		} else {
-			time.Sleep(time.Minute * 10)
+			Out.Sugar().Infof("Insufficient free space on the mounted disk or the maximum storage space has been reached.")
+			time.Sleep(time.Minute)
 		}
 	}
 }
 
+// segmentVpb is used to generate the post of idle data segments.
+// normally it will run forever.
 func segmentVpb() {
 	var (
-		err           error
-		ok            bool
-		segsizetype   uint8
-		postproofType uint8
-		segType       uint8
-		randnum       uint32
-		sealcid       string
+		err                 error
+		segsizetype         uint8
+		postproofType       uint8
+		randnum             uint32
+		sealcid             string
+		verifiedPorepData   []chain.IpostParaInfo
+		segDeduplicationVpb sync.Map
 	)
-	segType = 1
-	tk := time.NewTicker(time.Minute)
-	for range tk.C {
-		var verifiedPorepData []chain.IpostParaInfo
+	for {
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_ConProofInfoA,
 		)
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			tk.Reset(time.Minute)
+			Err.Sugar().Errorf("%v", err)
 			continue
-		} else {
-			tk.Reset(time.Minute * time.Duration(configs.Vpb_SubmintPeriod))
 		}
+		effictiveDir := make([]string, 0)
+		for m := 0; m < len(verifiedPorepData); m++ {
+			segsizetype := ""
+			sizetypes := fmt.Sprintf("%v", verifiedPorepData[m].Size_type)
+			switch sizetypes {
+			case "8":
+				segsizetype = "1"
+			case "512":
+				segsizetype = "2"
+			}
+			dir := segsizetype + "_" + fmt.Sprintf("%d", verifiedPorepData[m].Segment_id)
+			effictiveDir = append(effictiveDir, dir)
+		}
+		localdir, _ := tools.WalkDir(configs.SpaceDir)
+		ishave := false
+		for _, v1 := range localdir {
+			ishave = false
+			for _, v2 := range effictiveDir {
+				if v1 == v2 {
+					ishave = true
+					break
+				}
+			}
+			if !ishave {
+				os.RemoveAll(v1)
+			}
+		}
+
 		if len(verifiedPorepData) == 0 {
-			tk.Reset(time.Minute)
+			continue
 		}
+
 		for i := 0; i < len(verifiedPorepData); i++ {
+			if _, ok := segDeduplicationVpb.Load(uint64(verifiedPorepData[i].Segment_id)); ok {
+				continue
+			}
 			sealcid = ""
 			sizetypes := fmt.Sprintf("%v", verifiedPorepData[i].Size_type)
 			switch sizetypes {
@@ -191,25 +239,16 @@ func segmentVpb() {
 				postproofType = 7
 			}
 			randnum, err = chain.IntentSubmitPostToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
+				configs.Confile.MinerData.TransactionPrK,
 				configs.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
-				segType,
+				configs.SegMentType_Idle,
 			)
 			if err != nil || randnum == 0 {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetB,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 
 			secid := SectorID{
 				PeerID:    abi.ActorID(verifiedPorepData[i].Peer_id),
@@ -217,16 +256,17 @@ func segmentVpb() {
 			}
 			seed, err := tools.IntegerToBytes(randnum)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			for j := 0; j < len(verifiedPorepData[i].Sealed_cid); j++ {
 				temp := fmt.Sprintf("%c", verifiedPorepData[i].Sealed_cid[j])
 				sealcid += temp
 			}
+			// Generate proof
 			prf, err := generateSenmentVpb(secid, segsizetype, abi.RegisteredPoStProof(postproofType), []string{sealcid}, seed)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			spostproof := ""
@@ -234,63 +274,71 @@ func segmentVpb() {
 				var tmp = fmt.Sprintf("%#02x", prf[0].ProofBytes[j])
 				spostproof += tmp[2:]
 			}
-
-			ok, err = chain.SegmentSubmitToVpaOrVpb(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
-				configs.ChainTx_SegmentBook_SubmitToVpb,
-				uint64(verifiedPorepData[i].Peer_id),
-				uint64(verifiedPorepData[i].Segment_id),
-				[]byte(spostproof),
-				verifiedPorepData[i].Sealed_cid,
-			)
-			if !ok || err != nil {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid, err)
-			} else {
-				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, verifiedPorepData[i].Segment_id, spostproof, sealcid)
-			}
+			// put the proof on the chain
+			go func(t int64, peerid, segid uint64, sprf string, cids types.Bytes) {
+				segDeduplicationVpb.Store(segid, true)
+				defer segDeduplicationVpb.Delete(segid)
+				for {
+					_, errs := chain.SegmentSubmitToVpaOrVpb(
+						configs.Confile.MinerData.TransactionPrK,
+						configs.ChainTx_SegmentBook_SubmitToVpb,
+						peerid,
+						segid,
+						[]byte(sprf),
+						cids,
+					)
+					if errs == nil {
+						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, segid, sprf)
+						return
+					}
+					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, segid, sprf, err)
+						return
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 20)))
+				}
+			}(time.Now().Unix(), uint64(verifiedPorepData[i].Peer_id), uint64(verifiedPorepData[i].Segment_id), spostproof, verifiedPorepData[i].Sealed_cid)
 		}
 	}
 }
 
+// segmentVpc is used to generate porep for service data segments.
+// normally it will run forever.
 func segmentVpc() {
 	var (
-		err error
-		ok  bool
+		err                 error
+		unsealedcidData     []chain.UnsealedCidInfo
+		segDeduplicationVpc sync.Map
 	)
-	fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
-	tk := time.NewTicker(time.Second)
-	for range tk.C {
-		var unsealedcidData []chain.UnsealedCidInfo
+	for {
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
 		unsealedcidData, err = chain.GetunsealcidOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_MinerHoldSlice,
 		)
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			time.Sleep(time.Minute)
+			Err.Sugar().Errorf("%v", err)
 			continue
 		}
-		_, err = os.Stat(fileSegPath)
+		_, err = os.Stat(configs.ServiceDir)
 		if err != nil {
-			err = os.MkdirAll(fileSegPath, os.ModePerm)
+			err = os.MkdirAll(configs.ServiceDir, os.ModeDir)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 		}
 		if len(unsealedcidData) == 0 {
-			time.Sleep(time.Minute)
+			continue
 		}
 		for i := 0; i < len(unsealedcidData); i++ {
-			hash := ""
+			if _, ok := segDeduplicationVpc.Load(uint64(unsealedcidData[i].Segment_id)); ok {
+				continue
+			}
 			shardhash := ""
 			uncidstring := ""
 			uncid := make([]string, 0)
-			for j := 0; j < len(unsealedcidData[i].Hash); j++ {
-				temp := fmt.Sprintf("%c", unsealedcidData[i].Hash[j])
-				hash += temp
-			}
 			for j := 0; j < len(unsealedcidData[i].Shardhash); j++ {
 				temp := fmt.Sprintf("%c", unsealedcidData[i].Shardhash[j])
 				shardhash += temp
@@ -305,16 +353,17 @@ func segmentVpc() {
 			}
 			seed, err := tools.IntegerToBytes(unsealedcidData[i].Rand)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
+			fid := strings.Split(shardhash, ".")[0]
 
-			filehashid := filepath.Join(fileSegPath, fmt.Sprintf("%v", hash))
+			filehashid := filepath.Join(configs.ServiceDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
-				err = os.MkdirAll(filehashid, os.ModePerm)
+				err = os.MkdirAll(filehashid, os.ModeDir)
 				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("%v", err)
+					Err.Sugar().Errorf("%v", err)
 					continue
 				}
 			}
@@ -323,20 +372,16 @@ func segmentVpc() {
 			if err == nil {
 				os.RemoveAll(filesegid)
 			}
-			err = os.MkdirAll(filesegid, os.ModePerm)
+			err = os.MkdirAll(filesegid, os.ModeDir)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
-			filefullpath := ""
-			if hash == shardhash {
-				filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, hash+".cess")
-			} else {
-				filefullpath = filepath.Join(configs.Confile.FileSystem.DfsInstallPath, "files", hash, shardhash)
-			}
+			filefullpath := filepath.Join(configs.ServiceDir, fid, shardhash)
+			// Generate proof
 			sealcid, prf, err := generateSegmentVpc(filefullpath, filesegid, uint64(unsealedcidData[i].Segment_id), seed, uncid)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			var sealedcid = make([]types.Bytes, len(sealcid))
@@ -344,75 +389,73 @@ func segmentVpc() {
 				sealedcid[m] = make(types.Bytes, 0)
 				sealedcid[m] = append(sealedcid[m], types.NewBytes([]byte(sealcid[m].String()))...)
 			}
-
-			ok, err = chain.SegmentSubmitToVpc(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
-				configs.ChainTx_SegmentBook_SubmitToVpc,
-				uint64(unsealedcidData[i].Peer_id),
-				uint64(unsealedcidData[i].Segment_id),
-				prf,
-				sealedcid,
-			)
-			if !ok || err != nil {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid, err)
-			} else {
-				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, unsealedcidData[i].Segment_id, prf, sealcid)
-			}
+			// put the proof on the chain
+			go func(t int64, peerid, segid uint64, proof [][]byte, cids []types.Bytes, fileid string) {
+				segDeduplicationVpc.Store(segid, true)
+				defer segDeduplicationVpc.Delete(segid)
+				for {
+					_, errs := chain.SegmentSubmitToVpc(
+						configs.Confile.MinerData.TransactionPrK,
+						configs.ChainTx_SegmentBook_SubmitToVpc,
+						peerid,
+						segid,
+						proof,
+						cids,
+						types.Bytes([]byte(fileid)),
+					)
+					if errs == nil {
+						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, peerid, segid)
+						return
+					}
+					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, peerid, segid, err)
+						return
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 20)))
+				}
+			}(time.Now().Unix(), uint64(unsealedcidData[i].Peer_id), uint64(unsealedcidData[i].Segment_id), prf, sealedcid, fid)
 		}
 	}
 }
 
+// segmentVpd is used to generate post for service data segments.
+// normally it will run forever.
 func segmentVpd() {
 	var (
-		err         error
-		ok          bool
-		segType     uint8
-		segsizetype uint8
-		randnum     uint32
-		// postRandData chain.ParamInfo
+		err                 error
+		randnum             uint32
+		verifiedPorepData   []chain.FpostParaInfo
+		segDeduplicationVpd sync.Map
 	)
-	segsizetype = 1
-	segType = 2
-	tk := time.NewTicker(time.Minute * time.Duration(configs.Vpd_SubmintPeriod))
-
-	for range tk.C {
-		var verifiedPorepData []chain.FpostParaInfo
+	for {
+		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 		verifiedPorepData, err = chain.GetVpcPostOnChain(
-			configs.Confile.MinerData.IdAccountPhraseOrSeed,
+			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
 			configs.ChainModule_SegmentBook_ConProofInfoC,
 		)
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("%v", err)
-			tk.Reset(time.Minute)
+			Err.Sugar().Errorf("%v", err)
 			continue
-		} else {
-			tk.Reset(time.Minute * time.Duration(configs.Vpd_SubmintPeriod))
 		}
 		if len(verifiedPorepData) == 0 {
-			tk.Reset(time.Minute)
+			continue
 		}
 		for i := 0; i < len(verifiedPorepData); i++ {
-			randnum, err = chain.IntentSubmitPostToChain(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
-				configs.ChainTx_SegmentBook_IntentSubmitPost,
-				uint64(verifiedPorepData[i].Segment_id),
-				segsizetype,
-				segType,
-			)
-			if err != nil || randnum == 0 {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v]", err, randnum)
+			if _, ok := segDeduplicationVpd.Load(uint64(verifiedPorepData[i].Segment_id)); ok {
 				continue
 			}
-			// postRandData, err = chain.GetSeedNumOnChain(
-			// 	configs.Confile.MinerData.IdAccountPhraseOrSeed,
-			// 	configs.ChainModule_SegmentBook,
-			// 	configs.ChainModule_SegmentBook_ParamSetD,
-			// )
-			// if err != nil {
-			// 	logger.ErrLogger.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
+			randnum, err = chain.IntentSubmitPostToChain(
+				configs.Confile.MinerData.TransactionPrK,
+				configs.ChainTx_SegmentBook_IntentSubmitPost,
+				uint64(verifiedPorepData[i].Segment_id),
+				configs.SegMentType_8M,
+				configs.SegMentType_Service,
+			)
+			if err != nil || randnum == 0 {
+				Err.Sugar().Errorf("[%v][%v]", err, randnum)
+				continue
+			}
 
 			sealcidstring := ""
 			sealcid := make([]string, 0)
@@ -426,45 +469,37 @@ func segmentVpd() {
 			}
 			seed, err := tools.IntegerToBytes(randnum)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 
-			fileSegPath := filepath.Join(configs.MinerDataPath, configs.FileData)
-			_, err = os.Stat(fileSegPath)
-			if err != nil {
-				err = os.MkdirAll(fileSegPath, os.ModePerm)
-				if err != nil {
-					logger.ErrLogger.Sugar().Errorf("%v", err)
-					continue
-				}
-			}
 			hash := ""
 			for j := 0; j < len(verifiedPorepData[i].Hash); j++ {
 				temp := fmt.Sprintf("%c", verifiedPorepData[i].Hash[j])
 				hash += temp
 			}
-			filehashid := filepath.Join(fileSegPath, fmt.Sprintf("%v", hash))
+			fid := strings.Split(hash, ".")[0]
+			filehashid := filepath.Join(configs.ServiceDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			filesegid := filepath.Join(filehashid, fmt.Sprintf("%v", verifiedPorepData[i].Segment_id))
 			_, err = os.Stat(filesegid)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			cachepath := filepath.Join(filesegid, configs.Cache)
 			_, err = os.Stat(cachepath)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			postprf, err := generateSenmentVpd(filesegid, cachepath, uint64(verifiedPorepData[i].Segment_id), seed, sealcid)
 			if err != nil {
-				logger.ErrLogger.Sugar().Errorf("%v", err)
+				Err.Sugar().Errorf("%v", err)
 				continue
 			}
 			var proof = make([][]byte, len(postprf))
@@ -472,19 +507,30 @@ func segmentVpd() {
 				proof[j] = make([]byte, 0)
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
-			ok, err = chain.SegmentSubmitToVpd(
-				configs.Confile.MinerData.IdAccountPhraseOrSeed,
-				configs.ChainTx_SegmentBook_SubmitToVpd,
-				uint64(verifiedPorepData[i].Peer_id),
-				uint64(verifiedPorepData[i].Segment_id),
-				proof,
-				verifiedPorepData[i].Sealed_cid,
-			)
-			if !ok || err != nil {
-				logger.ErrLogger.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid, err)
-			} else {
-				logger.InfoLogger.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, verifiedPorepData[i].Segment_id, proof, sealcid)
-			}
+			go func(t int64, peerid, segid uint64, prf [][]byte, cids []types.Bytes, fileid string) {
+				segDeduplicationVpd.Store(segid, true)
+				defer segDeduplicationVpd.Delete(segid)
+				for {
+					_, errs := chain.SegmentSubmitToVpd(
+						configs.Confile.MinerData.TransactionPrK,
+						configs.ChainTx_SegmentBook_SubmitToVpd,
+						peerid,
+						segid,
+						prf,
+						cids,
+						types.Bytes([]byte(fileid)),
+					)
+					if errs == nil {
+						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, peerid, segid)
+						return
+					}
+					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, peerid, segid, err)
+						return
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+				}
+			}(time.Now().Unix(), uint64(verifiedPorepData[i].Peer_id), uint64(verifiedPorepData[i].Segment_id), proof, verifiedPorepData[i].Sealed_cid, fid)
 		}
 	}
 }
@@ -519,46 +565,47 @@ func spaceReasonable() {
 	var err error
 	configs.MinerUseSpace, err = tools.DirSize(configs.MinerDataPath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-		os.Exit(configs.Exit_DirSizeError)
+		Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+		os.Exit(1)
 	}
 
 	sspace := configs.Confile.MinerData.StorageSpace * configs.Space_1GB
 	mountP, err := getMountPathInfo(configs.Confile.MinerData.MountedPath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("%v", err)
-		os.Exit(configs.Exit_CreateFile)
+		Err.Sugar().Errorf("%v", err)
+		os.Exit(1)
 	}
 	if mountP.Total < sspace {
-		logger.ErrLogger.Sugar().Errorf("[%v] The storage space cannot be greater than the total hard disk space", configs.MinerId_S)
-		os.Exit(configs.Exit_SspaceInvalid)
+		Err.Sugar().Errorf("[%v] The storage space cannot be greater than the total hard disk space", configs.MinerId_S)
+		os.Exit(1)
 	}
 	if (sspace + configs.Space_1GB) < configs.MinerUseSpace {
-		logger.ErrLogger.Sugar().Errorf("[%v] You cannot reduce your storage space", configs.MinerId_S)
-		os.Exit(configs.Exit_ReduceStorageSpace)
+		Err.Sugar().Errorf("[%v] You cannot reduce your storage space", configs.MinerId_S)
+		os.Exit(1)
 	}
 	if sspace > configs.MinerUseSpace {
 		enableSpace := sspace - configs.MinerUseSpace
 		if (enableSpace > mountP.Free) || ((mountP.Free - enableSpace) < configs.Space_1GB*20) {
-			logger.ErrLogger.Sugar().Errorf("[%v] Please reserve at least 20GB of space for your disk", configs.MinerId_S)
-			os.Exit(configs.Exit_FreeSpaceInvalid)
+			Err.Sugar().Errorf("[%v] Please reserve at least 20GB of space for your disk", configs.MinerId_S)
+			os.Exit(1)
 		}
 	}
 }
 
-func getEnableSpace() (uint64, error) {
+// Calculate available space
+func calcAvailableSpace() (uint64, error) {
 	var err error
 	configs.MinerUseSpace, err = tools.DirSize(configs.MinerDataPath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 		return 0, err
 	}
-
 	sspace := configs.Confile.MinerData.StorageSpace * configs.Space_1GB
 	mountP, err := getMountPathInfo(configs.Confile.MinerData.MountedPath)
 	if err != nil {
-		logger.ErrLogger.Sugar().Errorf("%v", err)
 		return 0, err
+	}
+	if sspace <= configs.MinerUseSpace {
+		return 0, nil
 	}
 	enableSpace := sspace - configs.MinerUseSpace
 	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB*20) {
@@ -590,6 +637,7 @@ func getSegmentNumForTypeOne(segmentpath, segtype string) (uint32, error) {
 	return count, nil
 }
 
+// Delete failed data segment
 func deleteFailedSegment(path string) {
 	var (
 		err error
@@ -600,7 +648,7 @@ func deleteFailedSegment(path string) {
 		if err == nil {
 			err = os.RemoveAll(dirs[i])
 			if err == nil {
-				logger.InfoLogger.Sugar().Infof("Remove [%v] suc", dirs[i])
+				Err.Sugar().Infof("Remove [%v] suc", dirs[i])
 			}
 		}
 	}

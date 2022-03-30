@@ -1,26 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Storage-Mining_0.2.0_Alpha"
-
-// system exit code
-const (
-	Exit_Normal                   = 0
-	Exit_RunningSystemError       = -1
-	Exit_ExecutionPermissionError = -2
-	Exit_GetMinerDataOnChain      = -3
-	Exit_RegisterToChain          = -4
-	Exit_RenewalTokens            = -5
-	Exit_CreateFolder             = -6
-	Exit_CreateFile               = -7
-	Exit_ConfFileNotExist         = -8
-	Exit_ConfFileFormatError      = -9
-	Exit_ConfFileTypeError        = -10
-	Exit_SspaceInvalid            = -11
-	Exit_DirSizeError             = -12
-	Exit_ReduceStorageSpace       = -13
-	Exit_FreeSpaceInvalid         = -14
-)
+const Version = "CESS-Bucket_V0.3.1"
 
 // cess chain module
 const (
@@ -31,6 +12,7 @@ const (
 // cess chain module method
 const (
 	ChainModule_Sminer_MinerItems          = "MinerItems"
+	ChainModule_Sminer_MinerDetails        = "MinerDetails"
 	ChainModule_Sminer_SegInfo             = "SegInfo"
 	ChainModule_SegmentBook_ParamSetA      = "ParamSetA"
 	ChainModule_SegmentBook_ParamSetB      = "ParamSetB"
@@ -50,15 +32,26 @@ const (
 	ChainTx_SegmentBook_SubmitToVpb      = "SegmentBook.submit_to_vpb"
 	ChainTx_SegmentBook_SubmitToVpc      = "SegmentBook.submit_to_vpc"
 	ChainTx_SegmentBook_SubmitToVpd      = "SegmentBook.submit_to_vpd"
+	ChainTx_Sminer_ExitMining            = "Sminer.exit_miner"
+	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
+	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
 )
 
 const (
-	SegMentType_8M     uint8 = 1
-	SegMentType_8M_S         = "1"
-	SegMentType_512M   uint8 = 2
-	SegMentType_512M_S       = "2"
-	FileSealProof            = 1
-	FilePostProof            = 6
+	RpcService_Scheduler          = "wservice"
+	RpcMethod_Scheduler_Writefile = "writefile"
+	RpcMethod_Scheduler_Readfile  = "readfile"
+)
+
+const (
+	SegMentType_Idle    uint8 = 1
+	SegMentType_Service uint8 = 2
+	SegMentType_8M      uint8 = 1
+	SegMentType_8M_S          = "1"
+	SegMentType_512M    uint8 = 2
+	SegMentType_512M_S        = "2"
+	FileSealProof             = 1
+	FilePostProof             = 6
 )
 
 const (
@@ -75,26 +68,21 @@ const (
 	LengthOfFileShardMeta        = 100
 )
 
-// Storage mining client function
-var (
-	//MinerEvent_Mining        bool
-	MinerEvent_Exit          bool
-	MinerEvent_RenewalTokens bool
-)
-
 // Miner data updated at runtime
 var (
-	MinerId_S     string = ""
-	MinerId_I     uint64 = 0
-	MinerDataPath        = ""
-	MinerUseSpace uint64 = 0
+	MinerId_S        string = ""
+	MinerId_I        uint64 = 0
+	MinerDataPath    string = "cessminer_c"
+	MinerUseSpace    uint64 = 0
+	MinerServiceAddr string = ""
+	MinerServicePort int    = 0
 )
 
 var (
-	LogfilePathPrefix = "./log/"
-	SegmentData       = "segmentData"
+	LogfilePathPrefix = "/log"
+	SpaceDir          = "space"
+	ServiceDir        = "service"
 	Cache             = "cache"
 	TmpltFileFolder   = "temp"
 	TmpltFileName     = "template"
-	FileData          = "fileData"
 )

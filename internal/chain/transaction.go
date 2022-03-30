@@ -1,13 +1,13 @@
 package chain
 
 import (
-	"fmt"
+	"encoding/json"
 	"math/big"
+	"strconv"
 
 	"storage-mining/configs"
-	"storage-mining/internal/logger"
+	. "storage-mining/internal/logger"
 	"storage-mining/tools"
-	"strconv"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -15,67 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// custom event type
-type Event_SegmentBook_ParamSet struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Random    types.U32
-	Topics    []types.Hash
-}
-
-type Event_VPABCD_Submit_Verify struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Topics    []types.Hash
-}
-
-type Event_Sminer_TimedTask struct {
-	Phase  types.Phase
-	Topics []types.Hash
-}
-
-type Event_Sminer_Registered struct {
-	Phase   types.Phase
-	PeerAcc types.AccountID
-	Staking types.U128
-	Topics  []types.Hash
-}
-
-type Event_UnsignedPhaseStarted struct {
-	Phase  types.Phase
-	Round  types.U32
-	Topics []types.Hash
-}
-
-type Event_SolutionStored struct {
-	Phase            types.Phase
-	Election_compute types.ElectionCompute
-	Prev_ejected     types.Bool
-	Topics           []types.Hash
-}
-
-type MyEventRecords struct {
-	types.EventRecords
-	SegmentBook_ParamSet     []Event_SegmentBook_ParamSet
-	SegmentBook_VPASubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDSubmitted []Event_VPABCD_Submit_Verify
-	SegmentBook_VPAVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCVerified  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDVerified  []Event_VPABCD_Submit_Verify
-	Sminer_TimedTask         []Event_Sminer_TimedTask
-	Sminer_Registered        []Event_Sminer_Registered
-	//
-	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
-	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
-}
-
 // miner register
-func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, TransactionName string, pledgeTokens uint64, port, fileport uint32) (bool, error) {
+func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64) (bool, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -85,23 +26,11 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	ipint, err := tools.InetAtoN(ipAddr)
-	if err != nil {
-		return false, errors.Wrap(err, "InetAtoN err")
-	}
 
-	pTokens := strconv.FormatUint(pledgeTokens, 10)
-	pTokens += configs.TokenAccuracy
-	realTokens, ok := new(big.Int).SetString(pTokens, 10)
-	if !ok {
-		return false, errors.New("SetString err")
-	}
-	amount := types.NewUCompact(realTokens)
-
-	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	keyring, err := signature.KeyringPairFromSecret(transactionPrK, 0)
 	if err != nil {
 		return false, errors.Wrap(err, "KeyringPairFromSecret err")
 	}
@@ -111,12 +40,20 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 		return false, errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	incomeAccount, err := types.NewMultiAddressFromHexAccountID(incomeAccountPublicKey)
+	incomeAccount, err := types.NewMultiAddressFromHexAccountID(revenuePuK)
 	if err != nil {
 		return false, errors.Wrap(err, "NewMultiAddressFromHexAccountID err")
 	}
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewU32(uint32(ipint)), types.NewU32(port), types.NewU32(fileport), amount)
+	pTokens := strconv.FormatUint(pledgeTokens, 10)
+	pTokens += configs.TokenAccuracy
+	realTokens, ok := new(big.Int).SetString(pTokens, 10)
+	if !ok {
+		return false, errors.New("big.Int.SetString err")
+	}
+	tokens := types.NewUCompact(realTokens)
+
+	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewBytes([]byte(ipAddr)), tokens)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -189,16 +126,17 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if events.Sminer_Registered[i].PeerAcc == types.NewAccountID(keyring.PublicKey) {
+						if events.Sminer_Registered[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
+					return false, errors.New("events.Sminer_Registered data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_Registered not found")
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -209,7 +147,7 @@ func RegisterToChain(identifyAccountPhrase, incomeAccountPublicKey, ipAddr, Tran
 }
 
 //
-func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizetype, segtype uint8, peerid uint64, unsealedcid [][]byte, hash, shardhash []byte) (uint64, uint32, error) {
+func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizetype, segtype uint8, peerid uint64, unsealedcid [][]byte, shardhash []byte) (uint64, uint32, error) {
 	var (
 		err         error
 		ok          bool
@@ -220,7 +158,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -237,7 +175,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		uncid[i] = make(types.Bytes, 0)
 		uncid[i] = append(uncid[i], unsealedcid[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU8(segsizetype), types.NewU8(segtype), types.NewU64(peerid), uncid, types.NewBytes(hash), types.NewBytes(shardhash))
+	c, err := types.NewCall(meta, TransactionName, types.NewU8(segsizetype), types.NewU8(segtype), types.NewU64(peerid), uncid, types.NewBytes(shardhash))
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "NewCall err")
 	}
@@ -297,20 +235,30 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		return 0, 0, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return 0, 0, err
+					if head != nil {
+						return 0, 0, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return 0, 0, err
+					}
 				}
+
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -318,8 +266,17 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 							return uint64(events.SegmentBook_ParamSet[i].SegmentId), uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
+					if head != nil {
+						return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+					} else {
+						return 0, 0, errors.New("events.SegmentBook_ParamSet data err")
+					}
 				}
-				return 0, 0, nil
+				if head != nil {
+					return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+				} else {
+					return 0, 0, errors.New("events.SegmentBook_ParamSet not found")
+				}
 			}
 		case err = <-sub.Err():
 			return 0, 0, err
@@ -341,7 +298,7 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -415,19 +372,29 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 	}
 	defer sub.Unsubscribe()
 
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return 0, err
+					if head != nil {
+						return 0, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return 0, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -435,8 +402,17 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 							return uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
+					if head != nil {
+						return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+					} else {
+						return 0, errors.Wrap(err, "events.SegmentBook_ParamSet data err")
+					}
 				}
-				return 0, nil
+				if head != nil {
+					return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+				} else {
+					return 0, errors.Wrap(err, "events.SegmentBook_ParamSet not found")
+				}
 			}
 		case err = <-sub.Err():
 			return 0, err
@@ -458,7 +434,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -531,44 +507,73 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				switch TransactionName {
 				case configs.ChainTx_SegmentBook_SubmitToVpa:
 					if events.SegmentBook_VPASubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPASubmitted); i++ {
-							if events.SegmentBook_VPASubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if events.SegmentBook_VPASubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
+						if head != nil {
+							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted data err", head.Number)
+						} else {
+							return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted data err")
+						}
+					}
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted not found", head.Number)
 					} else {
-						return false, nil
+						return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted not found")
 					}
 				case configs.ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPBSubmitted); i++ {
-							if events.SegmentBook_VPBSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if events.SegmentBook_VPBSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
+						if head != nil {
+							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted data err", head.Number)
+						} else {
+							return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted data err")
+						}
+					}
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted not found", head.Number)
 					} else {
-						return false, nil
+						return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted not found")
 					}
 				}
-				return false, nil
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]events.ChainTx_SegmentBook_SubmitToVpa/b not found", head.Number)
+				} else {
+					return false, errors.Wrap(err, "events.ChainTx_SegmentBook_SubmitToVpa/b not found")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -579,7 +584,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 }
 
 // Submit To Vpc
-func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes) (bool, error) {
+func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes, fid types.Bytes) (bool, error) {
 	var (
 		err         error
 		ok          bool
@@ -590,7 +595,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -608,12 +613,8 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpc[i] = make(types.Bytes, 0)
 		fileVpc[i] = append(fileVpc[i], proofs[i]...)
 	}
-	// var sealedcid []types.Bytes = make([]types.Bytes, len(sealcid))
-	// for i := 0; i < len(sealcid); i++ {
-	// 	sealedcid[i] = make(types.Bytes, 0)
-	// 	sealedcid[i] = append(sealedcid[i], sealcid[i]...)
-	// }
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpc, sealcid)
+
+	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpc, sealcid, fid)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -673,20 +674,29 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_VPCSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPCSubmitted); i++ {
@@ -694,8 +704,17 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 							return true, nil
 						}
 					}
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPCSubmitted data err", head.Number)
+					} else {
+						return false, errors.New("events.SegmentBook_VPCSubmitted data err")
+					}
 				}
-				return false, nil
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]Not found events.SegmentBook_VPCSubmitted", head.Number)
+				} else {
+					return false, errors.New("Not found events.SegmentBook_VPCSubmitted")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -706,7 +725,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 }
 
 // Submit To Vpd
-func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes) (bool, error) {
+func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, segmentid uint64, proofs [][]byte, sealcid []types.Bytes, fid types.Bytes) (bool, error) {
 	var (
 		err         error
 		ok          bool
@@ -717,7 +736,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		releaseSubstrateAPI()
 		err := recover()
 		if err != nil {
-			logger.ErrLogger.Sugar().Errorf("[panic]: %v", err)
+			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
 	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
@@ -735,7 +754,145 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpd[i] = make(types.Bytes, 0)
 		fileVpd[i] = append(fileVpd[i], proofs[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpd, sealcid)
+	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpd, sealcid, fid)
+	if err != nil {
+		return false, errors.Wrap(err, "NewCall err")
+	}
+
+	ext := types.NewExtrinsic(c)
+	if err != nil {
+		return false, errors.Wrap(err, "NewExtrinsic err")
+	}
+
+	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return false, errors.Wrap(err, "GetBlockHash err")
+	}
+
+	rv, err := api.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetRuntimeVersionLatest err")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey err")
+	}
+
+	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey System Events err")
+	}
+
+	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return false, errors.Wrap(err, "GetStorageLatest err")
+	}
+	if !ok {
+		return false, errors.New("GetStorageLatest return value is empty")
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(keyring, o)
+	if err != nil {
+		return false, errors.Wrap(err, "Sign err")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
+	}
+	defer sub.Unsubscribe()
+	var head *types.Header
+	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
+				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
+				if err != nil {
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
+				}
+				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+				if err != nil {
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
+				}
+				if events.SegmentBook_VPDSubmitted != nil {
+					for i := 0; i < len(events.SegmentBook_VPDSubmitted); i++ {
+						if events.SegmentBook_VPDSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPDSubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if head != nil {
+								Out.Sugar().Infof("[%v]SegmentBook_VPDSubmitted suc", head.Number)
+							}
+							return true, nil
+						}
+					}
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted data err", head.Number)
+					} else {
+						return false, errors.New("events.SegmentBook_VPDSubmitted data err")
+					}
+				}
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted not found", head.Number)
+				} else {
+					return false, errors.New("events.SegmentBook_VPDSubmitted not found")
+				}
+			}
+		case err = <-sub.Err():
+			return false, err
+		case <-timeout:
+			return false, errors.New("SubmitAndWatchExtrinsic timeout")
+		}
+	}
+}
+
+//
+func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (bool, error) {
+	var (
+		err         error
+		ok          bool
+		accountInfo types.AccountInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	if err != nil {
+		return false, errors.Wrap(err, "KeyringPairFromSecret err")
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetMetadataLatest err")
+	}
+
+	c, err := types.NewCall(meta, TransactionName, types.NewUCompact(tokens))
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -808,21 +965,293 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					fmt.Println("+++ DecodeEvent err: ", err)
+					Out.Sugar().Infof("Decode event err:%v", err)
 				}
-				if events.SegmentBook_VPDSubmitted != nil {
-					for i := 0; i < len(events.SegmentBook_VPDSubmitted); i++ {
-						if events.SegmentBook_VPDSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPDSubmitted[i].SegmentId == types.NewU64(segmentid) {
+				if events.Sminer_IncreaseCollateral != nil {
+					for i := 0; i < len(events.Sminer_IncreaseCollateral); i++ {
+						if events.Sminer_IncreaseCollateral[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
+					return false, errors.New("events.Sminer_IncreaseCollateral data err")
 				}
-				return false, nil
+				return false, errors.New("events.Sminer_IncreaseCollateral not found")
 			}
 		case err = <-sub.Err():
 			return false, err
 		case <-timeout:
 			return false, errors.New("SubmitAndWatchExtrinsic timeout")
 		}
+	}
+}
+
+//
+func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
+	var (
+		err         error
+		ok          bool
+		accountInfo types.AccountInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	if err != nil {
+		return false, errors.Wrap(err, "KeyringPairFromSecret err")
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetMetadataLatest err")
+	}
+
+	c, err := types.NewCall(meta, TransactionName)
+	if err != nil {
+		return false, errors.Wrap(err, "NewCall err")
+	}
+
+	ext := types.NewExtrinsic(c)
+	if err != nil {
+		return false, errors.Wrap(err, "NewExtrinsic err")
+	}
+
+	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return false, errors.Wrap(err, "GetBlockHash err")
+	}
+
+	rv, err := api.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetRuntimeVersionLatest err")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey err")
+	}
+
+	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey System Events err")
+	}
+
+	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return false, errors.Wrap(err, "GetStorageLatest err")
+	}
+	if !ok {
+		return false, errors.New("GetStorageLatest return value is empty")
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(keyring, o)
+	if err != nil {
+		return false, errors.Wrap(err, "Sign err")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
+	}
+	defer sub.Unsubscribe()
+
+	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := MyEventRecords{}
+				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
+				if err != nil {
+					return false, err
+				}
+				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+				if err != nil {
+					Out.Sugar().Infof("Decode event err:%v", err)
+				}
+				if events.Sminer_MinerExit != nil {
+					for i := 0; i < len(events.Sminer_MinerExit); i++ {
+						if events.Sminer_MinerExit[i].Acc == types.NewAccountID(keyring.PublicKey) {
+							return true, nil
+						}
+					}
+					return false, errors.New("events.Sminer_MinerExit data err")
+				}
+				return false, errors.New("events.Sminer_MinerExit not found")
+			}
+		case err = <-sub.Err():
+			return false, err
+		case <-timeout:
+			return false, errors.New("SubmitAndWatchExtrinsic timeout")
+		}
+	}
+}
+
+//
+func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
+	var (
+		err         error
+		ok          bool
+		accountInfo types.AccountInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	keyring, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	if err != nil {
+		return false, errors.Wrap(err, "KeyringPairFromSecret err")
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetMetadataLatest err")
+	}
+
+	c, err := types.NewCall(meta, TransactionName)
+	if err != nil {
+		return false, errors.Wrap(err, "NewCall err")
+	}
+
+	ext := types.NewExtrinsic(c)
+	if err != nil {
+		return false, errors.Wrap(err, "NewExtrinsic err")
+	}
+
+	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return false, errors.Wrap(err, "GetBlockHash err")
+	}
+
+	rv, err := api.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return false, errors.Wrap(err, "GetRuntimeVersionLatest err")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey err")
+	}
+
+	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
+	if err != nil {
+		return false, errors.Wrap(err, "CreateStorageKey System Events err")
+	}
+
+	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return false, errors.Wrap(err, "GetStorageLatest err")
+	}
+	if !ok {
+		return false, errors.New("GetStorageLatest return value is empty")
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(keyring, o)
+	if err != nil {
+		return false, errors.Wrap(err, "Sign err")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
+	}
+	defer sub.Unsubscribe()
+
+	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := MyEventRecords{}
+				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
+				if err != nil {
+					return false, err
+				}
+				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+				if err != nil {
+					Out.Sugar().Infof("Decode event err:%v", err)
+				}
+				if events.Sminer_MinerClaim != nil {
+					for i := 0; i < len(events.Sminer_MinerClaim); i++ {
+						if events.Sminer_MinerClaim[i].Acc == types.NewAccountID(keyring.PublicKey) {
+							return true, nil
+						}
+					}
+					return false, errors.New("events.Sminer_MinerClaim data err")
+				}
+				return false, errors.New("events.Sminer_MinerClaim not found")
+			}
+		case err = <-sub.Err():
+			return false, err
+		case <-timeout:
+			return false, errors.New("SubmitAndWatchExtrinsic timeout")
+		}
+	}
+}
+
+type faucet struct {
+	Ans    answer `json:"Result"`
+	Status string `json:"Status"`
+}
+type answer struct {
+	Err       string `json:"Err"`
+	AsInBlock bool   `json:"AsInBlock"`
+}
+
+func ObtainFromFaucet(faucetaddr, pbk string) error {
+	var ob = struct {
+		Address string `json:"Address"`
+	}{
+		pbk,
+	}
+	var res faucet
+	resp, err := tools.Post(faucetaddr, ob)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(resp, &res)
+	if err != nil {
+		return err
+	}
+	if res.Ans.Err != "" {
+		return err
+	}
+
+	if res.Ans.AsInBlock {
+		return nil
+	} else {
+		return errors.New("The address has been picked up today, please come back after 1 day.")
 	}
 }
