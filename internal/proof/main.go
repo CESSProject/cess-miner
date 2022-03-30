@@ -101,7 +101,7 @@ func segmentVpa() {
 			// 	Err.Sugar().Errorf("%v", err)
 			// 	continue
 			// }
-			if enableS >= 512*1024*1024 {
+			if enableS > 512*1024*1024 {
 				segsizeType = configs.SegMentType_512M
 			} else {
 				segsizeType = configs.SegMentType_8M

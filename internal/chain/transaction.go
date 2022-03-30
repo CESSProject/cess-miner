@@ -15,121 +15,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// custom event type
-type Event_SegmentBook_ParamSet struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Random    types.U32
-	Topics    []types.Hash
-}
-
-type Event_VPABCD_Submit_Verify struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Topics    []types.Hash
-}
-
-type Event_Sminer_TimedTask struct {
-	Phase  types.Phase
-	Topics []types.Hash
-}
-
-type Event_Sminer_Registered struct {
-	Phase   types.Phase
-	PeerAcc types.AccountID
-	Staking types.U128
-	Topics  []types.Hash
-}
-
-type Event_UnsignedPhaseStarted struct {
-	Phase  types.Phase
-	Round  types.U32
-	Topics []types.Hash
-}
-
-type Event_SolutionStored struct {
-	Phase            types.Phase
-	Election_compute types.ElectionCompute
-	Prev_ejected     types.Bool
-	Topics           []types.Hash
-}
-
-type Event_Sminer_IncreaseCollateral struct {
-	Phase   types.Phase
-	Acc     types.AccountID
-	Balance types.U128
-	Topics  []types.Hash
-}
-
-type Event_Sminer_MinerExit struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Topics []types.Hash
-}
-
-type Event_Sminer_MinerClaim struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Topics []types.Hash
-}
-
-type Event_DeleteFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid types.Bytes
-	Topics []types.Hash
-}
-
-type Event_BuySpace struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Size   types.U128
-	Fee    types.U128
-	Topics []types.Hash
-}
-
-type Event_FileUpload struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Topics []types.Hash
-}
-
-type Event_FileUpdate struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid types.Bytes
-	Topics []types.Hash
-}
-
-type MyEventRecords struct {
-	types.EventRecords
-	SegmentBook_ParamSet      []Event_SegmentBook_ParamSet
-	SegmentBook_VPASubmitted  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBSubmitted  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCSubmitted  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDSubmitted  []Event_VPABCD_Submit_Verify
-	SegmentBook_VPAVerified   []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBVerified   []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCVerified   []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDVerified   []Event_VPABCD_Submit_Verify
-	Sminer_TimedTask          []Event_Sminer_TimedTask
-	Sminer_Registered         []Event_Sminer_Registered
-	Sminer_IncreaseCollateral []Event_Sminer_IncreaseCollateral
-	Sminer_MinerExit          []Event_Sminer_MinerExit
-	Sminer_MinerClaim         []Event_Sminer_MinerClaim
-	//
-	FileBank_DeleteFile []Event_DeleteFile
-	FileBank_BuySpace   []Event_BuySpace
-	FileBank_FileUpload []Event_FileUpload
-	FileBank_FileUpdate []Event_FileUpdate
-	//other
-	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
-	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_UnsignedPhaseStarted
-	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
-}
-
 // miner register
 func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64) (bool, error) {
 	var (
@@ -245,7 +130,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 				}
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if events.Sminer_Registered[i].PeerAcc == types.NewAccountID(keyring.PublicKey) {
+						if events.Sminer_Registered[i].Acc == types.NewAccountID(keyring.PublicKey) {
 							return true, nil
 						}
 					}
@@ -350,20 +235,30 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		return 0, 0, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return 0, 0, err
+					if head != nil {
+						return 0, 0, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return 0, 0, err
+					}
 				}
+
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -371,9 +266,17 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 							return uint64(events.SegmentBook_ParamSet[i].SegmentId), uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
-					return 0, 0, errors.New("events.SegmentBook_ParamSet data err")
+					if head != nil {
+						return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+					} else {
+						return 0, 0, errors.New("events.SegmentBook_ParamSet data err")
+					}
 				}
-				return 0, 0, errors.New("events.SegmentBook_ParamSet not found")
+				if head != nil {
+					return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+				} else {
+					return 0, 0, errors.New("events.SegmentBook_ParamSet not found")
+				}
 			}
 		case err = <-sub.Err():
 			return 0, 0, err
@@ -469,19 +372,29 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 	}
 	defer sub.Unsubscribe()
 
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return 0, err
+					if head != nil {
+						return 0, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return 0, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
@@ -489,9 +402,17 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 							return uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
-					return 0, errors.New("events.SegmentBook_ParamSet data err")
+					if head != nil {
+						return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+					} else {
+						return 0, errors.Wrap(err, "events.SegmentBook_ParamSet data err")
+					}
 				}
-				return 0, errors.New("events.SegmentBook_ParamSet not found")
+				if head != nil {
+					return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+				} else {
+					return 0, errors.Wrap(err, "events.SegmentBook_ParamSet not found")
+				}
 			}
 		case err = <-sub.Err():
 			return 0, err
@@ -586,44 +507,73 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				switch TransactionName {
 				case configs.ChainTx_SegmentBook_SubmitToVpa:
 					if events.SegmentBook_VPASubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPASubmitted); i++ {
-							if events.SegmentBook_VPASubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if events.SegmentBook_VPASubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
-						return false, errors.New("events.SegmentBook_VPASubmitted data err")
+						if head != nil {
+							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted data err", head.Number)
+						} else {
+							return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted data err")
+						}
 					}
-					return false, errors.New("events.SegmentBook_VPASubmitted not found")
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted not found", head.Number)
+					} else {
+						return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted not found")
+					}
 				case configs.ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPBSubmitted); i++ {
-							if events.SegmentBook_VPBSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if events.SegmentBook_VPBSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
-						return false, errors.New("events.SegmentBook_VPBSubmitted data err")
+						if head != nil {
+							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted data err", head.Number)
+						} else {
+							return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted data err")
+						}
 					}
-					return false, errors.New("events.SegmentBook_VPBSubmitted not found")
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted not found", head.Number)
+					} else {
+						return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted not found")
+					}
 				}
-				return false, errors.New("events.ChainTx_SegmentBook_SubmitToVpa/b not found")
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]events.ChainTx_SegmentBook_SubmitToVpa/b not found", head.Number)
+				} else {
+					return false, errors.Wrap(err, "events.ChainTx_SegmentBook_SubmitToVpa/b not found")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -724,20 +674,29 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_VPCSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPCSubmitted); i++ {
@@ -745,9 +704,17 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 							return true, nil
 						}
 					}
-					return false, errors.New("events.SegmentBook_VPCSubmitted data err")
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPCSubmitted data err", head.Number)
+					} else {
+						return false, errors.New("events.SegmentBook_VPCSubmitted data err")
+					}
 				}
-				return false, errors.New("Not found events.SegmentBook_VPCSubmitted")
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]Not found events.SegmentBook_VPCSubmitted", head.Number)
+				} else {
+					return false, errors.New("Not found events.SegmentBook_VPCSubmitted")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
@@ -847,30 +814,50 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
 	}
 	defer sub.Unsubscribe()
-
+	var head *types.Header
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
+				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return false, err
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]", head.Number)
+					} else {
+						return false, err
+					}
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
+					if head != nil {
+						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
+					} else {
+						Out.Sugar().Infof("Decode event err:%v", err)
+					}
 				}
 				if events.SegmentBook_VPDSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPDSubmitted); i++ {
 						if events.SegmentBook_VPDSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPDSubmitted[i].SegmentId == types.NewU64(segmentid) {
+							if head != nil {
+								Out.Sugar().Infof("[%v]SegmentBook_VPDSubmitted suc", head.Number)
+							}
 							return true, nil
 						}
 					}
-					return false, errors.New("events.SegmentBook_VPDSubmitted data err")
+					if head != nil {
+						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted data err", head.Number)
+					} else {
+						return false, errors.New("events.SegmentBook_VPDSubmitted data err")
+					}
 				}
-				return false, errors.New("events.SegmentBook_VPDSubmitted not found")
+				if head != nil {
+					return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted not found", head.Number)
+				} else {
+					return false, errors.New("events.SegmentBook_VPDSubmitted not found")
+				}
 			}
 		case err = <-sub.Err():
 			return false, err
