@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"storage-mining/internal/logger"
+	"cess-bucket/internal/logger"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/golang/protobuf/proto"

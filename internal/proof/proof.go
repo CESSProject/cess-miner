@@ -1,11 +1,11 @@
 package proof
 
 import (
+	"cess-bucket/configs"
+	. "cess-bucket/internal/logger"
 	"fmt"
 	"os"
 	"path/filepath"
-	"storage-mining/configs"
-	. "storage-mining/internal/logger"
 
 	"github.com/filecoin-project/go-state-types/abi"
 	prf "github.com/filecoin-project/specs-actors/actors/runtime/proof"

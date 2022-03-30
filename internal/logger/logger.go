@@ -1,9 +1,9 @@
 package logger
 
 import (
+	"cess-bucket/configs"
 	"fmt"
 	"os"
-	"storage-mining/configs"
 	"time"
 
 	"github.com/natefinch/lumberjack"

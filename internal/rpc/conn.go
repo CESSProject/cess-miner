@@ -3,8 +3,8 @@ package rpc
 import (
 	"context"
 
-	"storage-mining/internal/logger"
-	. "storage-mining/internal/rpc/proto"
+	"cess-bucket/internal/logger"
+	. "cess-bucket/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 )

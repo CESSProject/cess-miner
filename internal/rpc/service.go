@@ -1,9 +1,9 @@
 package rpc
 
 import (
+	. "cess-bucket/internal/rpc/proto"
 	"fmt"
 	"reflect"
-	. "storage-mining/internal/rpc/proto"
 	"strings"
 	"sync"
 	"unicode"

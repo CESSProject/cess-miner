@@ -1,16 +1,16 @@
 package rpc
 
 import (
+	"cess-bucket/configs"
+	. "cess-bucket/internal/logger"
+	. "cess-bucket/internal/rpc/proto"
+	"cess-bucket/tools"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
-	"storage-mining/configs"
-	. "storage-mining/internal/logger"
-	. "storage-mining/internal/rpc/proto"
-	"storage-mining/tools"
 	"strings"
 	"time"
 

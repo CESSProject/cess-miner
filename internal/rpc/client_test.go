@@ -1,10 +1,10 @@
 package rpc
 
 import (
+	. "cess-bucket/internal/rpc/proto"
 	"context"
 	"fmt"
 	"net/http/httptest"
-	. "storage-mining/internal/rpc/proto"
 	"strings"
 	"testing"
 	"time"

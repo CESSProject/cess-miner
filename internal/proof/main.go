@@ -1,14 +1,14 @@
 package proof
 
 import (
+	"cess-bucket/configs"
+	"cess-bucket/internal/chain"
+	. "cess-bucket/internal/logger"
+	"cess-bucket/tools"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"storage-mining/configs"
-	"storage-mining/internal/chain"
-	. "storage-mining/internal/logger"
-	"storage-mining/tools"
 	"strings"
 	"sync"
 	"time"
