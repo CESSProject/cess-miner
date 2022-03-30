@@ -96,11 +96,6 @@ func segmentVpa() {
 			continue
 		}
 		if enableS > 0 {
-			// segmentNum, err := getSegmentNumForTypeOne(configs.SpaceDir, configs.SegMentType_8M_S)
-			// if err != nil {
-			// 	Err.Sugar().Errorf("%v", err)
-			// 	continue
-			// }
 			if enableS > 512*1024*1024 {
 				segsizeType = configs.SegMentType_512M
 			} else {
@@ -497,6 +492,7 @@ func segmentVpd() {
 				Err.Sugar().Errorf("%v", err)
 				continue
 			}
+			// Generate proof
 			postprf, err := generateSenmentVpd(filesegid, cachepath, uint64(verifiedPorepData[i].Segment_id), seed, sealcid)
 			if err != nil {
 				Err.Sugar().Errorf("%v", err)
@@ -507,6 +503,7 @@ func segmentVpd() {
 				proof[j] = make([]byte, 0)
 				proof[j] = append(proof[j], postprf[j].ProofBytes...)
 			}
+			// put the proof on the chain
 			go func(t int64, peerid, segid uint64, prf [][]byte, cids []types.Bytes, fileid string) {
 				segDeduplicationVpd.Store(segid, true)
 				defer segDeduplicationVpd.Delete(segid)
