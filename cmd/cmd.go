@@ -21,7 +21,7 @@ import (
 
 const (
 	Name        = "cess-bucket"
-	Description = "Mining program of CESS platform"
+	Description = "A mining program provided by cess platform for storage miners."
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -41,6 +41,7 @@ func Execute() {
 	}
 }
 
+// init
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configs.ConfFilePath, "config", "c", "", "Custom profile")
 	rootCmd.AddCommand(
@@ -146,11 +147,13 @@ func Command_Obtain() *cobra.Command {
 	return cc
 }
 
+// Print version number and exit
 func Command_Version_Runfunc(cmd *cobra.Command, args []string) {
 	fmt.Println(configs.Version)
 	os.Exit(0)
 }
 
+// Generate configuration file template
 func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 	tools.WriteStringtoFile(configs.ConfigFile_Templete, configs.DefaultConfigurationFileName)
 	pwd, err := os.Getwd()
@@ -163,6 +166,7 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 	os.Exit(0)
 }
 
+// Miner registration
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
@@ -187,6 +191,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 
+// Check your status
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
@@ -218,6 +223,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	os.Exit(0)
 }
 
+// Start mining
 func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
@@ -234,14 +240,12 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 		initlz.SystemInit()
 
 		// start-up
-		//chain.Chain_Main()
 		proof.Proof_Main()
-
-		// web service
 		rpc.Rpc_Main()
 	}
 }
 
+// Exit mining
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
@@ -258,6 +262,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 
+//Increase deposit
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) < 3 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
@@ -283,6 +288,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 
+// Withdraw the deposit
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	peerid, err := queryMinerId()
@@ -298,6 +304,8 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		withdraw()
 	}
 }
+
+// obtain tCESS
 func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) < 4 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter wallet address public key and faucet address.\n", 41)
@@ -313,7 +321,7 @@ func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 
-//
+// Parse the configuration file
 func refreshProfile(cmd *cobra.Command) {
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -368,7 +376,8 @@ func parseProfile() {
 	}
 }
 
-//
+// Query miner id information
+// Return miner id
 func queryMinerId() (uint64, error) {
 	mData, err := chain.GetMinerInfo1(
 		configs.Confile.MinerData.TransactionPrK,
@@ -410,7 +419,7 @@ func queryMinerId() (uint64, error) {
 	return uint64(mData.Peerid), nil
 }
 
-//
+// Miner registration function
 func register() {
 	var pledgeTokens uint64
 	pledgeTokens = 2000 * (configs.Confile.MinerData.StorageSpace / (1024 * 1024 * 1024 * 1024))
@@ -419,9 +428,6 @@ func register() {
 	}
 
 	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
-
-	// Out.Sugar().Infof("Start registration......\n    CessAddr:%v\n    PledgeTokens:%v\n    ServiceAddr:%v\n    TransactionPrK:%v\n    RevenuePuK :%v",
-	// 	configs.Confile.CessChain.ChainAddr, pledgeTokens, configs.Confile.MinerData.ServiceAddr, configs.Confile.MinerData.TransactionPrK, configs.Confile.MinerData.RevenuePuK)
 
 	ok, err := chain.RegisterToChain(
 		configs.Confile.MinerData.TransactionPrK,
@@ -445,7 +451,7 @@ func register() {
 	os.Exit(0)
 }
 
-//
+// Increase deposit function
 func increase() {
 	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
 	if !ok {
@@ -468,7 +474,7 @@ func increase() {
 	os.Exit(0)
 }
 
-//
+// Exit the mining function
 func exitmining() {
 	ok, err := chain.ExitMining(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_ExitMining)
 	if err != nil {
@@ -485,7 +491,7 @@ func exitmining() {
 	os.Exit(0)
 }
 
-//
+// Withdraw deposit function
 func withdraw() {
 	ok, err := chain.Withdraw(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Withdraw)
 	if err != nil {
