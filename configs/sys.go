@@ -13,10 +13,6 @@ const (
 const (
 	ChainModule_Sminer_MinerItems          = "MinerItems"
 	ChainModule_Sminer_MinerDetails        = "MinerDetails"
-	ChainModule_Sminer_SegInfo             = "SegInfo"
-	ChainModule_SegmentBook_ParamSetA      = "ParamSetA"
-	ChainModule_SegmentBook_ParamSetB      = "ParamSetB"
-	ChainModule_SegmentBook_ParamSetD      = "ParamSetD"
 	ChainModule_SegmentBook_ConProofInfoA  = "ConProofInfoA"
 	ChainModule_SegmentBook_ConProofInfoC  = "ConProofInfoC"
 	ChainModule_SegmentBook_MinerHoldSlice = "MinerHoldSlice"
@@ -37,6 +33,7 @@ const (
 	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
 )
 
+// rpc service and method
 const (
 	RpcService_Scheduler          = "wservice"
 	RpcMethod_Scheduler_Writefile = "writefile"
@@ -44,14 +41,14 @@ const (
 )
 
 const (
-	SegMentType_Idle    uint8 = 1
-	SegMentType_Service uint8 = 2
-	SegMentType_8M      uint8 = 1
-	SegMentType_8M_S          = "1"
-	SegMentType_512M    uint8 = 2
-	SegMentType_512M_S        = "2"
-	FileSealProof             = 1
-	FilePostProof             = 6
+	SegMentType_Idle    uint8  = 1
+	SegMentType_Service uint8  = 2
+	SegMentType_8M      uint8  = 1
+	SegMentType_8M_S    string = "1"
+	SegMentType_512M    uint8  = 2
+	SegMentType_512M_S  string = "2"
+	FileSealProof       uint8  = 1
+	FilePostProof       uint8  = 6
 )
 
 const (
@@ -61,11 +58,8 @@ const (
 )
 
 const (
-	MinimumSpace                 = 1099511627776 // 1TB
-	Space_1GB                    = 1073741824    // 1GB
-	TokenAccuracy                = "000000000000"
-	DefaultConfigurationFileName = "config_template.toml"
-	LengthOfFileShardMeta        = 100
+	Space_1GB     = 1073741824 // 1GB
+	TokenAccuracy = "000000000000"
 )
 
 // Miner data updated at runtime
