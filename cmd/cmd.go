@@ -155,13 +155,13 @@ func Command_Version_Runfunc(cmd *cobra.Command, args []string) {
 
 // Generate configuration file template
 func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
-	tools.WriteStringtoFile(configs.ConfigFile_Templete, configs.DefaultConfigurationFileName)
+	tools.WriteStringtoFile(configs.ConfigFile_Templete, "config_template.toml")
 	pwd, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
-	path := filepath.Join(pwd, configs.DefaultConfigurationFileName)
+	path := filepath.Join(pwd, "config_template.toml")
 	fmt.Println("[ok] ", path)
 	os.Exit(0)
 }
