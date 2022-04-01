@@ -23,7 +23,6 @@ const (
 	ChainTx_Sminer_Register              = "Sminer.regnstk"
 	ChainTx_SegmentBook_IntentSubmit     = "SegmentBook.intent_submit"
 	ChainTx_SegmentBook_IntentSubmitPost = "SegmentBook.intent_submit_po_st"
-	ChainTx_FileBank_Update              = "FileBank.update"
 	ChainTx_SegmentBook_SubmitToVpa      = "SegmentBook.submit_to_vpa"
 	ChainTx_SegmentBook_SubmitToVpb      = "SegmentBook.submit_to_vpb"
 	ChainTx_SegmentBook_SubmitToVpc      = "SegmentBook.submit_to_vpc"
@@ -35,34 +34,32 @@ const (
 
 // rpc service and method
 const (
+	RpcService_Local              = "mservice"
 	RpcService_Scheduler          = "wservice"
 	RpcMethod_Scheduler_Writefile = "writefile"
 	RpcMethod_Scheduler_Readfile  = "readfile"
 )
 
+// data segment properties
 const (
 	SegMentType_Idle    uint8  = 1
 	SegMentType_Service uint8  = 2
 	SegMentType_8M      uint8  = 1
-	SegMentType_8M_S    string = "1"
 	SegMentType_512M    uint8  = 2
-	SegMentType_512M_S  string = "2"
 	FileSealProof       uint8  = 1
 	FilePostProof       uint8  = 6
+	SegMentType_8M_S    string = "1"
+	SegMentType_512M_S  string = "2"
 )
 
 const (
-	Vpb_SubmintPeriod  = 72
-	Vpd_SubmintPeriod  = 72
-	TimeToWaitEvents_S = 20
+	Space_1GB          = 1073741824     // 1GB
+	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
+	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
 )
 
-const (
-	Space_1GB     = 1073741824 // 1GB
-	TokenAccuracy = "000000000000"
-)
-
-// Miner data updated at runtime
+// Miner info
+// updated at runtime
 var (
 	MinerId_S        string = ""
 	MinerId_I        uint64 = 0
@@ -70,9 +67,7 @@ var (
 	MinerUseSpace    uint64 = 0
 	MinerServiceAddr string = ""
 	MinerServicePort int    = 0
-)
-
-var (
+	//data path
 	LogfilePathPrefix = "/log"
 	SpaceDir          = "space"
 	ServiceDir        = "service"
