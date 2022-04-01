@@ -32,7 +32,7 @@ func Rpc_Init() {
 // If an error occurs, it will exit immediately.
 func Rpc_Main() {
 	srv := NewServer()
-	err := srv.Register("mservice", MService{})
+	err := srv.Register(configs.RpcService_Local, MService{})
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)

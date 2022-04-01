@@ -1,27 +1,28 @@
 package initlz
 
 import (
-	"cess-bucket/internal/proof"
-	"cess-bucket/tools"
 	"fmt"
 	"os"
+	"runtime"
 )
 
+//system init
 func SystemInit() {
-	sysInit()
-	//logger.LoggerInit()
-	//chain.Chain_Init()
-	proof.Proof_Init()
-}
-
-func sysInit() {
-	if !tools.RunOnLinuxSystem() {
+	if !runOnLinuxSystem() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute on Linux system\n", 41)
 		os.Exit(1)
 	}
-	if !tools.RunWithRootPrivileges() {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute with root privileges\n", 41)
-		os.Exit(1)
-	}
-	tools.SetAllCores()
+	setAllCores()
+}
+
+func runOnLinuxSystem() bool {
+	return runtime.GOOS == "linux"
+}
+
+func runWithRootPrivileges() bool {
+	return os.Geteuid() == 0
+}
+
+func setAllCores() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 }

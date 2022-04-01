@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -21,18 +20,6 @@ import (
 
 	"github.com/pkg/errors"
 )
-
-func RunOnLinuxSystem() bool {
-	return runtime.GOOS == "linux"
-}
-
-func RunWithRootPrivileges() bool {
-	return os.Geteuid() == 0
-}
-
-func SetAllCores() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-}
 
 func InetNtoA(ip int64) string {
 	return fmt.Sprintf("%d.%d.%d.%d", byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip))
