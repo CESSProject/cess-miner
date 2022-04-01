@@ -238,7 +238,7 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 	} else {
 		// init
 		initlz.SystemInit()
-
+		proof.Proof_Init()
 		// start-up
 		proof.Proof_Main()
 		rpc.Rpc_Main()
