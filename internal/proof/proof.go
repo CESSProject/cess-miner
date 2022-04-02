@@ -117,7 +117,7 @@ func generateSegmentVpc(file, filesegpath string, segid uint64, rand []byte, unc
 		SectorNum: abi.SectorNumber(segid),
 	}
 
-	sealedCIDs, proofs := GetPoRep(secid, rand, rand, abi.RegisteredSealProof(configs.FileSealProof), unsealedCids, file, filesegpath, cachefilepath)
+	sealedCIDs, proofs := GetPoRep(secid, rand, rand, abi.RegisteredSealProof(configs.SegMentType_8M), unsealedCids, file, filesegpath, cachefilepath)
 	if sealedCIDs == nil || proofs == nil {
 		return nil, nil, errors.New("file porep failed")
 	}
@@ -152,7 +152,7 @@ func generateSenmentVpd(sealpath, cachePath string, segid uint64, rand []byte, s
 		PeerID:    abi.ActorID(configs.MinerId_I),
 		SectorNum: abi.SectorNumber(segid),
 	}
-	proofsWwl, faultySectorsl, err := GetPoSt(secid, abi.RegisteredPoStProof(configs.FilePostProof), sealedCIDs, rand, sealpath, cachePath)
+	proofsWwl, faultySectorsl, err := GetPoSt(secid, abi.RegisteredPoStProof(configs.SegMentType_8M_post), sealedCIDs, rand, sealpath, cachePath)
 	if err != nil {
 		return nil, err
 	}

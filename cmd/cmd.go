@@ -169,7 +169,7 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 // Miner registration
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -194,7 +194,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 // Check your status
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		Err.Sugar().Errorf("%v", err)
@@ -226,7 +226,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 // Start mining
 func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		Err.Sugar().Errorf("%v", err)
@@ -248,7 +248,7 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 // Exit mining
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		Err.Sugar().Errorf("%v", err)
@@ -274,7 +274,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		Err.Sugar().Errorf("%v", err)
@@ -291,7 +291,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 // Withdraw the deposit
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
-	peerid, err := queryMinerId()
+	peerid, err := queryMinerId(false)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		Err.Sugar().Errorf("%v", err)
@@ -378,7 +378,7 @@ func parseProfile() {
 
 // Query miner id information
 // Return miner id
-func queryMinerId() (uint64, error) {
+func queryMinerId(flag bool) (uint64, error) {
 	mData, err := chain.GetMinerInfo1(
 		configs.Confile.MinerData.TransactionPrK,
 		configs.ChainModule_Sminer,
@@ -397,14 +397,19 @@ func queryMinerId() (uint64, error) {
 		configs.MinerId_S = fmt.Sprintf("C%v", mData.Peerid)
 		path := filepath.Join(configs.Confile.MinerData.MountedPath, configs.MinerDataPath)
 		configs.MinerDataPath = path
+
 		_, err = os.Stat(path)
-		if err != nil {
-			err = os.MkdirAll(path, os.ModeDir)
-			if err != nil {
-				fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-				os.Exit(1)
+		if err == nil {
+			if flag {
+				os.RemoveAll(path)
 			}
 		}
+		err = os.MkdirAll(path, os.ModeDir)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			os.Exit(1)
+		}
+
 		saddr := tools.Base58Decoding(string(mData.ServiceAddr))
 		tmp := strings.Split(saddr, ":")
 		if len(tmp) == 2 {
@@ -441,8 +446,10 @@ func register() {
 		os.Exit(1)
 	}
 
-	id, err := queryMinerId()
+	id, err := queryMinerId(true)
 	if err == nil && id > 0 {
+		_, err = os.Stat(configs.MinerDataPath)
+
 		Out.Sugar().Infof("Your peerId is [C%v]", id)
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m registration success, your id is C%v\n", 42, id)
 	} else {
