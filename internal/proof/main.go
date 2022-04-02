@@ -193,9 +193,9 @@ func segmentVpb() {
 			sizetypes := fmt.Sprintf("%v", verifiedPorepData[m].Size_type)
 			switch sizetypes {
 			case "8":
-				segsizetype = "1"
+				segsizetype = configs.SegMentType_8M_S
 			case "512":
-				segsizetype = "2"
+				segsizetype = configs.SegMentType_512M_S
 			}
 			dir := segsizetype + "_" + fmt.Sprintf("%d", verifiedPorepData[m].Segment_id)
 			effictiveDir = append(effictiveDir, dir)
@@ -227,11 +227,11 @@ func segmentVpb() {
 			sizetypes := fmt.Sprintf("%v", verifiedPorepData[i].Size_type)
 			switch sizetypes {
 			case "8":
-				segsizetype = 1
-				postproofType = 6
+				segsizetype = configs.SegMentType_8M
+				postproofType = configs.SegMentType_8M_post
 			case "512":
-				segsizetype = 2
-				postproofType = 7
+				segsizetype = configs.SegMentType_512M
+				postproofType = configs.SegMentType_512M_post
 			}
 			randnum, err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.TransactionPrK,

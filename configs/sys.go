@@ -42,19 +42,19 @@ const (
 
 // data segment properties
 const (
-	SegMentType_Idle    uint8  = 1
-	SegMentType_Service uint8  = 2
-	SegMentType_8M      uint8  = 1
-	SegMentType_512M    uint8  = 2
-	FileSealProof       uint8  = 1
-	FilePostProof       uint8  = 6
-	SegMentType_8M_S    string = "1"
-	SegMentType_512M_S  string = "2"
+	SegMentType_Idle      uint8  = 1
+	SegMentType_Service   uint8  = 2
+	SegMentType_8M        uint8  = 1
+	SegMentType_8M_post   uint8  = 6
+	SegMentType_512M      uint8  = 2
+	SegMentType_512M_post uint8  = 7
+	SegMentType_8M_S      string = "1"
+	SegMentType_512M_S    string = "2"
 )
 
 const (
 	Space_1GB          = 1073741824     // 1GB
-	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
+	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
 )
 
