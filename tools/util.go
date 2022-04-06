@@ -38,12 +38,11 @@ func InetAtoN(ip string) (int64, error) {
 
 // Write string content to file
 func WriteStringtoFile(content, fileName string) error {
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	f, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	f.WriteString(content)
 	_, err = f.WriteString(content)
 	if err != nil {
 		return err
