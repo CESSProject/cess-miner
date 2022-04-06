@@ -77,6 +77,12 @@ func IntegerToBytes(n interface{}) ([]byte, error) {
 	case reflect.Uint64:
 		binary.Write(bytesBuffer, binary.LittleEndian, n)
 		return bytesBuffer.Bytes(), nil
+	case reflect.Int8:
+		binary.Write(bytesBuffer, binary.LittleEndian, n)
+		return bytesBuffer.Bytes(), nil
+	case reflect.Uint8:
+		binary.Write(bytesBuffer, binary.LittleEndian, n)
+		return bytesBuffer.Bytes(), nil
 	default:
 		return nil, errors.New("unsupported type")
 	}
