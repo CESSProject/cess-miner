@@ -21,10 +21,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Convert the ip address of integer type to string type
 func InetNtoA(ip int64) string {
 	return fmt.Sprintf("%d.%d.%d.%d", byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip))
 }
 
+// Convert string type ip address to integer type
 func InetAtoN(ip string) (int64, error) {
 	ret := big.NewInt(0)
 	result := net.ParseIP(ip)
@@ -34,29 +36,17 @@ func InetAtoN(ip string) (int64, error) {
 	return ret.SetBytes(result.To4()).Int64(), nil
 }
 
+// Write string content to file
 func WriteStringtoFile(content, fileName string) error {
-	var (
-		err  error
-		name string
-		//filesuffix string
-		//fileprefix string
-	)
-	name = fileName
-	// _, err = os.Stat(name)
-	// if err == nil {
-	// 	filesuffix = filepath.Ext(name)
-	// 	fileprefix = name[0 : len(name)-len(filesuffix)]
-	// 	fileprefix = fileprefix + fmt.Sprintf("_%v", strconv.FormatInt(time.Now().UnixNano(), 10))
-	// 	name = fileprefix + filesuffix
-	// }
-	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 	if err != nil {
-		return errors.Wrap(err, "OpenFile err")
+		return err
 	}
 	defer f.Close()
-	_, err = f.Write([]byte(content))
+	f.WriteString(content)
+	_, err = f.WriteString(content)
 	if err != nil {
-		return errors.Wrap(err, "f.Write err")
+		return err
 	}
 	return nil
 }
