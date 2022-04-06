@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 	"unsafe"
 
@@ -48,49 +46,6 @@ func WriteStringtoFile(content, fileName string) error {
 		return err
 	}
 	return nil
-}
-
-// parse ip
-func ParseIpPort(ip string) (string, string, error) {
-	if ip != "" {
-		ip_port := strings.Split(ip, ":")
-		if len(ip_port) == 1 {
-			isipv4 := net.ParseIP(ip_port[0])
-			if isipv4 != nil {
-				return ip + ":15001", ":15001", nil
-			}
-			return ip_port[0], ":15001", nil
-		}
-		if len(ip_port) == 2 {
-			_, err := strconv.ParseUint(ip_port[1], 10, 16)
-			if err != nil {
-				return "", "", err
-			}
-			return ip, ":" + ip_port[1], nil
-		}
-		return "", "", errors.New(" The IP address is incorrect")
-	} else {
-		return "", "", errors.New(" The IP address is nil")
-	}
-}
-
-//Judge whether IP can connect with TCP normally.
-//Returning true means normal.
-func TestConnectionWithTcp(ip string) bool {
-	if ip == "" {
-		return false
-	}
-	tmp := strings.Split(ip, ":")
-	address := ""
-	if len(tmp) > 1 {
-		address = ip
-	} else if len(tmp) == 1 {
-		address = net.JoinHostPort(ip, "80")
-	} else {
-		return false
-	}
-	_, err := net.DialTimeout("tcp", address, 2*time.Second)
-	return err == nil
 }
 
 // Integer to bytes
@@ -127,6 +82,7 @@ func IntegerToBytes(n interface{}) ([]byte, error) {
 	}
 }
 
+// Get the total size of all files in a directory and subdirectories
 func DirSize(path string) (uint64, error) {
 	var size uint64
 	err := filepath.Walk(path, func(s string, info os.FileInfo, err error) error {
@@ -138,41 +94,16 @@ func DirSize(path string) (uint64, error) {
 	return size, err
 }
 
-func EscapeURISpecialCharacters(in string) string {
-	rtn := ""
-	rtn = strings.Replace(in, "%", "%25", -1)
-	rtn = strings.Replace(rtn, " ", "%20", -1)
-	rtn = strings.Replace(rtn, "!", "%21", -1)
-	rtn = strings.Replace(rtn, `"`, "%22", -1)
-	rtn = strings.Replace(rtn, "#", "%23", -1)
-	rtn = strings.Replace(rtn, "$", "%24", -1)
-	rtn = strings.Replace(rtn, "&", "%26", -1)
-	rtn = strings.Replace(rtn, "'", "%27", -1)
-	rtn = strings.Replace(rtn, "(", "%28", -1)
-	rtn = strings.Replace(rtn, ")", "%29", -1)
-	rtn = strings.Replace(rtn, "*", "%2A", -1)
-	rtn = strings.Replace(rtn, "+", "%2B", -1)
-	rtn = strings.Replace(rtn, ",", "%2C", -1)
-	rtn = strings.Replace(rtn, "/", `%2F`, -1)
-	rtn = strings.Replace(rtn, ":", "%3A", -1)
-	rtn = strings.Replace(rtn, ";", "%3B", -1)
-	rtn = strings.Replace(rtn, "<", "%3C", -1)
-	rtn = strings.Replace(rtn, "=", "%3D", -1)
-	rtn = strings.Replace(rtn, ">", `%3E`, -1)
-	rtn = strings.Replace(rtn, "?", `%3F`, -1)
-	rtn = strings.Replace(rtn, "@", "%40", -1)
-	rtn = strings.Replace(rtn, `|`, "%7C", -1)
-	return rtn
-}
-
+// Get a random integer in a specified range
 func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())
 	return rand.Intn(max-min) + min
 }
 
+// Base58 encoded characters
 var base58 = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
-//Base58 encode
+// Base58 encode
 func Base58Encoding(str string) string {
 	strByte := []byte(str)
 	strTen := big.NewInt(0).SetBytes(strByte)
@@ -202,7 +133,7 @@ func ReverseByteArr(bytes []byte) []byte {
 	return bytes
 }
 
-//Base58 Decode
+// Base58 Decode
 func Base58Decoding(str string) string {
 	strByte := []byte(str)
 	ret := big.NewInt(0)
@@ -214,16 +145,17 @@ func Base58Decoding(str string) string {
 	return string(ret.Bytes())
 }
 
-//
+// bytes to string
 func B2S(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+// string to bytes
 func S2B(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&s))
 }
 
-//
+// Create a directory
 func CreatDirIfNotExist(dir string) error {
 	_, err := os.Stat(dir)
 	if err != nil {
@@ -232,7 +164,7 @@ func CreatDirIfNotExist(dir string) error {
 	return nil
 }
 
-//
+// Get the name of a first-level subdirectory in a given directory
 func WalkDir(filePath string) ([]string, error) {
 	dirs := make([]string, 0)
 	files, err := ioutil.ReadDir(filePath)
@@ -248,7 +180,7 @@ func WalkDir(filePath string) ([]string, error) {
 	return dirs, nil
 }
 
-//
+// Send a post request to the specified address
 func Post(url string, para interface{}) ([]byte, error) {
 	body, err := json.Marshal(para)
 	if err != nil {
