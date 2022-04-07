@@ -53,7 +53,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 	}
 	tokens := types.NewUCompact(realTokens)
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.NewBytes([]byte(ipAddr)), tokens)
+	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.Bytes([]byte(ipAddr)), tokens)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -192,7 +192,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 		uncid[i] = make(types.Bytes, 0)
 		uncid[i] = append(uncid[i], unsealedcid[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU8(segsizetype), types.NewU8(segtype), types.NewU64(peerid), uncid, types.NewBytes(shardhash))
+	c, err := types.NewCall(meta, TransactionName, types.U8(segsizetype), types.U8(segtype), types.U64(peerid), uncid, types.Bytes(shardhash))
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "NewCall err")
 	}
@@ -279,7 +279,7 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
-						if events.SegmentBook_ParamSet[i].PeerId == types.NewU64(configs.MinerId_I) {
+						if events.SegmentBook_ParamSet[i].PeerId == types.U64(configs.MinerId_I) {
 							return uint64(events.SegmentBook_ParamSet[i].SegmentId), uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
@@ -328,7 +328,7 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 		return 0, errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(segmentid), types.NewU8(segsizetype), types.NewU8(segtype))
+	c, err := types.NewCall(meta, TransactionName, types.U64(segmentid), types.U8(segsizetype), types.U8(segtype))
 	if err != nil {
 		return 0, errors.Wrap(err, "NewCall err")
 	}
@@ -415,7 +415,7 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 				}
 				if events.SegmentBook_ParamSet != nil {
 					for i := 0; i < len(events.SegmentBook_ParamSet); i++ {
-						if events.SegmentBook_ParamSet[i].PeerId == types.NewU64(configs.MinerId_I) {
+						if events.SegmentBook_ParamSet[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_ParamSet[i].SegmentId == types.U64(segmentid) {
 							return uint32(events.SegmentBook_ParamSet[i].Random), nil
 						}
 					}
@@ -464,7 +464,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 		return false, errors.Wrapf(err, "GetMetadataLatest err [%v]", TransactionName)
 	}
 
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), types.NewBytes(proofs), types.NewBytes(cid))
+	c, err := types.NewCall(meta, TransactionName, types.U64(peerid), types.U64(segmentid), types.Bytes(proofs), types.Bytes(cid))
 	if err != nil {
 		return false, errors.Wrapf(err, "NewCall err [%v]", TransactionName)
 	}
@@ -552,7 +552,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 				case configs.ChainTx_SegmentBook_SubmitToVpa:
 					if events.SegmentBook_VPASubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPASubmitted); i++ {
-							if events.SegmentBook_VPASubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.U64(segmentid) {
+							if events.SegmentBook_VPASubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
@@ -570,7 +570,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 				case configs.ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPBSubmitted); i++ {
-							if events.SegmentBook_VPBSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.U64(segmentid) {
+							if events.SegmentBook_VPBSubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.U64(segmentid) {
 								return true, nil
 							}
 						}
@@ -631,7 +631,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpc[i] = append(fileVpc[i], proofs[i]...)
 	}
 
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpc, sealcid, fid)
+	c, err := types.NewCall(meta, TransactionName, types.U64(peerid), types.U64(segmentid), fileVpc, sealcid, fid)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -717,7 +717,7 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 				}
 				if events.SegmentBook_VPCSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPCSubmitted); i++ {
-						if events.SegmentBook_VPCSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPCSubmitted[i].SegmentId == types.NewU64(segmentid) {
+						if events.SegmentBook_VPCSubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPCSubmitted[i].SegmentId == types.U64(segmentid) {
 							return true, nil
 						}
 					}
@@ -771,7 +771,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 		fileVpd[i] = make(types.Bytes, 0)
 		fileVpd[i] = append(fileVpd[i], proofs[i]...)
 	}
-	c, err := types.NewCall(meta, TransactionName, types.NewU64(peerid), types.NewU64(segmentid), fileVpd, sealcid, fid)
+	c, err := types.NewCall(meta, TransactionName, types.U64(peerid), types.U64(segmentid), fileVpd, sealcid, fid)
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
@@ -857,7 +857,7 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 				}
 				if events.SegmentBook_VPDSubmitted != nil {
 					for i := 0; i < len(events.SegmentBook_VPDSubmitted); i++ {
-						if events.SegmentBook_VPDSubmitted[i].PeerId == types.NewU64(configs.MinerId_I) && events.SegmentBook_VPDSubmitted[i].SegmentId == types.NewU64(segmentid) {
+						if events.SegmentBook_VPDSubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPDSubmitted[i].SegmentId == types.U64(segmentid) {
 							if head != nil {
 								Out.Sugar().Infof("[%v]SegmentBook_VPDSubmitted suc", head.Number)
 							}
