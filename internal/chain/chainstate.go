@@ -10,29 +10,29 @@ import (
 )
 
 type CessChain_MinerInfo struct {
-	CessChain_MinerInfo1
-	CessChain_MinerInfo2
+	MinerInfo1 CessChain_MinerInfo1
+	MinerInfo2 CessChain_MinerInfo2
 }
 
 type CessChain_MinerInfo1 struct {
-	Peerid       types.U64       `json:"peerid"`
-	Beneficiary1 types.AccountID `json:"beneficiary"`
-	ServiceAddr  types.Bytes     `json:"ip"`
-	Collaterals1 types.U128      `json:"collaterals"`
-	Earnings     types.U128      `json:"earnings"`
-	Locked       types.U128      `json:"locked"`
-	State        types.Bytes     `json:"state"`
+	Peerid      types.U64       `json:"peerid"`
+	Beneficiary types.AccountID `json:"beneficiary"`
+	ServiceAddr types.Bytes     `json:"ip"`
+	Collaterals types.U128      `json:"collaterals"`
+	Earnings    types.U128      `json:"earnings"`
+	Locked      types.U128      `json:"locked"`
+	State       types.Bytes     `json:"state"`
 }
 
 type CessChain_MinerInfo2 struct {
 	Address                           types.AccountID `json:"address"`
-	Beneficiary2                      types.AccountID `json:"beneficiary"`
+	Beneficiary                       types.AccountID `json:"beneficiary"`
 	Power                             types.U128      `json:"power"`
 	Space                             types.U128      `json:"space"`
 	Total_reward                      types.U128      `json:"total_reward"`
 	Total_rewards_currently_available types.U128      `json:"total_rewards_currently_available"`
 	Totald_not_receive                types.U128      `json:"totald_not_receive"`
-	Collaterals2                      types.U128      `json:"collaterals"`
+	Collaterals                       types.U128      `json:"collaterals"`
 }
 
 type ParamInfo struct {
@@ -149,22 +149,22 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		return mdata, errors.Wrap(err, "GetStorageLatest err")
 	}
 
-	mdata.Peerid = m1.Peerid
-	mdata.Beneficiary1 = m1.Beneficiary1
-	mdata.ServiceAddr = m1.ServiceAddr
-	mdata.Collaterals1 = m1.Collaterals1
-	mdata.Earnings = m1.Earnings
-	mdata.Locked = m1.Locked
-	mdata.State = m1.State
+	mdata.MinerInfo1.Peerid = m1.Peerid
+	mdata.MinerInfo1.Beneficiary = m1.Beneficiary
+	mdata.MinerInfo1.ServiceAddr = m1.ServiceAddr
+	mdata.MinerInfo1.Collaterals = m1.Collaterals
+	mdata.MinerInfo1.Earnings = m1.Earnings
+	mdata.MinerInfo1.Locked = m1.Locked
+	mdata.MinerInfo1.State = m1.State
 
-	mdata.Address = m2.Address
-	mdata.Beneficiary2 = m2.Beneficiary2
-	mdata.Power = m2.Power
-	mdata.Space = m2.Space
-	mdata.Total_reward = m2.Total_reward
-	mdata.Total_rewards_currently_available = m2.Total_rewards_currently_available
-	mdata.Totald_not_receive = m2.Totald_not_receive
-	mdata.Collaterals2 = m2.Collaterals2
+	mdata.MinerInfo2.Address = m2.Address
+	mdata.MinerInfo2.Beneficiary = m2.Beneficiary
+	mdata.MinerInfo2.Power = m2.Power
+	mdata.MinerInfo2.Space = m2.Space
+	mdata.MinerInfo2.Total_reward = m2.Total_reward
+	mdata.MinerInfo2.Total_rewards_currently_available = m2.Total_rewards_currently_available
+	mdata.MinerInfo2.Totald_not_receive = m2.Totald_not_receive
+	mdata.MinerInfo2.Collaterals = m2.Collaterals
 
 	return mdata, nil
 }
