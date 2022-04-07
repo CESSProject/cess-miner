@@ -177,7 +177,7 @@ func segmentVpb() {
 		segDeduplicationVpb sync.Map
 	)
 	for {
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
+		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 30)))
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
 			configs.Confile.MinerData.TransactionPrK,
 			configs.ChainModule_SegmentBook,
@@ -185,6 +185,7 @@ func segmentVpb() {
 		)
 		if err != nil {
 			Err.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 			continue
 		}
 		effictiveDir := make([]string, 0)
@@ -449,6 +450,7 @@ func segmentVpd() {
 			)
 			if err != nil || randnum == 0 {
 				Err.Sugar().Errorf("[%v][%v]", err, randnum)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 				continue
 			}
 

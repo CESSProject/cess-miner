@@ -144,13 +144,13 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 						}
 					}
 					if head != nil {
-						return false, errors.Wrapf(err, "[%v]events.Sminer_Registered data err", head.Number)
+						return false, errors.Errorf("[%v]events.Sminer_Registered data err", head.Number)
 					} else {
 						return false, errors.New("events.Sminer_Registered data err")
 					}
 				}
 				if head != nil {
-					return false, errors.Wrapf(err, "[%v]events.Sminer_Registered not found", head.Number)
+					return false, errors.Errorf("[%v]events.Sminer_Registered not found", head.Number)
 				} else {
 					return false, errors.New("events.Sminer_Registered not found")
 				}
@@ -284,13 +284,13 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 						}
 					}
 					if head != nil {
-						return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+						return 0, 0, errors.Errorf("[%v]events.SegmentBook_ParamSet data err", head.Number)
 					} else {
 						return 0, 0, errors.New("events.SegmentBook_ParamSet data err")
 					}
 				}
 				if head != nil {
-					return 0, 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+					return 0, 0, errors.Errorf("[%v]events.SegmentBook_ParamSet not found", head.Number)
 				} else {
 					return 0, 0, errors.New("events.SegmentBook_ParamSet not found")
 				}
@@ -306,7 +306,6 @@ func IntentSubmitToChain(identifyAccountPhrase, TransactionName string, segsizet
 //
 func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segmentid uint64, segsizetype, segtype uint8) (uint32, error) {
 	var (
-		err         error
 		ok          bool
 		accountInfo types.AccountInfo
 	)
@@ -420,19 +419,19 @@ func IntentSubmitPostToChain(identifyAccountPhrase, TransactionName string, segm
 						}
 					}
 					if head != nil {
-						return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet data err", head.Number)
+						return 0, errors.Errorf("[%v]events.SegmentBook_ParamSet data err", head.Number)
 					} else {
-						return 0, errors.Wrap(err, "events.SegmentBook_ParamSet data err")
+						return 0, errors.New("events.SegmentBook_ParamSet data err")
 					}
 				}
 				if head != nil {
-					return 0, errors.Wrapf(err, "[%v]events.SegmentBook_ParamSet not found", head.Number)
+					return 0, errors.Errorf("[%v]events.SegmentBook_ParamSet not found", head.Number)
 				} else {
-					return 0, errors.Wrap(err, "events.SegmentBook_ParamSet not found")
+					return 0, errors.New("events.SegmentBook_ParamSet not found")
 				}
 			}
 		case err = <-sub.Err():
-			return 0, err
+			return 0, errors.Wrap(err, "sub.Err")
 		case <-timeout:
 			return 0, errors.New("SubmitAndWatchExtrinsic timeout")
 		}
@@ -557,15 +556,15 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 							}
 						}
 						if head != nil {
-							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted data err", head.Number)
+							return false, errors.Errorf("[%v]events.SegmentBook_VPASubmitted data err", head.Number)
 						} else {
-							return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted data err")
+							return false, errors.New("events.SegmentBook_VPASubmitted data err")
 						}
 					}
 					if head != nil {
-						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPASubmitted not found", head.Number)
+						return false, errors.Errorf("[%v]events.SegmentBook_VPASubmitted not found", head.Number)
 					} else {
-						return false, errors.Wrap(err, "events.SegmentBook_VPASubmitted not found")
+						return false, errors.New("events.SegmentBook_VPASubmitted not found")
 					}
 				case configs.ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
@@ -575,21 +574,21 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 							}
 						}
 						if head != nil {
-							return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted data err", head.Number)
+							return false, errors.Errorf("[%v]events.SegmentBook_VPBSubmitted data err", head.Number)
 						} else {
-							return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted data err")
+							return false, errors.New("events.SegmentBook_VPBSubmitted data err")
 						}
 					}
 					if head != nil {
-						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPBSubmitted not found", head.Number)
+						return false, errors.Errorf("[%v]events.SegmentBook_VPBSubmitted not found", head.Number)
 					} else {
-						return false, errors.Wrap(err, "events.SegmentBook_VPBSubmitted not found")
+						return false, errors.New("events.SegmentBook_VPBSubmitted not found")
 					}
 				}
 				if head != nil {
-					return false, errors.Wrapf(err, "[%v]events.ChainTx_SegmentBook_SubmitToVpa/b not found", head.Number)
+					return false, errors.Errorf("[%v]events.ChainTx_SegmentBook_SubmitToVpa/b not found", head.Number)
 				} else {
-					return false, errors.Wrap(err, "events.ChainTx_SegmentBook_SubmitToVpa/b not found")
+					return false, errors.New("events.ChainTx_SegmentBook_SubmitToVpa/b not found")
 				}
 			}
 		case err = <-sub.Err():
@@ -722,13 +721,13 @@ func SegmentSubmitToVpc(identifyAccountPhrase, TransactionName string, peerid, s
 						}
 					}
 					if head != nil {
-						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPCSubmitted data err", head.Number)
+						return false, errors.Errorf("[%v]events.SegmentBook_VPCSubmitted data err", head.Number)
 					} else {
 						return false, errors.New("events.SegmentBook_VPCSubmitted data err")
 					}
 				}
 				if head != nil {
-					return false, errors.Wrapf(err, "[%v]Not found events.SegmentBook_VPCSubmitted", head.Number)
+					return false, errors.Errorf("[%v]Not found events.SegmentBook_VPCSubmitted", head.Number)
 				} else {
 					return false, errors.New("Not found events.SegmentBook_VPCSubmitted")
 				}
@@ -865,13 +864,13 @@ func SegmentSubmitToVpd(identifyAccountPhrase, TransactionName string, peerid, s
 						}
 					}
 					if head != nil {
-						return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted data err", head.Number)
+						return false, errors.Errorf("[%v]events.SegmentBook_VPDSubmitted data err", head.Number)
 					} else {
 						return false, errors.New("events.SegmentBook_VPDSubmitted data err")
 					}
 				}
 				if head != nil {
-					return false, errors.Wrapf(err, "[%v]events.SegmentBook_VPDSubmitted not found", head.Number)
+					return false, errors.Errorf("[%v]events.SegmentBook_VPDSubmitted not found", head.Number)
 				} else {
 					return false, errors.New("events.SegmentBook_VPDSubmitted not found")
 				}
