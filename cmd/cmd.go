@@ -432,8 +432,18 @@ func register() {
 		pledgeTokens += 2000
 	}
 
-	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
+	eip, err := tools.GetExternalIp()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
 
+	if eip != configs.Confile.MinerData.ServiceAddr {
+		fmt.Printf("\x1b[%dm[err]\x1b[0mYou can use \"curl ifconfig.co\" to view the external network ip address\n", 41)
+		os.Exit(1)
+	}
+
+	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
 	ok, err := chain.RegisterToChain(
 		configs.Confile.MinerData.TransactionPrK,
 		configs.Confile.MinerData.RevenuePuK,

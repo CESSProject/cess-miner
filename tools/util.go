@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -161,4 +162,14 @@ func Post(url string, para interface{}) ([]byte, error) {
 		return respBody, err
 	}
 	return nil, err
+}
+
+// Get external network ip
+func GetExternalIp() (string, error) {
+	cmd := exec.Command("/bin/bash", "-c", "curl ifconfig.co")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
 }
