@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket_V0.3.1"
+const Version = "CESS-Bucket_V0.4.0"
 
 // cess chain module
 const (

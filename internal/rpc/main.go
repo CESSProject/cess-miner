@@ -136,7 +136,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
 		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
 	}
-	Out.Sugar().Infof("[%v]Receive download request suc:%v", t)
+	Out.Sugar().Infof("[%v]Receive download request suc", t)
 	return &RespBody{Code: 200, Msg: "success", Data: rtnData_proto}, nil
 }
 
