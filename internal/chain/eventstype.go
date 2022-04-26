@@ -196,6 +196,13 @@ type Event_SolutionStored struct {
 	Topics           []types.Hash
 }
 
+type Event_Balances_Withdraw struct {
+	Phase  types.Phase
+	Who    types.AccountID
+	Amount types.U128
+	Topics []types.Hash
+}
+
 //**************************************************************
 
 // All event types
@@ -242,4 +249,5 @@ type MyEventRecords struct {
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted
 	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
+	Balances_Withdraw                               []Event_Balances_Withdraw
 }
