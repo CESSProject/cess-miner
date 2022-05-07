@@ -16,7 +16,7 @@ import (
 )
 
 // miner register
-func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64) (bool, error) {
+func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64, puk []byte) (bool, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -53,7 +53,7 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 	}
 	tokens := types.NewUCompact(realTokens)
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.Bytes([]byte(ipAddr)), tokens)
+	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.Bytes([]byte(ipAddr)), tokens, types.Bytes(puk))
 	if err != nil {
 		return false, errors.Wrap(err, "NewCall err")
 	}
