@@ -74,4 +74,6 @@ var (
 	Cache             = "cache"
 	TmpltFileFolder   = "temp"
 	TmpltFileName     = "template"
+	PrivateKeyfile    = ".m_privateKey.pem"
+	PublicKeyfile     = ".m_publicKey.pem"
 )

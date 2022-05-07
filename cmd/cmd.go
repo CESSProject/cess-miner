@@ -4,11 +4,13 @@ import (
 	"cess-bucket/configs"
 	"cess-bucket/initlz"
 	"cess-bucket/internal/chain"
+	"cess-bucket/internal/encryption"
 	. "cess-bucket/internal/logger"
 	"cess-bucket/internal/proof"
 	"cess-bucket/internal/rpc"
 	"cess-bucket/tools"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -187,6 +189,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries.\n", 41)
 			os.Exit(1)
 		}
+		encryption.GenKeypair()
 		register()
 	}
 }
@@ -239,6 +242,7 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 		// init
 		initlz.SystemInit()
 		proof.Proof_Init()
+		encryption.Check_Keypair()
 		// start-up
 		proof.Proof_Main()
 		rpc.Rpc_Main()
@@ -444,12 +448,21 @@ func register() {
 	}
 
 	res := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
+
+	publicKeyfile := filepath.Join(configs.MinerDataPath, configs.PublicKeyfile)
+	puk, err := ioutil.ReadFile(publicKeyfile)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
+
 	ok, err := chain.RegisterToChain(
 		configs.Confile.MinerData.TransactionPrK,
 		configs.Confile.MinerData.RevenuePuK,
 		res,
 		configs.ChainTx_Sminer_Register,
 		pledgeTokens,
+		puk,
 	)
 	if !ok || err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
