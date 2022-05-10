@@ -295,3 +295,39 @@ func GetSchedulerInfo() ([]SchedulerInfo, error) {
 	}
 	return data, nil
 }
+
+func GetChallengesById(id uint64) ([]ChallengesInfo, error) {
+	var (
+		err  error
+		data []ChallengesInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return nil, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+	b, err := types.EncodeToBytes(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "[EncodeToBytes]")
+	}
+	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, b)
+	if err != nil {
+		return nil, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return nil, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, errors.New("[value is nil]")
+	}
+	return data, nil
+}

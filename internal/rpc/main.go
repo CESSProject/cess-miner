@@ -63,13 +63,13 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
 	}
 	// Determine whether the storage path exists
-	err = tools.CreatDirIfNotExist(configs.ServiceDir)
+	err = tools.CreatDirIfNotExist(configs.FilesDir)
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
 	}
 	fid := strings.Split(filepath.Base(b.FileId), ".")[0]
-	fpath := filepath.Join(configs.ServiceDir, fid)
+	fpath := filepath.Join(configs.FilesDir, fid)
 	if err = os.MkdirAll(fpath, os.ModeDir); err != nil {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
@@ -105,7 +105,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		return &RespBody{Code: 400, Msg: err.Error()}, nil
 	}
 	fid := strings.Split(b.FileId, ".")[0]
-	fpath := filepath.Join(configs.ServiceDir, fid, b.FileId)
+	fpath := filepath.Join(configs.FilesDir, fid, b.FileId)
 	_, err = os.Stat(fpath)
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)

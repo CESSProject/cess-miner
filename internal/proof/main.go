@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +55,7 @@ type RespSpacefileInfo struct {
 // init
 func Proof_Init() {
 	configs.SpaceDir = filepath.Join(configs.MinerDataPath, configs.SpaceDir)
-	configs.ServiceDir = filepath.Join(configs.MinerDataPath, configs.ServiceDir)
+	configs.FilesDir = filepath.Join(configs.MinerDataPath, configs.FilesDir)
 	_, err := os.Stat(configs.SpaceDir)
 	if err != nil {
 		if err = os.MkdirAll(configs.SpaceDir, os.ModeDir); err != nil {
@@ -63,9 +64,9 @@ func Proof_Init() {
 			os.Exit(1)
 		}
 	}
-	_, err = os.Stat(configs.ServiceDir)
+	_, err = os.Stat(configs.FilesDir)
 	if err != nil {
-		if err = os.MkdirAll(configs.ServiceDir, os.ModeDir); err != nil {
+		if err = os.MkdirAll(configs.FilesDir, os.ModeDir); err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			os.Exit(1)
@@ -343,9 +344,9 @@ func segmentVpc() {
 			Err.Sugar().Errorf("%v", err)
 			continue
 		}
-		_, err = os.Stat(configs.ServiceDir)
+		_, err = os.Stat(configs.FilesDir)
 		if err != nil {
-			err = os.MkdirAll(configs.ServiceDir, os.ModeDir)
+			err = os.MkdirAll(configs.FilesDir, os.ModeDir)
 			if err != nil {
 				Err.Sugar().Errorf("%v", err)
 				continue
@@ -380,7 +381,7 @@ func segmentVpc() {
 			}
 			fid := strings.Split(shardhash, ".")[0]
 
-			filehashid := filepath.Join(configs.ServiceDir, fid)
+			filehashid := filepath.Join(configs.FilesDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
 				err = os.MkdirAll(filehashid, os.ModeDir)
@@ -399,7 +400,7 @@ func segmentVpc() {
 				Err.Sugar().Errorf("%v", err)
 				continue
 			}
-			filefullpath := filepath.Join(configs.ServiceDir, fid, shardhash)
+			filefullpath := filepath.Join(configs.FilesDir, fid, shardhash)
 			// Generate proof
 			sealcid, prf, err := generateSegmentVpc(filefullpath, filesegid, uint64(unsealedcidData[i].Segment_id), seed, uncid)
 			if err != nil {
@@ -502,7 +503,7 @@ func segmentVpd() {
 				hash += temp
 			}
 			fid := strings.Split(hash, ".")[0]
-			filehashid := filepath.Join(configs.ServiceDir, fid)
+			filehashid := filepath.Join(configs.FilesDir, fid)
 			_, err = os.Stat(filehashid)
 			if err != nil {
 				Err.Sugar().Errorf("%v", err)
@@ -888,6 +889,51 @@ func processingSpace() {
 				continue
 			}
 			spacefile.Close()
+		}
+	}
+}
+
+//
+func processingChallenges() {
+	var (
+		err         error
+		filedir     string
+		filename    string
+		tagfilename string
+		chlng       []chain.ChallengesInfo
+	)
+	for {
+		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
+		chlng, err = chain.GetChallengesById(configs.MinerId_I)
+		if err != nil {
+			continue
+		}
+		for i := 0; i < len(chlng); i++ {
+			if chlng[i].File_type == 1 {
+				filedir = filepath.Join(configs.SpaceDir, string(chlng[i].File_id))
+				filename = string(chlng[i].File_id) + ".space"
+			} else {
+				filedir = filepath.Join(configs.FilesDir, string(chlng[i].File_id))
+				filename = string(chlng[i].File_id) + ".cess"
+			}
+			tagfilename = string(chlng[i].File_id) + ".tag"
+			_, err = os.Stat(filepath.Join(filedir, filename))
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filedir, err)
+				continue
+			}
+			tmp := make(map[int]*big.Int, len(chlng[i].Block_list))
+			for j := 0; j < len(chlng[i].Block_list); j++ {
+				tmp[int(chlng[i].Block_list[j])] = new(big.Int).SetBytes(chlng[i].Random[j])
+			}
+			//TODO: query SharedParams from chain
+			qSlice, err := api.PoDR2ChallengeGenerateFromChain(tmp, "")
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filedir, err)
+				continue
+			}
+			_ = qSlice
+			_ = tagfilename
 		}
 	}
 }

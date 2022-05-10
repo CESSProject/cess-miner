@@ -16,6 +16,7 @@ const (
 	SegmentBook_ConProofInfoA  = "ConProofInfoA"
 	SegmentBook_ConProofInfoC  = "ConProofInfoC"
 	SegmentBook_MinerHoldSlice = "MinerHoldSlice"
+	SegmentBook_ChallengeMap   = "ChallengeMap"
 )
 
 // cess chain Transaction name
@@ -93,4 +94,12 @@ type SchedulerInfo struct {
 	Ip              types.Bytes
 	Stash_user      types.AccountID
 	Controller_user types.AccountID
+}
+type ChallengesInfo struct {
+	File_size  types.U64
+	File_type  types.U8
+	Block_list []types.U32
+	File_id    types.Bytes
+	//48 bit random number
+	Random []types.Bytes
 }

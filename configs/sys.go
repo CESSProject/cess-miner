@@ -43,7 +43,7 @@ var (
 	//data path
 	LogfilePathPrefix = "/log"
 	SpaceDir          = "space"
-	ServiceDir        = "service"
+	FilesDir          = "files"
 	Cache             = "cache"
 	TmpltFileFolder   = "temp"
 	TmpltFileName     = "template"
