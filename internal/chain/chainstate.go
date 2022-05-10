@@ -9,61 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CessChain_MinerInfo struct {
-	MinerInfo1 CessChain_MinerInfo1
-	MinerInfo2 CessChain_MinerInfo2
-}
-
-type CessChain_MinerInfo1 struct {
-	Peerid      types.U64       `json:"peerid"`
-	Beneficiary types.AccountID `json:"beneficiary"`
-	ServiceAddr types.Bytes     `json:"ip"`
-	Collaterals types.U128      `json:"collaterals"`
-	Earnings    types.U128      `json:"earnings"`
-	Locked      types.U128      `json:"locked"`
-	State       types.Bytes     `json:"state"`
-}
-
-type CessChain_MinerInfo2 struct {
-	Address                           types.AccountID `json:"address"`
-	Beneficiary                       types.AccountID `json:"beneficiary"`
-	Power                             types.U128      `json:"power"`
-	Space                             types.U128      `json:"space"`
-	Total_reward                      types.U128      `json:"total_reward"`
-	Total_rewards_currently_available types.U128      `json:"total_rewards_currently_available"`
-	Totald_not_receive                types.U128      `json:"totald_not_receive"`
-	Collaterals                       types.U128      `json:"collaterals"`
-}
-
-type ParamInfo struct {
-	Peer_id    types.U64 `json:"peer_id"`
-	Segment_id types.U64 `json:"segment_id"`
-	Rand       types.U32 `json:"rand"`
-}
-
-type IpostParaInfo struct {
-	Peer_id    types.U64   `json:"peer_id"`
-	Segment_id types.U64   `json:"segment_id"`
-	Sealed_cid types.Bytes `json:"sealed_cid"`
-	Size_type  types.U128  `json:"size_type"`
-}
-
-type UnsealedCidInfo struct {
-	Peer_id    types.U64     `json:"peer_id"`
-	Segment_id types.U64     `json:"segment_id"`
-	Uncid      []types.Bytes `json:"uncid"`
-	Rand       types.U32     `json:"rand"`
-	Shardhash  types.Bytes   `json:"shardhash"`
-}
-
-type FpostParaInfo struct {
-	Peer_id    types.U64     `json:"peer_id"`
-	Segment_id types.U64     `json:"segment_id"`
-	Sealed_cid []types.Bytes `json:"sealed_cid"`
-	Hash       types.Bytes   `json:"hash"`
-	Size_type  types.U128    `json:"size_type"`
-}
-
 // Get miner information on the cess chain
 func GetMinerInfo1(identifyAccountPhrase, chainModule, chainModuleMethod string) (CessChain_MinerInfo1, error) {
 	var (
@@ -315,4 +260,74 @@ func GetVpcPostOnChain(identifyAccountPhrase, chainModule, chainModuleMethod str
 		return paramdata, errors.Wrap(err, "GetStorageLatest err")
 	}
 	return paramdata, nil
+}
+
+// Get scheduler information on the cess chain
+func GetSchedulerInfo() ([]SchedulerInfo, error) {
+	var (
+		err  error
+		data []SchedulerInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return nil, errors.Wrapf(err, "[%v.%v:GetMetadataLatest]", State_FileMap, FileMap_SchedulerInfo)
+	}
+
+	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerInfo)
+	if err != nil {
+		return nil, errors.Wrapf(err, "[%v.%v:CreateStorageKey]", State_FileMap, FileMap_SchedulerInfo)
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "[%v.%v:GetStorageLatest]", State_FileMap, FileMap_SchedulerInfo)
+	}
+	if !ok {
+		return data, errors.Errorf("[%v.%v:GetStorageLatest value is nil]", State_FileMap, FileMap_SchedulerInfo)
+	}
+	return data, nil
+}
+
+func GetChallengesById(id uint64) ([]ChallengesInfo, error) {
+	var (
+		err  error
+		data []ChallengesInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return nil, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+	b, err := types.EncodeToBytes(id)
+	if err != nil {
+		return nil, errors.Wrapf(err, "[EncodeToBytes]")
+	}
+	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, b)
+	if err != nil {
+		return nil, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return nil, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, errors.New("[value is nil]")
+	}
+	return data, nil
 }

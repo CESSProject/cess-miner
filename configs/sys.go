@@ -3,41 +3,13 @@ package configs
 // type and version
 const Version = "CESS-Bucket_V0.4.0"
 
-// cess chain module
-const (
-	ChainModule_Sminer      = "Sminer"
-	ChainModule_SegmentBook = "SegmentBook"
-)
-
-// cess chain module method
-const (
-	ChainModule_Sminer_MinerItems          = "MinerItems"
-	ChainModule_Sminer_MinerDetails        = "MinerDetails"
-	ChainModule_SegmentBook_ConProofInfoA  = "ConProofInfoA"
-	ChainModule_SegmentBook_ConProofInfoC  = "ConProofInfoC"
-	ChainModule_SegmentBook_MinerHoldSlice = "MinerHoldSlice"
-)
-
-// cess chain Transaction name
-const (
-	ChainTx_Sminer_Register              = "Sminer.regnstk"
-	ChainTx_SegmentBook_IntentSubmit     = "SegmentBook.intent_submit"
-	ChainTx_SegmentBook_IntentSubmitPost = "SegmentBook.intent_submit_po_st"
-	ChainTx_SegmentBook_SubmitToVpa      = "SegmentBook.submit_to_vpa"
-	ChainTx_SegmentBook_SubmitToVpb      = "SegmentBook.submit_to_vpb"
-	ChainTx_SegmentBook_SubmitToVpc      = "SegmentBook.submit_to_vpc"
-	ChainTx_SegmentBook_SubmitToVpd      = "SegmentBook.submit_to_vpd"
-	ChainTx_Sminer_ExitMining            = "Sminer.exit_miner"
-	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
-	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
-)
-
 // rpc service and method
 const (
 	RpcService_Local              = "mservice"
 	RpcService_Scheduler          = "wservice"
 	RpcMethod_Scheduler_Writefile = "writefile"
 	RpcMethod_Scheduler_Readfile  = "readfile"
+	RpcMethod_Scheduler_Space     = "space"
 )
 
 // data segment properties
@@ -54,6 +26,7 @@ const (
 
 const (
 	Space_1GB          = 1073741824     // 1GB
+	Space_1MB          = 1024 * 1024    // 1MB
 	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
 )
@@ -70,7 +43,7 @@ var (
 	//data path
 	LogfilePathPrefix = "/log"
 	SpaceDir          = "space"
-	ServiceDir        = "service"
+	FilesDir          = "files"
 	Cache             = "cache"
 	TmpltFileFolder   = "temp"
 	TmpltFileName     = "template"

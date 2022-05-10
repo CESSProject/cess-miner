@@ -548,7 +548,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 					}
 				}
 				switch TransactionName {
-				case configs.ChainTx_SegmentBook_SubmitToVpa:
+				case ChainTx_SegmentBook_SubmitToVpa:
 					if events.SegmentBook_VPASubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPASubmitted); i++ {
 							if events.SegmentBook_VPASubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPASubmitted[i].SegmentId == types.U64(segmentid) {
@@ -566,7 +566,7 @@ func SegmentSubmitToVpaOrVpb(identifyAccountPhrase, TransactionName string, peer
 					} else {
 						return false, errors.New("events.SegmentBook_VPASubmitted not found")
 					}
-				case configs.ChainTx_SegmentBook_SubmitToVpb:
+				case ChainTx_SegmentBook_SubmitToVpb:
 					if events.SegmentBook_VPBSubmitted != nil {
 						for i := 0; i < len(events.SegmentBook_VPBSubmitted); i++ {
 							if events.SegmentBook_VPBSubmitted[i].PeerId == types.U64(configs.MinerId_I) && events.SegmentBook_VPBSubmitted[i].SegmentId == types.U64(segmentid) {
@@ -1270,4 +1270,17 @@ func ObtainFromFaucet(faucetaddr, pbk string) error {
 	} else {
 		return errors.New("The address has been picked up today, please come back after 1 day.")
 	}
+}
+
+//
+func GetAddressFromPrk(prk string) (string, error) {
+	keyring, err := signature.KeyringPairFromSecret(prk, 0)
+	if err != nil {
+		return "", errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+	addr, err := tools.Encode(keyring.PublicKey, tools.SubstratePrefix)
+	if err != nil {
+		return "", errors.Wrap(err, "[Encode]")
+	}
+	return addr, nil
 }

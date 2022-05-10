@@ -45,7 +45,7 @@ type PoDR2Prove struct {
 }
 
 type PoDR2ProveResponse struct {
-	Sigma     []byte         `json:"sigmas"`
+	Sigma     []byte         `json:"sigma"`
 	MU        [][]byte       `json:"mu"`
 	StatueMsg PoDR2StatueMsg `json:"statue_msg"`
 }
@@ -54,17 +54,17 @@ type PoDR2Verify struct {
 	T      FileTagT   `json:"file_tag_t"`
 	QSlice []QElement `json:"q_slice"`
 	MU     [][]byte   `json:"mu"`
-	Sigma  []byte     `json:"sigmas"`
+	Sigma  []byte     `json:"sigma"`
 }
 type FileTagT struct {
-	T0
-	Signature []byte
+	T0        `json:"t0"`
+	Signature []byte `json:"signature"`
 }
 
 type T0 struct {
-	Name []byte
-	N    int64
-	U    [][]byte
+	Name []byte   `json:"name"`
+	N    int64    `json:"n"`
+	U    [][]byte `json:"u"`
 }
 
 type QElement struct {

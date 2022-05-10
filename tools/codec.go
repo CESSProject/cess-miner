@@ -6,7 +6,7 @@ import (
 )
 
 // Base58 encoded characters
-var base58 = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+var base58c = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
 // Base58 encode
 func Base58Encoding(str string) string {
@@ -17,7 +17,7 @@ func Base58Encoding(str string) string {
 		mod := big.NewInt(0)
 		strTen58 := big.NewInt(58)
 		strTen.DivMod(strTen, strTen58, mod)
-		modSlice = append(modSlice, base58[mod.Int64()])
+		modSlice = append(modSlice, base58c[mod.Int64()])
 	}
 
 	for _, elem := range strByte {
@@ -43,7 +43,7 @@ func Base58Decoding(str string) string {
 	strByte := []byte(str)
 	ret := big.NewInt(0)
 	for _, byteElem := range strByte {
-		index := bytes.IndexByte(base58, byteElem)
+		index := bytes.IndexByte(base58c, byteElem)
 		ret.Mul(ret, big.NewInt(58))
 		ret.Add(ret, big.NewInt(int64(index)))
 	}

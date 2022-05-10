@@ -5,7 +5,7 @@ import (
 	. "cess-bucket/internal/logger"
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
-	"errors"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -61,13 +63,13 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
 	}
 	// Determine whether the storage path exists
-	err = tools.CreatDirIfNotExist(configs.ServiceDir)
+	err = tools.CreatDirIfNotExist(configs.FilesDir)
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
 	}
 	fid := strings.Split(filepath.Base(b.FileId), ".")[0]
-	fpath := filepath.Join(configs.ServiceDir, fid)
+	fpath := filepath.Join(configs.FilesDir, fid)
 	if err = os.MkdirAll(fpath, os.ModeDir); err != nil {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
@@ -103,7 +105,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		return &RespBody{Code: 400, Msg: err.Error()}, nil
 	}
 	fid := strings.Split(b.FileId, ".")[0]
-	fpath := filepath.Join(configs.ServiceDir, fid, b.FileId)
+	fpath := filepath.Join(configs.FilesDir, fid, b.FileId)
 	_, err = os.Stat(fpath)
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
@@ -150,4 +152,36 @@ func cutDataRule(size int) (int, int, uint8, error) {
 	slicesize := size / (num + 1)
 	tailsize := size - slicesize*(num+1)
 	return slicesize, slicesize + tailsize, uint8(num) + 1, nil
+}
+
+//
+func WriteData(cli *Client, service, method string, body []byte) ([]byte, error) {
+	// dstip := "ws://" + tools.Base58Decoding(dst)
+	// dstip = strings.Replace(dstip, " ", "", -1)
+	req := &ReqMsg{
+		Service: service,
+		Method:  method,
+		Body:    body,
+	}
+	// client, err := DialWebsocket(context.Background(), dstip, "")
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "DialWebsocket:")
+	// }
+	// defer client.Close()
+	ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
+	resp, err := cli.Call(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "Call err:")
+	}
+
+	var b RespBody
+	err = proto.Unmarshal(resp.Body, &b)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unmarshal:")
+	}
+	if b.Code == 200 {
+		return b.Data, nil
+	}
+	errstr := fmt.Sprintf("%d", b.Code)
+	return nil, errors.New("return code:" + errstr)
 }

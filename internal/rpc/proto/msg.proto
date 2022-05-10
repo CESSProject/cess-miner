@@ -43,7 +43,32 @@ message file_download_info {
 
 message file_download_req{
   string  file_id=1;
-  bytes   publickey=2;
-  bytes   sign=3;
-  int32   blocks=4;
+  string  walletAddress=2;
+  int32   blocks=3;
+}
+
+message space_tag_req{
+  string walletAddress=1;
+  string fileid =2;
+  uint32 blockIndex=3;
+  uint32 size_mb=4;
+  bytes  sign=5;
+}
+
+message PutFileToBucket {
+  uint32 blockTotal = 1;
+  uint32 blockIndex=2;
+  uint32 blockSize=3;
+  string fileId = 4;
+  string fileHash = 5;
+  bytes  blockData=6;
+}
+
+message PutTagToBucket {
+  string   fileId = 1;
+  bytes    name = 2;
+	int64    n =3;
+	repeated bytes u =4;
+  bytes    signature =5;
+  repeated bytes sigmas=6;
 }
