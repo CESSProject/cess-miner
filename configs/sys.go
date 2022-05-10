@@ -54,6 +54,7 @@ const (
 
 const (
 	Space_1GB          = 1073741824     // 1GB
+	Space_1MB          = 1024 * 1024    // 1MB
 	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
 )

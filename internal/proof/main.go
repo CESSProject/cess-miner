@@ -4,6 +4,7 @@ import (
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	rpc "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"fmt"
 	"io/ioutil"
@@ -674,4 +675,53 @@ func getChildDirs(filePath string) ([]string, error) {
 		}
 	}
 	return dirs, nil
+}
+
+//
+func processingSpace() {
+	var (
+		err     error
+		enableS uint64
+		req     rpc.SpaceTagReq
+	)
+	for {
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+		//deleteFailedSegment(configs.SpaceDir)
+		enableS, err = calcAvailableSpace()
+		if err != nil {
+			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			continue
+		}
+		if enableS > uint64(8*configs.Space_1MB) {
+			req.SizeMb = 8
+
+			req.WalletAddress, err = chain.GetAddressFromPrk(configs.Confile.MinerData.TransactionPrK)
+
+			// put the proof on the chain
+			go func(t int64, segid uint64, prf, cids string) {
+				for {
+					_, errs := chain.SegmentSubmitToVpaOrVpb(
+						configs.Confile.MinerData.TransactionPrK,
+						configs.ChainTx_SegmentBook_SubmitToVpa,
+						configs.MinerId_I,
+						uint64(segid),
+						[]byte(prf),
+						[]byte(cids),
+					)
+					if errs == nil {
+						Out.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids)
+						return
+					}
+					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
+						Err.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids, err)
+						return
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+				}
+			}(time.Now().Unix(), segmentId, sproof, cid.String())
+		} else {
+			Out.Sugar().Infof("Insufficient free space on the mounted disk or the maximum storage space has been reached.")
+			time.Sleep(time.Minute)
+		}
+	}
 }

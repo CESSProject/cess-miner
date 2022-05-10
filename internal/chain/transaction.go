@@ -1271,3 +1271,16 @@ func ObtainFromFaucet(faucetaddr, pbk string) error {
 		return errors.New("The address has been picked up today, please come back after 1 day.")
 	}
 }
+
+//
+func GetAddressFromPrk(prk string) (string, error) {
+	keyring, err := signature.KeyringPairFromSecret(prk, 0)
+	if err != nil {
+		return "", errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+	addr, err := tools.Encode(keyring.PublicKey, tools.SubstratePrefix)
+	if err != nil {
+		return "", errors.Wrap(err, "[Encode]")
+	}
+	return addr, nil
+}

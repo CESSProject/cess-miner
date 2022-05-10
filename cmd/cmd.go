@@ -244,7 +244,7 @@ func Command_Mining_Runfunc(cmd *cobra.Command, args []string) {
 		proof.Proof_Init()
 		encryption.Check_Keypair()
 		// start-up
-		proof.Proof_Main()
+		//proof.Proof_Main()
 		rpc.Rpc_Main()
 	}
 }
