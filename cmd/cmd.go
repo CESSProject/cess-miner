@@ -209,9 +209,9 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	} else {
 		minerInfo, err := chain.GetMinerDetailInfo(
 			configs.Confile.MinerData.TransactionPrK,
-			configs.ChainModule_Sminer,
-			configs.ChainModule_Sminer_MinerItems,
-			configs.ChainModule_Sminer_MinerDetails,
+			chain.State_Sminer,
+			chain.Sminer_MinerItems,
+			chain.Sminer_MinerDetails,
 		)
 		if err != nil {
 			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -385,8 +385,8 @@ func parseProfile() {
 func queryMinerId(flag bool) (uint64, error) {
 	mData, err := chain.GetMinerInfo1(
 		configs.Confile.MinerData.TransactionPrK,
-		configs.ChainModule_Sminer,
-		configs.ChainModule_Sminer_MinerItems,
+		chain.State_Sminer,
+		chain.Sminer_MinerItems,
 	)
 	if err != nil {
 		return 0, err
@@ -460,7 +460,7 @@ func register() {
 		configs.Confile.MinerData.TransactionPrK,
 		configs.Confile.MinerData.RevenuePuK,
 		res,
-		configs.ChainTx_Sminer_Register,
+		chain.ChainTx_Sminer_Register,
 		pledgeTokens,
 		puk,
 	)
@@ -489,7 +489,7 @@ func increase() {
 		os.Exit(1)
 	}
 
-	ok, err := chain.Increase(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Increase, tokens)
+	ok, err := chain.Increase(configs.Confile.MinerData.TransactionPrK, chain.ChainTx_Sminer_Increase, tokens)
 	if err != nil {
 		Out.Sugar().Infof("Increase failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)
@@ -506,7 +506,7 @@ func increase() {
 
 // Exit the mining function
 func exitmining() {
-	ok, err := chain.ExitMining(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_ExitMining)
+	ok, err := chain.ExitMining(configs.Confile.MinerData.TransactionPrK, chain.ChainTx_Sminer_ExitMining)
 	if err != nil {
 		Out.Sugar().Infof("Exit failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)
@@ -523,7 +523,7 @@ func exitmining() {
 
 // Withdraw deposit function
 func withdraw() {
-	ok, err := chain.Withdraw(configs.Confile.MinerData.TransactionPrK, configs.ChainTx_Sminer_Withdraw)
+	ok, err := chain.Withdraw(configs.Confile.MinerData.TransactionPrK, chain.ChainTx_Sminer_Withdraw)
 	if err != nil {
 		Out.Sugar().Infof("withdraw failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)

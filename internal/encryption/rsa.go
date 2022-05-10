@@ -90,10 +90,10 @@ func generateRSAKeyfile(bits int) error {
 }
 
 // Parse private key file
-func GetRSAPrivateKey(path string) *rsa.PrivateKey {
+func GetRSAPrivateKey(path string) (*rsa.PrivateKey, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer file.Close()
 	info, _ := file.Stat()
@@ -101,14 +101,14 @@ func GetRSAPrivateKey(path string) *rsa.PrivateKey {
 	file.Read(buf)
 	block, _ := pem.Decode(buf)
 	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	return privateKey
+	return privateKey, nil
 }
 
 // Parse public key file
-func GetRSAPublicKey(path string) *rsa.PublicKey {
+func GetRSAPublicKey(path string) (*rsa.PublicKey, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer file.Close()
 	info, _ := file.Stat()
@@ -120,7 +120,7 @@ func GetRSAPublicKey(path string) *rsa.PublicKey {
 		panic(err)
 	}
 	publicKey := publicKeyInterface.(*rsa.PublicKey)
-	return publicKey
+	return publicKey, nil
 }
 
 // Parse private key

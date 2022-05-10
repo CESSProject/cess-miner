@@ -3,9 +3,14 @@ package proof
 import (
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
+	"cess-bucket/internal/encryption"
 	. "cess-bucket/internal/logger"
-	rpc "cess-bucket/internal/rpc/proto"
+	api "cess-bucket/internal/proof/apiv1"
+	"cess-bucket/internal/rpc"
+	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,14 +21,34 @@ import (
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
+	"storj.io/common/base58"
 )
 
 type mountpathInfo struct {
 	Path  string
 	Total uint64
 	Free  uint64
+}
+
+type RespSpacetagInfo struct {
+	FileId string       `json:"fileId"`
+	T      api.FileTagT `json:"file_tag_t"`
+	Sigmas [][]byte     `json:"sigmas"`
+}
+
+type TagInfo struct {
+	T      api.FileTagT `json:"file_tag_t"`
+	Sigmas [][]byte     `json:"sigmas"`
+}
+
+type RespSpacefileInfo struct {
+	FileId     string `json:"fileId"`
+	BlockTotal uint32 `json:"blockTotal"`
+	BlockIndex uint32 `json:"blockIndex"`
+	BlockData  []byte `json:"blockData"`
 }
 
 // init
@@ -104,7 +129,7 @@ func segmentVpa() {
 			}
 			segmentId, randnum, err := chain.IntentSubmitToChain(
 				configs.Confile.MinerData.TransactionPrK,
-				configs.ChainTx_SegmentBook_IntentSubmit,
+				chain.ChainTx_SegmentBook_IntentSubmit,
 				segsizeType,
 				configs.SegMentType_Idle,
 				configs.MinerId_I,
@@ -141,18 +166,18 @@ func segmentVpa() {
 				for {
 					_, errs := chain.SegmentSubmitToVpaOrVpb(
 						configs.Confile.MinerData.TransactionPrK,
-						configs.ChainTx_SegmentBook_SubmitToVpa,
+						chain.ChainTx_SegmentBook_SubmitToVpa,
 						configs.MinerId_I,
 						uint64(segid),
 						[]byte(prf),
 						[]byte(cids),
 					)
 					if errs == nil {
-						Out.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids)
+						Out.Sugar().Infof("[%v][%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids)
 						return
 					}
 					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
-						Err.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids, err)
+						Err.Sugar().Errorf("[%v][%v][%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids, err)
 						return
 					}
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
@@ -181,8 +206,8 @@ func segmentVpb() {
 		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 30)))
 		verifiedPorepData, err = chain.GetVpaPostOnChain(
 			configs.Confile.MinerData.TransactionPrK,
-			configs.ChainModule_SegmentBook,
-			configs.ChainModule_SegmentBook_ConProofInfoA,
+			chain.State_SegmentBook,
+			chain.SegmentBook_ConProofInfoA,
 		)
 		if err != nil {
 			Err.Sugar().Errorf("%v", err)
@@ -237,7 +262,7 @@ func segmentVpb() {
 			}
 			randnum, err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.TransactionPrK,
-				configs.ChainTx_SegmentBook_IntentSubmitPost,
+				chain.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				segsizetype,
 				configs.SegMentType_Idle,
@@ -278,18 +303,18 @@ func segmentVpb() {
 				for {
 					_, errs := chain.SegmentSubmitToVpaOrVpb(
 						configs.Confile.MinerData.TransactionPrK,
-						configs.ChainTx_SegmentBook_SubmitToVpb,
+						chain.ChainTx_SegmentBook_SubmitToVpb,
 						peerid,
 						segid,
 						[]byte(sprf),
 						cids,
 					)
 					if errs == nil {
-						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, segid, sprf)
+						Out.Sugar().Infof("[%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpb, segid, sprf)
 						return
 					}
 					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
-						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpb, segid, sprf, err)
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpb, segid, sprf, err)
 						return
 					}
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 20)))
@@ -311,8 +336,8 @@ func segmentVpc() {
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
 		unsealedcidData, err = chain.GetunsealcidOnChain(
 			configs.Confile.MinerData.TransactionPrK,
-			configs.ChainModule_SegmentBook,
-			configs.ChainModule_SegmentBook_MinerHoldSlice,
+			chain.State_SegmentBook,
+			chain.SegmentBook_MinerHoldSlice,
 		)
 		if err != nil {
 			Err.Sugar().Errorf("%v", err)
@@ -393,7 +418,7 @@ func segmentVpc() {
 				for {
 					_, errs := chain.SegmentSubmitToVpc(
 						configs.Confile.MinerData.TransactionPrK,
-						configs.ChainTx_SegmentBook_SubmitToVpc,
+						chain.ChainTx_SegmentBook_SubmitToVpc,
 						peerid,
 						segid,
 						proof,
@@ -401,11 +426,11 @@ func segmentVpc() {
 						types.Bytes([]byte(fileid)),
 					)
 					if errs == nil {
-						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, peerid, segid)
+						Out.Sugar().Infof("[%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpc, peerid, segid)
 						return
 					}
 					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
-						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpc, peerid, segid, err)
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpc, peerid, segid, err)
 						return
 					}
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 20)))
@@ -428,8 +453,8 @@ func segmentVpd() {
 		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 		verifiedPorepData, err = chain.GetVpcPostOnChain(
 			configs.Confile.MinerData.TransactionPrK,
-			configs.ChainModule_SegmentBook,
-			configs.ChainModule_SegmentBook_ConProofInfoC,
+			chain.State_SegmentBook,
+			chain.SegmentBook_ConProofInfoC,
 		)
 		if err != nil {
 			Err.Sugar().Errorf("%v", err)
@@ -444,7 +469,7 @@ func segmentVpd() {
 			}
 			randnum, err = chain.IntentSubmitPostToChain(
 				configs.Confile.MinerData.TransactionPrK,
-				configs.ChainTx_SegmentBook_IntentSubmitPost,
+				chain.ChainTx_SegmentBook_IntentSubmitPost,
 				uint64(verifiedPorepData[i].Segment_id),
 				configs.SegMentType_8M,
 				configs.SegMentType_Service,
@@ -513,7 +538,7 @@ func segmentVpd() {
 				for {
 					_, errs := chain.SegmentSubmitToVpd(
 						configs.Confile.MinerData.TransactionPrK,
-						configs.ChainTx_SegmentBook_SubmitToVpd,
+						chain.ChainTx_SegmentBook_SubmitToVpd,
 						peerid,
 						segid,
 						prf,
@@ -521,11 +546,11 @@ func segmentVpd() {
 						types.Bytes([]byte(fileid)),
 					)
 					if errs == nil {
-						Out.Sugar().Infof("[%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, peerid, segid)
+						Out.Sugar().Infof("[%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpd, peerid, segid)
 						return
 					}
 					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
-						Err.Sugar().Errorf("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpd, peerid, segid, err)
+						Err.Sugar().Errorf("[%v][%v][%v][%v]", chain.ChainTx_SegmentBook_SubmitToVpd, peerid, segid, err)
 						return
 					}
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
@@ -681,12 +706,40 @@ func getChildDirs(filePath string) ([]string, error) {
 func processingSpace() {
 	var (
 		err     error
+		count   uint8
 		enableS uint64
-		req     rpc.SpaceTagReq
+		req     p.SpaceTagReq
+		addr    string
 	)
+	addr, err = chain.GetAddressFromPrk(configs.Confile.MinerData.TransactionPrK)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
+	prk, err := encryption.GetRSAPrivateKey(filepath.Join(configs.MinerDataPath, configs.PrivateKeyfile))
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
+	sign, err := encryption.CalcSign([]byte(addr), prk)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
+
+	schds, _ := chain.GetSchedulerInfo()
+
 	for {
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
 		//deleteFailedSegment(configs.SpaceDir)
+		count++
+		if count%100 == 0 {
+			count = 0
+			schds, _ = chain.GetSchedulerInfo()
+		}
+		if len(schds) == 0 {
+			continue
+		}
 		enableS, err = calcAvailableSpace()
 		if err != nil {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -694,34 +747,147 @@ func processingSpace() {
 		}
 		if enableS > uint64(8*configs.Space_1MB) {
 			req.SizeMb = 8
+			req.WalletAddress = addr
+			req.Fileid = ""
+			req.BlockIndex = 0
+			req.Sign = sign
 
-			req.WalletAddress, err = chain.GetAddressFromPrk(configs.Confile.MinerData.TransactionPrK)
+			req_b, err := proto.Marshal(&req)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
 
-			// put the proof on the chain
-			go func(t int64, segid uint64, prf, cids string) {
-				for {
-					_, errs := chain.SegmentSubmitToVpaOrVpb(
-						configs.Confile.MinerData.TransactionPrK,
-						configs.ChainTx_SegmentBook_SubmitToVpa,
-						configs.MinerId_I,
-						uint64(segid),
-						[]byte(prf),
-						[]byte(cids),
-					)
-					if errs == nil {
-						Out.Sugar().Infof("[%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids)
-						return
+			var client *rpc.Client
+			for i, schd := range schds {
+				wsURL := "ws://" + string(base58.Decode(string(schd.Ip)))
+				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				client, err = rpc.DialWebsocket(ctx, wsURL, "")
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", wsURL, err)
+					if (i + 1) == len(schds) {
+						Err.Sugar().Errorf("All scheduler not working")
 					}
-					if time.Since(time.Unix(t, 0)).Minutes() > 10.0 {
-						Err.Sugar().Errorf("[%v][%v][%v][%v][%v]", configs.ChainTx_SegmentBook_SubmitToVpa, segid, prf, cids, err)
-						return
-					}
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+				} else {
+					break
 				}
-			}(time.Now().Unix(), segmentId, sproof, cid.String())
-		} else {
-			Out.Sugar().Infof("Insufficient free space on the mounted disk or the maximum storage space has been reached.")
-			time.Sleep(time.Minute)
+			}
+			if err != nil {
+				continue
+			}
+			resp, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			var respInfo RespSpacetagInfo
+			err = json.Unmarshal(resp, &respInfo)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			var tagInfo TagInfo
+			tagfilepath := filepath.Join(configs.SpaceDir, respInfo.FileId)
+			_, err = os.Stat(tagfilepath)
+			if err != nil {
+				err = os.MkdirAll(tagfilepath, os.ModeDir)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					continue
+				}
+			}
+			tagfilename := respInfo.FileId + ".tag"
+			tagfilefullpath := filepath.Join(tagfilepath, tagfilename)
+			tagInfo.T = respInfo.T
+			tagInfo.Sigmas = respInfo.Sigmas
+			ft, err := os.OpenFile(tagfilefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			tag, err := json.Marshal(tagInfo)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				ft.Close()
+				continue
+			}
+			ft.Write(tag)
+			err = ft.Sync()
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				ft.Close()
+				continue
+			}
+			ft.Close()
+
+			// req file
+			req.SizeMb = 0
+			req.WalletAddress = addr
+			req.Fileid = respInfo.FileId
+			req.BlockIndex = 0
+			req.Sign = sign
+
+			req_b, err = proto.Marshal(&req)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			resp, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			var respspacefile RespSpacefileInfo
+			err = json.Unmarshal(resp, &respspacefile)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			spacefilename := respInfo.FileId + ".space"
+			spacefilefullpath := filepath.Join(tagfilepath, spacefilename)
+			spacefile, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_APPEND, os.ModePerm)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			spacefile.Write(respspacefile.BlockData)
+			for j := 1; j < int(respspacefile.BlockTotal); j++ {
+				req.BlockIndex = uint32(j)
+				req_b, err = proto.Marshal(&req)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				respi, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				var respspacefilei RespSpacefileInfo
+				err = json.Unmarshal(respi, &respspacefilei)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				spacefile.Write(respspacefilei.BlockData)
+			}
+			_, err = os.Stat(spacefilefullpath)
+			if err != nil {
+				continue
+			}
+			err = spacefile.Sync()
+			if err != nil {
+				spacefile.Close()
+				os.Remove(spacefilefullpath)
+				continue
+			}
+			spacefile.Close()
 		}
 	}
 }
