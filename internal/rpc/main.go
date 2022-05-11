@@ -53,7 +53,7 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	var (
 		err error
 		t   int64
-		b   FileUploadInfo
+		b   PutFileToBucket
 	)
 	t = time.Now().Unix()
 	Out.Sugar().Infof("[%v]Receive upload request", t)
@@ -74,17 +74,27 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
 	}
+	filefullpath := filepath.Join(fpath, filepath.Base(b.FileId))
+
+	if b.BlockIndex == 0 {
+		os.Remove(filefullpath)
+	}
 
 	// Save received file
-	fii, err := os.OpenFile(filepath.Join(fpath, filepath.Base(b.FileId)), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	fii, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
 		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
 	}
 	defer fii.Close()
-	fii.Write(b.Data)
-	Out.Sugar().Infof("[%v]Receive upload request suc:%v", t, filepath.Join(fpath, filepath.Base(b.FileId)))
-	return &RespBody{Code: 200, Msg: "sucess", Data: nil}, nil
+	fii.Write(b.BlockData)
+	err = fii.Sync()
+	if err != nil {
+		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
+		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
+	}
+	Out.Sugar().Infof("[%v]Receive upload request suc[%v]", t, b.BlockIndex)
+	return &RespBody{Code: 200, Msg: "success", Data: nil}, nil
 }
 
 // ReadfileAction is used to handle scheduler service requests to download files.
@@ -138,7 +148,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
 		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
 	}
-	Out.Sugar().Infof("[%v]Receive download request suc", t)
+	Out.Sugar().Infof("[%v]Receive download request suc [%v]", t, b.Blocks)
 	return &RespBody{Code: 200, Msg: "success", Data: rtnData_proto}, nil
 }
 
