@@ -10,12 +10,12 @@ type CessChain struct {
 }
 
 type MinerData struct {
-	StorageSpace   uint64 `toml:"StorageSpace"`
-	MountedPath    string `toml:"MountedPath"`
-	ServiceAddr    string `toml:"ServiceAddr"`
-	ServicePort    uint32 `toml:"ServicePort"`
-	RevenuePuK     string `toml:"RevenuePuK"`
-	TransactionPrK string `toml:"TransactionPrK"`
+	StorageSpace uint64 `toml:"StorageSpace"`
+	MountedPath  string `toml:"MountedPath"`
+	ServiceAddr  string `toml:"ServiceAddr"`
+	ServicePort  uint32 `toml:"ServicePort"`
+	RevenueAcc   string `toml:"RevenueAcc"`
+	SignaturePrk string `toml:"SignaturePrk"`
 }
 
 var Confile = new(MinerInfoOnChain)
@@ -27,14 +27,14 @@ ChainAddr = ""
 
 [MinerData]
 # Total space used to store files, the unit is GB
-StorageSpace   = 0
+StorageSpace   = 1000
 # Path to the mounted disk where the data is saved
-MountedPath    = "/"
+MountedPath    = ""
 # The IP address of the machine's public network used by the mining program
 ServiceAddr    = ""
 # Port number monitored by the mining program
-ServicePort    = 15000
+ServicePort    = 15001
 # Public key of revenue account
-RevenuePuK     = ""
-# Phrase words or seeds for transaction account
-TransactionPrK = ""`
+RevenueAcc     = ""
+# Phrase words or seeds for signature account
+SignaturePrk = ""`

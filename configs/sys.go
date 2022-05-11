@@ -12,6 +12,22 @@ const (
 	RpcMethod_Scheduler_Space     = "space"
 )
 
+// return code
+const (
+	Code_200 = 200
+	Code_400 = 400
+	Code_403 = 403
+	Code_404 = 404
+	Code_500 = 500
+	//The block was produced but the event was not resolved
+	Code_600 = 600
+)
+
+const (
+	PrivateKeyfile = ".m_privateKey.pem"
+	PublicKeyfile  = ".m_publicKey.pem"
+)
+
 // data segment properties
 const (
 	SegMentType_Idle      uint8  = 1
@@ -36,17 +52,17 @@ const (
 var (
 	MinerId_S        string = ""
 	MinerId_I        uint64 = 0
-	MinerDataPath    string = "cessminer_c"
 	MinerUseSpace    uint64 = 0
 	MinerServiceAddr string = ""
 	MinerServicePort int    = 0
 	//data path
-	LogfilePathPrefix = "/log"
-	SpaceDir          = "space"
-	FilesDir          = "files"
-	Cache             = "cache"
-	TmpltFileFolder   = "temp"
-	TmpltFileName     = "template"
-	PrivateKeyfile    = ".m_privateKey.pem"
-	PublicKeyfile     = ".m_publicKey.pem"
+	BaseDir    = "bucket"
+	LogfileDir = "/log"
+	SpaceDir   = "space"
+	FilesDir   = "files"
+
+	//
+	Cache           = "cache"
+	TmpltFileFolder = "temp"
+	TmpltFileName   = "template"
 )

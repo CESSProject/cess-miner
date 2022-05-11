@@ -7,6 +7,7 @@ const (
 	State_Sminer      = "Sminer"
 	State_SegmentBook = "SegmentBook"
 	State_FileMap     = "FileMap"
+	State_FileBank    = "FileBank"
 )
 
 // cess chain module method
@@ -17,6 +18,8 @@ const (
 	SegmentBook_ConProofInfoC  = "ConProofInfoC"
 	SegmentBook_MinerHoldSlice = "MinerHoldSlice"
 	SegmentBook_ChallengeMap   = "ChallengeMap"
+	FileMap_SchedulerPuk       = "SchedulerPuk"
+	FileBank_FillerMap         = "FillerMap"
 )
 
 // cess chain Transaction name
@@ -32,14 +35,15 @@ const (
 	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
 	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
 	FileMap_SchedulerInfo                = "SchedulerMap"
+	SegmentBook_SubmitProve              = "SegmentBook.submit_challenge_prove"
 )
 
 type CessChain_MinerInfo struct {
-	MinerInfo1 CessChain_MinerInfo1
+	MinerInfo1 Chain_MinerItems
 	MinerInfo2 CessChain_MinerInfo2
 }
 
-type CessChain_MinerInfo1 struct {
+type Chain_MinerItems struct {
 	Peerid      types.U64       `json:"peerid"`
 	Beneficiary types.AccountID `json:"beneficiary"`
 	ServiceAddr types.Bytes     `json:"ip"`
@@ -97,9 +101,31 @@ type SchedulerInfo struct {
 }
 type ChallengesInfo struct {
 	File_size  types.U64
+	Scan_size  types.U32
 	File_type  types.U8
 	Block_list []types.U32
 	File_id    types.Bytes
 	//48 bit random number
 	Random []types.Bytes
+}
+
+type Chain_SchedulerPuk struct {
+	Spk           types.Bytes
+	Shared_params types.Bytes
+	Shared_g      types.Bytes
+}
+
+type SpaceFileInfo struct {
+	MinerId   types.U64
+	FileSize  types.U64
+	BlockNum  types.U32
+	ScanSize  types.U32
+	Acc       types.AccountID
+	BlockInfo []BlockInfo
+	FileId    types.Bytes
+	FileHash  types.Bytes
+}
+type BlockInfo struct {
+	BlockIndex types.U32
+	BlockSize  types.U32
 }

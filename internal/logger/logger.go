@@ -18,16 +18,13 @@ var (
 )
 
 func LoggerInit() {
-	_, err := os.Stat(configs.MinerDataPath + configs.LogfilePathPrefix)
+	_, err := os.Stat(configs.LogfileDir)
 	if err != nil {
-		err = os.MkdirAll(configs.MinerDataPath+configs.LogfilePathPrefix, os.ModeDir)
+		err = os.MkdirAll(configs.LogfileDir, os.ModeDir)
 		if err != nil {
-			configs.LogfilePathPrefix = "./log"
-		} else {
-			configs.LogfilePathPrefix = configs.MinerDataPath + configs.LogfilePathPrefix
+			fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+			os.Exit(1)
 		}
-	} else {
-		configs.LogfilePathPrefix = configs.MinerDataPath + configs.LogfilePathPrefix
 	}
 	initOutLogger()
 	initWarnLogger()
@@ -36,11 +33,11 @@ func LoggerInit() {
 
 // out log
 func initOutLogger() {
-	outlogpath := configs.LogfilePathPrefix + "/out.log"
+	outlogpath := configs.LogfileDir + "/out.log"
 	hook := lumberjack.Logger{
 		Filename:   outlogpath,
-		MaxSize:    50,  //MB
-		MaxAge:     365, //Day
+		MaxSize:    50, //MB
+		MaxAge:     90, //Day
 		MaxBackups: 0,
 		LocalTime:  true,
 		Compress:   true,
@@ -70,11 +67,11 @@ func initOutLogger() {
 
 // warn log
 func initWarnLogger() {
-	warnlogpath := configs.LogfilePathPrefix + "/warn.log"
+	warnlogpath := configs.LogfileDir + "/warn.log"
 	hook := lumberjack.Logger{
 		Filename:   warnlogpath,
-		MaxSize:    10,  //MB
-		MaxAge:     365, //Day
+		MaxSize:    30,  //MB
+		MaxAge:     180, //Day
 		MaxBackups: 0,
 		LocalTime:  true,
 		Compress:   true,
@@ -104,11 +101,11 @@ func initWarnLogger() {
 
 // error log
 func initErrLogger() {
-	errlogpath := configs.LogfilePathPrefix + "/error.log"
+	errlogpath := configs.LogfileDir + "/error.log"
 	hook := lumberjack.Logger{
 		Filename:   errlogpath,
-		MaxSize:    10,  //MB
-		MaxAge:     365, //Day
+		MaxSize:    30,  //MB
+		MaxAge:     180, //Day
 		MaxBackups: 0,
 		LocalTime:  true,
 		Compress:   true,
