@@ -1275,3 +1275,140 @@ func GetAddressFromPrk(prk string) (string, error) {
 	}
 	return addr, nil
 }
+
+//
+func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]byte) (int, error) {
+	var (
+		err         error
+		accountInfo types.AccountInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+
+	keyring, err := signature.KeyringPairFromSecret(signaturePrk, 0)
+	if err != nil {
+		return configs.Code_400, errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	b, err := types.EncodeToBytes(id)
+	if err != nil {
+		return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	var mus []types.Bytes = make([]types.Bytes, len(mu))
+	for i := 0; i < len(mu); i++ {
+		mus[i] = make(types.Bytes, 0)
+		mus[i] = append(mus[i], mu[i]...)
+	}
+
+	c, err := types.NewCall(meta, SegmentBook_SubmitProve, b, types.Bytes(fid), mus, types.Bytes(sigma))
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[NewCall]")
+	}
+
+	ext := types.NewExtrinsic(c)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[NewExtrinsic]")
+	}
+
+	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[GetBlockHash]")
+	}
+
+	rv, err := api.RPC.State.GetRuntimeVersionLatest()
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[GetRuntimeVersionLatest]")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Account]")
+	}
+
+	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Events]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return configs.Code_500, errors.New("[GetStorageLatest return value is empty]")
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        rv.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: rv.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(keyring, o)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[Sign]")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return configs.Code_500, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+	}
+	defer sub.Unsubscribe()
+	var head *types.Header
+	t := tools.RandomInRange(10000000, 99999999)
+	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := MyEventRecords{}
+				head, err = api.RPC.Chain.GetHeader(status.AsInBlock)
+				if err == nil {
+					Out.Sugar().Infof("[T:%v] [BN:%v]", t, head.Number)
+				} else {
+					Out.Sugar().Infof("[T:%v] [BH:%#x]", t, status.AsInBlock)
+				}
+				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
+				if err != nil {
+					return configs.Code_600, errors.Wrapf(err, "[T:%v]", t)
+				}
+				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+				if err != nil {
+					Out.Sugar().Infof("[T:%v]Decode event err:%v", t, err)
+				}
+				if events.SegmentBook_ChallengeProof != nil {
+					for i := 0; i < len(events.SegmentBook_ChallengeProof); i++ {
+						if events.SegmentBook_ChallengeProof[i].PeerId == types.U64(id) {
+							Out.Sugar().Infof("[T:%v] Submit prove success", t)
+							return configs.Code_200, nil
+						}
+					}
+					return configs.Code_600, errors.Errorf("[T:%v] events.SegmentBook_SubmitProve data err", t)
+				}
+				return configs.Code_600, errors.Errorf("[T:%v] events.SegmentBook_SubmitProve not found", t)
+			}
+		case err = <-sub.Err():
+			return configs.Code_500, err
+		case <-timeout:
+			return configs.Code_500, errors.New("Timeout")
+		}
+	}
+}

@@ -335,3 +335,71 @@ func GetChallengesById(id uint64) ([]ChallengesInfo, error) {
 	}
 	return data, nil
 }
+
+//
+func GetSchedulerPukFromChain() (Chain_SchedulerPuk, int, error) {
+	var (
+		err  error
+		data Chain_SchedulerPuk
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerPuk)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, configs.Code_404, errors.New("public key not found")
+	}
+	return data, configs.Code_200, nil
+}
+
+//
+func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
+	var (
+		err  error
+		data SpaceFileInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_FillerMap, types.Bytes([]byte(fid)))
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, configs.Code_404, errors.New("not found")
+	}
+	return data, configs.Code_200, nil
+}

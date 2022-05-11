@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -894,12 +895,23 @@ func processingSpace() {
 //
 func processingChallenges() {
 	var (
-		err         error
-		filedir     string
-		filename    string
-		tagfilename string
-		chlng       []chain.ChallengesInfo
+		err           error
+		code          int
+		fileid        string
+		filedir       string
+		filename      string
+		tagfilename   string
+		filetag       TagInfo
+		poDR2prove    api.PoDR2Prove
+		proveResponse api.PoDR2ProveResponse
+		puk           chain.Chain_SchedulerPuk
+		chlng         []chain.ChallengesInfo
 	)
+	puk, _, err = chain.GetSchedulerPukFromChain()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
 	for {
 		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 		chlng, err = chain.GetChallengesById(configs.MinerId_I)
@@ -910,9 +922,11 @@ func processingChallenges() {
 			if chlng[i].File_type == 1 {
 				filedir = filepath.Join(configs.SpaceDir, string(chlng[i].File_id))
 				filename = string(chlng[i].File_id) + ".space"
+				fileid = string(chlng[i].File_id)
 			} else {
-				filedir = filepath.Join(configs.FilesDir, string(chlng[i].File_id))
-				filename = string(chlng[i].File_id) + ".cess"
+				fileid = strings.Split(string(chlng[i].File_id), ".")[0]
+				filedir = filepath.Join(configs.FilesDir, fileid)
+				filename = string(chlng[i].File_id)
 			}
 			tagfilename = string(chlng[i].File_id) + ".tag"
 			_, err = os.Stat(filepath.Join(filedir, filename))
@@ -924,14 +938,66 @@ func processingChallenges() {
 			for j := 0; j < len(chlng[i].Block_list); j++ {
 				tmp[int(chlng[i].Block_list[j])] = new(big.Int).SetBytes(chlng[i].Random[j])
 			}
-			//TODO: query SharedParams from chain
-			qSlice, err := api.PoDR2ChallengeGenerateFromChain(tmp, "")
+
+			qSlice, err := api.PoDR2ChallengeGenerateFromChain(tmp, string(puk.Shared_params))
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
 			}
-			_ = qSlice
-			_ = tagfilename
+			ftag, err := ioutil.ReadFile(filepath.Join(filedir, tagfilename))
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				continue
+			}
+			err = json.Unmarshal(ftag, &filetag)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				continue
+			}
+			f, err := os.OpenFile(filepath.Join(filedir, filename), os.O_RDONLY, os.ModePerm)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				continue
+			}
+			poDR2prove.QSlice = qSlice
+			poDR2prove.T = filetag.T
+			poDR2prove.Sigmas = filetag.Sigmas
+
+			matrix, _, _, err := tools.Split(f, int64(chlng[i].Scan_size))
+			if err != nil {
+				f.Close()
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				continue
+			}
+			f.Close()
+			poDR2prove.Matrix = matrix
+			poDR2prove.S = int64(chlng[i].Scan_size)
+			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(chlng[i].Scan_size))
+			select {
+			case proveResponse = <-proveResponseCh:
+			}
+			if proveResponse.StatueMsg.StatusCode != api.Success {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				continue
+			}
+			// proof up chain
+			ts := time.Now().Unix()
+			code = 0
+			for code != int(configs.Code_200) && code != int(configs.Code_600) {
+				code, err = chain.PutProofToChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, []byte(fileid), proveResponse.Sigma, proveResponse.MU)
+				if err == nil {
+					Out.Sugar().Infof("[%v] Proof submitted successfully", fileid)
+					break
+				}
+				if time.Since(time.Unix(ts, 0)).Minutes() > 10.0 {
+					Err.Sugar().Errorf("[%v] %v", filename, err)
+					continue
+				}
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+			}
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+			}
 		}
 	}
 }
