@@ -2,7 +2,9 @@ package tools
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -201,4 +204,35 @@ func Split(file *os.File, s int64) (M [][]byte, S int64, N uint64, err error) {
 		n = 1
 	}
 	return matrix, s, n, nil
+}
+
+func CalcHash(data []byte) (string, error) {
+	if len(data) <= 0 {
+		return "", errors.New("data is nil")
+	}
+	h := sha256.New()
+	_, err := h.Write(data)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func GetStringWithoutNumbers(in string) string {
+	var resu string
+	resu = RemoveX(in, strconv.Itoa(0))
+	for i := 1; i < 10; i++ {
+		resu = RemoveX(resu, strconv.Itoa(i))
+	}
+	return resu
+}
+
+func RemoveX(str string, x string) string {
+	var res string
+	for i := 0; i < len(str); i++ {
+		if string(str[i]) != x {
+			res = res + string(str[i])
+		}
+	}
+	return res
 }

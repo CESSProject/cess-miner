@@ -16,7 +16,7 @@ import (
 )
 
 // miner register
-func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string, pledgeTokens uint64, puk []byte) (bool, error) {
+func RegisterBucketToChain(signaturePrk, revenueAcc, ipAddr string, pledgeTokens uint64, authPuk []byte) (int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -30,65 +30,65 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 		}
 	}()
 
-	keyring, err := signature.KeyringPairFromSecret(transactionPrK, 0)
+	keyring, err := signature.KeyringPairFromSecret(signaturePrk, 0)
 	if err != nil {
-		return false, errors.Wrap(err, "KeyringPairFromSecret err")
+		return configs.Code_400, errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
 
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return false, errors.Wrap(err, "GetMetadataLatest err")
+		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	incomeAccount, err := types.NewMultiAddressFromHexAccountID(revenuePuK)
+	b, err := tools.DecodeToPub(revenueAcc)
 	if err != nil {
-		return false, errors.Wrap(err, "NewMultiAddressFromHexAccountID err")
+		return configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
 	}
 
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
 	if !ok {
-		return false, errors.New("big.Int.SetString err")
+		return configs.Code_500, errors.New("[big.Int.SetString]")
 	}
 	tokens := types.NewUCompact(realTokens)
 
-	c, err := types.NewCall(meta, TransactionName, incomeAccount, types.Bytes([]byte(ipAddr)), tokens, types.Bytes(puk))
+	c, err := types.NewCall(meta, ChainTx_Sminer_Register, b, types.Bytes([]byte(ipAddr)), tokens, types.Bytes(authPuk))
 	if err != nil {
-		return false, errors.Wrap(err, "NewCall err")
+		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}
 
 	ext := types.NewExtrinsic(c)
 	if err != nil {
-		return false, errors.Wrap(err, "NewExtrinsic err")
+		return configs.Code_500, errors.Wrap(err, "[NewExtrinsic]")
 	}
 
 	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
 	if err != nil {
-		return false, errors.Wrap(err, "GetBlockHash err")
+		return configs.Code_500, errors.Wrap(err, "[GetBlockHash]")
 	}
 
 	rv, err := api.RPC.State.GetRuntimeVersionLatest()
 	if err != nil {
-		return false, errors.Wrap(err, "GetRuntimeVersionLatest err")
+		return configs.Code_500, errors.Wrap(err, "[GetRuntimeVersionLatest]")
 	}
 
 	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
 	if err != nil {
-		return false, errors.Wrap(err, "CreateStorageKey System  Account err")
+		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Account]")
 	}
 
 	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
 	if err != nil {
-		return false, errors.Wrap(err, "CreateStorageKey System Events err")
+		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Events]")
 	}
 
 	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
-		return false, errors.Wrap(err, "GetStorageLatest err")
+		return configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return false, errors.New("GetStorageLatest return value is empty")
+		return configs.Code_500, errors.New("[GetStorageLatest return value is empty]")
 	}
 
 	o := types.SignatureOptions{
@@ -104,61 +104,52 @@ func RegisterToChain(transactionPrK, revenuePuK, ipAddr, TransactionName string,
 	// Sign the transaction
 	err = ext.Sign(keyring, o)
 	if err != nil {
-		return false, errors.Wrap(err, "Sign err")
+		return configs.Code_500, errors.Wrap(err, "[Sign]")
 	}
 
 	// Do the transfer and track the actual status
 	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		return false, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
+		return configs.Code_500, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
 	var head *types.Header
+	t := tools.RandomInRange(10000000, 99999999)
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				head, _ = api.RPC.Chain.GetHeader(status.AsInBlock)
+				head, err = api.RPC.Chain.GetHeader(status.AsInBlock)
+				if err == nil {
+					Out.Sugar().Infof("[T:%v] [BN:%v]", t, head.Number)
+				} else {
+					Out.Sugar().Infof("[T:%v] [BH:%#x]", t, status.AsInBlock)
+				}
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					if head != nil {
-						return false, errors.Wrapf(err, "[%v]", head.Number)
-					} else {
-						return false, err
-					}
+					return configs.Code_600, errors.Wrapf(err, "[T:%v]", t)
 				}
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if err != nil {
-					if head != nil {
-						Out.Sugar().Infof("[%v]Decode event err:%v", head.Number, err)
-					} else {
-						Out.Sugar().Infof("Decode event err:%v", err)
-					}
+					Out.Sugar().Infof("[T:%v]Decode event err:%v", t, err)
 				}
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
 						if events.Sminer_Registered[i].Acc == types.NewAccountID(keyring.PublicKey) {
-							return true, nil
+							Out.Sugar().Infof("[T:%v] Registration success", t)
+							return configs.Code_200, nil
 						}
 					}
-					if head != nil {
-						return false, errors.Errorf("[%v]events.Sminer_Registered data err", head.Number)
-					} else {
-						return false, errors.New("events.Sminer_Registered data err")
-					}
+					return configs.Code_600, errors.Errorf("[T:%v] events.Sminer_Registered data err", t)
 				}
-				if head != nil {
-					return false, errors.Errorf("[%v]events.Sminer_Registered not found", head.Number)
-				} else {
-					return false, errors.New("events.Sminer_Registered not found")
-				}
+				return configs.Code_600, errors.Errorf("[T:%v] events.Sminer_Registered not found", t)
 			}
 		case err = <-sub.Err():
-			return false, err
+			return configs.Code_500, err
 		case <-timeout:
-			return false, errors.New("SubmitAndWatchExtrinsic timeout")
+			return configs.Code_500, errors.New("Timeout")
 		}
 	}
 }

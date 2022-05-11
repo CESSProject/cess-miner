@@ -21,8 +21,8 @@ func GenKeypair() {
 }
 
 func Check_Keypair() {
-	privateKeyfile := filepath.Join(configs.MinerDataPath, configs.PrivateKeyfile)
-	publicKeyfile := filepath.Join(configs.MinerDataPath, configs.PublicKeyfile)
+	privateKeyfile := filepath.Join(configs.BaseDir, configs.PrivateKeyfile)
+	publicKeyfile := filepath.Join(configs.BaseDir, configs.PublicKeyfile)
 
 	_, err := os.Stat(privateKeyfile)
 	if err != nil {
@@ -40,8 +40,8 @@ func Check_Keypair() {
 func generateRSAKeyfile(bits int) error {
 	var (
 		err            error
-		privateKeyfile = filepath.Join(configs.MinerDataPath, configs.PrivateKeyfile)
-		publicKeyfile  = filepath.Join(configs.MinerDataPath, configs.PublicKeyfile)
+		privateKeyfile = filepath.Join(configs.BaseDir, configs.PrivateKeyfile)
+		publicKeyfile  = filepath.Join(configs.BaseDir, configs.PublicKeyfile)
 	)
 	_, err = os.Stat(privateKeyfile)
 	if err == nil {

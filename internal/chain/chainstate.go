@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
 	"encoding/binary"
 
@@ -10,10 +11,10 @@ import (
 )
 
 // Get miner information on the cess chain
-func GetMinerInfo1(identifyAccountPhrase, chainModule, chainModuleMethod string) (CessChain_MinerInfo1, error) {
+func GetMinerItems(phrase string) (Chain_MinerItems, int, error) {
 	var (
 		err   error
-		mdata CessChain_MinerInfo1
+		mdata Chain_MinerItems
 	)
 	api := getSubstrateAPI()
 	defer func() {
@@ -25,24 +26,27 @@ func GetMinerInfo1(identifyAccountPhrase, chainModule, chainModuleMethod string)
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return mdata, errors.Wrap(err, "GetMetadataLatest err")
+		return mdata, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	account, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
+	account, err := signature.KeyringPairFromSecret(phrase, 0)
 	if err != nil {
-		return mdata, errors.Wrap(err, "KeyringPairFromSecret err")
+		return mdata, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
 
-	key, err := types.CreateStorageKey(meta, chainModule, chainModuleMethod, account.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, account.PublicKey)
 	if err != nil {
-		return mdata, errors.Wrap(err, "CreateStorageKey err")
+		return mdata, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	_, err = api.RPC.State.GetStorageLatest(key, &mdata)
+	ok, err := api.RPC.State.GetStorageLatest(key, &mdata)
 	if err != nil {
-		return mdata, errors.Wrap(err, "GetStorageLatest err")
+		return mdata, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
-	return mdata, nil
+	if !ok {
+		return mdata, configs.Code_404, nil
+	}
+	return mdata, configs.Code_200, nil
 }
 
 // Get miner information on the cess chain
@@ -50,7 +54,7 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 	var (
 		err   error
 		mdata CessChain_MinerInfo
-		m1    CessChain_MinerInfo1
+		m1    Chain_MinerItems
 		m2    CessChain_MinerInfo2
 	)
 	api := getSubstrateAPI()

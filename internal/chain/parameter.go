@@ -35,11 +35,11 @@ const (
 )
 
 type CessChain_MinerInfo struct {
-	MinerInfo1 CessChain_MinerInfo1
+	MinerInfo1 Chain_MinerItems
 	MinerInfo2 CessChain_MinerInfo2
 }
 
-type CessChain_MinerInfo1 struct {
+type Chain_MinerItems struct {
 	Peerid      types.U64       `json:"peerid"`
 	Beneficiary types.AccountID `json:"beneficiary"`
 	ServiceAddr types.Bytes     `json:"ip"`
