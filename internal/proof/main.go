@@ -98,6 +98,7 @@ type RespSpacefileInfo struct {
 func Proof_Main() {
 	go processingSpace()
 	go processingChallenges()
+	go processingInvalidFiles()
 	// go segmentVpa()
 	// go segmentVpb()
 	// go segmentVpc()
@@ -997,6 +998,46 @@ func processingChallenges() {
 			}
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filename, err)
+			}
+		}
+	}
+}
+
+//
+func processingInvalidFiles() {
+	var (
+		filename string
+		fileid   string
+	)
+	for {
+		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
+		invalidFiles, _, err := chain.GetInvalidFileById(configs.MinerId_I)
+		if err != nil {
+			continue
+		}
+		for i := 0; i < len(invalidFiles); i++ {
+			fileid = string(invalidFiles[i])
+			filedir := filepath.Join(configs.BaseDir, configs.SpaceDir, fileid)
+			_, err = os.Stat(filedir)
+			if err == nil {
+				filename = fileid + ".space"
+				_, err = os.Stat(filepath.Join(filedir, filename))
+				if err == nil {
+					os.Remove(filepath.Join(filedir, filename))
+				}
+			}
+			strings.TrimRight(fileid, ".")
+			tmp := strings.Split(fileid, ".")
+			if tmp[len(tmp)-1][0] == 'd' {
+				fileid = strings.TrimSuffix(fileid, tmp[len(tmp)-1])
+				filedir = filepath.Join(configs.BaseDir, configs.SpaceDir, fileid)
+				_, err = os.Stat(filedir)
+				if err == nil {
+					_, err = os.Stat(filepath.Join(filedir, string(invalidFiles[i])))
+					if err == nil {
+						os.Remove(filepath.Join(filedir, string(invalidFiles[i])))
+					}
+				}
 			}
 		}
 	}
