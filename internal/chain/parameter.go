@@ -20,6 +20,7 @@ const (
 	SegmentBook_ChallengeMap   = "ChallengeMap"
 	FileMap_SchedulerPuk       = "SchedulerPuk"
 	FileBank_FillerMap         = "FillerMap"
+	FileBank_InvalidFile       = "InvalidFile"
 )
 
 // cess chain Transaction name

@@ -370,11 +370,10 @@ func GetSchedulerPukFromChain() (Chain_SchedulerPuk, int, error) {
 	return data, configs.Code_200, nil
 }
 
-//
-func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
+func GetInvalidFileById(id uint64) ([]types.Bytes, int, error) {
 	var (
 		err  error
-		data SpaceFileInfo
+		data []types.Bytes
 	)
 	api := getSubstrateAPI()
 	defer func() {
@@ -389,7 +388,7 @@ func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
 		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_FillerMap, types.Bytes([]byte(fid)))
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile)
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -399,7 +398,41 @@ func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
 		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return data, configs.Code_404, errors.New("not found")
+		return data, configs.Code_404, errors.New("public key not found")
 	}
 	return data, configs.Code_200, nil
 }
+
+//
+// func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
+// 	var (
+// 		err  error
+// 		data SpaceFileInfo
+// 	)
+// 	api := getSubstrateAPI()
+// 	defer func() {
+// 		releaseSubstrateAPI()
+// 		err := recover()
+// 		if err != nil {
+// 			Err.Sugar().Errorf("[panic]: %v", err)
+// 		}
+// 	}()
+// 	meta, err := api.RPC.State.GetMetadataLatest()
+// 	if err != nil {
+// 		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+// 	}
+
+// 	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_FillerMap, types.Bytes([]byte(fid)))
+// 	if err != nil {
+// 		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+// 	}
+
+// 	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+// 	if err != nil {
+// 		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+// 	}
+// 	if !ok {
+// 		return data, configs.Code_404, errors.New("not found")
+// 	}
+// 	return data, configs.Code_200, nil
+// }
