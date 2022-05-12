@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
@@ -1024,6 +1025,11 @@ func processingInvalidFiles() {
 				_, err = os.Stat(filepath.Join(filedir, filename))
 				if err == nil {
 					os.Remove(filepath.Join(filedir, filename))
+					_, err = chain.ClearInvalidFileNoChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, invalidFiles[i])
+					if err == nil {
+						Out.Sugar().Infof("%v", err)
+					}
+					continue
 				}
 			}
 			strings.TrimRight(fileid, ".")
@@ -1036,6 +1042,10 @@ func processingInvalidFiles() {
 					_, err = os.Stat(filepath.Join(filedir, string(invalidFiles[i])))
 					if err == nil {
 						os.Remove(filepath.Join(filedir, string(invalidFiles[i])))
+						_, err = chain.ClearInvalidFileNoChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
+						if err == nil {
+							Out.Sugar().Infof("%v", err)
+						}
 					}
 				}
 			}

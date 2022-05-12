@@ -37,6 +37,7 @@ const (
 	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
 	FileMap_SchedulerInfo                = "SchedulerMap"
 	SegmentBook_SubmitProve              = "SegmentBook.submit_challenge_prove"
+	FileBank_ClearInvalidFile            = "FileBank.clear_invalid_file"
 )
 
 type CessChain_MinerInfo struct {

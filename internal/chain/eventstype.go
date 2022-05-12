@@ -180,6 +180,27 @@ type Event_LeaseExpired struct {
 	Topics []types.Hash
 }
 
+type Event_FillerUpload struct {
+	Phase    types.Phase
+	Acc      types.AccountID
+	Filesize types.U64
+	Topics   []types.Hash
+}
+
+type Event_ClearInvalidFile struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Fileid types.Bytes
+	Topics []types.Hash
+}
+
+type Event_RecoverFile struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Fileid types.Bytes
+	Topics []types.Hash
+}
+
 //------------------------FileMap--------------------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
@@ -257,6 +278,9 @@ type MyEventRecords struct {
 	FileBank_Purchased            []Event_Purchased
 	FileBank_InsertFileSlice      []Event_InsertFileSlice
 	FileBank_LeaseExpired         []Event_LeaseExpired
+	FileBank_FillerUpload         []Event_FillerUpload
+	FileBank_ClearInvalidFile     []Event_ClearInvalidFile
+	FileBank_RecoverFile          []Event_RecoverFile
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	//other system
