@@ -56,28 +56,17 @@ See the [official Golang installation instructions](https://golang.org/doc/insta
 
 **Ubuntu/Debian**:
 ```
-sudo ufw allow 15001:15010/tcp
+sudo ufw allow 15001/tcp
 ```
 
 **RedHat/CentOS**:
 ```
-sudo firewall-cmd --permanent --add-port=15001-15010/tcp
+sudo firewall-cmd --permanent --add-port=15001/tcp
 sudo firewall-cmd --reload
 ```
 
-> Note: ensure that 15001 ~ 15010 ports are released in the hardware firewall or security group policy of the server provider: since the security group policy settings provided by different servers are different, please consult the server provider
-
-#### parameter file
-
-Download link：http://cess.cloud/FAQ, Article 11.
-
-Unzip the parameter file and put it in the `/usr/local/cess-proof-parameters/` directory of the miner
-
-```
-sudo mkdir -p /usr/local/cess-proof-parameters
-wget https://d2gxbb5i8u5h7r.cloudfront.net/parameterfile.zip
-sudo unzip -j -d /usr/local/cess-proof-parameters/ parameterfile.zip "parameterfile/*"
-```
+> Note: ensure that 15001 ports are released in the hardware firewall or security group policy of the server provider: since the security group policy settings provided by different servers are different, please consult the server provider
+> 
 
 ### Polkadot wallet
 
@@ -95,9 +84,7 @@ git clone --recurse-submodules https://github.com/CESSProject/cess-bucket.git
 cd cess-bucket
 ```
 
-2. Execute the commands from [go get](https://github.com/CESSProject/cess-ffi#go-get) section
-
-3. build mining
+2. build mining
 
 ```
 go build -o bucket cmd/main/main.go
@@ -114,17 +101,17 @@ This will create an executable file called **'bucket'**
 | -h,--help | print help information                  |
 
 **command**:
-| Command  | Description                          |
-| -------- | ------------------------------------ |
-| version  | print version number                 |
-| default  | Generate configuration file template |
-| register | Miners register to the CESS chain    |
-| state    | Query the miner's own information    |
-| mining   | Start mining normally                |
-| exit     | Exit mining                          |
-| increase | increase tokens                      |
-| withdraw | Redeem tokens                        |
-| obtain   | Get CESS coins from the faucet       |
+| Command  | Description                                    |
+| -------- | ---------------------------------------------- |
+| version  | print version number                           |
+| default  | Generate configuration file template           |
+| register | Register mining miner information to the chain |
+| state    | Query mining miner information                 |
+| run      | Start mining normally                          |
+| exit     | Exit the mining platform                       |
+| increase | Increase the deposit of mining miner           |
+| withdraw | Redemption deposit of mining miner             |
+| obtain   | Get the test coins used by the testnet         |
 
 ## How to use mining
 1. Generate configuration file template
@@ -144,17 +131,17 @@ ChainAddr = ""
 
 [MinerData]
 # Total space used to store files, the unit is GB
-StorageSpace   = 0
+StorageSpace   = 1000
 # Path to the mounted disk where the data is saved
 MountedPath    = ""
 # The IP address of the machine's public network used by the mining program
 ServiceAddr    = ""
 # Port number monitored by the mining program
-ServicePort    = 
+ServicePort    = 15001
 # Public key of revenue account
-RevenuePuK     = ""
-# Phrase words or seeds for transaction account
-TransactionPrK = ""
+RevenueAcc     = ""
+# Phrase words or seeds for signature account
+SignaturePrk = ""
 ```
 
 3. Register to the CESS chain
@@ -164,7 +151,7 @@ sudo ./bucket register
 
 4. Start bucket normally
 ```
-sudo nohup ./bucket mining 2>&1 &
+sudo nohup ./bucket run 2>&1 &
 ```
 
 
