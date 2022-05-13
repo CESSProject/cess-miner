@@ -1,40 +1,29 @@
 package configs
 
-type MinerInfoOnChain struct {
-	CessChain CessChain `toml:"CessChain"`
-	MinerData MinerData `toml:"MinerData"`
-}
-
-type CessChain struct {
-	ChainAddr string `toml:"ChainAddr"`
-}
-
-type MinerData struct {
-	StorageSpace uint64 `toml:"StorageSpace"`
+type Confile struct {
+	RpcAddr      string `toml:"RpcAddr"`
 	MountedPath  string `toml:"MountedPath"`
+	StorageSpace uint64 `toml:"StorageSpace"`
 	ServiceAddr  string `toml:"ServiceAddr"`
 	ServicePort  uint32 `toml:"ServicePort"`
 	RevenueAcc   string `toml:"RevenueAcc"`
 	SignaturePrk string `toml:"SignaturePrk"`
 }
 
-var Confile = new(MinerInfoOnChain)
+var C = new(Confile)
 var ConfFilePath string
 
-const ConfigFile_Templete = `[CessChain]
-# CESS chain address
-ChainAddr = ""
-
-[MinerData]
-# Total space used to store files, the unit is GB
-StorageSpace   = 1000
+const ConfigFile_Templete = `# The rpc address of the chain node
+RpcAddr      = ""
 # Path to the mounted disk where the data is saved
-MountedPath    = ""
+MountedPath  = ""
+# Total space used to store files, the unit is GB
+StorageSpace = 1000
 # The IP address of the machine's public network used by the mining program
-ServiceAddr    = ""
+ServiceAddr  = ""
 # Port number monitored by the mining program
-ServicePort    = 15001
-# Public key of revenue account
-RevenueAcc     = ""
+ServicePort  = 15001
+# The address of revenue account
+RevenueAcc   = ""
 # Phrase words or seeds for signature account
 SignaturePrk = ""`
