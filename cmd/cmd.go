@@ -385,7 +385,7 @@ func parseProfile() {
 
 	if configs.C.MountedPath == "" ||
 		configs.C.ServiceAddr == "" ||
-		configs.C.RevenueAcc == "" ||
+		configs.C.IncomeAcc == "" ||
 		configs.C.SignaturePrk == "" {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries.\n", 41)
 		os.Exit(1)
@@ -499,7 +499,7 @@ func register() {
 
 	code, err := chain.RegisterBucketToChain(
 		configs.C.SignaturePrk,
-		configs.C.RevenueAcc,
+		configs.C.IncomeAcc,
 		ipAddr,
 		pledgeTokens,
 		puk,
@@ -540,7 +540,7 @@ func register() {
 	Out.Sugar().Infof("StorageSpace:%v", configs.C.StorageSpace)
 	Out.Sugar().Infof("MountedPath:%v", configs.C.MountedPath)
 	Out.Sugar().Infof("ServiceAddr:%v", ipAddr)
-	Out.Sugar().Infof("RevenueAcc:%v", configs.C.RevenueAcc)
+	Out.Sugar().Infof("RevenueAcc:%v", configs.C.IncomeAcc)
 	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignaturePrk)
 	os.Exit(0)
 Err:

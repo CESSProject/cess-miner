@@ -6,7 +6,7 @@ type Confile struct {
 	StorageSpace uint64 `toml:"StorageSpace"`
 	ServiceAddr  string `toml:"ServiceAddr"`
 	ServicePort  uint32 `toml:"ServicePort"`
-	RevenueAcc   string `toml:"RevenueAcc"`
+	IncomeAcc    string `toml:"IncomeAcc"`
 	SignaturePrk string `toml:"SignaturePrk"`
 }
 
@@ -23,7 +23,7 @@ StorageSpace = 1000
 ServiceAddr  = ""
 # Port number monitored by the mining program
 ServicePort  = 15001
-# The address of revenue account
-RevenueAcc   = ""
-# Phrase words or seeds for signature account
+# The address of income account
+IncomeAcc    = ""
+# phrase or seed of the signature account
 SignaturePrk = ""`
