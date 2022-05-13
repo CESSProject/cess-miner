@@ -6,6 +6,7 @@ import (
 	"cess-bucket/internal/encryption"
 	. "cess-bucket/internal/logger"
 	api "cess-bucket/internal/proof/apiv1"
+	"cess-bucket/internal/pt"
 	"cess-bucket/internal/rpc"
 	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
@@ -783,7 +784,7 @@ func processingSpace() {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			var tagInfo TagInfo
+			var tagInfo pt.TagInfo
 			tagfilepath := filepath.Join(configs.SpaceDir, respInfo.FileId)
 			_, err = os.Stat(tagfilepath)
 			if err != nil {
@@ -898,7 +899,7 @@ func processingChallenges() {
 		filedir       string
 		filename      string
 		tagfilename   string
-		filetag       TagInfo
+		filetag       pt.TagInfo
 		poDR2prove    api.PoDR2Prove
 		proveResponse api.PoDR2ProveResponse
 		puk           chain.Chain_SchedulerPuk

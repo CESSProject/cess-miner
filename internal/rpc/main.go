@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/centrifuge/go-substrate-rpc-client/types"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
@@ -272,9 +272,9 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 
 	ext := filepath.Ext(b.FileId)
 	if ext == "" {
-		filefullpath = filepath.Join(configs.SpaceDir, b.FileId+".space")
+		filefullpath = filepath.Join(configs.SpaceDir, b.FileId, b.FileId+".tag")
 	} else {
-		filefullpath = filepath.Join(configs.FilesDir, strings.TrimSuffix(b.FileId, ext), b.FileId)
+		filefullpath = filepath.Join(configs.FilesDir, strings.TrimSuffix(b.FileId, ext), b.FileId+".tag")
 	}
 	_, err = os.Stat(filefullpath)
 	if err != nil {
@@ -287,29 +287,8 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
 	}
-	// Calculate the number of slices
-	slicesize, lastslicesize, num, err := cutDataRule(len(buf))
-	if err != nil {
-		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
-		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
-	}
-	rtnData.FileId = b.FileId
-	rtnData.Blocks = b.Blocks
-	if b.Blocks+1 == int32(num) {
-		rtnData.BlockSize = int32(lastslicesize)
-		rtnData.Data = buf[len(buf)-lastslicesize:]
-	} else {
-		rtnData.BlockSize = int32(slicesize)
-		rtnData.Data = buf[b.Blocks*int32(slicesize) : (b.Blocks+1)*int32(slicesize)]
-	}
-	rtnData.BlockNum = int32(num)
-	rtnData_proto, err := proto.Marshal(&rtnData)
-	if err != nil {
-		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
-		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
-	}
-	Out.Sugar().Infof("[%v]Receive download request suc [%v]", t, b.Blocks)
-	return &RespBody{Code: 200, Msg: "success", Data: rtnData_proto}, nil
+	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
+	return &RespBody{Code: configs.Code_200, Msg: "success", Data: buf}, nil
 }
 
 // Divide the size according to 2M
