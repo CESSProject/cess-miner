@@ -72,3 +72,8 @@ message PutTagToBucket {
   bytes    signature =5;
   repeated bytes sigmas=6;
 }
+
+message ReadTag_req {
+  string acc = 1;
+  string fileId = 2;
+}

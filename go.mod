@@ -7,6 +7,7 @@ require (
 	github.com/CESSProject/cess-ffi v0.0.0-20220217052609-6c35c99d795c
 	github.com/Nik-U/pbc v0.0.0-20181205041846-3e516ca0c5d6
 	github.com/btcsuite/btcutil v1.0.2
+	github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.0
 	github.com/deckarep/golang-set v1.7.1
 	github.com/filecoin-project/go-address v0.0.6 // indirect

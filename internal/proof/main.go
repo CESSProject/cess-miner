@@ -38,11 +38,6 @@ type RespSpacetagInfo struct {
 	Sigmas [][]byte     `json:"sigmas"`
 }
 
-type TagInfo struct {
-	T      api.FileTagT `json:"file_tag_t"`
-	Sigmas [][]byte     `json:"sigmas"`
-}
-
 type RespSpacefileInfo struct {
 	FileId     string `json:"fileId"`
 	BlockTotal uint32 `json:"blockTotal"`

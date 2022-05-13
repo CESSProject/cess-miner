@@ -2,10 +2,14 @@ package rpc
 
 import (
 	"cess-bucket/configs"
+	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pt"
+
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/centrifuge/go-substrate-rpc-client/types"
 	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
@@ -52,29 +57,37 @@ func Rpc_Main() {
 func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	var (
 		err error
-		t   int64
 		b   PutFileToBucket
 	)
-	t = time.Now().Unix()
-	Out.Sugar().Infof("[%v]Receive upload request", t)
+	t := tools.RandomInRange(100000000, 999999999)
+	Out.Sugar().Infof("[T:%v]Receive write file request", t)
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
-		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_400, Msg: err.Error(), Data: nil}, nil
 	}
 	// Determine whether the storage path exists
 	err = tools.CreatDirIfNotExist(configs.FilesDir)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
-		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
 	}
-	fid := strings.Split(filepath.Base(b.FileId), ".")[0]
+	ext := filepath.Ext(b.FileId)
+	if ext == "" {
+		Out.Sugar().Infof("[T:%v]Err:Invalid dupl id", t)
+		return &RespBody{Code: configs.Code_400, Msg: "Invalid dupl id", Data: nil}, nil
+	}
+	fid := strings.TrimSuffix(b.FileId, ext)
 	fpath := filepath.Join(configs.FilesDir, fid)
-	if err = os.MkdirAll(fpath, os.ModeDir); err != nil {
-		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
-		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
+	_, err = os.Stat(fpath)
+	if err != nil {
+		err = os.MkdirAll(fpath, os.ModeDir)
+		if err != nil {
+			Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+			return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
+		}
 	}
-	filefullpath := filepath.Join(fpath, filepath.Base(b.FileId))
+	filefullpath := filepath.Join(fpath, b.FileId)
 
 	if b.BlockIndex == 0 {
 		os.Remove(filefullpath)
@@ -83,18 +96,18 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	// Save received file
 	fii, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
-		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 	defer fii.Close()
 	fii.Write(b.BlockData)
 	err = fii.Sync()
 	if err != nil {
-		Out.Sugar().Infof("[%v]Receive upload request err:%v", t, err)
-		return &RespBody{Code: 500, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
 	}
-	Out.Sugar().Infof("[%v]Receive upload request suc[%v]", t, b.BlockIndex)
-	return &RespBody{Code: 200, Msg: "success", Data: nil}, nil
+	Out.Sugar().Infof("[T:%v]Suc:[%v] [%v]", t, b.FileId, b.BlockIndex)
+	return &RespBody{Code: configs.Code_200, Msg: "success", Data: nil}, nil
 }
 
 // ReadfileAction is used to handle scheduler service requests to download files.
@@ -126,6 +139,153 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	if err != nil {
 		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
 		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
+	}
+	// Calculate the number of slices
+	slicesize, lastslicesize, num, err := cutDataRule(len(buf))
+	if err != nil {
+		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
+		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
+	}
+	rtnData.FileId = b.FileId
+	rtnData.Blocks = b.Blocks
+	if b.Blocks+1 == int32(num) {
+		rtnData.BlockSize = int32(lastslicesize)
+		rtnData.Data = buf[len(buf)-lastslicesize:]
+	} else {
+		rtnData.BlockSize = int32(slicesize)
+		rtnData.Data = buf[b.Blocks*int32(slicesize) : (b.Blocks+1)*int32(slicesize)]
+	}
+	rtnData.BlockNum = int32(num)
+	rtnData_proto, err := proto.Marshal(&rtnData)
+	if err != nil {
+		Out.Sugar().Infof("[%v]Receive download request err:%v", t, err)
+		return &RespBody{Code: 400, Msg: err.Error(), Data: nil}, nil
+	}
+	Out.Sugar().Infof("[%v]Receive download request suc [%v]", t, b.Blocks)
+	return &RespBody{Code: 200, Msg: "success", Data: rtnData_proto}, nil
+}
+
+// WritefiletagAction is used to handle scheduler service requests to upload file tag.
+// The return code is 200 for success, non-200 for failure.
+// The returned Msg indicates the result reason.
+func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
+	var (
+		err error
+		b   PutTagToBucket
+	)
+	t := tools.RandomInRange(100000000, 999999999)
+	Out.Sugar().Infof("[T:%v]Receive write file tag request", t)
+	err = proto.Unmarshal(body, &b)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_400, Msg: err.Error(), Data: nil}, nil
+	}
+
+	// Determine whether the storage path exists
+	ext := filepath.Ext(b.FileId)
+	if ext == "" {
+		Out.Sugar().Infof("[T:%v]Err:Invalid dupl id", t)
+		return &RespBody{Code: configs.Code_400, Msg: "Invalid dupl id", Data: nil}, nil
+	}
+	fid := strings.TrimSuffix(b.FileId, ext)
+	fpath := filepath.Join(configs.FilesDir, fid)
+	_, err = os.Stat(fpath)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_403, Msg: "invalid fileid", Data: nil}, nil
+	}
+
+	var tagInfo pt.TagInfo
+	tagInfo.T.T0.Name = b.Name
+	tagInfo.T.T0.N = b.N
+	tagInfo.T.T0.U = b.U
+	tagInfo.T.Signature = b.Signature
+	tagInfo.Sigmas = b.Sigmas
+	tag, err := json.Marshal(tagInfo)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
+	}
+
+	filetagname := b.FileId + ".tag"
+	filefullpath := filepath.Join(fpath, filetagname)
+	// Save received file
+	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
+	}
+	ftag.Write(tag)
+	err = ftag.Sync()
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		ftag.Close()
+		os.Remove(filefullpath)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
+	}
+	ftag.Close()
+	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
+	return &RespBody{Code: configs.Code_200, Msg: "success", Data: nil}, nil
+}
+
+// ReadfiletagAction is used to handle scheduler service requests to download file tag.
+// The return code is 200 for success, non-200 for failure.
+// The returned Msg indicates the result reason.
+func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
+	var (
+		err          error
+		flag         bool
+		filefullpath string
+		b            ReadTagReq
+	)
+	t := tools.RandomInRange(100000000, 999999999)
+	Out.Sugar().Infof("[T:%v]Receive read file tag request", t)
+	err = proto.Unmarshal(body, &b)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_400, Msg: err.Error(), Data: nil}, nil
+	}
+
+	sd, code, err := chain.GetSchedulerInfoOnChain()
+	if err != nil {
+		if code == configs.Code_404 {
+			Out.Sugar().Infof("[T:%v]Err:Not found scheduler info", t)
+			return &RespBody{Code: configs.Code_404, Msg: "Not found scheduler info", Data: nil}, nil
+		}
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_404, Msg: err.Error()}, nil
+	}
+	pubkey, err := tools.DecodeToPub(b.Acc)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_400, Msg: err.Error(), Data: nil}, nil
+	}
+	for _, v := range sd {
+		if v.Controller_user == types.NewAccountID(pubkey) {
+			flag = true
+		}
+	}
+	if !flag {
+		Out.Sugar().Infof("[T:%v]Err:Not found scheduler info", t)
+		return &RespBody{Code: configs.Code_404, Msg: "Not found scheduler info", Data: nil}, nil
+	}
+
+	ext := filepath.Ext(b.FileId)
+	if ext == "" {
+		filefullpath = filepath.Join(configs.SpaceDir, b.FileId+".space")
+	} else {
+		filefullpath = filepath.Join(configs.FilesDir, strings.TrimSuffix(b.FileId, ext), b.FileId)
+	}
+	_, err = os.Stat(filefullpath)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_404, Msg: err.Error(), Data: nil}, nil
+	}
+	// read file content
+	buf, err := ioutil.ReadFile(filefullpath)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
+		return &RespBody{Code: configs.Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 	// Calculate the number of slices
 	slicesize, lastslicesize, num, err := cutDataRule(len(buf))

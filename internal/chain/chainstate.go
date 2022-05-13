@@ -403,6 +403,40 @@ func GetInvalidFileById(id uint64) ([]types.Bytes, int, error) {
 	return data, configs.Code_200, nil
 }
 
+// Query Scheduler info
+func GetSchedulerInfoOnChain() ([]SchedulerInfo, int, error) {
+	var (
+		err   error
+		mdata []SchedulerInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] [%v.%v] [err:%v]", State_FileMap, FileMap_SchedulerInfo, err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return mdata, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerInfo)
+	if err != nil {
+		return mdata, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &mdata)
+	if err != nil {
+		return mdata, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return mdata, configs.Code_404, errors.New("value is empty")
+	}
+	return mdata, configs.Code_200, nil
+}
+
 //
 // func GetSpaceMetaInfo(fid string) (SpaceFileInfo, int, error) {
 // 	var (

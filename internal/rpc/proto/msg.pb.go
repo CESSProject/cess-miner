@@ -707,6 +707,61 @@ func (x *PutTagToBucket) GetSigmas() [][]byte {
 	return nil
 }
 
+type ReadTagReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Acc    string `protobuf:"bytes,1,opt,name=acc,proto3" json:"acc,omitempty"`
+	FileId string `protobuf:"bytes,2,opt,name=fileId,proto3" json:"fileId,omitempty"`
+}
+
+func (x *ReadTagReq) Reset() {
+	*x = ReadTagReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_msg_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ReadTagReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadTagReq) ProtoMessage() {}
+
+func (x *ReadTagReq) ProtoReflect() protoreflect.Message {
+	mi := &file_msg_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadTagReq.ProtoReflect.Descriptor instead.
+func (*ReadTagReq) Descriptor() ([]byte, []int) {
+	return file_msg_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReadTagReq) GetAcc() string {
+	if x != nil {
+		return x.Acc
+	}
+	return ""
+}
+
+func (x *ReadTagReq) GetFileId() string {
+	if x != nil {
+		return x.FileId
+	}
+	return ""
+}
+
 var File_msg_proto protoreflect.FileDescriptor
 
 var file_msg_proto_rawDesc = []byte{
@@ -786,8 +841,11 @@ var file_msg_proto_rawDesc = []byte{
 	0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0c, 0x52,
 	0x09, 0x73, 0x69, 0x67, 0x6e, 0x61, 0x74, 0x75, 0x72, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x69,
 	0x67, 0x6d, 0x61, 0x73, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0c, 0x52, 0x06, 0x73, 0x69, 0x67, 0x6d,
-	0x61, 0x73, 0x42, 0x08, 0x5a, 0x06, 0x2e, 0x2f, 0x3b, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x33,
+	0x61, 0x73, 0x22, 0x37, 0x0a, 0x0b, 0x52, 0x65, 0x61, 0x64, 0x54, 0x61, 0x67, 0x5f, 0x72, 0x65,
+	0x71, 0x12, 0x10, 0x0a, 0x03, 0x61, 0x63, 0x63, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03,
+	0x61, 0x63, 0x63, 0x12, 0x16, 0x0a, 0x06, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x64, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x06, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x64, 0x42, 0x08, 0x5a, 0x06, 0x2e,
+	0x2f, 0x3b, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -802,7 +860,7 @@ func file_msg_proto_rawDescGZIP() []byte {
 	return file_msg_proto_rawDescData
 }
 
-var file_msg_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_msg_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_msg_proto_goTypes = []interface{}{
 	(*ReqMsg)(nil),           // 0: rpc.ReqMsg
 	(*RespMsg)(nil),          // 1: rpc.RespMsg
@@ -813,6 +871,7 @@ var file_msg_proto_goTypes = []interface{}{
 	(*SpaceTagReq)(nil),      // 6: rpc.space_tag_req
 	(*PutFileToBucket)(nil),  // 7: rpc.PutFileToBucket
 	(*PutTagToBucket)(nil),   // 8: rpc.PutTagToBucket
+	(*ReadTagReq)(nil),       // 9: rpc.ReadTag_req
 }
 var file_msg_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -936,6 +995,18 @@ func file_msg_proto_init() {
 				return nil
 			}
 		}
+		file_msg_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ReadTagReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -943,7 +1014,7 @@ func file_msg_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_msg_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
