@@ -172,7 +172,7 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -194,7 +194,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -205,7 +205,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	minerInfo, err := chain.GetMinerDetailInfo(
-		configs.Confile.MinerData.SignaturePrk,
+		configs.C.SignaturePrk,
 		chain.State_Sminer,
 		chain.Sminer_MinerItems,
 		chain.Sminer_MinerDetails,
@@ -227,7 +227,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please check the network and try again. [%v]\n", 41, err)
 		os.Exit(1)
@@ -267,7 +267,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -292,7 +292,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -308,7 +308,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	refreshProfile(cmd)
 	chain.Chain_Init()
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -377,47 +377,47 @@ func parseProfile() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' file type error\n", 41, confFilePath)
 		os.Exit(1)
 	}
-	err = viper.Unmarshal(configs.Confile)
+	err = viper.Unmarshal(configs.C)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The '%v' file format error\n", 41, confFilePath)
 		os.Exit(1)
 	}
 
-	if configs.Confile.MinerData.MountedPath == "" ||
-		configs.Confile.MinerData.ServiceAddr == "" ||
-		configs.Confile.MinerData.RevenueAcc == "" ||
-		configs.Confile.MinerData.SignaturePrk == "" {
+	if configs.C.MountedPath == "" ||
+		configs.C.ServiceAddr == "" ||
+		configs.C.IncomeAcc == "" ||
+		configs.C.SignaturePrk == "" {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries.\n", 41)
 		os.Exit(1)
 	}
 
-	if configs.Confile.MinerData.ServicePort < 1024 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Prohibit the use of system reserved port: %v.\n", 41, configs.Confile.MinerData.ServicePort)
+	if configs.C.ServicePort < 1024 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Prohibit the use of system reserved port: %v.\n", 41, configs.C.ServicePort)
 		os.Exit(1)
 	}
 
-	if configs.Confile.MinerData.ServicePort > 65535 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Invalid port: %v.\n", 41, configs.Confile.MinerData.ServicePort)
+	if configs.C.ServicePort > 65535 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Invalid port: %v.\n", 41, configs.C.ServicePort)
 		os.Exit(1)
 	}
 
-	if configs.Confile.MinerData.StorageSpace < 1000 {
+	if configs.C.StorageSpace < 1000 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m You need to configure at least 1000GB of storage space.\n", 41)
 		os.Exit(1)
 	}
 
-	_, err = os.Stat(configs.Confile.MinerData.MountedPath)
+	_, err = os.Stat(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 
-	hashs, err := tools.CalcHash([]byte(configs.Confile.MinerData.SignaturePrk))
+	hashs, err := tools.CalcHash([]byte(configs.C.SignaturePrk))
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
-	configs.BaseDir = filepath.Join(configs.Confile.MinerData.MountedPath, tools.GetStringWithoutNumbers(hashs), configs.BaseDir)
+	configs.BaseDir = filepath.Join(configs.C.MountedPath, tools.GetStringWithoutNumbers(hashs), configs.BaseDir)
 }
 
 // Query miner id information
@@ -467,8 +467,8 @@ func parseProfile() {
 // Miner registration function
 func register() {
 	var pledgeTokens uint64
-	pledgeTokens = 2000 * (configs.Confile.MinerData.StorageSpace / (1024 * 1024 * 1024 * 1024))
-	if configs.Confile.MinerData.StorageSpace%(1024*1024*1024*1024) != 0 {
+	pledgeTokens = 2000 * (configs.C.StorageSpace / (1024 * 1024 * 1024 * 1024))
+	if configs.C.StorageSpace%(1024*1024*1024*1024) != 0 {
 		pledgeTokens += 2000
 	}
 
@@ -478,12 +478,12 @@ func register() {
 		os.Exit(1)
 	}
 
-	if eip != configs.Confile.MinerData.ServiceAddr {
+	if eip != configs.C.ServiceAddr {
 		fmt.Printf("\x1b[%dm[err]\x1b[0mYou can use \"curl ifconfig.co\" to view the external network ip address\n", 41)
 		os.Exit(1)
 	}
 
-	ipAddr := tools.Base58Encoding(configs.Confile.MinerData.ServiceAddr + ":" + fmt.Sprintf("%d", configs.Confile.MinerData.ServicePort))
+	ipAddr := tools.Base58Encoding(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort))
 	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -498,8 +498,8 @@ func register() {
 	}
 
 	code, err := chain.RegisterBucketToChain(
-		configs.Confile.MinerData.SignaturePrk,
-		configs.Confile.MinerData.RevenueAcc,
+		configs.C.SignaturePrk,
+		configs.C.IncomeAcc,
 		ipAddr,
 		pledgeTokens,
 		puk,
@@ -510,7 +510,7 @@ func register() {
 			os.Exit(1)
 		}
 	}
-	mData, code, err := chain.GetMinerItems(configs.Confile.MinerData.SignaturePrk)
+	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please check the network and try again.\n", 41)
 		os.Exit(1)
@@ -536,12 +536,12 @@ func register() {
 	configs.MinerId_S = fmt.Sprintf("%v", mData.Peerid)
 	logger.LoggerInit()
 	Out.Sugar().Infof("Registration message:")
-	Out.Sugar().Infof("ChainAddr:%v", configs.Confile.CessChain.ChainAddr)
-	Out.Sugar().Infof("StorageSpace:%v", configs.Confile.MinerData.StorageSpace)
-	Out.Sugar().Infof("MountedPath:%v", configs.Confile.MinerData.MountedPath)
+	Out.Sugar().Infof("ChainAddr:%v", configs.C.RpcAddr)
+	Out.Sugar().Infof("StorageSpace:%v", configs.C.StorageSpace)
+	Out.Sugar().Infof("MountedPath:%v", configs.C.MountedPath)
 	Out.Sugar().Infof("ServiceAddr:%v", ipAddr)
-	Out.Sugar().Infof("RevenueAcc:%v", configs.Confile.MinerData.RevenueAcc)
-	Out.Sugar().Infof("SignaturePrk:%v", configs.Confile.MinerData.SignaturePrk)
+	Out.Sugar().Infof("RevenueAcc:%v", configs.C.IncomeAcc)
+	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignaturePrk)
 	os.Exit(0)
 Err:
 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -556,7 +556,7 @@ func increase() {
 		os.Exit(1)
 	}
 
-	ok, err := chain.Increase(configs.Confile.MinerData.SignaturePrk, chain.ChainTx_Sminer_Increase, tokens)
+	ok, err := chain.Increase(configs.C.SignaturePrk, chain.ChainTx_Sminer_Increase, tokens)
 	if err != nil {
 		Out.Sugar().Infof("Increase failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)
@@ -573,7 +573,7 @@ func increase() {
 
 // Exit the mining function
 func exitmining() {
-	ok, err := chain.ExitMining(configs.Confile.MinerData.SignaturePrk, chain.ChainTx_Sminer_ExitMining)
+	ok, err := chain.ExitMining(configs.C.SignaturePrk, chain.ChainTx_Sminer_ExitMining)
 	if err != nil {
 		Out.Sugar().Infof("Exit failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)
@@ -590,7 +590,7 @@ func exitmining() {
 
 // Withdraw deposit function
 func withdraw() {
-	ok, err := chain.Withdraw(configs.Confile.MinerData.SignaturePrk, chain.ChainTx_Sminer_Withdraw)
+	ok, err := chain.Withdraw(configs.C.SignaturePrk, chain.ChainTx_Sminer_Withdraw)
 	if err != nil {
 		Out.Sugar().Infof("withdraw failed......,err:%v", err)
 		Err.Sugar().Errorf("%v", err)

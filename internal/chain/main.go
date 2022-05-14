@@ -1,7 +1,7 @@
 package chain
 
 import (
-	"cess-bucket/configs"
+	. "cess-bucket/configs"
 	. "cess-bucket/internal/logger"
 	"fmt"
 	"os"
@@ -18,7 +18,7 @@ var (
 
 func Chain_Init() {
 	var err error
-	r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
+	r, err = gsrpc.NewSubstrateAPI(C.RpcAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -43,7 +43,7 @@ func substrateAPIKeepAlive() {
 		}
 		if count_r > 1 {
 			count_r = 2
-			r, err = gsrpc.NewSubstrateAPI(configs.Confile.CessChain.ChainAddr)
+			r, err = gsrpc.NewSubstrateAPI(C.RpcAddr)
 			if err != nil {
 				Err.Sugar().Errorf("%v", err)
 			} else {

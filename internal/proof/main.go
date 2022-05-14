@@ -6,6 +6,7 @@ import (
 	"cess-bucket/internal/encryption"
 	. "cess-bucket/internal/logger"
 	api "cess-bucket/internal/proof/apiv1"
+	"cess-bucket/internal/pt"
 	"cess-bucket/internal/rpc"
 	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
@@ -34,11 +35,6 @@ type mountpathInfo struct {
 
 type RespSpacetagInfo struct {
 	FileId string       `json:"fileId"`
-	T      api.FileTagT `json:"file_tag_t"`
-	Sigmas [][]byte     `json:"sigmas"`
-}
-
-type TagInfo struct {
 	T      api.FileTagT `json:"file_tag_t"`
 	Sigmas [][]byte     `json:"sigmas"`
 }
@@ -596,8 +592,8 @@ func spaceReasonable() {
 		os.Exit(1)
 	}
 
-	sspace := configs.Confile.MinerData.StorageSpace * configs.Space_1GB
-	mountP, err := getMountPathInfo(configs.Confile.MinerData.MountedPath)
+	sspace := configs.C.StorageSpace * configs.Space_1GB
+	mountP, err := getMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		Err.Sugar().Errorf("%v", err)
 		os.Exit(1)
@@ -626,8 +622,8 @@ func calcAvailableSpace() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	sspace := configs.Confile.MinerData.StorageSpace * configs.Space_1GB
-	mountP, err := getMountPathInfo(configs.Confile.MinerData.MountedPath)
+	sspace := configs.C.StorageSpace * configs.Space_1GB
+	mountP, err := getMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		return 0, err
 	}
@@ -713,7 +709,7 @@ func processingSpace() {
 		req     p.SpaceTagReq
 		addr    string
 	)
-	addr, err = chain.GetAddressFromPrk(configs.Confile.MinerData.SignaturePrk)
+	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -788,7 +784,7 @@ func processingSpace() {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			var tagInfo TagInfo
+			var tagInfo pt.TagInfo
 			tagfilepath := filepath.Join(configs.SpaceDir, respInfo.FileId)
 			_, err = os.Stat(tagfilepath)
 			if err != nil {
@@ -903,7 +899,7 @@ func processingChallenges() {
 		filedir       string
 		filename      string
 		tagfilename   string
-		filetag       TagInfo
+		filetag       pt.TagInfo
 		poDR2prove    api.PoDR2Prove
 		proveResponse api.PoDR2ProveResponse
 		puk           chain.Chain_SchedulerPuk
@@ -986,7 +982,7 @@ func processingChallenges() {
 			ts := time.Now().Unix()
 			code = 0
 			for code != int(configs.Code_200) && code != int(configs.Code_600) {
-				code, err = chain.PutProofToChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, []byte(fileid), proveResponse.Sigma, proveResponse.MU)
+				code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, []byte(fileid), proveResponse.Sigma, proveResponse.MU)
 				if err == nil {
 					Out.Sugar().Infof("[%v] Proof submitted successfully", fileid)
 					break
@@ -1025,7 +1021,7 @@ func processingInvalidFiles() {
 				_, err = os.Stat(filepath.Join(filedir, filename))
 				if err == nil {
 					os.Remove(filepath.Join(filedir, filename))
-					_, err = chain.ClearInvalidFileNoChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, invalidFiles[i])
+					_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
 					if err == nil {
 						Out.Sugar().Infof("%v", err)
 					}
@@ -1042,7 +1038,7 @@ func processingInvalidFiles() {
 					_, err = os.Stat(filepath.Join(filedir, string(invalidFiles[i])))
 					if err == nil {
 						os.Remove(filepath.Join(filedir, string(invalidFiles[i])))
-						_, err = chain.ClearInvalidFileNoChain(configs.Confile.MinerData.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
+						_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
 						if err == nil {
 							Out.Sugar().Infof("%v", err)
 						}
