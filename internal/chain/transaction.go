@@ -18,7 +18,7 @@ import (
 )
 
 // miner register
-func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64, authPuk []byte) (int, error) {
+func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64, authPuk []byte) (string, int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -34,63 +34,65 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 
 	keyring, err := signature.KeyringPairFromSecret(signaturePrk, 0)
 	if err != nil {
-		return configs.Code_400, errors.Wrap(err, "[KeyringPairFromSecret]")
+		return "", configs.Code_400, errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
 
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+		return "", configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
 	b, err := tools.DecodeToPub(imcodeAcc)
 	if err != nil {
-		return configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
+		return "", configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
 	}
-
+	// ip, err := types.EncodeToBytes(ipAddr)
+	// if err != nil {
+	// 	return configs.Code_400, errors.Wrap(err, "EncodeToBytes")
+	// }
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
 	if !ok {
-		return configs.Code_500, errors.New("[big.Int.SetString]")
+		return "", configs.Code_500, errors.New("[big.Int.SetString]")
 	}
-	tokens := types.NewUCompact(realTokens)
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_Register, b, types.Bytes([]byte(ipAddr)), tokens, types.Bytes(authPuk))
+	c, err := types.NewCall(meta, ChainTx_Sminer_Register, types.NewAccountID(b), types.Bytes([]byte(ipAddr)), types.NewU128(*realTokens), types.Bytes(authPuk))
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[NewCall]")
+		return "", configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}
 
 	ext := types.NewExtrinsic(c)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[NewExtrinsic]")
+		return "", configs.Code_500, errors.Wrap(err, "[NewExtrinsic]")
 	}
 
 	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[GetBlockHash]")
+		return "", configs.Code_500, errors.Wrap(err, "[GetBlockHash]")
 	}
 
 	rv, err := api.RPC.State.GetRuntimeVersionLatest()
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[GetRuntimeVersionLatest]")
+		return "", configs.Code_500, errors.Wrap(err, "[GetRuntimeVersionLatest]")
 	}
 
 	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Account]")
+		return "", configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Account]")
 	}
 
 	keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Events]")
+		return "", configs.Code_500, errors.Wrap(err, "[CreateStorageKey System Events]")
 	}
 
 	ok, err = api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+		return "", configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return configs.Code_500, errors.New("[GetStorageLatest return value is empty]")
+		return "", configs.Code_500, errors.New("[GetStorageLatest return value is empty]")
 	}
 
 	o := types.SignatureOptions{
@@ -106,52 +108,41 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	// Sign the transaction
 	err = ext.Sign(keyring, o)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[Sign]")
+		return "", configs.Code_500, errors.Wrap(err, "[Sign]")
 	}
 
 	// Do the transfer and track the actual status
 	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		return configs.Code_500, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+		return "", configs.Code_500, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	var head *types.Header
-	t := tools.RandomInRange(10000000, 99999999)
 	timeout := time.After(time.Second * configs.TimeToWaitEvents_S)
 	for {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				head, err = api.RPC.Chain.GetHeader(status.AsInBlock)
-				if err == nil {
-					Out.Sugar().Infof("[T:%v] [BN:%v]", t, head.Number)
-				} else {
-					Out.Sugar().Infof("[T:%v] [BH:%#x]", t, status.AsInBlock)
-				}
+				txhash := fmt.Sprintf("%#x", status.AsInBlock)
 				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
 				if err != nil {
-					return configs.Code_600, errors.Wrapf(err, "[T:%v]", t)
+					return txhash, configs.Code_600, err
 				}
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[T:%v]Decode event err:%v", t, err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 				if events.Sminer_Registered != nil {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
 						if events.Sminer_Registered[i].Acc == types.NewAccountID(keyring.PublicKey) {
-							Out.Sugar().Infof("[T:%v] Registration success", t)
-							return configs.Code_200, nil
+							return txhash, configs.Code_200, nil
 						}
 					}
-					return configs.Code_600, errors.Errorf("[T:%v] events.Sminer_Registered data err", t)
+					return txhash, configs.Code_600, errors.Errorf("events.Sminer_Registered data err")
 				}
-				return configs.Code_600, errors.Errorf("[T:%v] events.Sminer_Registered not found", t)
+				return txhash, configs.Code_600, errors.Errorf("events.Sminer_Registered not found")
 			}
 		case err = <-sub.Err():
-			return configs.Code_500, err
+			return "", configs.Code_500, err
 		case <-timeout:
-			return configs.Code_500, errors.New("Timeout")
+			return "", configs.Code_500, errors.New("Timeout")
 		}
 	}
 }
@@ -1578,7 +1569,6 @@ func ChainTx_Test(rpcaddr, signaturePrk, pallert_method string) error {
 	// 	mus[i] = make(types.Bytes, 0)
 	// 	mus[i] = append(mus[i], mu[i]...)
 	// }
-
 	c, err := types.NewCall(meta, pallert_method)
 	if err != nil {
 		return errors.Wrap(err, "[NewCall]")

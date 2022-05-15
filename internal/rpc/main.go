@@ -21,7 +21,7 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type MService struct {
@@ -44,7 +44,7 @@ func Rpc_Main() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
-	err = http.ListenAndServe(":"+fmt.Sprintf("%d", MinerServicePort), srv.WebsocketHandler([]string{"*"}))
+	err = http.ListenAndServe(":"+fmt.Sprintf("%d", C.ServicePort), srv.WebsocketHandler([]string{"*"}))
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -328,7 +328,7 @@ func WriteData(cli *Client, service, method string, body []byte) ([]byte, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unmarshal:")
 	}
-	if b.Code == 200 {
+	if b.Code == 202 || b.Code == 201 {
 		return b.Data, nil
 	}
 	errstr := fmt.Sprintf("%d", b.Code)
