@@ -497,7 +497,7 @@ func register() {
 		os.Exit(1)
 	}
 
-	code, err := chain.RegisterBucketToChain(
+	txhash, code, err := chain.RegisterBucketToChain(
 		configs.C.SignaturePrk,
 		configs.C.IncomeAcc,
 		ipAddr,
@@ -542,6 +542,7 @@ func register() {
 	Out.Sugar().Infof("ServiceAddr:%v", ipAddr)
 	Out.Sugar().Infof("RevenueAcc:%v", configs.C.IncomeAcc)
 	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignaturePrk)
+	Out.Sugar().Infof("Register transaction hash:%v", txhash)
 	os.Exit(0)
 Err:
 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)

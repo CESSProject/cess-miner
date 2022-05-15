@@ -20,6 +20,7 @@ const (
 	SegmentBook_ChallengeMap   = "ChallengeMap"
 	FileMap_SchedulerPuk       = "SchedulerPuk"
 	FileBank_FillerMap         = "FillerMap"
+	FileMap_SchedulerInfo      = "SchedulerMap"
 	FileBank_InvalidFile       = "InvalidFile"
 )
 
@@ -35,7 +36,6 @@ const (
 	ChainTx_Sminer_ExitMining            = "Sminer.exit_miner"
 	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
 	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
-	FileMap_SchedulerInfo                = "SchedulerMap"
 	SegmentBook_SubmitProve              = "SegmentBook.submit_challenge_prove"
 	FileBank_ClearInvalidFile            = "FileBank.clear_invalid_file"
 )

@@ -4,7 +4,9 @@ import (
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
 	"encoding/binary"
+	"fmt"
 
+	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -435,6 +437,64 @@ func GetSchedulerInfoOnChain() ([]SchedulerInfo, int, error) {
 		return mdata, configs.Code_404, errors.New("value is empty")
 	}
 	return mdata, configs.Code_200, nil
+}
+
+type FileMetaInfo struct {
+	//FileId      types.Bytes         `json:"acc"`         //File id
+	File_name   types.Bytes         `json:"file_name"`   //File name
+	FileSize    types.U64           `json:"file_size"`   //File size
+	FileHash    types.Bytes         `json:"file_hash"`   //File hash
+	Public      types.Bool          `json:"public"`      //Public or not
+	UserAddr    types.AccountID     `json:"user_addr"`   //Upload user's address
+	FileState   types.Bytes         `json:"file_state"`  //File state
+	Backups     types.U8            `json:"backups"`     //Number of backups
+	Downloadfee types.U128          `json:"downloadfee"` //Download fee
+	FileDupl    []FileDuplicateInfo `json:"file_dupl"`   //File backup information list
+}
+
+type FileDuplicateInfo struct {
+	MinerId   types.U64
+	BlockNum  types.U32
+	ScanSize  types.U32
+	Acc       types.AccountID
+	MinerIp   types.Bytes
+	DuplId    types.Bytes
+	RandKey   types.Bytes
+	BlockInfo []BlockInfo
+}
+
+// Get miner information on the cess chain
+func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
+	var (
+		err   error
+		mdata FileMetaInfo
+	)
+	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		return err
+	}
+
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return errors.Wrap(err, "[GetMetadataLatest]")
+	}
+	//b := tools.S2B("1525775738468941824")
+	bb, err := types.EncodeToBytes([]byte("1525775738468941824"))
+	key, err := types.CreateStorageKey(meta, pallert, method, bb)
+	if err != nil {
+		return errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &mdata)
+	if err != nil {
+		return errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return errors.New("empty")
+	}
+	fmt.Println(mdata)
+	return nil
 }
 
 //

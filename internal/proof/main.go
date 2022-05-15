@@ -709,6 +709,12 @@ func processingSpace() {
 		req     p.SpaceTagReq
 		addr    string
 	)
+	defer func() {
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
 	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -770,7 +776,7 @@ func processingSpace() {
 					break
 				}
 			}
-			if err != nil {
+			if client == nil {
 				continue
 			}
 			resp, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
@@ -886,6 +892,7 @@ func processingSpace() {
 				continue
 			}
 			spacefile.Close()
+			client.Close()
 		}
 	}
 }
