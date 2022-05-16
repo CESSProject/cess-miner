@@ -255,7 +255,7 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: Code_404, Msg: err.Error()}, nil
 	}
-	pubkey, err := tools.DecodeToPub(b.Acc)
+	pubkey, err := tools.DecodeToPub(b.Acc, tools.ChainCessTestPrefix)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil

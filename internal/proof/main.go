@@ -715,7 +715,7 @@ func processingSpace() {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk)
+	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk, tools.ChainCessTestPrefix)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)

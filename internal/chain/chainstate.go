@@ -479,9 +479,8 @@ func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	if err != nil {
 		return errors.Wrap(err, "[GetMetadataLatest]")
 	}
-	//b := tools.S2B("1525775738468941824")
-	bb, err := types.EncodeToBytes([]byte("1525775738468941824"))
-	key, err := types.CreateStorageKey(meta, pallert, method, bb)
+
+	key, err := types.CreateStorageKey(meta, pallert, method)
 	if err != nil {
 		return errors.Wrap(err, "[CreateStorageKey]")
 	}
