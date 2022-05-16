@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"cess-bucket/configs"
 	. "cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
@@ -255,7 +256,13 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: Code_404, Msg: err.Error()}, nil
 	}
-	pubkey, err := tools.DecodeToPub(b.Acc, tools.ChainCessTestPrefix)
+	var pre []byte
+	if configs.NewTestAddr {
+		pre = tools.ChainCessTestPrefix
+	} else {
+		pre = tools.SubstratePrefix
+	}
+	pubkey, err := tools.DecodeToPub(b.Acc, pre)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
