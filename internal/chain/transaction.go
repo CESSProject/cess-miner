@@ -41,8 +41,13 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-
-	b, err := tools.DecodeToPub(imcodeAcc, tools.ChainCessTestPrefix)
+	var pre []byte
+	if configs.NewTestAddr {
+		pre = tools.ChainCessTestPrefix
+	} else {
+		pre = tools.SubstratePrefix
+	}
+	b, err := tools.DecodeToPub(imcodeAcc, pre)
 	if err != nil {
 		return "", configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
 	}
@@ -1262,7 +1267,13 @@ func GetAddressFromPrk(prk string, prefix []byte) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
-	addr, err := tools.Encode(keyring.PublicKey, prefix)
+	var pre []byte
+	if configs.NewTestAddr {
+		pre = tools.ChainCessTestPrefix
+	} else {
+		pre = tools.SubstratePrefix
+	}
+	addr, err := tools.Encode(keyring.PublicKey, pre)
 	if err != nil {
 		return "", errors.Wrap(err, "[Encode]")
 	}

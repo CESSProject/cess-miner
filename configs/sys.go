@@ -28,23 +28,12 @@ const (
 	PublicKeyfile  = ".m_publicKey.pem"
 )
 
-// data segment properties
-const (
-	SegMentType_Idle      uint8  = 1
-	SegMentType_Service   uint8  = 2
-	SegMentType_8M        uint8  = 1
-	SegMentType_8M_post   uint8  = 6
-	SegMentType_512M      uint8  = 2
-	SegMentType_512M_post uint8  = 7
-	SegMentType_8M_S      string = "1"
-	SegMentType_512M_S    string = "2"
-)
-
 const (
 	Space_1GB          = 1073741824     // 1GB
 	Space_1MB          = 1024 * 1024    // 1MB
 	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
+	NewTestAddr        = true
 )
 
 // Miner info
@@ -60,9 +49,4 @@ var (
 	LogfileDir = "/log"
 	SpaceDir   = "space"
 	FilesDir   = "files"
-
-	//
-	Cache           = "cache"
-	TmpltFileFolder = "temp"
-	TmpltFileName   = "template"
 )

@@ -126,7 +126,7 @@ func calcAvailableSpace() (uint64, error) {
 		return 0, nil
 	}
 	enableSpace := sspace - configs.MinerUseSpace
-	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB*20) {
+	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB) {
 		return enableSpace, nil
 	}
 	return 0, nil
@@ -203,6 +203,7 @@ func processingSpace() {
 		enableS uint64
 		req     p.SpaceTagReq
 		addr    string
+		client  *rpc.Client
 	)
 	defer func() {
 		err := recover()
@@ -210,7 +211,7 @@ func processingSpace() {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk, tools.ChainCessTestPrefix)
+	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk, tools.SubstratePrefix)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -227,24 +228,53 @@ func processingSpace() {
 	}
 
 	schds, _ := chain.GetSchedulerInfo()
-
+	count = 100
 	for {
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
-		//deleteFailedSegment(configs.SpaceDir)
-		count++
 		if count%100 == 0 {
 			count = 0
+			if client != nil {
+				client.Close()
+			}
 			schds, _ = chain.GetSchedulerInfo()
+			if len(schds) == 0 {
+				count = 100
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+				continue
+			}
+			var deduplication = make(map[int]struct{}, len(schds))
+			for i := 0; i < len(schds); i++ {
+				index := tools.RandomInRange(0, len(schds))
+				_, ok := deduplication[index]
+				if ok {
+					continue
+				}
+				deduplication[index] = struct{}{}
+				wsURL := "ws://" + string(base58.Decode(string(schds[index].Ip)))
+				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				client, err = rpc.DialWebsocket(ctx, wsURL, "")
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", wsURL, err)
+					if (i + 1) == len(schds) {
+						Err.Sugar().Errorf("All scheduler not working")
+						time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+					}
+					continue
+				}
+				break
+			}
+			deduplication = nil
 		}
-		if len(schds) == 0 {
+		if client == nil {
+			count = 100
 			continue
 		}
+		count++
 		enableS, err = calcAvailableSpace()
 		if err != nil {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
-		if enableS > uint64(8*configs.Space_1MB) {
+		if enableS >= uint64(8*configs.Space_1MB) {
 			req.SizeMb = 8
 			req.WalletAddress = addr
 			req.Fileid = ""
@@ -257,23 +287,6 @@ func processingSpace() {
 				continue
 			}
 
-			var client *rpc.Client
-			for i, schd := range schds {
-				wsURL := "ws://" + string(base58.Decode(string(schd.Ip)))
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-				client, err = rpc.DialWebsocket(ctx, wsURL, "")
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", wsURL, err)
-					if (i + 1) == len(schds) {
-						Err.Sugar().Errorf("All scheduler not working")
-					}
-				} else {
-					break
-				}
-			}
-			if client == nil {
-				continue
-			}
 			resp, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -387,7 +400,6 @@ func processingSpace() {
 				continue
 			}
 			spacefile.Close()
-			client.Close()
 		}
 	}
 }
