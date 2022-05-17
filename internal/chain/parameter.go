@@ -66,35 +66,6 @@ type CessChain_MinerInfo2 struct {
 	Collaterals                       types.U128      `json:"collaterals"`
 }
 
-type ParamInfo struct {
-	Peer_id    types.U64 `json:"peer_id"`
-	Segment_id types.U64 `json:"segment_id"`
-	Rand       types.U32 `json:"rand"`
-}
-
-type IpostParaInfo struct {
-	Peer_id    types.U64   `json:"peer_id"`
-	Segment_id types.U64   `json:"segment_id"`
-	Sealed_cid types.Bytes `json:"sealed_cid"`
-	Size_type  types.U128  `json:"size_type"`
-}
-
-type UnsealedCidInfo struct {
-	Peer_id    types.U64     `json:"peer_id"`
-	Segment_id types.U64     `json:"segment_id"`
-	Uncid      []types.Bytes `json:"uncid"`
-	Rand       types.U32     `json:"rand"`
-	Shardhash  types.Bytes   `json:"shardhash"`
-}
-
-type FpostParaInfo struct {
-	Peer_id    types.U64     `json:"peer_id"`
-	Segment_id types.U64     `json:"segment_id"`
-	Sealed_cid []types.Bytes `json:"sealed_cid"`
-	Hash       types.Bytes   `json:"hash"`
-	Size_type  types.U128    `json:"size_type"`
-}
-
 //---SchedulerInfo
 type SchedulerInfo struct {
 	Ip              types.Bytes
