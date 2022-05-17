@@ -13,32 +13,68 @@ For complete instructions on how to build, install and use cess-bucket, Please r
 If you find out any vulnerability, Please send an email to tech@cess.one.
 we are happy to communicate with you
 
-## Basic Build Instructions
-
-**System-specific Software Dependencies**:
+## System-specific Software Dependencies
 
 Building cess-bucket requires some system dependencies, usually provided by your distribution.
 
-**Ubuntu/Debian**:
-- Ubuntu_x64 ≥ 18.04
+- Ubuntu/Debian(≥ 18.04):
 ```
-sudo apt install ocl-icd-* gcc git curl libhwloc* wget util-linux -y && sudo apt upgrade -y
+sudo apt upgrade -y && sudo apt install m4 g++ flex bison make gcc git curl wget lzip util-linux -y
 ```
 
-**RedHat/CentOS**:
-- CentOS_x64 ≥ 8.2
+- RedHat/CentOS(≥ 8.2):
 ```
-sudo yum install ocl-icd-* gcc git curl libhwloc* wget util-linux -y && sudo apt upgrade -y
+sudo yum upgrade -y && sudo dnf install m4 flex bison -y && sudo yum install gcc-c++ git curl wget lzip util-linux -y
 ```
 
 For other Linux distributions, please refer to the corresponding technical documentation.
 
-#### Go
+### Installing pbc library
+```
+sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
+sudo lzip -d gmp-6.1.2.tar.lz
+sudo tar -xvf gmp-6.1.2.tar
+sudo cd gmp-6.2.1/
+sudo chmod +x ./configure
+sudo ./configure --enable-cxx
+sudo make
+sudo make check
+sudo make install
+cd ..
+
+sudo wget https://crypto.stanford.edu/pbc/files/pbc-0.5.14.tar.gz
+sudo tar -zxvf pbc-0.5.14.tar.gz
+sudo cd pbc-0.5.14/
+sudo chmod +x ./configure
+sudo ./configure
+sudo make
+sudo make install
+touch /etc/ld.so.conf.d/libpbc.conf
+test -s /etc/ld.so.conf.d/libpbc.conf && sed -i "\$a /usr/local/lib" /etc/ld.so.conf.d/libpbc.conf || echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
+sudo ldconfig
+```
+
+### Firewall configuration
+
+If the firewall is turned on, you need to open the running port, The default port is 15001.
+
+- Ubuntu/Debian**:
+```
+sudo ufw allow 15001/tcp
+```
+
+- RedHat/CentOS**:
+```
+sudo firewall-cmd --permanent --add-port=15001/tcp
+sudo firewall-cmd --reload
+```
+
+## Go language environment
 
 To build cess-bucket, you need a working installation of [Go 1.16.5 or higher](https://golang.org/dl/):
 
 ```bash
-wget -c https://golang.org/dl/go1.16.4.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
+wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
 ```
 
 **TIP:**
@@ -50,25 +86,10 @@ echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
 
 See the [official Golang installation instructions](https://golang.org/doc/install) if you get stuck.
 
-#### firewall
-
-**If the firewall is turned on, you need to open the running port**:
-
-**Ubuntu/Debian**:
-```
-sudo ufw allow 15001/tcp
-```
-
-**RedHat/CentOS**:
-```
-sudo firewall-cmd --permanent --add-port=15001/tcp
-sudo firewall-cmd --reload
-```
-
 > Note: ensure that 15001 ports are released in the hardware firewall or security group policy of the server provider: since the security group policy settings provided by different servers are different, please consult the server provider
 > 
 
-### Polkadot wallet
+## Polkadot wallet
 
 1. Browser access:https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fcess.today%2Frpc2-hacknet%2Fws%2F#/accounts
 2. Click Add Account to add two accounts. The first account is used to authenticate and operate the cess chain, and the second account is used to save income.
