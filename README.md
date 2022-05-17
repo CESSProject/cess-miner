@@ -29,7 +29,7 @@ sudo yum upgrade -y && sudo dnf install m4 flex bison -y && sudo yum install gcc
 
 For other Linux distributions, please refer to the corresponding technical documentation.
 
-### Installing pbc library
+### Install pbc library
 ```
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
 sudo lzip -d gmp-6.1.2.tar.lz
@@ -58,12 +58,11 @@ sudo ldconfig
 
 If the firewall is turned on, you need to open the running port, The default port is 15001.
 
-- Ubuntu/Debian**:
+- Ubuntu/Debian
 ```
 sudo ufw allow 15001/tcp
 ```
-
-- RedHat/CentOS**:
+- RedHat/CentOS
 ```
 sudo firewall-cmd --permanent --add-port=15001/tcp
 sudo firewall-cmd --reload
@@ -94,20 +93,13 @@ See the [official Golang installation instructions](https://golang.org/doc/insta
 1. Browser access:https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fcess.today%2Frpc2-hacknet%2Fws%2F#/accounts
 2. Click Add Account to add two accounts. The first account is used to authenticate and operate the cess chain, and the second account is used to save income.
 3. Open the faucet address:http://data.cesslab.co.uk/faucet/, enter the address of account one, and receive TCESS coins.
-4. We need the public key of the account two address to issue rewards, and the public key can be obtained by converting the ss58 address online:https://polkadot.subscan.io/tools/ss58_transform
 
 ## Build from source
 
-1. Clone the source code to your working directory
-
+Clone the code and build:
 ```
-git clone --recurse-submodules https://github.com/CESSProject/cess-bucket.git
+git clone https://github.com/CESSProject/cess-bucket.git
 cd cess-bucket
-```
-
-2. build mining
-
-```
 go build -o bucket cmd/main/main.go
 ```
 
@@ -116,15 +108,15 @@ This will create an executable file called **'bucket'**
 ## Usage for bucket
 
 **flag**:
-| Flag      | Description                             |
-| --------- | --------------------------------------- |
-| -c        | Specify the configuration file location |
-| -h,--help | print help information                  |
+| Flag        | Description                             |
+| ----------- | --------------------------------------- |
+| -c,--config | Custom profile |
+| -h,--help   | Print help information                  |
 
 **command**:
 | Command  | Description                                    |
 | -------- | ---------------------------------------------- |
-| version  | print version number                           |
+| version  | Print version number                           |
 | default  | Generate configuration file template           |
 | register | Register mining miner information to the chain |
 | state    | Query mining miner information                 |
@@ -146,22 +138,19 @@ sudo mv config_template.toml conf.toml
 ```
 
 ```
-[CessChain]
-# CESS chain address
-ChainAddr = ""
-
-[MinerData]
-# Total space used to store files, the unit is GB
-StorageSpace   = 1000
+# The rpc address of the chain node
+RpcAddr      = ""
 # Path to the mounted disk where the data is saved
-MountedPath    = ""
+MountedPath  = ""
+# Total space used to store files, the unit is GB
+StorageSpace = 1000
 # The IP address of the machine's public network used by the mining program
-ServiceAddr    = ""
+ServiceAddr  = ""
 # Port number monitored by the mining program
-ServicePort    = 15001
-# Public key of revenue account
-RevenueAcc     = ""
-# Phrase words or seeds for signature account
+ServicePort  = 15001
+# The address of income account
+IncomeAcc    = ""
+# phrase or seed of the signature account
 SignaturePrk = ""
 ```
 
@@ -174,7 +163,6 @@ sudo ./bucket register
 ```
 sudo nohup ./bucket run 2>&1 &
 ```
-
 
 ## License
 Licensed under [Apache 2.0](https://github.com/CESSProject/cess-bucket/blob/main/LICENSE)
