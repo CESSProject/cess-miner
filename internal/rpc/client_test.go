@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type testService struct{}
 
 func (testService) HelloAction(body []byte) (proto.Message, error) {
-	buf := make([]byte, 0)
-	return &RespBody{Code: 0, Msg: "test hello", Data: buf}, nil
+	fmt.Println(string(body))
+	return &RespBody{Code: 0, Msg: "hi, i am server!"}, nil
 }
 
 func TestDialWebsocket(t *testing.T) {
@@ -36,6 +36,7 @@ func TestDialWebsocket(t *testing.T) {
 	req := &ReqMsg{
 		Service: "test",
 		Method:  "hello",
+		Body:    []byte("hi, i am client!"),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	resp, err := client.Call(ctx, req)
@@ -43,5 +44,7 @@ func TestDialWebsocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	fmt.Println(resp)
+	var body RespBody
+	proto.Unmarshal(resp.Body, &body)
+	fmt.Println(body.Msg)
 }

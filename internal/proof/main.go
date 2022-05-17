@@ -53,148 +53,6 @@ func Proof_Main() {
 	go processingInvalidFiles()
 }
 
-func getMountPathInfo(mountpath string) (mountpathInfo, error) {
-	var mp mountpathInfo
-	pss, err := disk.Partitions(false)
-	if err != nil {
-		return mp, errors.Wrap(err, "disk.Partitions err")
-	}
-
-	for _, ps := range pss {
-		us, err := disk.Usage(ps.Mountpoint)
-		if err != nil {
-			continue
-		}
-		if us.Total < configs.Space_1GB {
-			continue
-		} else {
-			if us.Path == mountpath {
-				mp.Path = us.Path
-				mp.Free = us.Free
-				mp.Total = us.Total
-				return mp, nil
-			}
-		}
-	}
-	return mp, errors.New("Mount path not found or total space less than 1TB")
-}
-
-func spaceReasonable() {
-	var err error
-	configs.MinerUseSpace, err = tools.DirSize(configs.BaseDir)
-	if err != nil {
-		Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-		os.Exit(1)
-	}
-
-	sspace := configs.C.StorageSpace * configs.Space_1GB
-	mountP, err := getMountPathInfo(configs.C.MountedPath)
-	if err != nil {
-		Err.Sugar().Errorf("%v", err)
-		os.Exit(1)
-	}
-	if mountP.Total < sspace {
-		Err.Sugar().Errorf("[%v] The storage space cannot be greater than the total hard disk space", configs.MinerId_S)
-		os.Exit(1)
-	}
-	if (sspace + configs.Space_1GB) < configs.MinerUseSpace {
-		Err.Sugar().Errorf("[%v] You cannot reduce your storage space", configs.MinerId_S)
-		os.Exit(1)
-	}
-	if sspace > configs.MinerUseSpace {
-		enableSpace := sspace - configs.MinerUseSpace
-		if (enableSpace > mountP.Free) || ((mountP.Free - enableSpace) < configs.Space_1GB*20) {
-			Err.Sugar().Errorf("[%v] Please reserve at least 20GB of space for your disk", configs.MinerId_S)
-			os.Exit(1)
-		}
-	}
-}
-
-// Calculate available space
-func calcAvailableSpace() (uint64, error) {
-	var err error
-	configs.MinerUseSpace, err = tools.DirSize(configs.BaseDir)
-	if err != nil {
-		return 0, err
-	}
-	sspace := configs.C.StorageSpace * configs.Space_1GB
-	mountP, err := getMountPathInfo(configs.C.MountedPath)
-	if err != nil {
-		return 0, err
-	}
-	if sspace <= configs.MinerUseSpace {
-		return 0, nil
-	}
-	enableSpace := sspace - configs.MinerUseSpace
-	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB) {
-		return enableSpace, nil
-	}
-	return 0, nil
-}
-
-func getSegmentNumForTypeOne(segmentpath, segtype string) (uint32, error) {
-	var (
-		err   error
-		count uint32
-	)
-	_, err = os.Stat(segmentpath)
-	if err != nil {
-		return 0, nil
-	}
-	fileInfoList, err := ioutil.ReadDir(segmentpath)
-	if err != nil {
-		return 0, err
-	}
-	for i := range fileInfoList {
-		if fileInfoList[i].IsDir() {
-			if fileInfoList[i].Name()[:1] == segtype {
-				count++
-			}
-		}
-	}
-	return count, nil
-}
-
-// Delete failed data segment
-func deleteFailedSegment(path string) {
-	var (
-		err error
-	)
-	dirs, _ := getChildDirs(path)
-	for i := 0; i < len(dirs); i++ {
-		_, err = os.Stat(dirs[i] + "/tmp")
-		if err == nil {
-			err = os.RemoveAll(dirs[i])
-			if err == nil {
-				Err.Sugar().Infof("Remove [%v] suc", dirs[i])
-			}
-		}
-	}
-}
-
-func getChildDirs(filePath string) ([]string, error) {
-	dirs := make([]string, 0)
-	f, err := os.Stat(filePath)
-	if err != nil {
-		return dirs, err
-	}
-	if !f.IsDir() {
-		return dirs, errors.New("Not a dir")
-	}
-	files, err := ioutil.ReadDir(filePath)
-	if err != nil {
-		return dirs, err
-	} else {
-		for _, v := range files {
-			if v.IsDir() {
-				path := filepath.Join(filePath, v.Name())
-				dirs = append(dirs, path)
-			}
-		}
-	}
-	return dirs, nil
-}
-
 //
 func processingSpace() {
 	var (
@@ -561,4 +419,52 @@ func processingInvalidFiles() {
 			}
 		}
 	}
+}
+
+// Calculate available space
+func calcAvailableSpace() (uint64, error) {
+	var err error
+	configs.MinerUseSpace, err = tools.DirSize(configs.BaseDir)
+	if err != nil {
+		return 0, err
+	}
+	sspace := configs.C.StorageSpace * configs.Space_1GB
+	mountP, err := getMountPathInfo(configs.C.MountedPath)
+	if err != nil {
+		return 0, err
+	}
+	if sspace <= configs.MinerUseSpace {
+		return 0, nil
+	}
+	enableSpace := sspace - configs.MinerUseSpace
+	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB) {
+		return enableSpace, nil
+	}
+	return 0, nil
+}
+
+func getMountPathInfo(mountpath string) (mountpathInfo, error) {
+	var mp mountpathInfo
+	pss, err := disk.Partitions(false)
+	if err != nil {
+		return mp, errors.Wrap(err, "disk.Partitions err")
+	}
+
+	for _, ps := range pss {
+		us, err := disk.Usage(ps.Mountpoint)
+		if err != nil {
+			continue
+		}
+		if us.Total < configs.Space_1GB {
+			continue
+		} else {
+			if us.Path == mountpath {
+				mp.Path = us.Path
+				mp.Free = us.Free
+				mp.Total = us.Total
+				return mp, nil
+			}
+		}
+	}
+	return mp, errors.New("Mount path not found or total space less than 1TB")
 }

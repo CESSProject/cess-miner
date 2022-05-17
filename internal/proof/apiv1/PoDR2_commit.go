@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/Nik-U/pbc"
@@ -29,50 +28,31 @@ func (commit PoDR2Commit) PoDR2ProofCommit(ssk []byte, sharedParams string, segm
 		U_num++
 	}
 	T.T0.U = make([][]byte, U_num)
-	fmt.Println("start generate U", U_num)
-	//for i := int64(0); i < s; i++ {
-	//	result := pairing.NewG2().Rand()
-	//	T.T0.U = append(T.T0.U, result)
-	//}
-
 	for i := int64(0); i < U_num; i++ {
 		result := pairing.NewG2().Rand().Bytes()
 		T.T0.U[i] = result
 	}
-	fmt.Println("end generate U")
+
 	tmp, err := json.Marshal(T.T0)
 	if err != nil {
 		panic(err)
 	}
-	//var tau_zero_bytes bytes.Buffer
-	//enc := gob.NewEncoder(&tau_zero_bytes)
-	//err = enc.Encode(T.T0)
-	//if err != nil {
-	//	res.StatueMsg.StatusCode = paramv1.Error
-	//	res.StatueMsg.Msg = "encode tau_zero_bytes error" + err.Error()
-	//	responseCh <- res
-	//	return responseCh
-	//}
-	fmt.Println("start hash256")
+
 	hashed_t_0 := pairing.NewG2().SetFromStringHash(string(tmp), sha256.New())
 	t_0_signature := pairing.NewG2().PowZn(hashed_t_0, privateKey)
 	T.Signature = t_0_signature.Bytes()
-	fmt.Println("end hash256")
 	res.T = T
 	res.Sigmas = make([][]byte, n)
-	//g1wait := make(chan struct{}, n)
-	fmt.Println("start to calculate sigma,Alpha:", privateKey)
-	fmt.Println("start to calculate sigma,n:", n)
-	fmt.Println("start to calculate sigma,s:", s)
+	g1wait := make(chan struct{}, n)
 	for i := int64(0); i < int64(n); i++ {
-
-		res.Sigmas[i] = GenerateAuthenticator(i, s, res.T.T0, matrix[i], privateKey, pairing, segmentSize)
-		//g1wait <- struct{}{}
-		//}(i)
+		go func(i int64) {
+			res.Sigmas[i] = GenerateAuthenticator(i, s, res.T.T0, matrix[i], privateKey, pairing, segmentSize)
+			g1wait <- struct{}{}
+		}(i)
 	}
-	//for i := int64(0); i < n; i++ {
-	//	<-g1wait
-	//}
+	for i := uint64(0); i < n; i++ {
+		<-g1wait
+	}
 	res.StatueMsg.StatusCode = Success
 	res.StatueMsg.Msg = "PoDR2ProofCommit success"
 	responseCh <- res

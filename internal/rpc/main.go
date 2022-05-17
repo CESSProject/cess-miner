@@ -61,13 +61,12 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		b   PutFileToBucket
 	)
 	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Receive write file request", t)
+	Out.Sugar().Infof("[T:%v]Write file request.....", t)
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
 	}
-	// Determine whether the storage path exists
 	err = tools.CreatDirIfNotExist(FilesDir)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v]Err:%v", t, err)

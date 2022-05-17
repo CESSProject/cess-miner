@@ -3,7 +3,6 @@ package proof
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 
 	"github.com/Nik-U/pbc"
 )
@@ -32,28 +31,16 @@ func (prove PoDR2Prove) PoDR2ProofProve(spk []byte, sharedParams string, sharedG
 	if !temp1.Equals(temp2) {
 		res.StatueMsg.StatusCode = ErrorParam
 		res.StatueMsg.Msg = "Signature information verification error"
-		fmt.Println("Signature information verification error")
 		responseCh <- res
 		return responseCh
-	} else {
-		fmt.Println("Signature information verification success")
 	}
 
-	//mu := make([]*pbc.Element, prove.S)
 	U_num := prove.S / segmentSize
 	if prove.S%segmentSize != 0 {
 		U_num++
 	}
 	mu := make([][]byte, U_num)
-	//for j := int64(0); j < prove.S; j++ {
-	//	mu_j := pairing.NewZr()
-	//	for _, qelem := range prove.QSlice {
-	//		char := pairing.NewZr().SetFromHash([]byte{prove.Matrix[qelem.I-1][j]})
-	//		product := pairing.NewZr().Mul(pairing.NewZr().SetBytes(qelem.V.Bytes()), char)
-	//		mu_j.Add(mu_j, product)
-	//	}
-	//	mu[j] = mu_j
-	//}
+
 	for j := int64(0); j < U_num; j++ {
 		mu_j := pairing.NewZr()
 		for _, qelem := range prove.QSlice {

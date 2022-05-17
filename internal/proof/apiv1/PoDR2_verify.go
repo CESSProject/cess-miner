@@ -5,7 +5,6 @@ import (
 )
 
 func (verify PoDR2Verify) PoDR2ProofVerify(SharedG, spk []byte, sharedParams string) bool {
-
 	pairing, _ := pbc.NewPairingFromString(sharedParams)
 	G := pairing.NewG2().SetBytes(SharedG)
 	V := pairing.NewG2().SetBytes(spk)
