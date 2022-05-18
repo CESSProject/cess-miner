@@ -39,12 +39,14 @@ type Event_PPDNoOnTimeSubmit struct {
 type Event_ChallengeProof struct {
 	Phase  types.Phase
 	PeerId types.U64
+	Fileid types.Bytes
 	Topics []types.Hash
 }
 
 type Event_VerifyProof struct {
 	Phase  types.Phase
 	PeerId types.U64
+	Fileid types.Bytes
 	Topics []types.Hash
 }
 
