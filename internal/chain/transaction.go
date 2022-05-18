@@ -51,10 +51,7 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	if err != nil {
 		return "", configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
 	}
-	// ip, err := types.EncodeToBytes(ipAddr)
-	// if err != nil {
-	// 	return configs.Code_400, errors.Wrap(err, "EncodeToBytes")
-	// }
+
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
@@ -1305,10 +1302,10 @@ func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]b
 		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	b, err := types.EncodeToBytes(id)
-	if err != nil {
-		return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
-	}
+	// b, err := types.EncodeToBytes(id)
+	// if err != nil {
+	// 	return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
+	// }
 
 	var mus []types.Bytes = make([]types.Bytes, len(mu))
 	for i := 0; i < len(mu); i++ {
@@ -1316,7 +1313,7 @@ func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]b
 		mus[i] = append(mus[i], mu[i]...)
 	}
 
-	c, err := types.NewCall(meta, SegmentBook_SubmitProve, b, types.Bytes(fid), mus, types.Bytes(sigma))
+	c, err := types.NewCall(meta, SegmentBook_SubmitProve, types.U64(id), types.Bytes(fid), mus, types.Bytes(sigma))
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}

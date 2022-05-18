@@ -76,7 +76,7 @@ type ChallengesInfo struct {
 	File_size  types.U64
 	Scan_size  types.U32
 	File_type  types.U8
-	Block_list []types.U32
+	Block_list []types.Bytes
 	File_id    types.Bytes
 	//48 bit random number
 	Random []types.Bytes

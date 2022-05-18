@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -271,6 +272,7 @@ func processingChallenges() {
 		filedir       string
 		filename      string
 		tagfilename   string
+		blocksize     int64
 		filetag       pt.TagInfo
 		poDR2prove    api.PoDR2Prove
 		proveResponse api.PoDR2ProveResponse
@@ -299,16 +301,21 @@ func processingChallenges() {
 				filename = string(chlng[i].File_id)
 			}
 			tagfilename = string(chlng[i].File_id) + ".tag"
-			_, err = os.Stat(filepath.Join(filedir, filename))
+			fstat, err := os.Stat(filepath.Join(filedir, filename))
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
 			}
+			if chlng[i].File_type == 1 {
+				blocksize = configs.Space_1MB
+			} else {
+				blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
+			}
 			tmp := make(map[int]*big.Int, len(chlng[i].Block_list))
 			for j := 0; j < len(chlng[i].Block_list); j++ {
-				tmp[int(chlng[i].Block_list[j])] = new(big.Int).SetBytes(chlng[i].Random[j])
+				index, _ := tools.BytesToInteger(chlng[i].Block_list[j])
+				tmp[int(index)] = new(big.Int).SetBytes(chlng[i].Random[j])
 			}
-
 			qSlice, err := api.PoDR2ChallengeGenerateFromChain(tmp, string(puk.Shared_params))
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
@@ -333,7 +340,7 @@ func processingChallenges() {
 			poDR2prove.T = filetag.T
 			poDR2prove.Sigmas = filetag.Sigmas
 
-			matrix, _, _, err := tools.Split(f, int64(chlng[i].Scan_size))
+			matrix, _, _, err := tools.Split(f, blocksize)
 			if err != nil {
 				f.Close()
 				Err.Sugar().Errorf("[%v] %v", filename, err)
@@ -341,7 +348,7 @@ func processingChallenges() {
 			}
 			f.Close()
 			poDR2prove.Matrix = matrix
-			poDR2prove.S = int64(chlng[i].Scan_size)
+			poDR2prove.S = blocksize
 			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(chlng[i].Scan_size))
 			select {
 			case proveResponse = <-proveResponseCh:
@@ -361,7 +368,7 @@ func processingChallenges() {
 				}
 				if time.Since(time.Unix(ts, 0)).Minutes() > 10.0 {
 					Err.Sugar().Errorf("[%v] %v", filename, err)
-					continue
+					break
 				}
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 			}
@@ -467,4 +474,22 @@ func getMountPathInfo(mountpath string) (mountpathInfo, error) {
 		}
 	}
 	return mp, errors.New("Mount path not found or total space less than 1TB")
+}
+
+func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
+	var (
+		blockSize     int64
+		scanBlockSize int64
+	)
+	if fsize < configs.ByteSize_1Kb {
+		return fsize, fsize
+	}
+	if fsize > math.MaxUint32 {
+		blockSize = math.MaxUint32
+		scanBlockSize = blockSize / 8
+		return blockSize, scanBlockSize
+	}
+	blockSize = fsize / 16
+	scanBlockSize = blockSize / 8
+	return blockSize, scanBlockSize
 }
