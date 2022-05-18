@@ -45,18 +45,15 @@ func PoDR2ChallengeGenerate(N int64, SharedParams string) []QElement {
 func PoDR2ChallengeGenerateFromChain(ChallengeMap map[int]*big.Int, SharedParams string) ([]QElement, error) {
 	pairing, _ := pbc.NewPairingFromString(SharedParams)
 	//Random number generated on the chain, length: len(Q)∈(0,Tag.N], number size: Q∈(0,Tag.N]
-	l := new(big.Int)
-	l.SetInt64(int64(len(ChallengeMap)))
-	challenge := make([]QElement, l.Int64())
-	for i, q := range ChallengeMap {
-		I := big.NewInt(int64(i))
-		if I.Cmp(big.NewInt(0)) == +1 {
+	challenge := make([]QElement, len(ChallengeMap))
+	index := 0
+	for k, v := range ChallengeMap {
+		if k <= 0 {
 			return nil, errors.New("block sequence number cannot be 0")
 		}
-		challenge[i].I = I.Int64()
-		Q := pairing.NewZr().SetBig(q).Bytes()
-		challenge[i].V = Q
+		challenge[index].I = int64(k)
+		challenge[index].V = pairing.NewZr().SetBig(v).Bytes()
+		index++
 	}
-
 	return challenge, nil
 }

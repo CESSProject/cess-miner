@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -216,9 +217,9 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	tokens := minerInfo.MinerInfo1.Collaterals.Div(minerInfo.MinerInfo1.Collaterals.Int, big.NewInt(1000000000000))
-	addr := tools.Base58Decoding(string(minerInfo.MinerInfo1.ServiceAddr))
+	addr := base58.Decode(string(minerInfo.MinerInfo1.ServiceAddr))
 	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %vMB\nUsedSpace: %vMB\nPledgeTokens: %vCESS\nServiceAddr: %v\n",
-		minerInfo.MinerInfo1.Peerid, string(minerInfo.MinerInfo1.State), minerInfo.MinerInfo2.Power, minerInfo.MinerInfo2.Space, tokens, addr)
+		minerInfo.MinerInfo1.Peerid, string(minerInfo.MinerInfo1.State), minerInfo.MinerInfo2.Power, minerInfo.MinerInfo2.Space, tokens, string(addr))
 
 	os.Exit(0)
 }
@@ -483,7 +484,7 @@ func register() {
 		os.Exit(1)
 	}
 
-	ipAddr := tools.Base58Encoding(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort))
+	ipAddr := base58.Encode([]byte(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
 	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)

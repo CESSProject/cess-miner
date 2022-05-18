@@ -94,6 +94,14 @@ func IntegerToBytes(n interface{}) ([]byte, error) {
 	}
 }
 
+// Bytes to Integer
+func BytesToInteger(n []byte) (int32, error) {
+	var x int32
+	bytesBuffer := bytes.NewBuffer(n)
+	err := binary.Read(bytesBuffer, binary.LittleEndian, &x)
+	return x, err
+}
+
 // Get the total size of all files in a directory and subdirectories
 func DirSize(path string) (uint64, error) {
 	var size uint64
@@ -202,9 +210,6 @@ func Split(file *os.File, s int64) (M [][]byte, S int64, N uint64, err error) {
 			return nil, 0, 0, err
 		}
 		matrix[i] = piece
-	}
-	if n == 0 {
-		n = 1
 	}
 	return matrix, s, n, nil
 }

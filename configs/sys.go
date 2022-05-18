@@ -19,8 +19,7 @@ const (
 	Code_403 = 403
 	Code_404 = 404
 	Code_500 = 500
-	//The block was produced but the event was not resolved
-	Code_600 = 600
+	Code_600 = 600 //The block was produced but the event was not resolved
 )
 
 const (
@@ -31,6 +30,7 @@ const (
 const (
 	Space_1GB          = 1073741824     // 1GB
 	Space_1MB          = 1024 * 1024    // 1MB
+	ByteSize_1Kb       = 1024           //1KB
 	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
 	NewTestAddr        = true
