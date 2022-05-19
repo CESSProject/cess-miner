@@ -372,21 +372,15 @@ func cutDataRule(size int) (int, int, uint8, error) {
 
 //
 func WriteData(cli *Client, service, method string, body []byte) ([]byte, error) {
-	// dstip := "ws://" + tools.Base58Decoding(dst)
-	// dstip = strings.Replace(dstip, " ", "", -1)
 	req := &ReqMsg{
 		Service: service,
 		Method:  method,
 		Body:    body,
 	}
-	// client, err := DialWebsocket(context.Background(), dstip, "")
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "DialWebsocket:")
-	// }
-	// defer client.Close()
 	ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
 	resp, err := cli.Call(ctx, req)
 	if err != nil {
+		cli.Close()
 		return nil, errors.Wrap(err, "Call err:")
 	}
 

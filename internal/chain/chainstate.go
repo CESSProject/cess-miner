@@ -154,7 +154,7 @@ func GetSchedulerInfo() ([]SchedulerInfo, error) {
 	return data, nil
 }
 
-func GetChallengesById(id uint64) ([]ChallengesInfo, error) {
+func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
 	var (
 		err  error
 		data []ChallengesInfo
@@ -169,25 +169,25 @@ func GetChallengesById(id uint64) ([]ChallengesInfo, error) {
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return nil, errors.Wrap(err, "[GetMetadataLatest]")
+		return nil, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 	b, err := types.EncodeToBytes(id)
 	if err != nil {
-		return nil, errors.Wrapf(err, "[EncodeToBytes]")
+		return nil, configs.Code_500, errors.Wrapf(err, "[EncodeToBytes]")
 	}
 	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, b)
 	if err != nil {
-		return nil, errors.Wrap(err, "[CreateStorageKey]")
+		return nil, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
 	ok, err := api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, "[GetStorageLatest]")
+		return nil, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return data, errors.New("[value is nil]")
+		return data, configs.Code_404, errors.New("value is empty")
 	}
-	return data, nil
+	return data, configs.Code_200, nil
 }
 
 //
@@ -219,7 +219,7 @@ func GetSchedulerPukFromChain() (Chain_SchedulerPuk, int, error) {
 		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return data, configs.Code_404, errors.New("public key not found")
+		return data, configs.Code_404, errors.New("value is empty")
 	}
 	return data, configs.Code_200, nil
 }
@@ -252,7 +252,7 @@ func GetInvalidFileById(id uint64) ([]types.Bytes, int, error) {
 		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return data, configs.Code_404, errors.New("public key not found")
+		return data, configs.Code_404, errors.New("value is empty")
 	}
 	return data, configs.Code_200, nil
 }

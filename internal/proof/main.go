@@ -24,15 +24,8 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/disk"
 	"storj.io/common/base58"
 )
-
-type mountpathInfo struct {
-	Path  string
-	Total uint64
-	Free  uint64
-}
 
 type RespSpacetagInfo struct {
 	FileId string       `json:"fileId"`
@@ -49,91 +42,104 @@ type RespSpacefileInfo struct {
 
 // Start the proof module
 func Proof_Main() {
-	go processingSpace()
-	go processingChallenges()
-	go processingInvalidFiles()
+	var (
+		channel_1 = make(chan bool, 1)
+		channel_2 = make(chan bool, 1)
+		channel_3 = make(chan bool, 1)
+	)
+	go task_SpaceManagement(channel_1)
+	go task_HandlingChallenges(channel_2)
+	go task_RemoveInvalidFiles(channel_3)
+	for {
+		select {
+		case <-channel_1:
+			go task_SpaceManagement(channel_1)
+		case <-channel_2:
+			go task_HandlingChallenges(channel_2)
+		case <-channel_3:
+			go task_RemoveInvalidFiles(channel_3)
+		}
+	}
 }
 
-//
-func processingSpace() {
+//The task_SpaceManagement task is to automatically allocate hard disk space.
+//It will help you use your allocated hard drive space, until the size you set in the config file is reached.
+//It keeps running as a subtask.
+func task_SpaceManagement(ch chan bool) {
 	var (
-		err     error
-		count   uint8
-		enableS uint64
-		req     p.SpaceTagReq
-		addr    string
-		client  *rpc.Client
+		err            error
+		availableSpace uint64
+		addr           string
+		tSpace         time.Time
+		req            p.SpaceTagReq
+		tagInfo        pt.TagInfo
+		respspacefile  RespSpacefileInfo
+		client         *rpc.Client
 	)
 	defer func() {
 		err := recover()
 		if err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
+		ch <- true
 	}()
+	Out.Info(">>>Start task_SpaceManagement task<<<")
+
+	//Parse the account address through the phrase
 	addr, err = chain.GetAddressFromPrk(configs.C.SignaturePrk, tools.SubstratePrefix)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
+
+	//Read RSA private key
 	prk, err := encryption.GetRSAPrivateKey(filepath.Join(configs.BaseDir, configs.PrivateKeyfile))
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
+
+	//Calculate the signature
 	sign, err := encryption.CalcSign([]byte(addr), prk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 
-	schds, _ := chain.GetSchedulerInfo()
-	count = 100
+	availableSpace, err = calcAvailableSpace()
+	if err != nil {
+		Err.Sugar().Errorf("[C%v] %v", configs.MinerId_S, err)
+	} else {
+		tSpace = time.Now()
+	}
+
 	for {
-		if count%100 == 0 {
-			count = 0
-			if client != nil {
-				client.Close()
-			}
-			schds, _ = chain.GetSchedulerInfo()
-			if len(schds) == 0 {
-				count = 100
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+		if client == nil {
+			schds, _ := chain.GetSchedulerInfo()
+			client, err = connectionScheduler(schds)
+			if err != nil {
+				Err.Sugar().Errorf("Err:%v", err)
+				for i := 0; i < len(schds); i++ {
+					Err.Sugar().Errorf("---->:%v", string(schds[i].Ip))
+					Err.Sugar().Errorf("    >:%v", string(schds[i].Controller_user[:]))
+				}
+				time.Sleep(time.Minute)
 				continue
 			}
-			var deduplication = make(map[int]struct{}, len(schds))
-			for i := 0; i < len(schds); i++ {
-				index := tools.RandomInRange(0, len(schds))
-				_, ok := deduplication[index]
-				if ok {
-					continue
-				}
-				deduplication[index] = struct{}{}
-				wsURL := "ws://" + string(base58.Decode(string(schds[index].Ip)))
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-				client, err = rpc.DialWebsocket(ctx, wsURL, "")
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", wsURL, err)
-					if (i + 1) == len(schds) {
-						Err.Sugar().Errorf("All scheduler not working")
-						time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
-					}
-					continue
-				}
-				break
-			}
-			deduplication = nil
 		}
 		if client == nil {
-			count = 100
 			continue
 		}
-		count++
-		enableS, err = calcAvailableSpace()
-		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			continue
+
+		if time.Since(tSpace).Minutes() >= 10 {
+			availableSpace, err = calcAvailableSpace()
+			if err != nil {
+				Err.Sugar().Errorf("[C%v] %v", configs.MinerId_S, err)
+			} else {
+				tSpace = time.Now()
+			}
 		}
-		if enableS >= uint64(8*configs.Space_1MB) {
+		if availableSpace >= uint64(8*configs.Space_1MB) {
 			req.SizeMb = 8
 			req.WalletAddress = addr
 			req.Fileid = ""
@@ -145,7 +151,6 @@ func processingSpace() {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-
 			resp, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -157,7 +162,6 @@ func processingSpace() {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			var tagInfo pt.TagInfo
 			tagfilepath := filepath.Join(configs.SpaceDir, respInfo.FileId)
 			_, err = os.Stat(tagfilepath)
 			if err != nil {
@@ -208,7 +212,7 @@ func processingSpace() {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			var respspacefile RespSpacefileInfo
+
 			err = json.Unmarshal(resp, &respspacefile)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -263,8 +267,10 @@ func processingSpace() {
 	}
 }
 
-//
-func processingChallenges() {
+//The task_HandlingChallenges task will automatically help you complete file challenges.
+//Apart from human influence, it ensures that you submit your certificates in a timely manner.
+//It keeps running as a subtask.
+func task_HandlingChallenges(ch chan bool) {
 	var (
 		err           error
 		code          int
@@ -279,15 +285,28 @@ func processingChallenges() {
 		puk           chain.Chain_SchedulerPuk
 		chlng         []chain.ChallengesInfo
 	)
+	defer func() {
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+		ch <- true
+	}()
+	Out.Info(">>>Start task_HandlingChallenges task<<<")
+
+	//Get the scheduling service public key
 	puk, _, err = chain.GetSchedulerPukFromChain()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
+
 	for {
-		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
-		chlng, err = chain.GetChallengesById(configs.MinerId_I)
+		chlng, code, err = chain.GetChallengesById(configs.MinerId_I)
 		if err != nil {
+			if code == configs.Code_404 {
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
+			}
 			continue
 		}
 		for i := 0; i < len(chlng); i++ {
@@ -379,16 +398,28 @@ func processingChallenges() {
 	}
 }
 
-//
-func processingInvalidFiles() {
+//The task_RemoveInvalidFiles task automatically checks its own failed files and clears them.
+//Delete from the local disk first, and then notify the chain to delete.
+//It keeps running as a subtask.
+func task_RemoveInvalidFiles(ch chan bool) {
 	var (
 		filename string
 		fileid   string
 	)
-	for {
-		time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
-		invalidFiles, _, err := chain.GetInvalidFileById(configs.MinerId_I)
+	defer func() {
+		err := recover()
 		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+		ch <- true
+	}()
+	Out.Info(">>>Start task_RemoveInvalidFiles task<<<")
+	for {
+		invalidFiles, code, err := chain.GetInvalidFileById(configs.MinerId_I)
+		if err != nil {
+			if code == configs.Code_404 {
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
+			}
 			continue
 		}
 		for i := 0; i < len(invalidFiles); i++ {
@@ -436,7 +467,7 @@ func calcAvailableSpace() (uint64, error) {
 		return 0, err
 	}
 	sspace := configs.C.StorageSpace * configs.Space_1GB
-	mountP, err := getMountPathInfo(configs.C.MountedPath)
+	mountP, err := pt.GetMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		return 0, err
 	}
@@ -444,36 +475,10 @@ func calcAvailableSpace() (uint64, error) {
 		return 0, nil
 	}
 	enableSpace := sspace - configs.MinerUseSpace
-	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) >= configs.Space_1GB) {
+	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) > (configs.Space_1MB * 100)) {
 		return enableSpace, nil
 	}
 	return 0, nil
-}
-
-func getMountPathInfo(mountpath string) (mountpathInfo, error) {
-	var mp mountpathInfo
-	pss, err := disk.Partitions(false)
-	if err != nil {
-		return mp, errors.Wrap(err, "disk.Partitions err")
-	}
-
-	for _, ps := range pss {
-		us, err := disk.Usage(ps.Mountpoint)
-		if err != nil {
-			continue
-		}
-		if us.Total < configs.Space_1GB {
-			continue
-		} else {
-			if us.Path == mountpath {
-				mp.Path = us.Path
-				mp.Free = us.Free
-				mp.Total = us.Total
-				return mp, nil
-			}
-		}
-	}
-	return mp, errors.New("Mount path not found or total space less than 1TB")
 }
 
 func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
@@ -492,4 +497,35 @@ func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
 	blockSize = fsize / 16
 	scanBlockSize = blockSize / 8
 	return blockSize, scanBlockSize
+}
+
+func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
+	var (
+		err error
+		cli *rpc.Client
+	)
+	if len(schds) == 0 {
+		return nil, errors.New("No scheduler service available")
+	}
+	var deduplication = make(map[int]struct{}, len(schds))
+	var wsURL string
+	for i := 0; i < len(schds); i++ {
+		index := tools.RandomInRange(0, len(schds))
+		_, ok := deduplication[index]
+		if ok {
+			continue
+		}
+		deduplication[index] = struct{}{}
+		wsURL = "ws://" + string(base58.Decode(string(schds[index].Ip)))
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
+		if err != nil {
+			if (i + 1) == len(schds) {
+				return nil, errors.New("All schedules unavailable")
+			}
+			continue
+		}
+		break
+	}
+	return cli, err
 }
