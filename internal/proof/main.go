@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +68,7 @@ func task_SpaceManagement(ch chan bool) {
 	var (
 		err            error
 		availableSpace uint64
+		reconn         bool
 		addr           string
 		tSpace         time.Time
 		req            p.SpaceTagReq
@@ -114,7 +114,7 @@ func task_SpaceManagement(ch chan bool) {
 	}
 
 	for {
-		if client == nil {
+		if client == nil || reconn {
 			schds, _ := chain.GetSchedulerInfo()
 			client, err = connectionScheduler(schds)
 			if err != nil {
@@ -151,7 +151,8 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			resp, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -207,7 +208,8 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			resp, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -235,7 +237,8 @@ func task_SpaceManagement(ch chan bool) {
 					os.Remove(spacefilefullpath)
 					break
 				}
-				respi, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+				respi, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+				reconn = clo
 				if err != nil {
 					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 					spacefile.Close()
@@ -292,7 +295,7 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 		ch <- true
 	}()
-	Out.Info(">>>Start task_HandlingChallenges task<<<")
+	Out.Info(">>>Start task_HandlingChallenges<<<")
 
 	//Get the scheduling service public key
 	puk, _, err = chain.GetSchedulerPukFromChain()
@@ -311,10 +314,12 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 		for i := 0; i < len(chlng); i++ {
 			if chlng[i].File_type == 1 {
+				//space file
 				filedir = filepath.Join(configs.SpaceDir, string(chlng[i].File_id))
 				filename = string(chlng[i].File_id) + ".space"
 				fileid = string(chlng[i].File_id)
 			} else {
+				//user file
 				fileid = strings.Split(string(chlng[i].File_id), ".")[0]
 				filedir = filepath.Join(configs.FilesDir, fileid)
 				filename = string(chlng[i].File_id)
@@ -330,16 +335,13 @@ func task_HandlingChallenges(ch chan bool) {
 			} else {
 				blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
 			}
-			tmp := make(map[int]*big.Int, len(chlng[i].Block_list))
-			for j := 0; j < len(chlng[i].Block_list); j++ {
-				index, _ := tools.BytesToInteger(chlng[i].Block_list[j])
-				tmp[int(index)] = new(big.Int).SetBytes(chlng[i].Random[j])
-			}
-			qSlice, err := api.PoDR2ChallengeGenerateFromChain(tmp, string(puk.Shared_params))
+
+			qSlice, err := api.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
 			}
+
 			ftag, err := ioutil.ReadFile(filepath.Join(filedir, tagfilename))
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filename, err)
@@ -376,6 +378,7 @@ func task_HandlingChallenges(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", filename, err)
 				continue
 			}
+
 			// proof up chain
 			ts := time.Now().Unix()
 			code = 0
@@ -390,9 +393,6 @@ func task_HandlingChallenges(ch chan bool) {
 					break
 				}
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
-			}
-			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
 			}
 		}
 	}
