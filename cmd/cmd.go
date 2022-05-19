@@ -8,6 +8,7 @@ import (
 	"cess-bucket/internal/logger"
 	. "cess-bucket/internal/logger"
 	"cess-bucket/internal/proof"
+	"cess-bucket/internal/pt"
 	"cess-bucket/internal/rpc"
 	"cess-bucket/tools"
 	"fmt"
@@ -171,27 +172,32 @@ func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
 
 // Storage miner registration information on the chain
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
+
 	//Initialize: connect to chain
 	chain.Chain_Init()
+
 	//Query your own information on the chain
 	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
+
 	//Find your information and exit
 	if code != configs.Code_404 || mData.Peerid != 0 {
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m The account is already registered.\n", 42)
 		os.Exit(0)
 	}
+
 	//Check if the storage directory and exists
 	_, err = os.Stat(configs.BaseDir)
 	if err == nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' directory conflict\n", 41, configs.BaseDir)
 		os.Exit(1)
 	}
+
 	//register
 	register()
 }
@@ -218,6 +224,7 @@ func register() {
 
 	//Encode IP address in base58
 	ipAddr := base58.Encode([]byte(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
+
 	//Create the storage data directory
 	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
 	if err != nil {
@@ -233,6 +240,7 @@ func register() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
+
 	//Registration information on the chain
 	txhash, code, err := chain.RegisterBucketToChain(
 		configs.C.SignaturePrk,
@@ -257,7 +265,9 @@ func register() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later.\n", 41)
 		os.Exit(1)
 	}
+
 	fmt.Printf("\x1b[%dm[ok]\x1b[0m Registration success\n", 42)
+
 	//Create log directory
 	configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
 	if err = tools.CreatDirIfNotExist(configs.LogfileDir); err != nil {
@@ -273,10 +283,13 @@ func register() {
 	if err = tools.CreatDirIfNotExist(configs.FilesDir); err != nil {
 		goto Err
 	}
+
 	configs.MinerId_I = uint64(mData.Peerid)
 	configs.MinerId_S = fmt.Sprintf("%v", mData.Peerid)
+
 	//Initialize the logger
 	logger.LoggerInit()
+
 	//Record registration information to the log
 	Out.Sugar().Infof("Registration message:")
 	Out.Sugar().Infof("ChainAddr:%v", configs.C.RpcAddr)
@@ -294,21 +307,25 @@ Err:
 
 // Query your own details on-chain
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
+
 	//Initialize: connect to chain
 	chain.Chain_Init()
+
 	//Query your own information on the chain
 	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
+
 	//Exit program without registration
 	if code == configs.Code_404 || mData.Peerid == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	}
+
 	//Query your own details on-chain
 	minerInfo, err := chain.GetMinerDetailInfo(
 		configs.C.SignaturePrk,
@@ -323,6 +340,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	tokens := minerInfo.MinerInfo1.Collaterals.Div(minerInfo.MinerInfo1.Collaterals.Int, big.NewInt(1000000000000))
 	addr := base58.Decode(string(minerInfo.MinerInfo1.ServiceAddr))
+
 	//print your own details
 	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %vMB\nUsedSpace: %vMB\nPledgeTokens: %vCESS\nServiceAddr: %v\n",
 		minerInfo.MinerInfo1.Peerid, string(minerInfo.MinerInfo1.State), minerInfo.MinerInfo2.Power, minerInfo.MinerInfo2.Space, tokens, string(addr))
@@ -331,8 +349,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 // Start mining
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
 
 	//Initialize: connect to chain
 	chain.Chain_Init()
@@ -376,16 +394,16 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Check if key file exists
 	encryption.Check_Keypair()
-	// start-up
-	proof.Proof_Main()
-	rpc.Rpc_Main()
 
+	// start-up
+	go proof.Proof_Main()
+	rpc.Rpc_Main()
 }
 
 // Exit mining
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
 
 	//Initialize: connect to chain
 	chain.Chain_Init()
@@ -432,8 +450,8 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
 
 	//Initialize: connect to chain
 	chain.Chain_Init()
@@ -474,8 +492,8 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 
 // Withdraw the deposit
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse the configuration file
-	refreshProfile(cmd)
+	//Parse command arguments and  configuration file
+	parseFlags(cmd)
 
 	//Initialize: connect to chain
 	chain.Chain_Init()
@@ -523,8 +541,9 @@ func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
 	}
 }
 
-// Parse the configuration file
-func refreshProfile(cmd *cobra.Command) {
+// Parse command arguments
+func parseFlags(cmd *cobra.Command) {
+	//Get custom configuration file
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
 	if configpath1 != "" {
@@ -532,6 +551,7 @@ func refreshProfile(cmd *cobra.Command) {
 	} else {
 		configs.ConfFilePath = configpath2
 	}
+	//Parse the configuration file
 	parseProfile()
 }
 
@@ -593,6 +613,11 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
+	_, err = pt.GetMountPathInfo(configs.C.MountedPath)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
 	_, err = os.Stat(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
