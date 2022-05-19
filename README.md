@@ -32,8 +32,8 @@ For other Linux distributions, please refer to the corresponding technical docum
 ### Install pbc library
 ```
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
-sudo lzip -d gmp-6.1.2.tar.lz
-sudo tar -xvf gmp-6.1.2.tar
+sudo lzip -d gmp-6.2.1.tar.lz
+sudo tar -xvf gmp-6.2.1.tar
 sudo cd gmp-6.2.1/
 sudo chmod +x ./configure
 sudo ./configure --enable-cxx
@@ -49,8 +49,9 @@ sudo chmod +x ./configure
 sudo ./configure
 sudo make
 sudo make install
-touch /etc/ld.so.conf.d/libpbc.conf
-test -s /etc/ld.so.conf.d/libpbc.conf && sed -i "\$a /usr/local/lib" /etc/ld.so.conf.d/libpbc.conf || echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
+sudo touch /etc/ld.so.conf.d/libpbc.conf
+sudo test -s /etc/ld.so.conf.d/libpbc.conf
+sudo sed -i "\$a /usr/local/lib" /etc/ld.so.conf.d/libpbc.conf || echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
 sudo ldconfig
 ```
 
