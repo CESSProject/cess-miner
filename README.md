@@ -91,9 +91,9 @@ See the [official Golang installation instructions](https://golang.org/doc/insta
 
 ## Polkadot wallet
 
-1. Browser access:https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fcess.today%2Frpc2-hacknet%2Fws%2F#/accounts
+1. Browser access: [App](https://testnet-rpc.cess.cloud/explorer), implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer)
 2. Click Add Account to add two accounts. The first account is used to authenticate and operate the cess chain, and the second account is used to save income.
-3. Open the faucet address:http://data.cesslab.co.uk/faucet/, enter the address of account one, and receive TCESS coins.
+3. The way to claim tokens will be made public in the near future.
 
 ## Build from source
 
