@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -180,12 +181,23 @@ func Post(url string, para interface{}) ([]byte, error) {
 // Get external network ip
 func GetExternalIp() (string, error) {
 	output, err := exec.Command("bash", "-c", "curl ifconfig.co").Output()
-	// output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", err
+	if err == nil {
+		result := strings.ReplaceAll(string(output), "\n", "")
+		return strings.ReplaceAll(result, " ", ""), nil
 	}
-	result := strings.Replace(string(output), "\n", "", -1)
-	return strings.Replace(result, " ", "", -1), nil
+	output, err = exec.Command("bash", "-c", "curl cip.cc | grep  IP | awk '{print $3;}'").Output()
+	if err == nil {
+		result := strings.ReplaceAll(string(output), "\n", "")
+		return strings.ReplaceAll(result, " ", ""), nil
+
+	}
+	output, err = exec.Command("bash", "-c", `curl ipinfo.io | grep \"ip\" | awk '{print $2;}'`).Output()
+	if err == nil {
+		result := strings.ReplaceAll(string(output), "\"", "")
+		result = strings.ReplaceAll(result, ",", "")
+		return strings.ReplaceAll(result, "\n", ""), nil
+	}
+	return "", errors.New("Failed to get external IP")
 }
 
 //
@@ -212,6 +224,21 @@ func Split(file *os.File, s int64) (M [][]byte, S int64, N uint64, err error) {
 		matrix[i] = piece
 	}
 	return matrix, s, n, nil
+}
+
+// Calculate the file hash value
+func CalcFileHash(fpath string) (string, error) {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func CalcHash(data []byte) (string, error) {

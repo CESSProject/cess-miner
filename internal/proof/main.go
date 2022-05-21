@@ -34,6 +34,7 @@ type RespSpacetagInfo struct {
 
 type RespSpacefileInfo struct {
 	FileId     string `json:"fileId"`
+	FileHash   string `json:"fileHash"`
 	BlockTotal uint32 `json:"blockTotal"`
 	BlockIndex uint32 `json:"blockIndex"`
 	BlockData  []byte `json:"blockData"`
@@ -69,9 +70,14 @@ func task_SpaceManagement(ch chan bool) {
 		err            error
 		availableSpace uint64
 		reconn         bool
+		allsuc         bool
 		addr           string
+		filehash       string
+		basedir        string
 		tSpace         time.Time
-		req            p.SpaceTagReq
+		req            p.SpaceFileReq
+		tagreq         p.SpaceTagReq
+		fileback       p.FileBackReq
 		tagInfo        pt.TagInfo
 		respspacefile  RespSpacefileInfo
 		client         *rpc.Client
@@ -113,22 +119,30 @@ func task_SpaceManagement(ch chan bool) {
 		tSpace = time.Now()
 	}
 
+	req.Acc = addr
+	req.Sign = sign
+	tagreq.Acc = addr
+	tagreq.Sign = sign
+	fileback.Acc = addr
+	fileback.Sign = sign
+	allsuc = true
 	for {
+		if !allsuc {
+			allsuc = true
+			os.RemoveAll(basedir)
+		}
+
 		if client == nil || reconn {
 			schds, _ := chain.GetSchedulerInfo()
 			client, err = connectionScheduler(schds)
 			if err != nil {
-				Err.Sugar().Errorf("Err:%v", err)
+				Err.Sugar().Errorf("-->Err: All schedules unavailable")
 				for i := 0; i < len(schds); i++ {
-					Err.Sugar().Errorf("---->:%v", string(schds[i].Ip))
-					Err.Sugar().Errorf("    >:%v", string(schds[i].Controller_user[:]))
+					Err.Sugar().Errorf("        %v", string(schds[i].Ip))
 				}
-				time.Sleep(time.Minute)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
 				continue
 			}
-		}
-		if client == nil {
-			continue
 		}
 
 		if time.Since(tSpace).Minutes() >= 10 {
@@ -139,19 +153,109 @@ func task_SpaceManagement(ch chan bool) {
 				tSpace = time.Now()
 			}
 		}
+
 		if availableSpace >= uint64(8*configs.Space_1MB) {
 			req.SizeMb = 8
-			req.WalletAddress = addr
 			req.Fileid = ""
 			req.BlockIndex = 0
-			req.Sign = sign
-
 			req_b, err := proto.Marshal(&req)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			resp, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+			reconn = clo
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+
+			err = json.Unmarshal(resp, &respspacefile)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			spacefilename := respspacefile.FileId + ".space"
+			basedir = filepath.Join(configs.SpaceDir, respspacefile.FileId)
+			_, err = os.Stat(basedir)
+			if err != nil {
+				err = os.MkdirAll(basedir, os.ModeDir)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					continue
+				}
+			}
+			spacefilefullpath := filepath.Join(basedir, spacefilename)
+			spacefile, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_APPEND, os.ModePerm)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			allsuc = false
+			req.Fileid = respspacefile.FileId
+			spacefile.Write(respspacefile.BlockData)
+			for j := 1; j < int(respspacefile.BlockTotal); j++ {
+				req.BlockIndex = uint32(j)
+				req_b, err = proto.Marshal(&req)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				respi, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+				reconn = clo
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				var respspacefilei RespSpacefileInfo
+				err = json.Unmarshal(respi, &respspacefilei)
+				if err != nil {
+					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+					spacefile.Close()
+					os.Remove(spacefilefullpath)
+					break
+				}
+				if respspacefilei.FileHash != "" {
+					filehash = respspacefilei.FileHash
+				}
+				spacefile.Write(respspacefilei.BlockData)
+			}
+			_, err = os.Stat(spacefilefullpath)
+			if err != nil {
+				continue
+			}
+			err = spacefile.Sync()
+			if err != nil {
+				spacefile.Close()
+				os.Remove(spacefilefullpath)
+				continue
+			}
+			spacefile.Close()
+			hash, err := tools.CalcFileHash(spacefilefullpath)
+			if err != nil {
+				os.Remove(spacefilefullpath)
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+
+			if filehash != hash {
+				os.Remove(spacefilefullpath)
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+
+			tagreq.Fileid = respspacefile.FileId
+
+			req_b, err = proto.Marshal(&tagreq)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				continue
+			}
+			resp, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacetag, req_b)
 			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -163,17 +267,9 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			tagfilepath := filepath.Join(configs.SpaceDir, respInfo.FileId)
-			_, err = os.Stat(tagfilepath)
-			if err != nil {
-				err = os.MkdirAll(tagfilepath, os.ModeDir)
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-					continue
-				}
-			}
+
 			tagfilename := respInfo.FileId + ".tag"
-			tagfilefullpath := filepath.Join(tagfilepath, tagfilename)
+			tagfilefullpath := filepath.Join(basedir, tagfilename)
 			tagInfo.T = respInfo.T
 			tagInfo.Sigmas = respInfo.Sigmas
 			ft, err := os.OpenFile(tagfilefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
@@ -196,76 +292,22 @@ func task_SpaceManagement(ch chan bool) {
 			}
 			ft.Close()
 
-			// req file
-			req.SizeMb = 0
-			req.WalletAddress = addr
-			req.Fileid = respInfo.FileId
-			req.BlockIndex = 0
-			req.Sign = sign
+			fileback.Fileid = respspacefile.FileId
+			fileback.Filehash = hash
 
-			req_b, err = proto.Marshal(&req)
+			req_b, err = proto.Marshal(&fileback)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+			_, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Fileback, req_b)
 			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-
-			err = json.Unmarshal(resp, &respspacefile)
-			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-				continue
-			}
-			spacefilename := respInfo.FileId + ".space"
-			spacefilefullpath := filepath.Join(tagfilepath, spacefilename)
-			spacefile, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_APPEND, os.ModePerm)
-			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-				continue
-			}
-			spacefile.Write(respspacefile.BlockData)
-			for j := 1; j < int(respspacefile.BlockTotal); j++ {
-				req.BlockIndex = uint32(j)
-				req_b, err = proto.Marshal(&req)
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-					spacefile.Close()
-					os.Remove(spacefilefullpath)
-					break
-				}
-				respi, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
-				reconn = clo
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-					spacefile.Close()
-					os.Remove(spacefilefullpath)
-					break
-				}
-				var respspacefilei RespSpacefileInfo
-				err = json.Unmarshal(respi, &respspacefilei)
-				if err != nil {
-					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-					spacefile.Close()
-					os.Remove(spacefilefullpath)
-					break
-				}
-				spacefile.Write(respspacefilei.BlockData)
-			}
-			_, err = os.Stat(spacefilefullpath)
-			if err != nil {
-				continue
-			}
-			err = spacefile.Sync()
-			if err != nil {
-				spacefile.Close()
-				os.Remove(spacefilefullpath)
-				continue
-			}
-			spacefile.Close()
+			allsuc = true
+			Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
 		}
 	}
 }
@@ -341,7 +383,6 @@ func task_HandlingChallenges(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
 			}
-
 			ftag, err := ioutil.ReadFile(filepath.Join(filedir, tagfilename))
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filename, err)
@@ -383,7 +424,7 @@ func task_HandlingChallenges(ch chan bool) {
 			ts := time.Now().Unix()
 			code = 0
 			for code != int(configs.Code_200) && code != int(configs.Code_600) {
-				code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, []byte(fileid), proveResponse.Sigma, proveResponse.MU)
+				code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, []byte(chlng[i].File_id), proveResponse.Sigma, proveResponse.MU)
 				if err == nil {
 					Out.Sugar().Infof("[%v] Proof submitted successfully", fileid)
 					break

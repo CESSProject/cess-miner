@@ -178,15 +178,15 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 
 	//Collate returned data
 	rtnData.FileId = b.FileId
-	rtnData.Blocks = b.Blocks
-	if b.Blocks+1 == int32(num) {
+	rtnData.BlockIndex = b.BlockIndex
+	if b.BlockIndex+1 == int32(num) {
 		rtnData.BlockSize = int32(lastslicesize)
 		rtnData.Data = buf[len(buf)-lastslicesize:]
 	} else {
 		rtnData.BlockSize = int32(slicesize)
-		rtnData.Data = buf[b.Blocks*int32(slicesize) : (b.Blocks+1)*int32(slicesize)]
+		rtnData.Data = buf[b.BlockIndex*int32(slicesize) : (b.BlockIndex+1)*int32(slicesize)]
 	}
-	rtnData.BlockNum = int32(num)
+	rtnData.BlockTotal = int32(num)
 
 	//proto encoding
 	rtnData_proto, err := proto.Marshal(&rtnData)
@@ -377,7 +377,7 @@ func WriteData(cli *Client, service, method string, body []byte) ([]byte, bool, 
 		Method:  method,
 		Body:    body,
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 120*time.Second)
 	resp, err := cli.Call(ctx, req)
 	if err != nil {
 		cli.Close()
@@ -389,7 +389,7 @@ func WriteData(cli *Client, service, method string, body []byte) ([]byte, bool, 
 	if err != nil {
 		return nil, false, errors.Wrap(err, "Unmarshal:")
 	}
-	if b.Code == 202 || b.Code == 201 {
+	if b.Code == 200 {
 		return b.Data, false, nil
 	}
 	errstr := fmt.Sprintf("%d", b.Code)
