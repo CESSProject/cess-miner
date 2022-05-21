@@ -34,7 +34,7 @@ For other Linux distributions, please refer to the corresponding technical docum
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
 sudo lzip -d gmp-6.2.1.tar.lz
 sudo tar -xvf gmp-6.2.1.tar
-sudo cd gmp-6.2.1/
+cd gmp-6.2.1/
 sudo chmod +x ./configure
 sudo ./configure --enable-cxx
 sudo make
@@ -44,7 +44,7 @@ cd ..
 
 sudo wget https://crypto.stanford.edu/pbc/files/pbc-0.5.14.tar.gz
 sudo tar -zxvf pbc-0.5.14.tar.gz
-sudo cd pbc-0.5.14/
+cd pbc-0.5.14/
 sudo chmod +x ./configure
 sudo ./configure
 sudo make
