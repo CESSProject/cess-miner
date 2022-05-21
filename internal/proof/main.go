@@ -313,12 +313,21 @@ func task_SpaceManagement(ch chan bool) {
 				Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
 				continue
 			}
-			_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), respspacefile.FileId)
-			if code == configs.Code_404 {
-				fmt.Println("------>404: ", respspacefile.FileId)
-				Err.Sugar().Errorf(" %v store and upload to the chain failed", respspacefile.FileId)
-				continue
-			}
+			go func(path, fileid string) {
+				var flag = false
+				for i := 0; i < 3; i++ {
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+					_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), fileid)
+					if code == configs.Code_200 {
+						flag = true
+						return
+					}
+				}
+				if !flag {
+					os.RemoveAll(path)
+					Err.Sugar().Errorf(" %v store and upload to the chain failed", respspacefile.FileId)
+				}
+			}(basedir, respspacefile.FileId)
 			allsuc = true
 		}
 	}

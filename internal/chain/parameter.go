@@ -103,6 +103,6 @@ type SpaceFileInfo struct {
 	FileHash  types.Bytes
 }
 type BlockInfo struct {
-	BlockIndex types.U32
+	BlockIndex types.Bytes
 	BlockSize  types.U32
 }
