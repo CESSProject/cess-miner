@@ -57,7 +57,7 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		err   error
 		mdata CessChain_MinerInfo
 		m1    Chain_MinerItems
-		m2    CessChain_MinerInfo2
+		m2    Chain_MinerDetails
 	)
 	api := getSubstrateAPI()
 	defer func() {
@@ -100,22 +100,26 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		return mdata, errors.Wrap(err, "GetStorageLatest err")
 	}
 
-	mdata.MinerInfo1.Peerid = m1.Peerid
-	mdata.MinerInfo1.Beneficiary = m1.Beneficiary
-	mdata.MinerInfo1.ServiceAddr = m1.ServiceAddr
-	mdata.MinerInfo1.Collaterals = m1.Collaterals
-	mdata.MinerInfo1.Earnings = m1.Earnings
-	mdata.MinerInfo1.Locked = m1.Locked
-	mdata.MinerInfo1.State = m1.State
+	mdata.MinerItems.Peerid = m1.Peerid
+	mdata.MinerItems.Beneficiary = m1.Beneficiary
+	mdata.MinerItems.ServiceAddr = m1.ServiceAddr
+	mdata.MinerItems.Collaterals = m1.Collaterals
+	mdata.MinerItems.Earnings = m1.Earnings
+	mdata.MinerItems.Locked = m1.Locked
+	mdata.MinerItems.State = m1.State
+	mdata.MinerItems.Power = m1.Power
+	mdata.MinerItems.Space = m1.Space
+	mdata.MinerItems.PublicKey = m1.PublicKey
 
-	mdata.MinerInfo2.Address = m2.Address
-	mdata.MinerInfo2.Beneficiary = m2.Beneficiary
-	mdata.MinerInfo2.Power = m2.Power
-	mdata.MinerInfo2.Space = m2.Space
-	mdata.MinerInfo2.Total_reward = m2.Total_reward
-	mdata.MinerInfo2.Total_rewards_currently_available = m2.Total_rewards_currently_available
-	mdata.MinerInfo2.Totald_not_receive = m2.Totald_not_receive
-	mdata.MinerInfo2.Collaterals = m2.Collaterals
+	mdata.MinerDetails.Address = m2.Address
+	mdata.MinerDetails.Beneficiary = m2.Beneficiary
+	mdata.MinerDetails.ServiceAddr = m2.ServiceAddr
+	mdata.MinerDetails.Power = m2.Power
+	mdata.MinerDetails.Space = m2.Space
+	mdata.MinerDetails.Total_reward = m2.Total_reward
+	mdata.MinerDetails.Total_rewards_currently_available = m2.Total_rewards_currently_available
+	mdata.MinerDetails.Totald_not_receive = m2.Totald_not_receive
+	mdata.MinerDetails.Collaterals = m2.Collaterals
 
 	return mdata, nil
 }
@@ -291,35 +295,53 @@ func GetSchedulerInfoOnChain() ([]SchedulerInfo, int, error) {
 	return mdata, configs.Code_200, nil
 }
 
-type FileMetaInfo struct {
-	//FileId      types.Bytes         `json:"acc"`         //File id
-	File_name   types.Bytes         `json:"file_name"`   //File name
-	FileSize    types.U64           `json:"file_size"`   //File size
-	FileHash    types.Bytes         `json:"file_hash"`   //File hash
-	Public      types.Bool          `json:"public"`      //Public or not
-	UserAddr    types.AccountID     `json:"user_addr"`   //Upload user's address
-	FileState   types.Bytes         `json:"file_state"`  //File state
-	Backups     types.U8            `json:"backups"`     //Number of backups
-	Downloadfee types.U128          `json:"downloadfee"` //Download fee
-	FileDupl    []FileDuplicateInfo `json:"file_dupl"`   //File backup information list
-}
+func GetFillerInfo(id types.U64, fileid string) (SpaceFileInfo, int, error) {
+	var (
+		err  error
+		data SpaceFileInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] [%v.%v] [err:%v]", State_FileBank, FileBank_FillerMap, err)
+		}
+	}()
 
-type FileDuplicateInfo struct {
-	MinerId   types.U64
-	BlockNum  types.U32
-	ScanSize  types.U32
-	Acc       types.AccountID
-	MinerIp   types.Bytes
-	DuplId    types.Bytes
-	RandKey   types.Bytes
-	BlockInfo []BlockInfo
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	b, err := types.EncodeToBytes(id)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[EncodeToBytes]")
+	}
+	ids, err := types.EncodeToBytes(fileid)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[EncodeToBytes]")
+	}
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_FillerMap, b, ids)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, configs.Code_404, errors.New("value is empty")
+	}
+	return data, configs.Code_200, nil
 }
 
 // Get miner information on the cess chain
 func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	var (
 		err   error
-		mdata FileMetaInfo
+		mdata SpaceFileInfo
 	)
 	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
 	if err != nil {

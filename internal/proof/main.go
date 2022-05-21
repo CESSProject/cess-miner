@@ -126,6 +126,7 @@ func task_SpaceManagement(ch chan bool) {
 	fileback.Acc = addr
 	fileback.Sign = sign
 	allsuc = true
+
 	for {
 		if !allsuc {
 			allsuc = true
@@ -163,14 +164,15 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+
+			respCode, respBody, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
 			reconn = clo
-			if err != nil {
+			if err != nil || respCode != configs.Code_200 {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
 
-			err = json.Unmarshal(resp, &respspacefile)
+			err = json.Unmarshal(respBody, &respspacefile)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -203,16 +205,16 @@ func task_SpaceManagement(ch chan bool) {
 					os.Remove(spacefilefullpath)
 					break
 				}
-				respi, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+				respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
 				reconn = clo
-				if err != nil {
+				if err != nil || respCode != configs.Code_200 {
 					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 					spacefile.Close()
 					os.Remove(spacefilefullpath)
 					break
 				}
 				var respspacefilei RespSpacefileInfo
-				err = json.Unmarshal(respi, &respspacefilei)
+				err = json.Unmarshal(respBody, &respspacefilei)
 				if err != nil {
 					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 					spacefile.Close()
@@ -255,14 +257,14 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacetag, req_b)
+			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacetag, req_b)
 			reconn = clo
-			if err != nil {
+			if err != nil || respCode != configs.Code_200 {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
 			var respInfo RespSpacetagInfo
-			err = json.Unmarshal(resp, &respInfo)
+			err = json.Unmarshal(respBody, &respInfo)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -300,14 +302,24 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			_, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Fileback, req_b)
+			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Fileback, req_b)
 			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
+			if respCode == configs.Code_200 || len(respBody) > 0 {
+				allsuc = true
+				Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
+				continue
+			}
+			_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), respspacefile.FileId)
+			if code == configs.Code_404 {
+				fmt.Println("------>404: ", respspacefile.FileId)
+				Err.Sugar().Errorf(" %v store and upload to the chain failed", respspacefile.FileId)
+				continue
+			}
 			allsuc = true
-			Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
 		}
 	}
 }
@@ -503,21 +515,26 @@ func task_RemoveInvalidFiles(ch chan bool) {
 // Calculate available space
 func calcAvailableSpace() (uint64, error) {
 	var err error
-	configs.MinerUseSpace, err = tools.DirSize(configs.BaseDir)
+
+	usedSpace, err := tools.DirSize(configs.BaseDir)
 	if err != nil {
 		return 0, err
 	}
+
 	sspace := configs.C.StorageSpace * configs.Space_1GB
 	mountP, err := pt.GetMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		return 0, err
 	}
-	if sspace <= configs.MinerUseSpace {
+
+	if sspace <= usedSpace {
 		return 0, nil
 	}
-	enableSpace := sspace - configs.MinerUseSpace
-	if (enableSpace < mountP.Free) && ((mountP.Free - enableSpace) > (configs.Space_1MB * 100)) {
-		return enableSpace, nil
+
+	if mountP.Free > configs.Space_1MB*100 {
+		if usedSpace < sspace {
+			return sspace - usedSpace, nil
+		}
 	}
 	return 0, nil
 }

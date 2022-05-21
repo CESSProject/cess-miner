@@ -338,12 +338,85 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		Err.Sugar().Errorf("%v", err)
 		os.Exit(1)
 	}
-	tokens := minerInfo.MinerInfo1.Collaterals.Div(minerInfo.MinerInfo1.Collaterals.Int, big.NewInt(1000000000000))
-	addr := base58.Decode(string(minerInfo.MinerInfo1.ServiceAddr))
+	tokens := minerInfo.MinerItems.Collaterals.Div(minerInfo.MinerItems.Collaterals.Int, big.NewInt(1000000000000))
+	addr := base58.Decode(string(minerInfo.MinerItems.ServiceAddr))
+	var power, space float32
+	var power_unit, space_unit string
+	count := 0
+	for minerInfo.MinerItems.Power.BitLen() > int(16) {
+		minerInfo.MinerItems.Power.Div(new(big.Int).SetBytes(minerInfo.MinerItems.Power.Bytes()), big.NewInt(1024))
+		count++
+	}
+	if minerInfo.MinerItems.Power.Int64() > 1024 {
+		power = float32(minerInfo.MinerItems.Power.Int64()) / float32(1024)
+		count++
+	} else {
+		power = float32(minerInfo.MinerItems.Power.Int64())
+	}
+	switch count {
+	case 0:
+		power_unit = "B"
+	case 1:
+		power_unit = "KB"
+	case 2:
+		power_unit = "MB"
+	case 3:
+		power_unit = "GB"
+	case 4:
+		power_unit = "TB"
+	case 5:
+		power_unit = "PB"
+	case 6:
+		power_unit = "EB"
+	case 7:
+		power_unit = "ZB"
+	case 8:
+		power_unit = "YB"
+	case 9:
+		power_unit = "NB"
+	case 10:
+		power_unit = "DB"
+	}
+	count = 0
+	for minerInfo.MinerItems.Space.BitLen() > int(16) {
+		minerInfo.MinerItems.Space.Div(new(big.Int).SetBytes(minerInfo.MinerItems.Space.Bytes()), big.NewInt(1024))
+		count++
+	}
+	if minerInfo.MinerItems.Space.Int64() > 1024 {
+		space = float32(minerInfo.MinerItems.Space.Int64()) / float32(1024)
+		count++
+	} else {
+		space = float32(minerInfo.MinerItems.Space.Int64())
+	}
+
+	switch count {
+	case 0:
+		space_unit = "B"
+	case 1:
+		space_unit = "KB"
+	case 2:
+		space_unit = "MB"
+	case 3:
+		space_unit = "GB"
+	case 4:
+		space_unit = "TB"
+	case 5:
+		space_unit = "PB"
+	case 6:
+		space_unit = "EB"
+	case 7:
+		space_unit = "ZB"
+	case 8:
+		space_unit = "YB"
+	case 9:
+		space_unit = "NB"
+	case 10:
+		space_unit = "DB"
+	}
 
 	//print your own details
-	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %vMB\nUsedSpace: %vMB\nPledgeTokens: %vCESS\nServiceAddr: %v\n",
-		minerInfo.MinerInfo1.Peerid, string(minerInfo.MinerInfo1.State), minerInfo.MinerInfo2.Power, minerInfo.MinerInfo2.Space, tokens, string(addr))
+	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %.2f %v\nUsedSpace: %.2f %v\nPledgeTokens: %v TCESS\nServiceAddr: %v\n",
+		minerInfo.MinerItems.Peerid, string(minerInfo.MinerItems.State), power, power_unit, space, space_unit, tokens, string(addr))
 	os.Exit(0)
 }
 
