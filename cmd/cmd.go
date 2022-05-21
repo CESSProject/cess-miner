@@ -225,13 +225,6 @@ func register() {
 	//Encode IP address in base58
 	ipAddr := base58.Encode([]byte(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
 
-	//Create the storage data directory
-	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-
 	//Generate RSA key pair
 	encryption.GenKeypair()
 	publicKeyfile := filepath.Join(configs.BaseDir, configs.PublicKeyfile)
@@ -263,6 +256,13 @@ func register() {
 	}
 	if code == configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later.\n", 41)
+		os.Exit(1)
+	}
+
+	//Create the storage data directory
+	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 
@@ -441,21 +441,28 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Determine whether the data directory exists, and exit if it does not exist
-	f, err := os.Stat(configs.BaseDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.BaseDir)
-		os.Exit(1)
-	}
-	if !f.IsDir() {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' is not a directory\n", 41, configs.BaseDir)
-		os.Exit(1)
-	}
-
 	//update data directory
 	configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
 	configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
 	configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
+
+	//Determine whether the data directory exists, and exit if it does not exist
+	_, err = os.Stat(configs.LogfileDir)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.LogfileDir)
+		os.Exit(1)
+	}
+	_, err = os.Stat(configs.SpaceDir)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.SpaceDir)
+		os.Exit(1)
+	}
+	_, err = os.Stat(configs.FilesDir)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.FilesDir)
+		os.Exit(1)
+	}
+
 	configs.MinerId_S = fmt.Sprintf("%v", mData.Peerid)
 	configs.MinerId_I = uint64(mData.Peerid)
 
@@ -687,11 +694,6 @@ func parseProfile() {
 	}
 
 	_, err = pt.GetMountPathInfo(configs.C.MountedPath)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-	_, err = os.Stat(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
