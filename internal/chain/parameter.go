@@ -41,29 +41,33 @@ const (
 )
 
 type CessChain_MinerInfo struct {
-	MinerInfo1 Chain_MinerItems
-	MinerInfo2 CessChain_MinerInfo2
+	MinerItems   Chain_MinerItems
+	MinerDetails Chain_MinerDetails
 }
 
 type Chain_MinerItems struct {
-	Peerid      types.U64       `json:"peerid"`
-	Beneficiary types.AccountID `json:"beneficiary"`
-	ServiceAddr types.Bytes     `json:"ip"`
-	Collaterals types.U128      `json:"collaterals"`
-	Earnings    types.U128      `json:"earnings"`
-	Locked      types.U128      `json:"locked"`
-	State       types.Bytes     `json:"state"`
+	Peerid      types.U64
+	Beneficiary types.AccountID
+	ServiceAddr types.Bytes
+	Collaterals types.U128
+	Earnings    types.U128
+	Locked      types.U128
+	State       types.Bytes
+	Power       types.U128
+	Space       types.U128
+	PublicKey   types.Bytes
 }
 
-type CessChain_MinerInfo2 struct {
-	Address                           types.AccountID `json:"address"`
-	Beneficiary                       types.AccountID `json:"beneficiary"`
-	Power                             types.U128      `json:"power"`
-	Space                             types.U128      `json:"space"`
-	Total_reward                      types.U128      `json:"total_reward"`
-	Total_rewards_currently_available types.U128      `json:"total_rewards_currently_available"`
-	Totald_not_receive                types.U128      `json:"totald_not_receive"`
-	Collaterals                       types.U128      `json:"collaterals"`
+type Chain_MinerDetails struct {
+	Address                           types.AccountID
+	Beneficiary                       types.AccountID
+	ServiceAddr                       types.Bytes
+	Power                             types.U128
+	Space                             types.U128
+	Total_reward                      types.U128
+	Total_rewards_currently_available types.U128
+	Totald_not_receive                types.U128
+	Collaterals                       types.U128
 }
 
 //---SchedulerInfo

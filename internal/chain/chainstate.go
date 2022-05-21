@@ -57,7 +57,7 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		err   error
 		mdata CessChain_MinerInfo
 		m1    Chain_MinerItems
-		m2    CessChain_MinerInfo2
+		m2    Chain_MinerDetails
 	)
 	api := getSubstrateAPI()
 	defer func() {
@@ -100,22 +100,26 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 		return mdata, errors.Wrap(err, "GetStorageLatest err")
 	}
 
-	mdata.MinerInfo1.Peerid = m1.Peerid
-	mdata.MinerInfo1.Beneficiary = m1.Beneficiary
-	mdata.MinerInfo1.ServiceAddr = m1.ServiceAddr
-	mdata.MinerInfo1.Collaterals = m1.Collaterals
-	mdata.MinerInfo1.Earnings = m1.Earnings
-	mdata.MinerInfo1.Locked = m1.Locked
-	mdata.MinerInfo1.State = m1.State
+	mdata.MinerItems.Peerid = m1.Peerid
+	mdata.MinerItems.Beneficiary = m1.Beneficiary
+	mdata.MinerItems.ServiceAddr = m1.ServiceAddr
+	mdata.MinerItems.Collaterals = m1.Collaterals
+	mdata.MinerItems.Earnings = m1.Earnings
+	mdata.MinerItems.Locked = m1.Locked
+	mdata.MinerItems.State = m1.State
+	mdata.MinerItems.Power = m1.Power
+	mdata.MinerItems.Space = m1.Space
+	mdata.MinerItems.PublicKey = m1.PublicKey
 
-	mdata.MinerInfo2.Address = m2.Address
-	mdata.MinerInfo2.Beneficiary = m2.Beneficiary
-	mdata.MinerInfo2.Power = m2.Power
-	mdata.MinerInfo2.Space = m2.Space
-	mdata.MinerInfo2.Total_reward = m2.Total_reward
-	mdata.MinerInfo2.Total_rewards_currently_available = m2.Total_rewards_currently_available
-	mdata.MinerInfo2.Totald_not_receive = m2.Totald_not_receive
-	mdata.MinerInfo2.Collaterals = m2.Collaterals
+	mdata.MinerDetails.Address = m2.Address
+	mdata.MinerDetails.Beneficiary = m2.Beneficiary
+	mdata.MinerDetails.ServiceAddr = m2.ServiceAddr
+	mdata.MinerDetails.Power = m2.Power
+	mdata.MinerDetails.Space = m2.Space
+	mdata.MinerDetails.Total_reward = m2.Total_reward
+	mdata.MinerDetails.Total_rewards_currently_available = m2.Total_rewards_currently_available
+	mdata.MinerDetails.Totald_not_receive = m2.Totald_not_receive
+	mdata.MinerDetails.Collaterals = m2.Collaterals
 
 	return mdata, nil
 }
