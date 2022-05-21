@@ -41,11 +41,9 @@ const (
 // Miner info
 // updated at runtime
 var (
-	MinerId_S        string = ""
-	MinerId_I        uint64 = 0
-	MinerUseSpace    uint64 = 0
-	MinerServiceAddr string = ""
-	MinerServicePort int    = 0
+	MinerId_S string = ""
+	MinerId_I uint64 = 0
+
 	//data path
 	BaseDir    = "bucket"
 	LogfileDir = "/log"
