@@ -371,7 +371,7 @@ func cutDataRule(size int) (int, int, uint8, error) {
 }
 
 //
-func WriteData(cli *Client, service, method string, body []byte) ([]byte, bool, error) {
+func WriteData(cli *Client, service, method string, body []byte) (int, []byte, bool, error) {
 	req := &ReqMsg{
 		Service: service,
 		Method:  method,
@@ -381,17 +381,17 @@ func WriteData(cli *Client, service, method string, body []byte) ([]byte, bool, 
 	resp, err := cli.Call(ctx, req)
 	if err != nil {
 		cli.Close()
-		return nil, true, errors.Wrap(err, "Call err:")
+		return 0, nil, true, errors.Wrap(err, "Call err:")
 	}
 
 	var b RespBody
 	err = proto.Unmarshal(resp.Body, &b)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "Unmarshal:")
+		return 0, nil, false, errors.Wrap(err, "Unmarshal:")
 	}
-	if b.Code == 200 {
-		return b.Data, false, nil
-	}
-	errstr := fmt.Sprintf("%d", b.Code)
-	return nil, false, errors.New("return code:" + errstr)
+	// if b.Code == configs.Code_200 || b.Code == configs.Code_600 {
+	// 	return 0,b.Data, false, nil
+	// }
+	//errstr := fmt.Sprintf("%d", b.Code)
+	return int(b.Code), b.Data, false, nil
 }

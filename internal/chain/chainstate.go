@@ -291,35 +291,53 @@ func GetSchedulerInfoOnChain() ([]SchedulerInfo, int, error) {
 	return mdata, configs.Code_200, nil
 }
 
-type FileMetaInfo struct {
-	//FileId      types.Bytes         `json:"acc"`         //File id
-	File_name   types.Bytes         `json:"file_name"`   //File name
-	FileSize    types.U64           `json:"file_size"`   //File size
-	FileHash    types.Bytes         `json:"file_hash"`   //File hash
-	Public      types.Bool          `json:"public"`      //Public or not
-	UserAddr    types.AccountID     `json:"user_addr"`   //Upload user's address
-	FileState   types.Bytes         `json:"file_state"`  //File state
-	Backups     types.U8            `json:"backups"`     //Number of backups
-	Downloadfee types.U128          `json:"downloadfee"` //Download fee
-	FileDupl    []FileDuplicateInfo `json:"file_dupl"`   //File backup information list
-}
+func GetFillerInfo(id types.U64, fileid string) (SpaceFileInfo, int, error) {
+	var (
+		err  error
+		data SpaceFileInfo
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic] [%v.%v] [err:%v]", State_FileBank, FileBank_FillerMap, err)
+		}
+	}()
 
-type FileDuplicateInfo struct {
-	MinerId   types.U64
-	BlockNum  types.U32
-	ScanSize  types.U32
-	Acc       types.AccountID
-	MinerIp   types.Bytes
-	DuplId    types.Bytes
-	RandKey   types.Bytes
-	BlockInfo []BlockInfo
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	b, err := types.EncodeToBytes(id)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[EncodeToBytes]")
+	}
+	ids, err := types.EncodeToBytes(fileid)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[EncodeToBytes]")
+	}
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_FillerMap, b, ids)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, configs.Code_404, errors.New("value is empty")
+	}
+	return data, configs.Code_200, nil
 }
 
 // Get miner information on the cess chain
 func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	var (
 		err   error
-		mdata FileMetaInfo
+		mdata SpaceFileInfo
 	)
 	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
 	if err != nil {

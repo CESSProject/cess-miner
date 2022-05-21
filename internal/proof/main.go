@@ -163,14 +163,14 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+			respCode, respBody, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
 			reconn = clo
-			if err != nil {
+			if err != nil || respCode != configs.Code_200 {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
 
-			err = json.Unmarshal(resp, &respspacefile)
+			err = json.Unmarshal(respBody, &respspacefile)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -203,16 +203,16 @@ func task_SpaceManagement(ch chan bool) {
 					os.Remove(spacefilefullpath)
 					break
 				}
-				respi, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+				respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
 				reconn = clo
-				if err != nil {
+				if err != nil || respCode != configs.Code_200 {
 					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 					spacefile.Close()
 					os.Remove(spacefilefullpath)
 					break
 				}
 				var respspacefilei RespSpacefileInfo
-				err = json.Unmarshal(respi, &respspacefilei)
+				err = json.Unmarshal(respBody, &respspacefilei)
 				if err != nil {
 					Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 					spacefile.Close()
@@ -255,14 +255,14 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			resp, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacetag, req_b)
+			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacetag, req_b)
 			reconn = clo
-			if err != nil {
+			if err != nil || respCode != configs.Code_200 {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
 			var respInfo RespSpacetagInfo
-			err = json.Unmarshal(resp, &respInfo)
+			err = json.Unmarshal(respBody, &respInfo)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
@@ -300,14 +300,25 @@ func task_SpaceManagement(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			_, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Fileback, req_b)
+			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Fileback, req_b)
 			reconn = clo
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 				continue
 			}
-			allsuc = true
-			Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
+			if respCode == configs.Code_200 {
+				allsuc = true
+				Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
+				continue
+			}
+			if respCode == configs.Code_600 || len(respBody) != 0 {
+				_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), respspacefile.FileId)
+				if code == configs.Code_200 {
+					allsuc = true
+					Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
+					continue
+				}
+			}
 		}
 	}
 }
