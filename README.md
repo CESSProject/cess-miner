@@ -2,34 +2,32 @@
 
 cess-bucket is a mining program provided by cess platform for storage miners.
 
-## Building & Documentation
 
-> Note: The default `master` branch is the main branch, please use with caution. For the latest stable version, checkout the most recent [`Latest release`](https://github.com/CESSProject/cess-bucket/releases).
-
-For complete instructions on how to build, install and use cess-bucket, Please refer to after further improvement. Basic build instructions can be found further down in this readme.
 
 ## Reporting a Vulnerability
 
-If you find out any vulnerability, Please send an email to tech@cess.one.
-we are happy to communicate with you
+If you find out any vulnerability, Please send an email to tech@cess.one, we are happy to communicate with you.
 
-## System-specific Software Dependencies
 
-Building cess-bucket requires some system dependencies, usually provided by your distribution.
 
-- Ubuntu/Debian(≥ 18.04):
+## System Requirements
+
+- Linux-amd64
+
+
+
+## System dependencies
+
+**<1> Install common libraries**
+
+Take the ubuntu distribution as an example:
+
 ```
-sudo apt upgrade -y && sudo apt install m4 g++ flex bison make gcc git curl wget lzip util-linux -y
+sudo apt upgrade -y && sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
-- RedHat/CentOS(≥ 8.2):
-```
-sudo yum upgrade -y && sudo dnf install m4 flex bison -y && sudo yum install gcc-c++ git curl wget lzip util-linux -y
-```
+**<2> Install the necessary pbc library**
 
-For other Linux distributions, please refer to the corresponding technical documentation.
-
-### Install pbc library
 ```
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
 sudo lzip -d gmp-6.2.1.tar.lz
@@ -55,88 +53,97 @@ sudo sed -i "\$a /usr/local/lib" /etc/ld.so.conf.d/libpbc.conf || echo "/usr/loc
 sudo ldconfig
 ```
 
-### Firewall configuration
 
-If the firewall is turned on, you need to open the running port, The default port is 15001.
 
-- Ubuntu/Debian
+## System configuration
+
+- Firewall
+
+If the firewall is turned on, you need to open the running port, the default port is 15001.
+
+Take the ubuntu distribution as an example:
+
 ```
 sudo ufw allow 15001/tcp
 ```
-- RedHat/CentOS
+- Network optimization (optional)
+
 ```
-sudo firewall-cmd --permanent --add-port=15001/tcp
-sudo firewall-cmd --reload
+sysctl -w net.ipv4.tcp_syncookies = 1
+sysctl -w net.ipv4.tcp_tw_reuse = 1
+sysctl -w net.ipv4.tcp_tw_recycle = 1
+sysctl -w net.ipv4.tcp_fin_timeout = 30
+sysctl -w net.ipv4.tcp_keepalive_time = 120
+sysctl -w net.core.rmem_max=2500000
+sysctl -w net.ipv4.ip_local_port_range = 1024 65500
 ```
 
-## Go language environment
 
-To build cess-bucket, you need a working installation of [Go 1.16.5 or higher](https://golang.org/dl/):
+
+## Build from source
+
+**<1> Install go locale**
+
+CESS-Bucket requires [Go 1.16.5](https://golang.org/dl/) or higher.
+
+> See the [official Golang installation instructions](https://golang.org/doc/install) If you get stuck in the following process.
+
+- Download go1.16.5 compress the package and extract it to the /use/local directory:
 
 ```bash
 wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
 ```
 
-**TIP:**
-You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
+- You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
 
 ```shell
 echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
 ```
 
-See the [official Golang installation instructions](https://golang.org/doc/install) if you get stuck.
+- View your go version:
 
-> Note: ensure that 15001 ports are released in the hardware firewall or security group policy of the server provider: since the security group policy settings provided by different servers are different, please consult the server provider
-> 
-
-## Polkadot wallet
-
-1. Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer).
-2. Click Add Account to add two accounts. The first account is used to authenticate and operate the cess chain, and the second account is used to save income.
-3. The way to claim tokens will be made public in the near future.
-
-## Build from source
-
-Clone the code and build:
 ```
-git clone https://github.com/CESSProject/cess-bucket.git
-cd cess-bucket
+go version
+```
+
+**<2> Build a bucket**
+
+```
+git clone https://github.com/CESSProject/cess-bucket
+cd cess-bucket/
 go build -o bucket cmd/main/main.go
 ```
 
-This will create an executable file called **'bucket'**
+If all goes well, you will get a mining program called `bucket`.
 
-## Usage for bucket
 
-**flag**:
-| Flag        | Description                             |
-| ----------- | --------------------------------------- |
-| -c,--config | Custom profile |
-| -h,--help   | Print help information                  |
 
-**command**:
-| Command  | Description                                    |
-| -------- | ---------------------------------------------- |
-| version  | Print version number                           |
-| default  | Generate configuration file template           |
-| register | Register mining miner information to the chain |
-| state    | Query mining miner information                 |
-| run      | Start mining normally                          |
-| exit     | Exit the mining platform                       |
-| increase | Increase the deposit of mining miner           |
-| withdraw | Redemption deposit of mining miner             |
-| obtain   | Get the test coins used by the testnet         |
+# **Get started with bucket**
 
-## How to use mining
-1. Generate configuration file template
+**<1> Register two polka wallet**
+
+- For wallet one, it is called an  `income account`, which is used to receive rewards from mining, and you should keep the private key carefully.
+- For wallet two, it is called a `signature account`, which is used to sign on-chain transactions. You need to recharge the account with a small tokens and provide the private key to the miner's configuration file. The cess system will not record and destroy the account.
+
+Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), [Add two accounts](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG) in two steps.
+
+**<2> Recharge your signature account**
+
+- If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free.
+- If you are using the official network, please buy CESS tokens.
+
+**<3> Prepare configuration file**
+
+Use bucket to directly generate configuration file template:
+
 ```
-sudo chmod +x bucket && ./bucket default
+chmod +x bucket
+sudo ./bucket default
 ```
 
-2. Modify the configuration file name to conf.toml and modify the following configuration items:
-```
-sudo mv config_template.toml conf.toml 
-```
+The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `bucket` uses `conf.toml` in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
+
+> Our testnet rpc address is: `wss://testnet-rpc.cess.cloud/ws/`
 
 ```
 # The rpc address of the chain node
@@ -155,15 +162,69 @@ IncomeAcc    = ""
 SignaturePrk = ""
 ```
 
-3. Register to the CESS chain
+**<4> View bucket features**
+
+`bucket` has many functions, you can use `-h` or `--help` to view, as follows:
+
+- flag
+
+| Flag        | Description                             |
+| ----------- | --------------------------------------- |
+| -c,--config | Custom profile |
+| -h,--help   | Print help information                  |
+
+- command
+
+| Command  | Description                                    |
+| -------- | ---------------------------------------------- |
+| version  | Print version number                           |
+| default  | Generate configuration file template           |
+| register | Register mining miner information to the chain |
+| state    | Query mining miner information                 |
+| run      | Start mining normally                          |
+| exit     | Exit the mining platform                       |
+| increase | Increase the deposit of mining miner           |
+| withdraw | Redemption deposit of mining miner             |
+
+**<5> Use bucket**
+
+**All `bucket` commands (except default and version) need to be registered before they can be used.**
+
 ```
 sudo ./bucket register
 ```
 
-4. Start bucket normally
+- Query miner status
+
 ```
-sudo nohup ./bucket run 2>&1 &
+sudo ./bucket state
 ```
+
+- Increase the miner's deposit by 1000
+
+```
+sudo ./bucket increase 1000
+```
+
+- Exit the mining platform
+
+```
+sudo ./bucket exit
+```
+
+- Redeem the miner's deposit
+
+```
+sudo ./bucket withdraw
+```
+
+- Start mining
+
+```
+sudo nohup ./bucket run > /dev/null 2>&1 &
+```
+
+
 
 ## License
 Licensed under [Apache 2.0](https://github.com/CESSProject/cess-bucket/blob/main/LICENSE)

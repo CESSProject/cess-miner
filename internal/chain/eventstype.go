@@ -7,21 +7,6 @@ import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 // **************************************************************
 
 //------------------------SegmentBook----------------------------
-type Event_ParamSet struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Random    types.U32
-	Topics    []types.Hash
-}
-
-type Event_VPABCD_Submit_Verify struct {
-	Phase     types.Phase
-	PeerId    types.U64
-	SegmentId types.U64
-	Topics    []types.Hash
-}
-
 type Event_PPBNoOnTimeSubmit struct {
 	Phase     types.Phase
 	Acc       types.AccountID
@@ -44,6 +29,13 @@ type Event_ChallengeProof struct {
 }
 
 type Event_VerifyProof struct {
+	Phase  types.Phase
+	PeerId types.U64
+	Fileid types.Bytes
+	Topics []types.Hash
+}
+
+type Event_OutstandingChallenges struct {
 	Phase  types.Phase
 	PeerId types.U64
 	Fileid types.Bytes
@@ -245,19 +237,11 @@ type MyEventRecords struct {
 	//system
 	types.EventRecords
 	//SegmentBook
-	SegmentBook_ParamSet          []Event_ParamSet
-	SegmentBook_VPASubmitted      []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBSubmitted      []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCSubmitted      []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDSubmitted      []Event_VPABCD_Submit_Verify
-	SegmentBook_VPAVerified       []Event_VPABCD_Submit_Verify
-	SegmentBook_VPBVerified       []Event_VPABCD_Submit_Verify
-	SegmentBook_VPCVerified       []Event_VPABCD_Submit_Verify
-	SegmentBook_VPDVerified       []Event_VPABCD_Submit_Verify
-	SegmentBook_PPBNoOnTimeSubmit []Event_PPBNoOnTimeSubmit
-	SegmentBook_PPDNoOnTimeSubmit []Event_PPDNoOnTimeSubmit
-	SegmentBook_ChallengeProof    []Event_ChallengeProof
-	SegmentBook_VerifyProof       []Event_VerifyProof
+	SegmentBook_PPBNoOnTimeSubmit     []Event_PPBNoOnTimeSubmit
+	SegmentBook_PPDNoOnTimeSubmit     []Event_PPDNoOnTimeSubmit
+	SegmentBook_ChallengeProof        []Event_ChallengeProof
+	SegmentBook_VerifyProof           []Event_VerifyProof
+	SegmentBook_OutstandingChallenges []Event_OutstandingChallenges
 	//Sminer
 	Sminer_Registered         []Event_Registered
 	Sminer_TimedTask          []Event_TimedTask
