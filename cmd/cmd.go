@@ -225,6 +225,19 @@ func register() {
 	//Encode IP address in base58
 	ipAddr := base58.Encode([]byte(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
 
+	_, err = os.Stat(configs.BaseDir)
+	if err == nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' directory conflict\n", 41, configs.BaseDir)
+		os.Exit(1)
+	}
+
+	//Create the storage data directory
+	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		os.Exit(1)
+	}
+
 	//Generate RSA key pair
 	encryption.GenKeypair()
 	publicKeyfile := filepath.Join(configs.BaseDir, configs.PublicKeyfile)
@@ -243,7 +256,8 @@ func register() {
 		puk,
 	)
 	if err != nil {
-		if code != int(configs.Code_600) {
+		if code != int(configs.Code_600) && code != int(configs.Code_200) {
+			os.RemoveAll(configs.BaseDir)
 			fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
 			os.Exit(1)
 		}
@@ -255,14 +269,8 @@ func register() {
 		os.Exit(1)
 	}
 	if code == configs.Code_404 {
+		os.RemoveAll(configs.BaseDir)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later.\n", 41)
-		os.Exit(1)
-	}
-
-	//Create the storage data directory
-	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 

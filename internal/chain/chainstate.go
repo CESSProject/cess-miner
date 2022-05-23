@@ -119,7 +119,6 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 	mdata.MinerDetails.Total_reward = m2.Total_reward
 	mdata.MinerDetails.Total_rewards_currently_available = m2.Total_rewards_currently_available
 	mdata.MinerDetails.Totald_not_receive = m2.Totald_not_receive
-	mdata.MinerDetails.Collaterals = m2.Collaterals
 
 	return mdata, nil
 }

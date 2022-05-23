@@ -67,7 +67,6 @@ type Chain_MinerDetails struct {
 	Total_reward                      types.U128
 	Total_rewards_currently_available types.U128
 	Totald_not_receive                types.U128
-	Collaterals                       types.U128
 }
 
 //---SchedulerInfo
@@ -103,6 +102,6 @@ type SpaceFileInfo struct {
 	FileHash  types.Bytes
 }
 type BlockInfo struct {
-	BlockIndex types.U32
+	BlockIndex types.Bytes
 	BlockSize  types.U32
 }
