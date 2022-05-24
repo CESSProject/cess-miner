@@ -380,6 +380,7 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			continue
 		}
+
 		for i := 0; i < len(chlng); i++ {
 			if chlng[i].File_type == 1 {
 				//space file
