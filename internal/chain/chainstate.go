@@ -174,7 +174,7 @@ func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-	b, err := types.EncodeToBytes(id)
+	b, err := types.EncodeToBytes(types.NewU64(id))
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrapf(err, "[EncodeToBytes]")
 	}
@@ -245,7 +245,12 @@ func GetInvalidFileById(id uint64) ([]types.Bytes, int, error) {
 		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile)
+	b, err := types.EncodeToBytes(types.NewU64(id))
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile, b)
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}

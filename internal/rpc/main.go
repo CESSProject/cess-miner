@@ -62,7 +62,7 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	)
 	//Generate a random number to track the log record of this request
 	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Write file request.....", t)
+	Out.Sugar().Infof("+++> Write file request [T:%v]", t)
 
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
@@ -364,7 +364,7 @@ func cutDataRule(size int) (int, int, uint8, error) {
 		return 0, 0, 0, errors.New("size is lt 0")
 	}
 	fmt.Println(size)
-	num := size / (2 * 1024 * 1024)
+	num := size / configs.RpcFileBuffer
 	slicesize := size / (num + 1)
 	tailsize := size - slicesize*(num+1)
 	return slicesize, slicesize + tailsize, uint8(num) + 1, nil
