@@ -57,7 +57,6 @@ func init() {
 		Command_Exit(),
 		Command_Increase(),
 		Command_Withdraw(),
-		Command_Obtain(),
 	)
 }
 
@@ -136,16 +135,6 @@ func Command_Withdraw() *cobra.Command {
 		Use:                   "withdraw",
 		Short:                 "Redemption deposit",
 		Run:                   Command_Withdraw_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Obtain() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "obtain <pubkey> <faucet address>",
-		Short:                 "Get cess test coin",
-		Run:                   Command_Obtain_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -597,36 +586,45 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(0)
 	}
 
+	//Query the block height when the miner exits
+	number, code, err := chain.GetMinerExitNumber(configs.C.SignaturePrk)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
+		os.Exit(1)
+	}
+	if code == configs.Code_404 || number == 0 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m No exit\n", 41)
+		os.Exit(1)
+	}
+
+	//Query latest block height
+	lastnumber, err := chain.GetLastNumber()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
+		os.Exit(1)
+	}
+
+	if lastnumber < number {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m unexpected error\n", 41)
+		os.Exit(1)
+	}
+
+	//Determine whether the cooling period is over
+	if (lastnumber - number) < configs.ExitColling {
+		wait := configs.ExitColling + number - lastnumber
+		fmt.Printf("\x1b[%dm[err]\x1b[0m You are in a cooldown period, time remaining: %v seconds.\n", 41, wait)
+		os.Exit(1)
+	}
+
 	// Withdraw deposit function
 	ok, err := chain.Withdraw(configs.C.SignaturePrk, chain.ChainTx_Sminer_Withdraw)
-	if err != nil {
-		Out.Sugar().Infof("withdraw failed......,err:%v", err)
-		Err.Sugar().Errorf("%v", err)
-		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(1)
-	}
-	if !ok {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(1)
-	}
-	fmt.Println("success")
-	os.Exit(0)
-}
-
-// obtain tCESS
-func Command_Obtain_Runfunc(cmd *cobra.Command, args []string) {
-	if len(os.Args) < 4 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter wallet address public key and faucet address.\n", 41)
-		os.Exit(1)
-	}
-	err := chain.ObtainFromFaucet(os.Args[3], os.Args[2])
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err.Error())
-		os.Exit(1)
-	} else {
+	if ok {
 		fmt.Println("success")
 		os.Exit(0)
 	}
+
+	fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed, Please try again later. [%v]\n", 41, err)
+	os.Exit(1)
 }
 
 // Parse command arguments

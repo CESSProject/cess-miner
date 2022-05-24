@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -481,10 +480,8 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 				if err != nil {
 					return false, err
 				}
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("Decode event err:%v", err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
+
 				if events.Sminer_MinerClaim != nil {
 					for i := 0; i < len(events.Sminer_MinerClaim); i++ {
 						if events.Sminer_MinerClaim[i].Acc == types.NewAccountID(keyring.PublicKey) {
@@ -500,41 +497,6 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 		case <-timeout:
 			return false, errors.New("SubmitAndWatchExtrinsic timeout")
 		}
-	}
-}
-
-type faucet struct {
-	Ans    answer `json:"Result"`
-	Status string `json:"Status"`
-}
-type answer struct {
-	Err       string `json:"Err"`
-	AsInBlock bool   `json:"AsInBlock"`
-}
-
-func ObtainFromFaucet(faucetaddr, pbk string) error {
-	var ob = struct {
-		Address string `json:"Address"`
-	}{
-		pbk,
-	}
-	var res faucet
-	resp, err := tools.Post(faucetaddr, ob)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(resp, &res)
-	if err != nil {
-		return err
-	}
-	if res.Ans.Err != "" {
-		return err
-	}
-
-	if res.Ans.AsInBlock {
-		return nil
-	} else {
-		return errors.New("The address has been picked up today, please come back after 1 day.")
 	}
 }
 
