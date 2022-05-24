@@ -337,6 +337,63 @@ func GetFillerInfo(id types.U64, fileid string) (SpaceFileInfo, int, error) {
 }
 
 // Get miner information on the cess chain
+func GetMinerExitNumber(prk string) (types.U32, int, error) {
+	var (
+		err    error
+		number types.U32
+	)
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	meta, err := api.RPC.State.GetMetadataLatest()
+	if err != nil {
+		return number, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+	}
+
+	account, err := signature.KeyringPairFromSecret(prk, 0)
+	if err != nil {
+		return number, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerColling, account.PublicKey)
+	if err != nil {
+		return number, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &number)
+	if err != nil {
+		return number, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return number, configs.Code_404, nil
+	}
+	return number, configs.Code_200, nil
+}
+
+// Get miner information on the cess chain
+func GetLastNumber() (types.U32, error) {
+	api := getSubstrateAPI()
+	defer func() {
+		releaseSubstrateAPI()
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+	}()
+	block, err := api.RPC.Chain.GetBlockLatest()
+	if err != nil {
+		return 0, errors.Wrap(err, "[GetBlockLatest]")
+	}
+
+	return types.U32(block.Block.Header.Number), nil
+}
+
+// Get miner information on the cess chain
 func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	var (
 		err   error
