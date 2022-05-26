@@ -468,6 +468,11 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Initialize the logger
 	logger.LoggerInit()
+	Out.Sugar().Infof("LogfileDir: %v", configs.LogfileDir)
+	Out.Sugar().Infof("SpaceDir: %v", configs.SpaceDir)
+	Out.Sugar().Infof("FilesDir: %v", configs.FilesDir)
+	Out.Sugar().Infof("MinerId_S: %s", configs.MinerId_S)
+	Out.Sugar().Infof("MinerId_I: %d", configs.MinerId_I)
 
 	//Check if key file exists
 	encryption.Check_Keypair()
@@ -498,18 +503,12 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 
 	// Exit the mining function
 	ok, err := chain.ExitMining(configs.C.SignaturePrk, chain.ChainTx_Sminer_ExitMining)
-	if err != nil {
-		Out.Sugar().Infof("Exit failed......,err:%v", err)
-		Err.Sugar().Errorf("%v", err)
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(1)
+	if ok {
+		fmt.Println("success")
+		os.Exit(0)
 	}
-	if !ok {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(1)
-	}
-	fmt.Println("success")
-	os.Exit(0)
+	fmt.Printf("\x1b[%dm[err]\x1b[0m Exit failed, Please try again later. [%v]\n", 41, err)
+	os.Exit(1)
 }
 
 //Increase deposit
@@ -554,12 +553,6 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	//increase deposit
 	ok, err = chain.Increase(configs.C.SignaturePrk, chain.ChainTx_Sminer_Increase, tokens)
 	if err != nil {
-		Out.Sugar().Infof("Increase failed......,err:%v", err)
-		Err.Sugar().Errorf("%v", err)
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
-		os.Exit(1)
-	}
-	if !ok {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Increase failed, Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}

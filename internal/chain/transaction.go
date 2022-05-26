@@ -681,12 +681,7 @@ func ClearInvalidFileNoChain(signaturePrk string, id uint64, fid types.Bytes) (i
 		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	b, err := types.EncodeToBytes(id)
-	if err != nil {
-		return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
-	}
-
-	c, err := types.NewCall(meta, FileBank_ClearInvalidFile, b, fid)
+	c, err := types.NewCall(meta, FileBank_ClearInvalidFile, types.NewU64(id), fid)
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}

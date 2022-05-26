@@ -129,7 +129,7 @@ func task_SpaceManagement(ch chan bool) {
 	for {
 		if !allsuc {
 			allsuc = true
-			os.RemoveAll(basedir)
+			//os.RemoveAll(basedir)
 		}
 
 		if client == nil || reconn {
@@ -157,9 +157,9 @@ func task_SpaceManagement(ch chan bool) {
 		req.Fileid = ""
 		req.BlockIndex = 0
 		if availableSpace > uint64(32*configs.Space_1MB) {
-			req.SizeMb = 32
+			req.SizeMb = 8
 		} else if availableSpace > uint64(16*configs.Space_1MB) {
-			req.SizeMb = 16
+			req.SizeMb = 8
 		} else {
 			if availableSpace > uint64(8*configs.Space_1MB) {
 				req.SizeMb = 8
@@ -331,7 +331,7 @@ func task_SpaceManagement(ch chan bool) {
 					return
 				}
 			}
-			os.RemoveAll(path)
+			//os.RemoveAll(path)
 			Err.Sugar().Errorf(" %v store and upload to the chain failed", fileid)
 		}(basedir, respspacefile.FileId)
 		allsuc = true
@@ -379,6 +379,15 @@ func task_HandlingChallenges(ch chan bool) {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
 			}
 			continue
+		}
+
+		if len(chlng) == 0 {
+			continue
+		}
+
+		fmt.Printf("---> Prepare to generate challenges [%v]\n", len(chlng))
+		for x := 0; x < len(chlng); x++ {
+			fmt.Printf("     %v: %s\n", x, string(chlng[x].File_id))
 		}
 
 		for i := 0; i < len(chlng); i++ {
@@ -470,10 +479,6 @@ func task_HandlingChallenges(ch chan bool) {
 //Delete from the local disk first, and then notify the chain to delete.
 //It keeps running as a subtask.
 func task_RemoveInvalidFiles(ch chan bool) {
-	var (
-		filename string
-		fileid   string
-	)
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -482,6 +487,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 		ch <- true
 	}()
 	Out.Info(">>>Start task_RemoveInvalidFiles task<<<")
+
 	for {
 		invalidFiles, code, err := chain.GetInvalidFileById(configs.MinerId_I)
 		if err != nil {
@@ -490,44 +496,39 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			}
 			continue
 		}
+
+		if len(invalidFiles) == 0 {
+			continue
+		}
+
+		fmt.Printf("---> Prepare to remove invalid files [%v]\n", len(invalidFiles))
+		for x := 0; x < len(invalidFiles); x++ {
+			fmt.Printf("     %v: %s\n", x, string(invalidFiles[x]))
+		}
+
 		for i := 0; i < len(invalidFiles); i++ {
-			fileid = string(invalidFiles[i])
-			filedir := filepath.Join(configs.BaseDir, configs.SpaceDir, fileid)
-			_, err = os.Stat(filedir)
-			if err == nil {
-				filename = fileid + ".space"
-				_, err = os.Stat(filepath.Join(filedir, filename))
+			ext := filepath.Ext(string(invalidFiles[i]))
+			if ext == "" {
+				filedir := filepath.Join(configs.SpaceDir, string(invalidFiles[i]))
+				os.RemoveAll(filedir)
+				_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
 				if err == nil {
-					filefullpath := filepath.Join(filedir, filename)
-					fmt.Println("++> remove a file: ", filefullpath)
-					os.Remove(filefullpath)
-					_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
-					if err == nil {
-						Out.Sugar().Infof("%v", err)
-					}
-					continue
+					fmt.Printf("     removed successfully [%v]\n", string(invalidFiles[i]))
+					Out.Sugar().Infof("%v", err)
 				}
+				continue
 			}
-			strings.TrimRight(fileid, ".")
-			tmp := strings.Split(fileid, ".")
-			if tmp[len(tmp)-1][0] == 'd' {
-				fileid = strings.TrimSuffix(fileid, tmp[len(tmp)-1])
-				filedir = filepath.Join(configs.BaseDir, configs.SpaceDir, fileid)
-				_, err = os.Stat(filedir)
-				if err == nil {
-					_, err = os.Stat(filepath.Join(filedir, string(invalidFiles[i])))
-					if err == nil {
-						filefullpath := filepath.Join(filedir, string(invalidFiles[i]))
-						fmt.Println("++> remove a file: ", filefullpath)
-						os.Remove(filefullpath)
-						_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
-						if err == nil {
-							Out.Sugar().Infof("%v", err)
-						}
-					}
-				}
+			fileid := strings.TrimSuffix(string(invalidFiles[i]), ext)
+			filefullpath := filepath.Join(configs.FilesDir, fileid, string(invalidFiles[i]))
+			filetagfullpath := filepath.Join(configs.FilesDir, fileid, string(invalidFiles[i])+".tag")
+			os.Remove(filefullpath)
+			os.Remove(filetagfullpath)
+			_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
+			if err == nil {
+				Out.Sugar().Infof("%v", err)
 			}
 		}
+
 	}
 }
 
