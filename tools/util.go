@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"math/rand"
 	"net"
@@ -174,32 +173,6 @@ func GetExternalIp() (string, error) {
 		return strings.ReplaceAll(result, "\n", ""), nil
 	}
 	return "", errors.New("Failed to get external IP")
-}
-
-//
-func Split(file *os.File, s int64) (M [][]byte, S int64, N uint64, err error) {
-	file.Seek(0, 0)
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	size := fileInfo.Size()
-	n := uint64(math.Ceil(float64(size / s)))
-	if n == 0 {
-		n = 1
-	}
-	// matrix is indexed as m_ij, so the first dimension has n items and the second has s.
-	matrix := make([][]byte, n)
-	for i := uint64(0); i < n; i++ {
-		piece := make([]byte, s)
-		_, err := file.Read(piece)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		matrix[i] = piece
-	}
-	return matrix, s, n, nil
 }
 
 // Calculate the file hash value
