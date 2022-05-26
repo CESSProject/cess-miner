@@ -12,7 +12,7 @@ const (
 	RpcMethod_Scheduler_Spacefile = "spacefile"
 	RpcMethod_Scheduler_Spacetag  = "spacetag"
 	RpcMethod_Scheduler_Fileback  = "fileback"
-	RpcFileBuffer                 = 2 * 1024 //2KB
+	RpcFileBuffer                 = 8 * 1024 //8KB
 )
 
 // return code

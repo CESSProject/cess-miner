@@ -156,38 +156,41 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 
 	//get file path
 	fpath := filepath.Join(FilesDir, fid, b.FileId)
-	_, err = os.Stat(fpath)
+	fstat, err := os.Stat(fpath)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
 	}
 
 	// read file content
-	buf, err := ioutil.ReadFile(fpath)
+	f, err := os.OpenFile(fpath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
 	// Calculate the number of slices
-	slicesize, lastslicesize, num, err := cutDataRule(len(buf))
-	if err != nil {
+	blockTotal := fstat.Size() / configs.RpcFileBuffer
+	if fstat.Size()%configs.RpcFileBuffer != 0 {
+		blockTotal++
+	}
+	if b.BlockIndex >= int32(blockTotal) {
 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+		return &RespBody{Code: Code_400, Msg: "Invalid block index", Data: nil}, nil
 	}
 
 	//Collate returned data
 	rtnData.FileId = b.FileId
 	rtnData.BlockIndex = b.BlockIndex
-	if b.BlockIndex+1 == int32(num) {
-		rtnData.BlockSize = int32(lastslicesize)
-		rtnData.Data = buf[len(buf)-lastslicesize:]
-	} else {
-		rtnData.BlockSize = int32(slicesize)
-		rtnData.Data = buf[b.BlockIndex*int32(slicesize) : (b.BlockIndex+1)*int32(slicesize)]
-	}
-	rtnData.BlockTotal = int32(num)
+	var tmp = make([]byte, configs.RpcFileBuffer)
+	f.Seek(int64(b.BlockIndex*configs.RpcFileBuffer), 0)
+	n, _ := f.Read(tmp)
 
+	rtnData.BlockSize = int32(n)
+	rtnData.Data = tmp[:n]
+
+	rtnData.BlockTotal = int32(blockTotal)
+	f.Close()
 	//proto encoding
 	rtnData_proto, err := proto.Marshal(&rtnData)
 	if err != nil {

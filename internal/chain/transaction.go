@@ -783,7 +783,7 @@ func ClearInvalidFileNoChain(signaturePrk string, id uint64, fid types.Bytes) (i
 }
 
 //
-func ChainTx_Test(rpcaddr, signaturePrk, pallert_method string) error {
+func ChainTx_Test(rpcaddr, signaturePrk string) error {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -804,17 +804,7 @@ func ChainTx_Test(rpcaddr, signaturePrk, pallert_method string) error {
 		return errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	// b, err := types.EncodeToBytes(id)
-	// if err != nil {
-	// 	return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
-	// }
-
-	// var mus []types.Bytes = make([]types.Bytes, len(mu))
-	// for i := 0; i < len(mu); i++ {
-	// 	mus[i] = make(types.Bytes, 0)
-	// 	mus[i] = append(mus[i], mu[i]...)
-	// }
-	c, err := types.NewCall(meta, pallert_method)
+	c, err := types.NewCall(meta, "")
 	if err != nil {
 		return errors.Wrap(err, "[NewCall]")
 	}
@@ -875,10 +865,10 @@ func ChainTx_Test(rpcaddr, signaturePrk, pallert_method string) error {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				fmt.Println("Block hash: %#v", status.AsInBlock)
+				fmt.Printf("Block hash: %#v\n", status.AsInBlock)
 				head, err = api.RPC.Chain.GetHeader(status.AsInBlock)
 				if err == nil {
-					fmt.Println("[Block number: %v]", head.Number)
+					fmt.Printf("[Block number: %v]\n", head.Number)
 				}
 			}
 		case err = <-sub.Err():

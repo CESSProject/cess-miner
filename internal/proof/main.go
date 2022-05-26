@@ -363,21 +363,23 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 		ch <- true
 	}()
-	Out.Info(">>>Start task_HandlingChallenges<<<")
+	Out.Info(">>>>> Start task_HandlingChallenges <<<<<")
 
 	//Get the scheduling service public key
-	puk, _, err = chain.GetSchedulerPukFromChain()
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
+	for {
+		puk, _, err = chain.GetSchedulerPukFromChain()
+		if err != nil {
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
+			continue
+		}
+		Out.Info(">>>>> Get puk ok <<<<<")
+		break
 	}
 
 	for {
-		chlng, code, err = chain.GetChallengesById(configs.MinerId_I)
+		chlng, _, err = chain.GetChallengesById(configs.MinerId_I)
 		if err != nil {
-			if code == configs.Code_404 {
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
-			}
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
 
@@ -403,7 +405,8 @@ func task_HandlingChallenges(ch chan bool) {
 				filename = string(chlng[i].File_id)
 			}
 			tagfilename = string(chlng[i].File_id) + ".tag"
-			fstat, err := os.Stat(filepath.Join(filedir, filename))
+			fileFullPath := filepath.Join(filedir, filename)
+			fstat, err := os.Stat(fileFullPath)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
@@ -429,22 +432,17 @@ func task_HandlingChallenges(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", filename, err)
 				continue
 			}
-			f, err := os.OpenFile(filepath.Join(filedir, filename), os.O_RDONLY, os.ModePerm)
-			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
-				continue
-			}
+
 			poDR2prove.QSlice = qSlice
 			poDR2prove.T = filetag.T
 			poDR2prove.Sigmas = filetag.Sigmas
 
-			matrix, _, _, err := tools.Split(f, blocksize)
+			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
 			if err != nil {
-				f.Close()
 				Err.Sugar().Errorf("[%v] %v", filename, err)
 				continue
 			}
-			f.Close()
+
 			poDR2prove.Matrix = matrix
 			poDR2prove.S = blocksize
 			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(chlng[i].Scan_size))
@@ -606,4 +604,31 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 		break
 	}
 	return cli, err
+}
+
+func split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, error) {
+	file, err := os.Open(filefullpath)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer file.Close()
+
+	if filesize/blocksize == 0 {
+		return nil, 0, errors.New("filesize invalid")
+	}
+	n := uint64(math.Ceil(float64(filesize / blocksize)))
+	if n == 0 {
+		n = 1
+	}
+	// matrix is indexed as m_ij, so the first dimension has n items and the second has s.
+	matrix := make([][]byte, n)
+	for i := uint64(0); i < n; i++ {
+		piece := make([]byte, blocksize)
+		_, err := file.Read(piece)
+		if err != nil {
+			return nil, 0, err
+		}
+		matrix[i] = piece
+	}
+	return matrix, n, nil
 }
