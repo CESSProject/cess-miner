@@ -76,6 +76,7 @@ type SchedulerInfo struct {
 	Stash_user      types.AccountID
 	Controller_user types.AccountID
 }
+
 type ChallengesInfo struct {
 	File_size  types.U64
 	Scan_size  types.U32
@@ -105,4 +106,11 @@ type SpaceFileInfo struct {
 type BlockInfo struct {
 	BlockIndex types.Bytes
 	BlockSize  types.U32
+}
+
+//---Space Info
+type UserSpaceInfo struct {
+	PurchasedSpace types.U128
+	UsedSpace      types.U128
+	RemainingSpace types.U128
 }
