@@ -402,7 +402,7 @@ func GetLastNumber() (types.U32, error) {
 func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	var (
 		err   error
-		mdata SpaceFileInfo
+		mdata UserSpaceInfo
 	)
 	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
 	if err != nil {
@@ -427,6 +427,8 @@ func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
 	if !ok {
 		return errors.New("empty")
 	}
+
 	fmt.Println(mdata)
+
 	return nil
 }

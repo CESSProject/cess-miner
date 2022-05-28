@@ -48,7 +48,7 @@ message file_download_req{
 }
 
 message space_file_req{
-  string acc = 1;
+  uint64 minerid = 1;
   string fileid = 2;
   uint32 size_mb = 3;
   uint32 blockIndex = 4;
@@ -56,16 +56,17 @@ message space_file_req{
 }
 
 message space_tag_req{
-  string acc = 1;
+  uint64 minerid = 1;
   string fileid = 2;
   bytes  sign = 3;
 }
 
 message file_back_req{
-  string acc = 1;
-  string fileid = 2;
-  string filehash = 3;
-  bytes  sign = 4;
+  uint64 minerid = 1;
+  string acc = 2;
+  string fileid = 3;
+  string filehash = 4;
+  bytes  sign = 5;
 }
 
 message PutFileToBucket {

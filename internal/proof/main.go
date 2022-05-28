@@ -104,8 +104,9 @@ func task_SpaceManagement(ch chan bool) {
 		os.Exit(1)
 	}
 
+	key, _ := tools.IntegerToBytes(configs.MinerId_I)
 	//Calculate the signature
-	sign, err := encryption.CalcSign([]byte(addr), prk)
+	sign, err := encryption.CalcSign(key, prk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -118,10 +119,11 @@ func task_SpaceManagement(ch chan bool) {
 		tSpace = time.Now()
 	}
 
-	req.Acc = addr
+	req.Minerid = configs.MinerId_I
 	req.Sign = sign
-	tagreq.Acc = addr
+	tagreq.Minerid = configs.MinerId_I
 	tagreq.Sign = sign
+	fileback.Minerid = configs.MinerId_I
 	fileback.Acc = addr
 	fileback.Sign = sign
 	allsuc = true
@@ -129,7 +131,7 @@ func task_SpaceManagement(ch chan bool) {
 	for {
 		if !allsuc {
 			allsuc = true
-			//os.RemoveAll(basedir)
+			os.RemoveAll(basedir)
 		}
 
 		if client == nil || reconn {
@@ -156,17 +158,12 @@ func task_SpaceManagement(ch chan bool) {
 
 		req.Fileid = ""
 		req.BlockIndex = 0
-		if availableSpace > uint64(32*configs.Space_1MB) {
-			req.SizeMb = 8
-		} else if availableSpace > uint64(16*configs.Space_1MB) {
+
+		if availableSpace > uint64(8*configs.Space_1MB) {
 			req.SizeMb = 8
 		} else {
-			if availableSpace > uint64(8*configs.Space_1MB) {
-				req.SizeMb = 8
-			} else {
-				time.Sleep(time.Minute)
-				continue
-			}
+			time.Sleep(time.Minute)
+			continue
 		}
 
 		req_b, err := proto.Marshal(&req)
@@ -304,6 +301,7 @@ func task_SpaceManagement(ch chan bool) {
 		}
 		ft.Close()
 
+		allsuc = true
 		fileback.Fileid = respInfo.FileId
 		fileback.Filehash = hash
 
@@ -318,23 +316,21 @@ func task_SpaceManagement(ch chan bool) {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
-		if respCode == configs.Code_200 || len(respBody) > 0 {
-			allsuc = true
-			Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
-			continue
-		}
-		go func(path, fileid string) {
-			for i := 0; i < 3; i++ {
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
-				_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), fileid)
-				if code == configs.Code_200 {
-					return
-				}
-			}
-			//os.RemoveAll(path)
-			Err.Sugar().Errorf(" %v store and upload to the chain failed", fileid)
-		}(basedir, respspacefile.FileId)
-		allsuc = true
+		// if respCode == configs.Code_200 || len(respBody) > 0 {
+		// 	Out.Sugar().Infof(" %v store and upload to the chain successfully", respspacefile.FileId)
+		// 	continue
+		// }
+		// go func(path, fileid string) {
+		// 	for i := 0; i < 3; i++ {
+		// 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 10)))
+		// 		_, code, _ := chain.GetFillerInfo(types.U64(configs.MinerId_I), fileid)
+		// 		if code == configs.Code_200 {
+		// 			return
+		// 		}
+		// 	}
+		// 	//os.RemoveAll(path)
+		// 	Err.Sugar().Errorf(" %v store and upload to the chain failed", fileid)
+		// }(basedir, respspacefile.FileId)
 	}
 }
 
