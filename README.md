@@ -20,7 +20,8 @@ If you find out any vulnerability, Please send an email to tech@cess.one, we are
 Take the ubuntu distribution as an example:
 
 ```shell
-sudo apt upgrade -y && sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
+sudo apt upgrade
+sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
 **Step 2:** Install the necessary pbc library
@@ -87,7 +88,7 @@ CESS-Bucket requires [Go 1.16.5](https://golang.org/dl/) or higher.
 - Download go1.16.5 compress the package and extract it to the /use/local directory:
 
 ```shell
-wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
+sudo wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
 ```
 
 - You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
@@ -117,8 +118,9 @@ If all goes well, you will get a mining program called `bucket`.
 
 **Step 1:** Register two polka wallet
 
-- For wallet one, it is called an  `income account`, which is used to receive rewards from mining, and you should keep the private key carefully.
-- For wallet two, it is called a `signature account`, which is used to sign on-chain transactions. You need to recharge the account with a small tokens and provide the private key to the miner's configuration file. The cess system will not record and destroy the account.
+For wallet one, it is called an  `income account`, which is used to receive rewards from mining, and you should keep the private key carefully.
+
+For wallet two, it is called a `signature account`, which is used to sign on-chain transactions. You need to recharge the account with a small tokens and provide the private key to the miner's configuration file. The cess system will not record and destroy the account.
 
 Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), [Add two accounts](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG) in two steps.
 
