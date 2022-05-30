@@ -126,8 +126,7 @@ Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [C
 
 **Step 2:** Recharge your signature account
 
-    If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free.
-    If you are using the official network, please buy CESS tokens.
+If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
 **Step 3:** Prepare configuration file
 
