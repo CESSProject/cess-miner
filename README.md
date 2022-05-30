@@ -3,11 +3,9 @@
 cess-bucket is a mining program provided by cess platform for storage miners.
 
 
-
 ## Reporting a Vulnerability
 
 If you find out any vulnerability, Please send an email to tech@cess.one, we are happy to communicate with you.
-
 
 
 ## System Requirements
@@ -15,20 +13,19 @@ If you find out any vulnerability, Please send an email to tech@cess.one, we are
 - Linux-amd64
 
 
-
 ## System dependencies
 
-**<1> Install common libraries**
+**Step 1:** Install common libraries
 
 Take the ubuntu distribution as an example:
 
-```
+```shell
 sudo apt upgrade -y && sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
-**<2> Install the necessary pbc library**
+**Step 2:** Install the necessary pbc library
 
-```
+```shell
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
 sudo lzip -d gmp-6.2.1.tar.lz
 sudo tar -xvf gmp-6.2.1.tar
@@ -54,7 +51,6 @@ sudo ldconfig
 ```
 
 
-
 ## System configuration
 
 - Firewall
@@ -63,26 +59,26 @@ If the firewall is turned on, you need to open the running port, the default por
 
 Take the ubuntu distribution as an example:
 
-```
+```shell
 sudo ufw allow 15001/tcp
 ```
 - Network optimization (optional)
 
-```
+```shell
 sysctl -w net.ipv4.tcp_syncookies = 1
 sysctl -w net.ipv4.tcp_tw_reuse = 1
 sysctl -w net.ipv4.tcp_tw_recycle = 1
 sysctl -w net.ipv4.tcp_fin_timeout = 30
-sysctl -w net.ipv4.tcp_keepalive_time = 120
-sysctl -w net.core.rmem_max=2500000
-sysctl -w net.ipv4.ip_local_port_range = 1024 65500
+sysctl -w net.ipv4.tcp_max_syn_backlog = 8192
+sysctl -w net.ipv4.tcp_max_tw_buckets = 6000
+sysctl -w net.ipv4.tcp_timestsmps = 0
+sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 ```
-
 
 
 ## Build from source
 
-**<1> Install go locale**
+**Step 1:** Install go locale
 
 CESS-Bucket requires [Go 1.16.5](https://golang.org/dl/) or higher.
 
@@ -90,7 +86,7 @@ CESS-Bucket requires [Go 1.16.5](https://golang.org/dl/) or higher.
 
 - Download go1.16.5 compress the package and extract it to the /use/local directory:
 
-```bash
+```shell
 wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
 ```
 
@@ -102,13 +98,13 @@ echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
 
 - View your go version:
 
-```
+```shell
 go version
 ```
 
-**<2> Build a bucket**
+**Step 2:** Build a bucket
 
-```
+```shell
 git clone https://github.com/CESSProject/cess-bucket
 cd cess-bucket/
 go build -o bucket cmd/main/main.go
@@ -117,28 +113,27 @@ go build -o bucket cmd/main/main.go
 If all goes well, you will get a mining program called `bucket`.
 
 
+## Get started with bucket
 
-# **Get started with bucket**
-
-**<1> Register two polka wallet**
+**Step 1:** Register two polka wallet
 
 - For wallet one, it is called an  `income account`, which is used to receive rewards from mining, and you should keep the private key carefully.
 - For wallet two, it is called a `signature account`, which is used to sign on-chain transactions. You need to recharge the account with a small tokens and provide the private key to the miner's configuration file. The cess system will not record and destroy the account.
 
 Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), [Add two accounts](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG) in two steps.
 
-**<2> Recharge your signature account**
+**Step 2:** Recharge your signature account
 
-- If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free.
-- If you are using the official network, please buy CESS tokens.
+    If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free.
+    If you are using the official network, please buy CESS tokens.
 
-**<3> Prepare configuration file**
+**Step 3:** Prepare configuration file
 
-Use bucket to directly generate configuration file template:
+Use `bucket` to generate configuration file templates directly in the current directory:
 
-```
-chmod +x bucket
-sudo ./bucket default
+```shell
+sudo chmod +x bucket
+./bucket default
 ```
 
 The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `bucket` uses `conf.toml` in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
@@ -158,13 +153,13 @@ ServiceAddr  = ""
 ServicePort  = 15001
 # The address of income account
 IncomeAcc    = ""
-# phrase or seed of the signature account
+# Phrase or seed of the signature account
 SignaturePrk = ""
 ```
 
-**<4> View bucket features**
+**Step 4:** View bucket features
 
-`bucket` has many functions, you can use `-h` or `--help` to view, as follows:
+The `bucket` has many functions, you can use `-h` or `--help` to view, as follows:
 
 - flag
 
@@ -186,41 +181,41 @@ SignaturePrk = ""
 | increase | Increase the deposit of mining miner           |
 | withdraw | Redemption deposit of mining miner             |
 
-**<5> Use bucket**
+**Step 5:** Use bucket
 
-**All `bucket` commands (except default and version) need to be registered before they can be used.**
+*All `bucket` commands (except default and version) need to be registered before they can be used.*
 
-```
+```shell
 sudo ./bucket register
 ```
 
 - Query miner status
 
-```
+```shell
 sudo ./bucket state
 ```
 
 - Increase the miner's deposit by 1000
 
-```
+```shell
 sudo ./bucket increase 1000
 ```
 
 - Exit the mining platform
 
-```
+```shell
 sudo ./bucket exit
 ```
 
 - Redeem the miner's deposit
 
-```
+```shell
 sudo ./bucket withdraw
 ```
 
 - Start mining
 
-```
+```shell
 sudo nohup ./bucket run > /dev/null 2>&1 &
 ```
 
