@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket_V0.4.0"
+const Version = "CESS-Bucket v0.4.0"
 
 // rpc service and method
 const (
@@ -36,8 +36,8 @@ const (
 	ByteSize_1Kb       = 1024           // 1KB
 	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
-	NewTestAddr        = true
-	ExitColling        = 1200
+	NewTestAddr        = true           //cess address
+	ExitColling        = 57600          //blocks
 )
 
 // Miner info
