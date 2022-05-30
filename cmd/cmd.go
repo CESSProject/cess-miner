@@ -687,10 +687,10 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	if configs.C.StorageSpace < 1000 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m You need to configure at least 1000GB of storage space.\n", 41)
-		os.Exit(1)
-	}
+	// if configs.C.StorageSpace < 1000 {
+	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m You need to configure at least 1000GB of storage space.\n", 41)
+	// 	os.Exit(1)
+	// }
 
 	_, err = pt.GetMountPathInfo(configs.C.MountedPath)
 	if err != nil {
