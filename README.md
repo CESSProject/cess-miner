@@ -1,6 +1,6 @@
 # <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.16-blue.svg" /></a></h1>
 
-cess-bucket is a mining program provided by cess platform for storage miners.
+CESS-Bucket is a mining program provided by cess platform for storage miners.
 
 
 ## Reporting a Vulnerability
