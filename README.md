@@ -46,8 +46,7 @@ sudo ./configure
 sudo make
 sudo make install
 sudo touch /etc/ld.so.conf.d/libpbc.conf
-sudo test -s /etc/ld.so.conf.d/libpbc.conf
-sudo sed -i "\$a /usr/local/lib" /etc/ld.so.conf.d/libpbc.conf || echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
+sudo echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
 sudo ldconfig
 ```
 
