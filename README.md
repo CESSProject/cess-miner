@@ -105,7 +105,7 @@ go version
 **Step 2:** Build a bucket
 
 ```shell
-git clone https://github.com/CESSProject/cess-bucket
+git clone https://github.com/CESSProject/cess-bucket.git
 cd cess-bucket/
 go build -o bucket cmd/main/main.go
 ```
