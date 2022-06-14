@@ -4,9 +4,7 @@ import (
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
 	"encoding/binary"
-	"fmt"
 
-	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -396,39 +394,4 @@ func GetLastNumber() (types.U32, error) {
 	}
 
 	return types.U32(block.Block.Header.Number), nil
-}
-
-// Get miner information on the cess chain
-func ChainSt_Test(rpcaddr, signaturePrk, pallert, method string) error {
-	var (
-		err   error
-		mdata UserSpaceInfo
-	)
-	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		return err
-	}
-
-	meta, err := api.RPC.State.GetMetadataLatest()
-	if err != nil {
-		return errors.Wrap(err, "[GetMetadataLatest]")
-	}
-
-	key, err := types.CreateStorageKey(meta, pallert, method)
-	if err != nil {
-		return errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := api.RPC.State.GetStorageLatest(key, &mdata)
-	if err != nil {
-		return errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return errors.New("empty")
-	}
-
-	fmt.Println(mdata)
-
-	return nil
 }
