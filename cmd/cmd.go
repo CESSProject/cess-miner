@@ -373,6 +373,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		power_unit = "NB"
 	case 10:
 		power_unit = "DB"
+	default:
+		power_unit = fmt.Sprintf("DB(%v)", count-10)
 	}
 	count = 0
 	for minerInfo.MinerItems.Space.BitLen() > int(16) {
@@ -409,6 +411,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		space_unit = "NB"
 	case 10:
 		space_unit = "DB"
+	default:
+		power_unit = fmt.Sprintf("DB(%v)", count-10)
 	}
 
 	//print your own details

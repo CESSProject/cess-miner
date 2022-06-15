@@ -10,7 +10,6 @@ import (
 	"cess-bucket/tools"
 	"time"
 
-	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -520,6 +519,15 @@ func GetAddressFromPrk(prk string, prefix []byte) (string, error) {
 }
 
 //
+func GetPublickeyFromPrk(prk string) ([]byte, error) {
+	keyring, err := signature.KeyringPairFromSecret(prk, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+	return keyring.PublicKey, nil
+}
+
+//
 func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]byte) (int, error) {
 	var (
 		err         error
@@ -778,103 +786,6 @@ func ClearInvalidFileNoChain(signaturePrk string, id uint64, fid types.Bytes) (i
 			return configs.Code_500, err
 		case <-timeout:
 			return configs.Code_500, errors.New("Timeout")
-		}
-	}
-}
-
-//
-func ChainTx_Test(rpcaddr, signaturePrk string) error {
-	var (
-		err         error
-		accountInfo types.AccountInfo
-	)
-	api, err := gsrpc.NewSubstrateAPI(rpcaddr)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		return err
-	}
-
-	keyring, err := signature.KeyringPairFromSecret(signaturePrk, 0)
-	if err != nil {
-		return errors.Wrap(err, "[KeyringPairFromSecret]")
-	}
-
-	meta, err := api.RPC.State.GetMetadataLatest()
-	if err != nil {
-		return errors.Wrap(err, "[GetMetadataLatest]")
-	}
-
-	c, err := types.NewCall(meta, "")
-	if err != nil {
-		return errors.Wrap(err, "[NewCall]")
-	}
-
-	ext := types.NewExtrinsic(c)
-	if err != nil {
-		return errors.Wrap(err, "[NewExtrinsic]")
-	}
-
-	genesisHash, err := api.RPC.Chain.GetBlockHash(0)
-	if err != nil {
-		return errors.Wrap(err, "[GetBlockHash]")
-	}
-
-	rv, err := api.RPC.State.GetRuntimeVersionLatest()
-	if err != nil {
-		return errors.Wrap(err, "[GetRuntimeVersionLatest]")
-	}
-
-	key, err := types.CreateStorageKey(meta, "System", "Account", keyring.PublicKey)
-	if err != nil {
-		return errors.Wrap(err, "[CreateStorageKey System Account]")
-	}
-
-	ok, err := api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil {
-		return errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return errors.New("[GetStorageLatest return value is empty]")
-	}
-
-	o := types.SignatureOptions{
-		BlockHash:          genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
-		SpecVersion:        rv.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: rv.TransactionVersion,
-	}
-
-	// Sign the transaction
-	err = ext.Sign(keyring, o)
-	if err != nil {
-		return errors.Wrap(err, "[Sign]")
-	}
-
-	// Do the transfer and track the actual status
-	sub, err := api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		return errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-	}
-	defer sub.Unsubscribe()
-	var head *types.Header
-	timeout := time.After(time.Second * 15)
-	for {
-		select {
-		case status := <-sub.Chan():
-			if status.IsInBlock {
-				fmt.Printf("Block hash: %#v\n", status.AsInBlock)
-				head, err = api.RPC.Chain.GetHeader(status.AsInBlock)
-				if err == nil {
-					fmt.Printf("[Block number: %v]\n", head.Number)
-				}
-			}
-		case err = <-sub.Err():
-			return err
-		case <-timeout:
-			return errors.New("Timeout")
 		}
 	}
 }
