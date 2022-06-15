@@ -519,6 +519,15 @@ func GetAddressFromPrk(prk string, prefix []byte) (string, error) {
 }
 
 //
+func GetPublickeyFromPrk(prk string) ([]byte, error) {
+	keyring, err := signature.KeyringPairFromSecret(prk, 0)
+	if err != nil {
+		return nil, errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+	return keyring.PublicKey, nil
+}
+
+//
 func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]byte) (int, error) {
 	var (
 		err         error

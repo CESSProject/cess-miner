@@ -10,8 +10,6 @@ const (
 	RpcMethod_Scheduler_Writefile = "writefile"
 	RpcMethod_Scheduler_Readfile  = "readfile"
 	RpcMethod_Scheduler_Spacefile = "spacefile"
-	RpcMethod_Scheduler_Spacetag  = "spacetag"
-	RpcMethod_Scheduler_Fileback  = "fileback"
 	RpcFileBuffer                 = 64 * 1024 //64KB
 )
 
