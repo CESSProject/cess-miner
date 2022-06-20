@@ -193,7 +193,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 
 func register() {
 	//Calculate the deposit based on the size of the storage space
-	pledgeTokens := 2000 * (configs.C.StorageSpace / (1024 * 1024 * 1024 * 1024))
+	pledgeTokens := 2000 * (configs.C.StorageSpace / 1024)
 	if configs.C.StorageSpace%(1024*1024*1024*1024) != 0 {
 		pledgeTokens += 2000
 	}

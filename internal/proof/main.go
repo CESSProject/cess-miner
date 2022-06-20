@@ -383,6 +383,8 @@ func task_HandlingChallenges(ch chan bool) {
 			continue
 		}
 
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
+
 		Out.Sugar().Infof("---> Prepare to generate challenges [%v]\n", len(chlng))
 		for x := 0; x < len(chlng); x++ {
 			Out.Sugar().Infof("     %v: %s\n", x, string(chlng[x].File_id))
@@ -483,7 +485,6 @@ func task_HandlingChallenges(ch chan bool) {
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 		}
 		proveInfos = proveInfos[:0]
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 	}
 }
 
