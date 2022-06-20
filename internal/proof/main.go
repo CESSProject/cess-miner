@@ -383,12 +383,15 @@ func task_HandlingChallenges(ch chan bool) {
 			continue
 		}
 
-		fmt.Printf("---> Prepare to generate challenges [%v]\n", len(chlng))
+		Out.Sugar().Infof("---> Prepare to generate challenges [%v]\n", len(chlng))
 		for x := 0; x < len(chlng); x++ {
-			fmt.Printf("     %v: %s\n", x, string(chlng[x].File_id))
+			Out.Sugar().Infof("     %v: %s\n", x, string(chlng[x].File_id))
 		}
-
+		var proveInfos = make([]chain.ProveInfo, 0)
 		for i := 0; i < len(chlng); i++ {
+			if len(proveInfos) > 50 {
+				break
+			}
 			if chlng[i].File_type == 1 {
 				//space file
 				filedir = filepath.Join(configs.SpaceDir, string(chlng[i].File_id))
@@ -450,22 +453,37 @@ func task_HandlingChallenges(ch chan bool) {
 				continue
 			}
 
-			// proof up chain
-			ts := time.Now().Unix()
-			code = 0
-			for code != int(configs.Code_200) && code != int(configs.Code_600) {
-				code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, []byte(chlng[i].File_id), proveResponse.Sigma, proveResponse.MU)
-				if err == nil {
-					Out.Sugar().Infof("[%v] Proof submitted successfully", fileid)
-					break
-				}
-				if time.Since(time.Unix(ts, 0)).Minutes() > 10.0 {
-					Err.Sugar().Errorf("[%v] %v", filename, err)
-					break
-				}
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+			proveInfoTemp := chain.ProveInfo{}
+			proveInfoTemp.Cinfo = chlng[i]
+			proveInfoTemp.FileId = chlng[i].File_id
+
+			var mus []types.Bytes = make([]types.Bytes, len(proveResponse.MU))
+			for i := 0; i < len(proveResponse.MU); i++ {
+				mus[i] = make(types.Bytes, 0)
+				mus[i] = append(mus[i], proveResponse.MU[i]...)
 			}
+			proveInfoTemp.Mu = mus
+			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
+			proveInfoTemp.MinerId = types.U64(configs.MinerId_I)
+			proveInfos = append(proveInfos, proveInfoTemp)
 		}
+		// proof up chain
+		ts := time.Now().Unix()
+		code = 0
+		for code != int(configs.Code_200) && code != int(configs.Code_600) {
+			code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, proveInfos)
+			if err == nil {
+				Out.Sugar().Infof("Proofs submitted successfully")
+				break
+			}
+			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
+				Err.Sugar().Errorf("[%v] %v", filename, err)
+				break
+			}
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+		}
+		proveInfos = proveInfos[:0]
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 	}
 }
 
