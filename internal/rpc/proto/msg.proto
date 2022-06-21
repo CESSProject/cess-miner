@@ -23,14 +23,20 @@ message RespBody {
     bytes   data = 3;
 }
 
-message file_upload_info {
-  string  file_id = 1;
-  string  file_hash = 2;
-  string  backups = 3;
-  int32   block_total = 4;
-  int32   block_size = 5;
-  int32   block_index = 6;
-  bytes   data = 7;
+message auth_req {
+    string file_id     = 1;
+    string file_name   = 2;
+    uint64 file_size   = 3;
+    uint32 block_total = 4;
+    bytes  public_key  = 5;
+    bytes  msg         = 6;
+    bytes  sign        = 7;
+}
+
+message file_upload_req {
+    uint32 block_index = 1;
+    bytes  auth        = 2;
+    bytes  file_data   = 3;
 }
 
 message file_download_info {
@@ -56,12 +62,11 @@ message space_file_req{
 }
 
 message PutFileToBucket {
-  uint32 blockTotal = 1;
-  uint32 blockIndex = 2;
-  uint32 blockSize = 3;
-  string fileId = 4;
-  string fileHash = 5;
-  bytes  blockData = 6;
+  uint32 block_total = 1;
+  uint32 block_index = 2;
+  string fileId      = 3;
+  bytes  publickey   = 4;
+  bytes  blockData   = 5;
 }
 
 message PutTagToBucket {

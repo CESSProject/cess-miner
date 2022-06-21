@@ -528,7 +528,7 @@ func GetPublickeyFromPrk(prk string) ([]byte, error) {
 }
 
 //
-func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]byte) (int, error) {
+func PutProofToChain(signaturePrk string, id uint64, data []ProveInfo) (int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -557,13 +557,13 @@ func PutProofToChain(signaturePrk string, id uint64, fid, sigma []byte, mu [][]b
 	// 	return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
 	// }
 
-	var mus []types.Bytes = make([]types.Bytes, len(mu))
-	for i := 0; i < len(mu); i++ {
-		mus[i] = make(types.Bytes, 0)
-		mus[i] = append(mus[i], mu[i]...)
-	}
+	// var mus []types.Bytes = make([]types.Bytes, len(mu))
+	// for i := 0; i < len(mu); i++ {
+	// 	mus[i] = make(types.Bytes, 0)
+	// 	mus[i] = append(mus[i], mu[i]...)
+	// }
 
-	c, err := types.NewCall(meta, SegmentBook_SubmitProve, types.U64(id), types.Bytes(fid), mus, types.Bytes(sigma))
+	c, err := types.NewCall(meta, SegmentBook_SubmitProve, types.U64(id), data)
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}

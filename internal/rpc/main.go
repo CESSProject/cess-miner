@@ -60,22 +60,42 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		err error
 		b   PutFileToBucket
 	)
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("+++> Write file request [T:%v]", t)
 
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+		return &RespBody{Code: 400, Msg: "Bad Requset"}, nil
 	}
 
-	//Determine whether the data base directory exists
-	err = tools.CreatDirIfNotExist(FilesDir)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+	ok := false
+	if b.BlockIndex == 0 {
+		var schds []chain.SchedulerInfo
+		for i := 0; i < 3; i++ {
+			schds, err = chain.GetSchedulerInfo()
+			if err == nil {
+				for _, v := range schds {
+					if v.Controller_user == types.NewAccountID(b.Publickey) {
+						ok = true
+						break
+					}
+				}
+				break
+			}
+			time.Sleep(time.Second * 3)
+		}
+		if !ok {
+			Uld.Sugar().Infof("[%v] Forbid: [%v] %v", b.FileId, b.Publickey, err)
+			return &RespBody{Code: 403, Msg: "Forbid"}, nil
+		}
+
+		//Determine whether the data base directory exists
+		err = tools.CreatDirIfNotExist(FilesDir)
+		if err != nil {
+			Uld.Sugar().Infof("[%v] CreatDirIfNotExist [%v] err: %v", b.FileId, FilesDir, err)
+			return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+		}
+
+		Uld.Sugar().Infof("+++> Upload file [%v] ", b.FileId)
 	}
 
 	//Get the suffix of fileid
