@@ -68,10 +68,11 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	}
 
 	ok := false
+	fpath := filepath.Join(FilesDir, b.FileId)
 	if b.BlockIndex == 0 {
 		var schds []chain.SchedulerInfo
 		for i := 0; i < 3; i++ {
-			schds, err = chain.GetSchedulerInfo()
+			_, schds, err = chain.GetAllSchedulerInfo()
 			if err == nil {
 				for _, v := range schds {
 					if v.Controller_user == types.NewAccountID(b.Publickey) {
@@ -95,52 +96,40 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 			return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 		}
 
+		_, err = os.Stat(fpath)
+		if err == nil {
+			os.Remove(fpath)
+		}
+
+		_, err = os.Create(fpath)
+		if err != nil {
+			Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+			return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+		}
+
 		Uld.Sugar().Infof("+++> Upload file [%v] ", b.FileId)
 	}
 
-	//Get the suffix of fileid
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", t, b.FileId)
-		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
-	}
-
-	//get fileid
-	fid := strings.TrimSuffix(b.FileId, ext)
-
-	//get file path
-	fpath := filepath.Join(FilesDir, fid)
-	_, err = os.Stat(fpath)
-	if err != nil {
-		err = os.MkdirAll(fpath, os.ModeDir)
-		if err != nil {
-			Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-			return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-		}
-	}
-	filefullpath := filepath.Join(fpath, b.FileId)
-
-	if b.BlockIndex == 0 {
-		os.Remove(filefullpath)
-	}
-
 	//save to local file
-	fii, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
+	fii, err := os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 	defer fii.Close()
-	fii.Write(b.BlockData)
-
+	_, err = fii.Write(b.BlockData)
+	if err != nil {
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+	}
 	//flush to disk
 	err = fii.Sync()
 	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
-	Out.Sugar().Infof("[T:%v]Suc:[%v] [%v]", t, b.FileId, b.BlockIndex)
-	return &RespBody{Code: Code_200, Msg: "success", Data: nil}, nil
+	Uld.Sugar().Infof("[%v]Suc:[%v]", b.FileId, b.BlockIndex)
+	return &RespBody{Code: Code_200, Msg: "success"}, nil
 }
 
 // Readfile is used to return file information to the scheduling service.

@@ -122,7 +122,7 @@ func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, 
 }
 
 // Get scheduler information on the cess chain
-func GetSchedulerInfo() ([]SchedulerInfo, error) {
+func GetAllSchedulerInfo() (int, []SchedulerInfo, error) {
 	var (
 		err  error
 		data []SchedulerInfo
@@ -137,22 +137,22 @@ func GetSchedulerInfo() ([]SchedulerInfo, error) {
 	}()
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return nil, errors.Wrapf(err, "[%v.%v:GetMetadataLatest]", State_FileMap, FileMap_SchedulerInfo)
+		return configs.Code_500, nil, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
 	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerInfo)
 	if err != nil {
-		return nil, errors.Wrapf(err, "[%v.%v:CreateStorageKey]", State_FileMap, FileMap_SchedulerInfo)
+		return configs.Code_500, nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
 	ok, err := api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "[%v.%v:GetStorageLatest]", State_FileMap, FileMap_SchedulerInfo)
+		return configs.Code_500, nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return data, errors.Errorf("[%v.%v:GetStorageLatest value is nil]", State_FileMap, FileMap_SchedulerInfo)
+		return configs.Code_404, data, errors.New("Not found")
 	}
-	return data, nil
+	return configs.Code_200, data, nil
 }
 
 func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
