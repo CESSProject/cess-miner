@@ -4,7 +4,6 @@ import (
 	"cess-bucket/configs"
 	"cess-bucket/initlz"
 	"cess-bucket/internal/chain"
-	"cess-bucket/internal/encryption"
 	"cess-bucket/internal/logger"
 	. "cess-bucket/internal/logger"
 	"cess-bucket/internal/proof"
@@ -12,7 +11,6 @@ import (
 	"cess-bucket/internal/rpc"
 	"cess-bucket/tools"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -227,22 +225,12 @@ func register() {
 		os.Exit(1)
 	}
 
-	//Generate RSA key pair
-	encryption.GenKeypair()
-	publicKeyfile := filepath.Join(configs.BaseDir, configs.PublicKeyfile)
-	puk, err := ioutil.ReadFile(publicKeyfile)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-
 	//Registration information on the chain
 	txhash, code, err := chain.RegisterBucketToChain(
 		configs.C.SignaturePrk,
 		configs.C.IncomeAcc,
 		ipAddr,
 		pledgeTokens,
-		puk,
 	)
 	if err != nil {
 		if code != int(configs.Code_600) && code != int(configs.Code_200) {
@@ -477,9 +465,6 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	Out.Sugar().Infof("FilesDir: %v", configs.FilesDir)
 	Out.Sugar().Infof("MinerId_S: %s", configs.MinerId_S)
 	Out.Sugar().Infof("MinerId_I: %d", configs.MinerId_I)
-
-	//Check if key file exists
-	encryption.Check_Keypair()
 
 	// start-up
 	go proof.Proof_Main()

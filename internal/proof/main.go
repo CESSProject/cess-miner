@@ -26,12 +26,11 @@ import (
 	"storj.io/common/base58"
 )
 
-type RespSpacefileInfo struct {
-	FileId  string       `json:"fileId"`
-	Content string       `json:"content"`
-	Rule    []byte       `json:"rule"`
-	T       api.FileTagT `json:"file_tag_t"`
-	Sigmas  [][]byte     `json:"sigmas"`
+type RespSpaceInfo struct {
+	FileId string       `json:"fileId"`
+	Token  string       `json:"token"`
+	T      api.FileTagT `json:"file_tag_t"`
+	Sigmas [][]byte     `json:"sigmas"`
 }
 
 // Start the proof module
@@ -63,11 +62,11 @@ func task_SpaceManagement(ch chan bool) {
 	var (
 		availableSpace uint64
 		reconn         bool
-		basedir        string
 		tSpace         time.Time
-		req            p.SpaceFileReq
+		reqspace       p.SpaceReq
+		reqspacefile   p.SpaceFileReq
 		tagInfo        pt.TagInfo
-		respspacefile  RespSpacefileInfo
+		respspace      RespSpaceInfo
 		client         *rpc.Client
 	)
 	defer func() {
@@ -91,15 +90,13 @@ func task_SpaceManagement(ch chan bool) {
 		tSpace = time.Now()
 	}
 
-	req.Minerid = configs.MinerId_I
-	req.Fileid = ""
-	req.Publickey = pubkey
+	reqspace.Publickey = pubkey
 
 	kr, _ := keyring.FromURI(configs.C.SignaturePrk, keyring.NetSubstrate{})
 
 	for {
 		if client == nil || reconn {
-			schds, _ := chain.GetSchedulerInfo()
+			_, schds, _ := chain.GetAllSchedulerInfo()
 			client, err = connectionScheduler(schds)
 			if err != nil {
 				Err.Sugar().Errorf("-->Err: All schedules unavailable")
@@ -128,54 +125,33 @@ func task_SpaceManagement(ch chan bool) {
 		// sign message
 		msg := []byte(fmt.Sprintf("%v", tools.RandomInRange(100000, 999999)))
 		sig, _ := kr.Sign(kr.SigningContext(msg))
-		req.Msg = msg
-		req.Sign = sig[:]
+		reqspace.Msg = msg
+		reqspace.Sign = sig[:]
 
-		req_b, err := proto.Marshal(&req)
+		req_b, err := proto.Marshal(&reqspace)
 		if err != nil {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
 
-		respCode, respBody, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+		respCode, respBody, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
 		reconn = clo
 		if err != nil || respCode != configs.Code_200 {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
 
-		err = json.Unmarshal(respBody, &respspacefile)
+		err = json.Unmarshal(respBody, &respspace)
 		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			continue
-		}
-
-		basedir = filepath.Join(configs.SpaceDir, respspacefile.FileId)
-		_, err = os.Stat(basedir)
-		if err == nil {
-			continue
-		}
-		err = os.MkdirAll(basedir, os.ModeDir)
-		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			continue
-		}
-		spacefilename := respspacefile.FileId + ".space"
-		spacefilefullpath := filepath.Join(basedir, spacefilename)
-
-		//save space file
-		err = genSpaceFile(spacefilefullpath, respspacefile.Content, respspacefile.Rule)
-		if err != nil {
-			os.Remove(spacefilefullpath)
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
 
 		//save space file tag
-		tagfilename := respspacefile.FileId + ".tag"
-		tagfilefullpath := filepath.Join(basedir, tagfilename)
-		tagInfo.T = respspacefile.T
-		tagInfo.Sigmas = respspacefile.Sigmas
+		tagfilename := respspace.FileId + ".tag"
+		tagfilefullpath := filepath.Join(configs.SpaceDir, tagfilename)
+		tagInfo.T = respspace.T
+		tagInfo.Sigmas = respspace.Sigmas
 		tag, err := json.Marshal(tagInfo)
 		if err != nil {
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
@@ -188,22 +164,43 @@ func task_SpaceManagement(ch chan bool) {
 			continue
 		}
 
-		req.Fileid = respspacefile.FileId
-		// sign message
-		msg = []byte(fmt.Sprintf("%v", tools.RandomInRange(100000, 999999)))
-		sig, _ = kr.Sign(kr.SigningContext(msg))
-		req.Msg = msg
-		req.Sign = sig[:]
-		req_b, err = proto.Marshal(&req)
+		spacefilefullpath := filepath.Join(configs.SpaceDir, respspace.FileId)
+		f, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 		if err != nil {
+			os.Remove(tagfilefullpath)
 			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
 			continue
 		}
-		respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
-		reconn = clo
-		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
-			continue
+		reqspacefile.Token = respspace.Token
+
+		for i := 0; i < 17; i++ {
+			fmt.Println("req: ", i)
+			reqspacefile.BlockIndex = uint32(i)
+			req_b, err = proto.Marshal(&reqspacefile)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				f.Close()
+				os.Remove(tagfilefullpath)
+				os.Remove(spacefilefullpath)
+				break
+			}
+			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+			reconn = clo
+			if err != nil {
+				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				f.Close()
+				os.Remove(tagfilefullpath)
+				os.Remove(spacefilefullpath)
+				break
+			}
+			if i < 16 {
+				fmt.Println("write: ", len(respBody))
+				f.Write(respBody)
+				if i == 15 {
+					f.Close()
+				}
+			}
+			fmt.Println("req end: ", i)
 		}
 	}
 }

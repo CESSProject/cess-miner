@@ -53,12 +53,17 @@ message file_download_req{
   int32   block_index = 3;
 }
 
+//space
+message space_req{
+    bytes  publickey = 1;
+    bytes  msg       = 2;
+    bytes  sign      = 3;
+}
+
+//space_file
 message space_file_req{
-    uint64 minerid   = 1;
-    string fileid    = 2;
-    bytes  publickey = 3;
-    bytes  msg       = 4;
-    bytes  sign      = 5;
+    string token = 1;
+    uint32 block_index = 2;
 }
 
 message PutFileToBucket {

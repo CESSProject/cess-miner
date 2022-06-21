@@ -16,7 +16,7 @@ import (
 )
 
 // miner register
-func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64, authPuk []byte) (string, int, error) {
+func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64) (string, int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -57,7 +57,7 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 		return "", configs.Code_500, errors.New("[big.Int.SetString]")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_Register, types.NewAccountID(b), types.Bytes([]byte(ipAddr)), types.NewU128(*realTokens), types.Bytes(authPuk))
+	c, err := types.NewCall(meta, ChainTx_Sminer_Register, types.NewAccountID(b), types.Bytes([]byte(ipAddr)), types.NewU128(*realTokens))
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}
