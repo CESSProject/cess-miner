@@ -5,12 +5,10 @@ import (
 	. "cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pt"
 
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -60,67 +58,76 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 		err error
 		b   PutFileToBucket
 	)
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("+++> Write file request [T:%v]", t)
 
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+		return &RespBody{Code: 400, Msg: "Bad Requset"}, nil
 	}
 
-	//Determine whether the data base directory exists
-	err = tools.CreatDirIfNotExist(FilesDir)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
-
-	//Get the suffix of fileid
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", t, b.FileId)
-		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
-	}
-
-	//get fileid
-	fid := strings.TrimSuffix(b.FileId, ext)
-
-	//get file path
-	fpath := filepath.Join(FilesDir, fid)
-	_, err = os.Stat(fpath)
-	if err != nil {
-		err = os.MkdirAll(fpath, os.ModeDir)
-		if err != nil {
-			Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-			return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-		}
-	}
-	filefullpath := filepath.Join(fpath, b.FileId)
-
+	ok := false
+	fpath := filepath.Join(FilesDir, b.FileId)
 	if b.BlockIndex == 0 {
-		os.Remove(filefullpath)
+		var schds []chain.SchedulerInfo
+		for i := 0; i < 3; i++ {
+			_, schds, err = chain.GetAllSchedulerInfo()
+			if err == nil {
+				for _, v := range schds {
+					if v.Controller_user == types.NewAccountID(b.Publickey) {
+						ok = true
+						break
+					}
+				}
+				break
+			}
+			time.Sleep(time.Second * 3)
+		}
+		if !ok {
+			Uld.Sugar().Infof("[%v] Forbid: [%v] %v", b.FileId, b.Publickey, err)
+			return &RespBody{Code: 403, Msg: "Forbid"}, nil
+		}
+
+		//Determine whether the data base directory exists
+		err = tools.CreatDirIfNotExist(FilesDir)
+		if err != nil {
+			Uld.Sugar().Infof("[%v] CreatDirIfNotExist [%v] err: %v", b.FileId, FilesDir, err)
+			return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+		}
+
+		_, err = os.Stat(fpath)
+		if err == nil {
+			os.Remove(fpath)
+		}
+
+		_, err = os.Create(fpath)
+		if err != nil {
+			Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+			return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+		}
+
+		Uld.Sugar().Infof("+++> Upload file [%v] ", b.FileId)
 	}
 
 	//save to local file
-	fii, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
+	fii, err := os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 	defer fii.Close()
-	fii.Write(b.BlockData)
-
+	_, err = fii.Write(b.BlockData)
+	if err != nil {
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+	}
 	//flush to disk
 	err = fii.Sync()
 	if err != nil {
-		Out.Sugar().Infof("[T:%v]Err:%v", t, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+		Uld.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
-	Out.Sugar().Infof("[T:%v]Suc:[%v] [%v]", t, b.FileId, b.BlockIndex)
-	return &RespBody{Code: Code_200, Msg: "success", Data: nil}, nil
+	Uld.Sugar().Infof("[%v]Suc:[%v]", b.FileId, b.BlockIndex)
+	return &RespBody{Code: Code_200, Msg: "success"}, nil
 }
 
 // Readfile is used to return file information to the scheduling service.
@@ -205,76 +212,73 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 // Writefiletag is used to receive the file tag uploaded by the scheduling service.
 // The return code is 200 for success, non-200 for failure.
 // The returned Msg indicates the result reason.
-func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
-	var (
-		err     error
-		b       PutTagToBucket
-		tagInfo pt.TagInfo
-	)
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Write file tag request.....", t)
+// func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
+// 	var (
+// 		err     error
+// 		b       PutTagToBucket
+// 		tagInfo pt.TagInfo
+// 	)
 
-	//Parse the requested data
-	err = proto.Unmarshal(body, &b)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
-	}
+// 	//Parse the requested data
+// 	err = proto.Unmarshal(body, &b)
+// 	if err != nil {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
+// 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+// 	}
 
-	//Get the suffix of fileid
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", b.FileId, t)
-		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
-	}
+// 	//Get the suffix of fileid
+// 	ext := filepath.Ext(b.FileId)
+// 	if ext == "" {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", b.FileId, t)
+// 		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
+// 	}
 
-	//get fileid
-	fid := strings.TrimSuffix(b.FileId, ext)
+// 	//get fileid
+// 	fid := strings.TrimSuffix(b.FileId, ext)
 
-	//get file path
-	fpath := filepath.Join(FilesDir, fid)
-	_, err = os.Stat(fpath)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
-	}
+// 	//get file path
+// 	fpath := filepath.Join(FilesDir, fid)
+// 	_, err = os.Stat(fpath)
+// 	if err != nil {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+// 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
+// 	}
 
-	//Save tag information
-	tagInfo.T.T0.Name = b.Name
-	tagInfo.T.T0.N = b.N
-	tagInfo.T.T0.U = b.U
-	tagInfo.T.Signature = b.Signature
-	tagInfo.Sigmas = b.Sigmas
-	tag, err := json.Marshal(tagInfo)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
+// 	//Save tag information
+// 	tagInfo.T.T0.Name = b.Name
+// 	tagInfo.T.T0.N = b.N
+// 	tagInfo.T.T0.U = b.U
+// 	tagInfo.T.Signature = b.Signature
+// 	tagInfo.Sigmas = b.Sigmas
+// 	tag, err := json.Marshal(tagInfo)
+// 	if err != nil {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+// 	}
 
-	filetagname := b.FileId + ".tag"
-	filefullpath := filepath.Join(fpath, filetagname)
+// 	filetagname := b.FileId + ".tag"
+// 	filefullpath := filepath.Join(fpath, filetagname)
 
-	//Save tag information to file
-	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
-	ftag.Write(tag)
+// 	//Save tag information to file
+// 	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+// 	if err != nil {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+// 	}
+// 	ftag.Write(tag)
 
-	//flush to disk
-	err = ftag.Sync()
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		ftag.Close()
-		os.Remove(filefullpath)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
-	ftag.Close()
-	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
-	return &RespBody{Code: Code_200, Msg: "success", Data: nil}, nil
-}
+// 	//flush to disk
+// 	err = ftag.Sync()
+// 	if err != nil {
+// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+// 		ftag.Close()
+// 		os.Remove(filefullpath)
+// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+// 	}
+// 	ftag.Close()
+// 	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
+// 	return &RespBody{Code: Code_200, Msg: "success", Data: nil}, nil
+// }
 
 // Readfiletag is used to return the file tag to the scheduling service.
 // The return code is 200 for success, non-200 for failure.

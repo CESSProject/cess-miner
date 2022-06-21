@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket v0.4.0"
+const Version = "CESS-Bucket v0.5.0 pre-release"
 
 // rpc service and method
 const (
@@ -9,8 +9,9 @@ const (
 	RpcService_Scheduler          = "wservice"
 	RpcMethod_Scheduler_Writefile = "writefile"
 	RpcMethod_Scheduler_Readfile  = "readfile"
+	RpcMethod_Scheduler_Space     = "space"
 	RpcMethod_Scheduler_Spacefile = "spacefile"
-	RpcFileBuffer                 = 64 * 1024 //64KB
+	RpcFileBuffer                 = 1024 * 1024 //1MB
 )
 
 // return code

@@ -114,3 +114,11 @@ type UserSpaceInfo struct {
 	UsedSpace      types.U128
 	RemainingSpace types.U128
 }
+
+type ProveInfo struct {
+	FileId  types.Bytes
+	MinerId types.U64
+	Cinfo   ChallengesInfo
+	Mu      []types.Bytes
+	Sigma   types.Bytes
+}

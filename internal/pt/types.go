@@ -8,8 +8,8 @@ import (
 )
 
 type TagInfo struct {
-	T      api.FileTagT `json:"file_tag_t"`
-	Sigmas [][]byte     `json:"sigmas"`
+	T      api.FileTagT
+	Sigmas [][]byte `json:"sigmas"`
 }
 
 type MountPathInfo struct {
