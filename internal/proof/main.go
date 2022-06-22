@@ -411,7 +411,6 @@ func task_RemoveInvalidFiles(ch chan bool) {
 				Out.Sugar().Infof("%v", err)
 			}
 		}
-
 	}
 }
 
