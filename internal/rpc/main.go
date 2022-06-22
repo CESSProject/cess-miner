@@ -5,20 +5,25 @@ import (
 	. "cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	"log"
+	"net"
+	"net/http"
 
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"github.com/soheilhy/cmux"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -34,19 +39,70 @@ func Rpc_Init() {
 	}
 }
 
-// Start websocket service.
-// If an error occurs, it will exit immediately.
+// Start http service.
 func Rpc_Main() {
-	srv := NewServer()
-	err := srv.Register(RpcService_Local, MService{})
+	l, err := net.Listen("tcp", ":"+fmt.Sprintf("%d", C.ServicePort))
 	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-	err = http.ListenAndServe(":"+fmt.Sprintf("%d", C.ServicePort), srv.WebsocketHandler([]string{"*"}))
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
+
+	m := cmux.New(l)
+	conn_ws := m.Match(cmux.HTTP1HeaderField("Upgrade", "websocket"))
+	conn_http := m.Match(cmux.HTTP1Fast())
+
+	go serveWs(conn_ws)
+	go serveHttp(conn_http)
+
+	if err := m.Serve(); err != nil {
+		Err.Sugar().Errorf("%v", err)
+	}
+}
+
+func serveWs(l net.Listener) {
+	srv := NewServer()
+	srv.Register(RpcService_Local, MService{})
+
+	s_websocket := &http.Server{
+		Handler: srv.WebsocketHandler([]string{"*"}),
+	}
+
+	if err := s_websocket.Serve(l); err != nil {
+		fmt.Println("ws serve err: ", err)
+	}
+}
+
+func serveHttp(l net.Listener) {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET"}
+	r.Use(cors.New(config))
+	r.GET("/:fid", func(c *gin.Context) {
+		fid := c.Param("fid")
+		if fid == "" {
+			Err.Sugar().Errorf("[%v] fid is empty", c.ClientIP())
+			c.JSON(http.StatusNotFound, "fid is empty")
+			return
+		}
+		fpath := filepath.Join(configs.FilesDir, fid)
+		_, err := os.Stat(fpath)
+		if err != nil {
+			Err.Sugar().Errorf("[%v] file not found", c.ClientIP())
+			c.JSON(http.StatusNotFound, "Not found")
+			return
+		}
+		c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", fid))
+		c.Writer.Header().Add("Content-Type", "application/octet-stream")
+		c.File(fpath)
+	})
+
+	s_http := &http.Server{
+		Handler: r,
+	}
+
+	if err := s_http.Serve(l); err != nil {
+		fmt.Println("http server err: ", err)
 	}
 }
 
