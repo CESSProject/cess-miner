@@ -196,40 +196,25 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		rtnData FileDownloadInfo
 	)
 
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Read file request.....", t)
-
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Out.Sugar().Infof("[%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+		return &RespBody{Code: 400, Msg: "Request error"}, nil
 	}
-
-	//Get the suffix of fileid
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", t, b.FileId)
-		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
-	}
-
-	//get fileid
-	fid := strings.TrimSuffix(b.FileId, ext)
 
 	//get file path
-	fpath := filepath.Join(FilesDir, fid, b.FileId)
+	fpath := filepath.Join(FilesDir, b.FileId)
 	fstat, err := os.Stat(fpath)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[%v] Stat Err: %v", b.FileId, err)
+		return &RespBody{Code: Code_404, Msg: err.Error()}, nil
 	}
 
 	// read file content
 	f, err := os.OpenFile(fpath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+		Out.Sugar().Infof("[%v] OpenFile Err: %v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 
 	// Calculate the number of slices
@@ -237,31 +222,27 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	if fstat.Size()%configs.RpcFileBuffer != 0 {
 		blockTotal++
 	}
-	if b.BlockIndex >= int32(blockTotal) {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_400, Msg: "Invalid block index", Data: nil}, nil
+	if b.BlockIndex > uint32(blockTotal) {
+		Out.Sugar().Infof("[%v]Err:Invalid block index", b.FileId)
+		return &RespBody{Code: Code_400, Msg: "Invalid block index"}, nil
 	}
 
 	//Collate returned data
-	rtnData.FileId = b.FileId
+	rtnData.BlockTotal = uint32(blockTotal)
 	rtnData.BlockIndex = b.BlockIndex
 	var tmp = make([]byte, configs.RpcFileBuffer)
 	f.Seek(int64(b.BlockIndex*configs.RpcFileBuffer), 0)
 	n, _ := f.Read(tmp)
-
-	rtnData.BlockSize = int32(n)
 	rtnData.Data = tmp[:n]
-
-	rtnData.BlockTotal = int32(blockTotal)
 	f.Close()
 	//proto encoding
 	rtnData_proto, err := proto.Marshal(&rtnData)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+		Out.Sugar().Infof("[%v]Marshal Err:%v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
-	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, b.FileId)
+	Out.Sugar().Infof("[%v]Download suc [%v-%v]", b.FileId, blockTotal, b.BlockIndex)
 	return &RespBody{Code: Code_200, Msg: "success", Data: rtnData_proto}, nil
 }
 
