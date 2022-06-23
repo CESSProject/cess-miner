@@ -166,14 +166,14 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
 
 	//Find your information and exit
-	if code != configs.Code_404 || mData.Peerid != 0 {
+	if code == configs.Code_200 || mData.PeerId != 0 {
 		fmt.Printf("\x1b[%dm[ok]\x1b[0m The account is already registered.\n", 42)
 		os.Exit(0)
 	}
@@ -191,8 +191,8 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 
 func register() {
 	//Calculate the deposit based on the size of the storage space
-	pledgeTokens := 2000 * (configs.C.StorageSpace / (1024 * 1024 * 1024 * 1024))
-	if configs.C.StorageSpace%(1024*1024*1024*1024) != 0 {
+	pledgeTokens := 2000 * (configs.C.StorageSpace / 1024)
+	if configs.C.StorageSpace%1024 != 0 {
 		pledgeTokens += 2000
 	}
 
@@ -205,7 +205,7 @@ func register() {
 
 	//Determine whether the external network IP is consistent with the configuration file
 	if eip != configs.C.ServiceAddr {
-		fmt.Printf("\x1b[%dm[err]\x1b[0mYou can use \"curl ifconfig.co\" to view the external network ip address\n", 41)
+		fmt.Printf("\x1b[%dm[err]\x1b[0mThe public IP does not match the machine\n", 41)
 		os.Exit(1)
 	}
 
@@ -232,15 +232,13 @@ func register() {
 		ipAddr,
 		pledgeTokens,
 	)
-	if err != nil {
-		if code != int(configs.Code_600) && code != int(configs.Code_200) {
-			os.RemoveAll(configs.BaseDir)
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
-			os.Exit(1)
-		}
+	if txhash == "" {
+		os.RemoveAll(configs.BaseDir)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed, Please try again later. [%v]\n", 41, err)
+		os.Exit(1)
 	}
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please check the network and try again.\n", 41)
 		os.Exit(1)
@@ -269,8 +267,8 @@ func register() {
 		goto Err
 	}
 
-	configs.MinerId_I = uint64(mData.Peerid)
-	configs.MinerId_S = fmt.Sprintf("%v", mData.Peerid)
+	configs.MinerId_I = uint64(mData.PeerId)
+	configs.MinerId_S = fmt.Sprintf("%v", mData.PeerId)
 
 	//Initialize the logger
 	logger.LoggerInit()
@@ -299,44 +297,44 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
 
 	//Exit program without registration
-	if code == configs.Code_404 || mData.Peerid == 0 {
+	if code == configs.Code_404 || mData.PeerId == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	}
 
-	//Query your own details on-chain
-	minerInfo, err := chain.GetMinerDetailInfo(
-		configs.C.SignaturePrk,
-		chain.State_Sminer,
-		chain.Sminer_MinerItems,
-		chain.Sminer_MinerDetails,
-	)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		Err.Sugar().Errorf("%v", err)
-		os.Exit(1)
-	}
-	tokens := minerInfo.MinerItems.Collaterals.Div(minerInfo.MinerItems.Collaterals.Int, big.NewInt(1000000000000))
-	addr := base58.Decode(string(minerInfo.MinerItems.ServiceAddr))
+	// //Query your own details on-chain
+	// minerInfo, err := chain.GetMinerDetailInfo(
+	// 	configs.C.SignaturePrk,
+	// 	chain.State_Sminer,
+	// 	chain.Sminer_MinerItems,
+	// 	chain.Sminer_MinerDetails,
+	// )
+	// if err != nil {
+	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	// 	Err.Sugar().Errorf("%v", err)
+	// 	os.Exit(1)
+	// }
+	mData.Collaterals.Div(new(big.Int).SetBytes(mData.Collaterals.Bytes()), big.NewInt(1000000000000))
+	addr := base58.Decode(string(mData.Ip))
 	var power, space float32
 	var power_unit, space_unit string
 	count := 0
-	for minerInfo.MinerItems.Power.BitLen() > int(16) {
-		minerInfo.MinerItems.Power.Div(new(big.Int).SetBytes(minerInfo.MinerItems.Power.Bytes()), big.NewInt(1024))
+	for mData.Power.BitLen() > int(16) {
+		mData.Power.Div(new(big.Int).SetBytes(mData.Power.Bytes()), big.NewInt(1024))
 		count++
 	}
-	if minerInfo.MinerItems.Power.Int64() > 1024 {
-		power = float32(minerInfo.MinerItems.Power.Int64()) / float32(1024)
+	if mData.Power.Int64() > 1024 {
+		power = float32(mData.Power.Int64()) / float32(1024)
 		count++
 	} else {
-		power = float32(minerInfo.MinerItems.Power.Int64())
+		power = float32(mData.Power.Int64())
 	}
 	switch count {
 	case 0:
@@ -365,15 +363,15 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		power_unit = fmt.Sprintf("DB(%v)", count-10)
 	}
 	count = 0
-	for minerInfo.MinerItems.Space.BitLen() > int(16) {
-		minerInfo.MinerItems.Space.Div(new(big.Int).SetBytes(minerInfo.MinerItems.Space.Bytes()), big.NewInt(1024))
+	for mData.Space.BitLen() > int(16) {
+		mData.Space.Div(new(big.Int).SetBytes(mData.Space.Bytes()), big.NewInt(1024))
 		count++
 	}
-	if minerInfo.MinerItems.Space.Int64() > 1024 {
-		space = float32(minerInfo.MinerItems.Space.Int64()) / float32(1024)
+	if mData.Space.Int64() > 1024 {
+		space = float32(mData.Space.Int64()) / float32(1024)
 		count++
 	} else {
-		space = float32(minerInfo.MinerItems.Space.Int64())
+		space = float32(mData.Space.Int64())
 	}
 
 	switch count {
@@ -405,7 +403,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	//print your own details
 	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %.2f %v\nUsedSpace: %.2f %v\nPledgeTokens: %v TCESS\nServiceAddr: %v\n",
-		minerInfo.MinerItems.Peerid, string(minerInfo.MinerItems.State), power, power_unit, space, space_unit, tokens, string(addr))
+		mData.PeerId, string(mData.State), power, power_unit, space, space_unit, mData.Collaterals, string(addr))
 	os.Exit(0)
 }
 
@@ -418,14 +416,14 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please check the network and try again. [%v]\n", 41, err)
 		os.Exit(1)
 	}
 
 	//Exit program without registration
-	if code == configs.Code_404 || mData.Peerid == 0 {
+	if code == configs.Code_404 || mData.PeerId == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(1)
 	}
@@ -452,8 +450,8 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	configs.MinerId_S = fmt.Sprintf("%v", mData.Peerid)
-	configs.MinerId_I = uint64(mData.Peerid)
+	configs.MinerId_S = fmt.Sprintf("%v", mData.PeerId)
+	configs.MinerId_I = uint64(mData.PeerId)
 
 	//global initialization
 	initlz.SystemInit()
@@ -480,12 +478,12 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
-	if code == configs.Code_404 || mData.Peerid == 0 {
+	if code == configs.Code_404 || mData.PeerId == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	}
@@ -522,12 +520,12 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
-	if code == configs.Code_404 || mData.Peerid == 0 {
+	if code == configs.Code_404 || mData.PeerId == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	}
@@ -558,12 +556,12 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	chain.Chain_Init()
 
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerItems(configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
-	if code == configs.Code_404 || mData.Peerid == 0 {
+	if code == configs.Code_404 || mData.PeerId == 0 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered\n", 41)
 		os.Exit(0)
 	}
@@ -676,21 +674,16 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	// if configs.C.StorageSpace < 1000 {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m You need to configure at least 1000GB of storage space.\n", 41)
-	// 	os.Exit(1)
-	// }
-
 	_, err = pt.GetMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
 
-	hashs, err := tools.CalcHash([]byte(configs.C.SignaturePrk))
+	addr, err := chain.GetCESSAddressFromPrk(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
-	configs.BaseDir = filepath.Join(configs.C.MountedPath, tools.GetStringWithoutNumbers(hashs), configs.BaseDir)
+	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
 }

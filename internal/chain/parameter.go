@@ -14,8 +14,6 @@ const (
 const (
 	Sminer_MinerItems          = "MinerItems"
 	Sminer_MinerDetails        = "MinerDetails"
-	SegmentBook_ConProofInfoA  = "ConProofInfoA"
-	SegmentBook_ConProofInfoC  = "ConProofInfoC"
 	SegmentBook_MinerHoldSlice = "MinerHoldSlice"
 	SegmentBook_ChallengeMap   = "ChallengeMap"
 	FileMap_SchedulerPuk       = "SchedulerPuk"
@@ -27,47 +25,30 @@ const (
 
 // cess chain Transaction name
 const (
-	ChainTx_Sminer_Register              = "Sminer.regnstk"
-	ChainTx_SegmentBook_IntentSubmit     = "SegmentBook.intent_submit"
-	ChainTx_SegmentBook_IntentSubmitPost = "SegmentBook.intent_submit_po_st"
-	ChainTx_SegmentBook_SubmitToVpa      = "SegmentBook.submit_to_vpa"
-	ChainTx_SegmentBook_SubmitToVpb      = "SegmentBook.submit_to_vpb"
-	ChainTx_SegmentBook_SubmitToVpc      = "SegmentBook.submit_to_vpc"
-	ChainTx_SegmentBook_SubmitToVpd      = "SegmentBook.submit_to_vpd"
-	ChainTx_Sminer_ExitMining            = "Sminer.exit_miner"
-	ChainTx_Sminer_Withdraw              = "Sminer.withdraw"
-	ChainTx_Sminer_Increase              = "Sminer.increase_collateral"
-	SegmentBook_SubmitProve              = "SegmentBook.submit_challenge_prove"
-	FileBank_ClearInvalidFile            = "FileBank.clear_invalid_file"
+	ChainTx_Sminer_Register          = "Sminer.regnstk"
+	ChainTx_SegmentBook_IntentSubmit = "SegmentBook.intent_submit"
+	ChainTx_Sminer_ExitMining        = "Sminer.exit_miner"
+	ChainTx_Sminer_Withdraw          = "Sminer.withdraw"
+	ChainTx_Sminer_Increase          = "Sminer.increase_collateral"
+	SegmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
+	FileBank_ClearInvalidFile        = "FileBank.clear_invalid_file"
 )
 
-type CessChain_MinerInfo struct {
-	MinerItems   Chain_MinerItems
-	MinerDetails Chain_MinerDetails
-}
-
-type Chain_MinerItems struct {
-	Peerid      types.U64
-	Beneficiary types.AccountID
-	ServiceAddr types.Bytes
+type MinerInfo struct {
+	PeerId      types.U64
+	IncomeAcc   types.AccountID
+	Ip          types.Bytes
 	Collaterals types.U128
-	Earnings    types.U128
-	Locked      types.U128
 	State       types.Bytes
 	Power       types.U128
 	Space       types.U128
-	PublicKey   types.Bytes
+	RewardInfo  RewardInfo
 }
 
-type Chain_MinerDetails struct {
-	Address                           types.AccountID
-	Beneficiary                       types.AccountID
-	ServiceAddr                       types.Bytes
-	Power                             types.U128
-	Space                             types.U128
-	Total_reward                      types.U128
-	Total_rewards_currently_available types.U128
-	Totald_not_receive                types.U128
+type RewardInfo struct {
+	Total       types.U128
+	Received    types.U128
+	NotReceived types.U128
 }
 
 //---SchedulerInfo

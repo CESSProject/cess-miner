@@ -500,18 +500,12 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 }
 
 //
-func GetAddressFromPrk(prk string, prefix []byte) (string, error) {
+func GetCESSAddressFromPrk(prk string) (string, error) {
 	keyring, err := signature.KeyringPairFromSecret(prk, 0)
 	if err != nil {
 		return "", errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
-	var pre []byte
-	if configs.NewTestAddr {
-		pre = tools.ChainCessTestPrefix
-	} else {
-		pre = tools.SubstratePrefix
-	}
-	addr, err := tools.Encode(keyring.PublicKey, pre)
+	addr, err := tools.Encode(keyring.PublicKey, tools.ChainCessTestPrefix)
 	if err != nil {
 		return "", errors.Wrap(err, "[Encode]")
 	}
