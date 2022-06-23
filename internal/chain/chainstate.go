@@ -155,7 +155,7 @@ func GetAllSchedulerInfo() (int, []SchedulerInfo, error) {
 	return configs.Code_200, data, nil
 }
 
-func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
+func GetChallengesById(pubkey []byte) ([]ChallengesInfo, int, error) {
 	var (
 		err  error
 		data []ChallengesInfo
@@ -172,11 +172,8 @@ func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-	b, err := types.EncodeToBytes(types.NewU64(id))
-	if err != nil {
-		return nil, configs.Code_500, errors.Wrapf(err, "[EncodeToBytes]")
-	}
-	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, b)
+
+	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, pubkey)
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}

@@ -5,6 +5,8 @@ import (
 	. "cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pt"
+	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -249,73 +251,54 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 // Writefiletag is used to receive the file tag uploaded by the scheduling service.
 // The return code is 200 for success, non-200 for failure.
 // The returned Msg indicates the result reason.
-// func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
-// 	var (
-// 		err     error
-// 		b       PutTagToBucket
-// 		tagInfo pt.TagInfo
-// 	)
+func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
+	var (
+		err     error
+		b       PutTagToBucket
+		tagInfo pt.TagInfo
+	)
 
-// 	//Parse the requested data
-// 	err = proto.Unmarshal(body, &b)
-// 	if err != nil {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
-// 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
-// 	}
+	//Parse the requested data
+	err = proto.Unmarshal(body, &b)
+	if err != nil {
+		return &RespBody{Code: 400, Msg: "Request error"}, nil
+	}
 
-// 	//Get the suffix of fileid
-// 	ext := filepath.Ext(b.FileId)
-// 	if ext == "" {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:Invalid dupl id", b.FileId, t)
-// 		return &RespBody{Code: Code_400, Msg: "Invalid dupl id", Data: nil}, nil
-// 	}
+	//Save tag information
+	tagInfo.T.T0.Name = b.Name
+	tagInfo.T.T0.N = b.N
+	tagInfo.T.T0.U = b.U
+	tagInfo.T.Signature = b.Signature
+	tagInfo.Sigmas = b.Sigmas
+	tag, err := json.Marshal(tagInfo)
+	if err != nil {
+		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+	}
 
-// 	//get fileid
-// 	fid := strings.TrimSuffix(b.FileId, ext)
+	filetagname := b.FileId + ".tag"
+	filefullpath := filepath.Join(FilesDir, filetagname)
 
-// 	//get file path
-// 	fpath := filepath.Join(FilesDir, fid)
-// 	_, err = os.Stat(fpath)
-// 	if err != nil {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-// 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
-// 	}
+	//Save tag information to file
+	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+	}
+	ftag.Write(tag)
 
-// 	//Save tag information
-// 	tagInfo.T.T0.Name = b.Name
-// 	tagInfo.T.T0.N = b.N
-// 	tagInfo.T.T0.U = b.U
-// 	tagInfo.T.Signature = b.Signature
-// 	tagInfo.Sigmas = b.Sigmas
-// 	tag, err := json.Marshal(tagInfo)
-// 	if err != nil {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-// 	}
-
-// 	filetagname := b.FileId + ".tag"
-// 	filefullpath := filepath.Join(fpath, filetagname)
-
-// 	//Save tag information to file
-// 	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-// 	if err != nil {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-// 	}
-// 	ftag.Write(tag)
-
-// 	//flush to disk
-// 	err = ftag.Sync()
-// 	if err != nil {
-// 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-// 		ftag.Close()
-// 		os.Remove(filefullpath)
-// 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-// 	}
-// 	ftag.Close()
-// 	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
-// 	return &RespBody{Code: Code_200, Msg: "success", Data: nil}, nil
-// }
+	//flush to disk
+	err = ftag.Sync()
+	if err != nil {
+		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		ftag.Close()
+		os.Remove(filefullpath)
+		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
+	}
+	ftag.Close()
+	Out.Sugar().Infof("[%v]Save tag suc", b.FileId)
+	return &RespBody{Code: Code_200, Msg: "success"}, nil
+}
 
 // Readfiletag is used to return the file tag to the scheduling service.
 // The return code is 200 for success, non-200 for failure.

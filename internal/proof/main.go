@@ -243,9 +243,18 @@ func task_HandlingChallenges(ch chan bool) {
 		break
 	}
 
+	miner_pubkey, err := chain.GetPublickeyFromPrk(configs.C.SignaturePrk)
+	if err != nil {
+		Err.Sugar().Errorf("GetPublickeyFromPrk err: %v", err)
+		os.Exit(1)
+	}
+
 	for {
-		chlng, _, err = chain.GetChallengesById(configs.MinerId_I)
+		chlng, code, err = chain.GetChallengesById(miner_pubkey)
 		if err != nil {
+			if code != configs.Code_404 {
+				Out.Sugar().Infof("[ERR] %v", err)
+			}
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
