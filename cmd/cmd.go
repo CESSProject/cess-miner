@@ -167,7 +167,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Query your own information on the chain
 	mData, code, err := chain.GetMinerInfo(configs.C.SignaturePrk)
-	if err != nil {
+	if err != nil && code != configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}

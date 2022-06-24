@@ -27,10 +27,10 @@ import (
 )
 
 type RespSpaceInfo struct {
-	FileId string       `json:"fileId"`
-	Token  string       `json:"token"`
-	T      api.FileTagT `json:"file_tag_t"`
-	Sigmas [][]byte     `json:"sigmas"`
+	FileId string `json:"fileId"`
+	Token  string `json:"token"`
+	T      api.FileTagT
+	Sigmas [][]byte `json:"sigmas"`
 }
 
 // Start the proof module
@@ -174,7 +174,6 @@ func task_SpaceManagement(ch chan bool) {
 		reqspacefile.Token = respspace.Token
 
 		for i := 0; i < 17; i++ {
-			fmt.Println("req: ", i)
 			reqspacefile.BlockIndex = uint32(i)
 			req_b, err = proto.Marshal(&reqspacefile)
 			if err != nil {
@@ -194,13 +193,10 @@ func task_SpaceManagement(ch chan bool) {
 				break
 			}
 			if i < 16 {
-				fmt.Println("write: ", len(respBody))
-				f.Write(respBody)
 				if i == 15 {
 					f.Close()
 				}
 			}
-			fmt.Println("req end: ", i)
 		}
 	}
 }
