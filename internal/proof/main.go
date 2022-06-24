@@ -193,6 +193,7 @@ func task_SpaceManagement(ch chan bool) {
 				break
 			}
 			if i < 16 {
+				f.Write(respBody)
 				if i == 15 {
 					f.Close()
 				}

@@ -79,6 +79,7 @@ func serveHttp(l net.Listener) {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET"}
+	config.AllowHeaders = []string{"cache-control", "x-requested-with", "*"}
 	r.Use(cors.New(config))
 	r.GET("/:fid", func(c *gin.Context) {
 		fid := c.Param("fid")
