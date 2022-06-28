@@ -3,7 +3,6 @@ package chain
 import (
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
-	"encoding/binary"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -11,10 +10,11 @@ import (
 )
 
 // Get miner information on the cess chain
-func GetMinerItems(phrase string) (Chain_MinerItems, int, error) {
+// Get miner information on the chain
+func GetMinerInfo(prvkey string) (MinerInfo, int, error) {
 	var (
 		err   error
-		mdata Chain_MinerItems
+		mdata MinerInfo
 	)
 	api := getSubstrateAPI()
 	defer func() {
@@ -24,17 +24,23 @@ func GetMinerItems(phrase string) (Chain_MinerItems, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
+
+	keyring, err := signature.KeyringPairFromSecret(prvkey, 0)
+	if err != nil {
+		return mdata, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
+	}
+
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return mdata, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	account, err := signature.KeyringPairFromSecret(phrase, 0)
-	if err != nil {
-		return mdata, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
-	}
+	// b, err := types.EncodeToBytes(types.NewAccountID(pubkey))
+	// if err != nil {
+	// 	return mdata, configs.Code_500, errors.Wrap(err, "[EncodeToBytes]")
+	// }
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, account.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, keyring.PublicKey)
 	if err != nil {
 		return mdata, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -44,81 +50,9 @@ func GetMinerItems(phrase string) (Chain_MinerItems, int, error) {
 		return mdata, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return mdata, configs.Code_404, nil
+		return mdata, configs.Code_404, errors.New("[value is empty]")
 	}
 	return mdata, configs.Code_200, nil
-}
-
-// Get miner information on the cess chain
-func GetMinerDetailInfo(identifyAccountPhrase, chainModule, chainModuleMethod1, chainModuleMethod2 string) (CessChain_MinerInfo, error) {
-	var (
-		err   error
-		mdata CessChain_MinerInfo
-		m1    Chain_MinerItems
-		m2    Chain_MinerDetails
-	)
-	api := getSubstrateAPI()
-	defer func() {
-		releaseSubstrateAPI()
-		err := recover()
-		if err != nil {
-			Err.Sugar().Errorf("[panic]: %v", err)
-		}
-	}()
-	meta, err := api.RPC.State.GetMetadataLatest()
-	if err != nil {
-		return mdata, errors.Wrap(err, "GetMetadataLatest err")
-	}
-
-	account, err := signature.KeyringPairFromSecret(identifyAccountPhrase, 0)
-	if err != nil {
-		return mdata, errors.Wrap(err, "KeyringPairFromSecret err")
-	}
-
-	key, err := types.CreateStorageKey(meta, chainModule, chainModuleMethod1, account.PublicKey)
-	if err != nil {
-		return mdata, errors.Wrap(err, "CreateStorageKey err")
-	}
-
-	_, err = api.RPC.State.GetStorageLatest(key, &m1)
-	if err != nil {
-		return mdata, errors.Wrap(err, "GetStorageLatest err")
-	}
-
-	eraIndexSerialized := make([]byte, 8)
-	binary.LittleEndian.PutUint64(eraIndexSerialized, uint64(m1.Peerid))
-
-	key, err = types.CreateStorageKey(meta, chainModule, chainModuleMethod2, types.NewBytes(eraIndexSerialized))
-	if err != nil {
-		return mdata, errors.Wrap(err, "CreateStorageKey err")
-	}
-
-	_, err = api.RPC.State.GetStorageLatest(key, &m2)
-	if err != nil {
-		return mdata, errors.Wrap(err, "GetStorageLatest err")
-	}
-
-	mdata.MinerItems.Peerid = m1.Peerid
-	mdata.MinerItems.Beneficiary = m1.Beneficiary
-	mdata.MinerItems.ServiceAddr = m1.ServiceAddr
-	mdata.MinerItems.Collaterals = m1.Collaterals
-	mdata.MinerItems.Earnings = m1.Earnings
-	mdata.MinerItems.Locked = m1.Locked
-	mdata.MinerItems.State = m1.State
-	mdata.MinerItems.Power = m1.Power
-	mdata.MinerItems.Space = m1.Space
-	mdata.MinerItems.PublicKey = m1.PublicKey
-
-	mdata.MinerDetails.Address = m2.Address
-	mdata.MinerDetails.Beneficiary = m2.Beneficiary
-	mdata.MinerDetails.ServiceAddr = m2.ServiceAddr
-	mdata.MinerDetails.Power = m2.Power
-	mdata.MinerDetails.Space = m2.Space
-	mdata.MinerDetails.Total_reward = m2.Total_reward
-	mdata.MinerDetails.Total_rewards_currently_available = m2.Total_rewards_currently_available
-	mdata.MinerDetails.Totald_not_receive = m2.Totald_not_receive
-
-	return mdata, nil
 }
 
 // Get scheduler information on the cess chain
@@ -155,7 +89,7 @@ func GetAllSchedulerInfo() (int, []SchedulerInfo, error) {
 	return configs.Code_200, data, nil
 }
 
-func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
+func GetChallengesById(pubkey []byte) ([]ChallengesInfo, int, error) {
 	var (
 		err  error
 		data []ChallengesInfo
@@ -172,11 +106,8 @@ func GetChallengesById(id uint64) ([]ChallengesInfo, int, error) {
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-	b, err := types.EncodeToBytes(types.NewU64(id))
-	if err != nil {
-		return nil, configs.Code_500, errors.Wrapf(err, "[EncodeToBytes]")
-	}
-	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, b)
+
+	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, pubkey)
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
