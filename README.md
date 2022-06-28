@@ -216,10 +216,8 @@ sudo ./bucket withdraw
 - Start mining
 
 ```shell
-sudo nohup ./bucket run > /dev/null 2>&1 &
+sudo nohup ./bucket run 2>&1 &
 ```
-
-
 
 ## License
 Licensed under [Apache 2.0](https://github.com/CESSProject/cess-bucket/blob/main/LICENSE)
