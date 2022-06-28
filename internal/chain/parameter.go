@@ -32,6 +32,7 @@ const (
 	ChainTx_Sminer_Increase          = "Sminer.increase_collateral"
 	SegmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
 	FileBank_ClearInvalidFile        = "FileBank.clear_invalid_file"
+	FileBank_ClearFiller             = "FileBank.clear_all_filler"
 )
 
 type MinerInfo struct {

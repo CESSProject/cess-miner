@@ -211,7 +211,6 @@ func task_HandlingChallenges(ch chan bool) {
 		code          int
 		fileid        string
 		filedir       string
-		filename      string
 		tagfilename   string
 		blocksize     int64
 		filetag       pt.TagInfo
@@ -269,20 +268,17 @@ func task_HandlingChallenges(ch chan bool) {
 			if len(proveInfos) > 80 {
 				break
 			}
+			fileid = string(chlng[i].File_id)
 			if chlng[i].File_type == 1 {
 				//space file
-				filedir = filepath.Join(configs.SpaceDir, string(chlng[i].File_id))
-				filename = string(chlng[i].File_id) + ".space"
-				fileid = string(chlng[i].File_id)
+				filedir = filepath.Join(configs.SpaceDir, fileid)
 			} else {
 				//user file
-				fileid = strings.Split(string(chlng[i].File_id), ".")[0]
 				filedir = filepath.Join(configs.FilesDir, fileid)
-				filename = string(chlng[i].File_id)
 			}
-			tagfilename = string(chlng[i].File_id) + ".tag"
-			fileFullPath := filepath.Join(filedir, filename)
-			fstat, err := os.Stat(fileFullPath)
+
+			tagfilename = fileid + ".tag"
+			fstat, err := os.Stat(filedir)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", filedir, err)
 				continue
@@ -300,12 +296,12 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			ftag, err := ioutil.ReadFile(filepath.Join(filedir, tagfilename))
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 			err = json.Unmarshal(ftag, &filetag)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
@@ -313,9 +309,9 @@ func task_HandlingChallenges(ch chan bool) {
 			poDR2prove.T = filetag.T
 			poDR2prove.Sigmas = filetag.Sigmas
 
-			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
+			matrix, _, err := split(filedir, blocksize, fstat.Size())
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
@@ -326,7 +322,7 @@ func task_HandlingChallenges(ch chan bool) {
 			case proveResponse = <-proveResponseCh:
 			}
 			if proveResponse.StatueMsg.StatusCode != api.Success {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
@@ -354,7 +350,7 @@ func task_HandlingChallenges(ch chan bool) {
 				break
 			}
 			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
-				Err.Sugar().Errorf("[%v] %v", filename, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				break
 			}
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))

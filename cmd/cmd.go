@@ -491,6 +491,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	// Exit the mining function
 	ok, err := chain.ExitMining(configs.C.SignaturePrk, chain.ChainTx_Sminer_ExitMining)
 	if ok {
+		chain.ClearFiller(configs.C.SignaturePrk)
 		fmt.Println("success")
 		os.Exit(0)
 	}
