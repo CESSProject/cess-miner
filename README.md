@@ -55,8 +55,11 @@ sudo tar -zxvf pbc-0.5.14.tar.gz
 cd pbc-0.5.14/
 
 sudo chmod +x ./configure
+
 sudo ./configure
+
 sudo make
+
 sudo make install
 sudo touch /etc/ld.so.conf.d/libpbc.conf
 sudo echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
