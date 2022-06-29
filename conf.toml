@@ -1,5 +1,6 @@
 # The rpc address of the chain node
 RpcAddr      = ""
+
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
 # Total space used to store files, the unit is GB
