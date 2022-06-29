@@ -21,6 +21,7 @@ Take the ubuntu distribution as an example:
 
 ```shell
 sudo apt upgrade
+
 sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
