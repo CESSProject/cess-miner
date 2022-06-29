@@ -51,6 +51,7 @@ cd ..
 sudo wget https://crypto.stanford.edu/pbc/files/pbc-0.5.14.tar.gz
 
 sudo tar -zxvf pbc-0.5.14.tar.gz
+
 cd pbc-0.5.14/
 sudo chmod +x ./configure
 sudo ./configure
