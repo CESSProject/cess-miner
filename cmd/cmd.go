@@ -23,7 +23,7 @@ import (
 
 const (
 	Name        = "cess-bucket"
-	Description = "A mining program provided by cess platform for storage miners."
+	Description = "CESS mining program provided by CESS system for storage miners."
 )
 
 // rootCmd represents the base command when called without any subcommands
