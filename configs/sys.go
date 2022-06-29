@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket v0.4.3.220629.0937 pre-release"
+const Version = "CESS-Bucket v0.4.3.220629"
 
 // rpc service and method
 const (
@@ -16,27 +16,27 @@ const (
 
 // return code
 const (
+	//success
 	Code_200 = 200
+	//bad request
 	Code_400 = 400
+	//forbidden
 	Code_403 = 403
+	//not found
 	Code_404 = 404
+	//server internal error
 	Code_500 = 500
-	Code_600 = 600 //The block was produced but the event was not resolved
+	//The block was produced but the event was not resolved
+	Code_600 = 600
 )
 
 const (
-	PrivateKeyfile = ".m_privateKey.pem"
-	PublicKeyfile  = ".m_publicKey.pem"
-)
-
-const (
-	Space_1GB          = 1073741824     // 1GB
-	Space_1MB          = 1024 * 1024    // 1MB
-	ByteSize_1Kb       = 1024           // 1KB
-	TimeToWaitEvents_S = 15             //The time to wait for the event, in seconds
-	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
-	NewTestAddr        = true           //cess address
-	ExitColling        = 57600          //blocks
+	Space_1GB          = 1024 * 1024 * 1024 // 1GB
+	Space_1MB          = 1024 * 1024        // 1MB
+	ByteSize_1Kb       = 1024               // 1KB
+	TimeToWaitEvents_S = 15                 //The time to wait for the event, in seconds
+	TokenAccuracy      = "000000000000"     //Unit precision of CESS coins
+	ExitColling        = 57600              //blocks
 )
 
 // Miner info

@@ -63,6 +63,18 @@ func DecodeToPub(address string, prefix []byte) ([]byte, error) {
 	return data[len(prefix) : len(data)-2], nil
 }
 
+func DecodeToCessPub(address string) ([]byte, error) {
+	err := VerityAddress(address, ChainCessTestPrefix)
+	if err != nil {
+		return nil, errors.New("Invalid addrss")
+	}
+	data := base58.Decode(address)
+	if len(data) != (34 + len(ChainCessTestPrefix)) {
+		return nil, errors.New("base58 decode error")
+	}
+	return data[len(ChainCessTestPrefix) : len(data)-2], nil
+}
+
 func PubBytesToString(b []byte) string {
 	s := ""
 	for i := 0; i < len(b); i++ {

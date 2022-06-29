@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// miner register
-func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64) (string, int, error) {
+// Storage Miner Registration Function
+func Register(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens uint64) (string, int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -24,8 +24,7 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	api := getSubstrateAPI()
 	defer func() {
 		releaseSubstrateAPI()
-		err := recover()
-		if err != nil {
+		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
@@ -39,15 +38,10 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-	var pre []byte
-	if configs.NewTestAddr {
-		pre = tools.ChainCessTestPrefix
-	} else {
-		pre = tools.SubstratePrefix
-	}
-	b, err := tools.DecodeToPub(imcodeAcc, pre)
+
+	b, err := tools.DecodeToCessPub(imcodeAcc)
 	if err != nil {
-		return "", configs.Code_400, errors.Wrap(err, "[DecodeToPub]")
+		return "", configs.Code_400, errors.Wrap(err, "[DecodeToCessPub]")
 	}
 
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
@@ -57,7 +51,13 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 		return "", configs.Code_500, errors.New("[big.Int.SetString]")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_Register, types.NewAccountID(b), types.Bytes([]byte(ipAddr)), types.NewU128(*realTokens))
+	c, err := types.NewCall(
+		meta,
+		ChainTx_Sminer_Register,
+		types.NewAccountID(b),
+		types.Bytes([]byte(ipAddr)),
+		types.NewU128(*realTokens),
+	)
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}
@@ -147,7 +147,7 @@ func RegisterBucketToChain(signaturePrk, imcodeAcc, ipAddr string, pledgeTokens 
 	}
 }
 
-//
+// Storage miners increase deposit function
 func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (bool, error) {
 	var (
 		err         error
@@ -265,7 +265,7 @@ func Increase(identifyAccountPhrase, TransactionName string, tokens *big.Int) (b
 	}
 }
 
-//
+// Storage miner exits the mining function
 func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 	var (
 		err         error
@@ -383,7 +383,7 @@ func ExitMining(identifyAccountPhrase, TransactionName string) (bool, error) {
 	}
 }
 
-//
+// Storage miner redemption deposit function
 func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 	var (
 		err         error
@@ -499,30 +499,8 @@ func Withdraw(identifyAccountPhrase, TransactionName string) (bool, error) {
 	}
 }
 
-//
-func GetCESSAddressFromPrk(prk string) (string, error) {
-	keyring, err := signature.KeyringPairFromSecret(prk, 0)
-	if err != nil {
-		return "", errors.Wrap(err, "[KeyringPairFromSecret]")
-	}
-	addr, err := tools.Encode(keyring.PublicKey, tools.ChainCessTestPrefix)
-	if err != nil {
-		return "", errors.Wrap(err, "[Encode]")
-	}
-	return addr, nil
-}
-
-//
-func GetPublickeyFromPrk(prk string) ([]byte, error) {
-	keyring, err := signature.KeyringPairFromSecret(prk, 0)
-	if err != nil {
-		return nil, errors.Wrap(err, "[KeyringPairFromSecret]")
-	}
-	return keyring.PublicKey, nil
-}
-
-//
-func PutProofToChain(signaturePrk string, id uint64, data []ProveInfo) (int, error) {
+// Bulk submission proof
+func SubmitProofs(signaturePrk string, id uint64, data []ProveInfo) (int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -545,17 +523,6 @@ func PutProofToChain(signaturePrk string, id uint64, data []ProveInfo) (int, err
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
-
-	// b, err := types.EncodeToBytes(id)
-	// if err != nil {
-	// 	return configs.Code_400, errors.Wrap(err, "[EncodeToBytes]")
-	// }
-
-	// var mus []types.Bytes = make([]types.Bytes, len(mu))
-	// for i := 0; i < len(mu); i++ {
-	// 	mus[i] = make(types.Bytes, 0)
-	// 	mus[i] = append(mus[i], mu[i]...)
-	// }
 
 	c, err := types.NewCall(meta, SegmentBook_SubmitProve, types.U64(id), data)
 	if err != nil {
@@ -658,8 +625,8 @@ func PutProofToChain(signaturePrk string, id uint64, data []ProveInfo) (int, err
 	}
 }
 
-//
-func ClearInvalidFileNoChain(signaturePrk string, id uint64, fid types.Bytes) (int, error) {
+// Clear invalid files
+func ClearInvalidFiles(signaturePrk string, id uint64, fid types.Bytes) (int, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -784,7 +751,7 @@ func ClearInvalidFileNoChain(signaturePrk string, id uint64, fid types.Bytes) (i
 	}
 }
 
-//
+// Clear all filler files
 func ClearFiller(signaturePrk string) (int, error) {
 	var (
 		err         error

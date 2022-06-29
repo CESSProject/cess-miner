@@ -77,7 +77,7 @@ func task_SpaceManagement(ch chan bool) {
 	}()
 	Out.Info(">>>Start task_SpaceManagement <<<")
 
-	pubkey, err := chain.GetPublickeyFromPrk(configs.C.SignaturePrk)
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -96,7 +96,7 @@ func task_SpaceManagement(ch chan bool) {
 
 	for {
 		if client == nil || reconn {
-			_, schds, _ := chain.GetAllSchedulerInfo()
+			schds, _, _ := chain.GetSchedulingNodes()
 			client, err = connectionScheduler(schds)
 			if err != nil {
 				Err.Sugar().Errorf("-->Err: All schedules unavailable")
@@ -230,7 +230,7 @@ func task_HandlingChallenges(ch chan bool) {
 
 	//Get the scheduling service public key
 	for {
-		puk, _, err = chain.GetSchedulerPukFromChain()
+		puk, _, err = chain.GetPublicKey()
 		if err != nil {
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
@@ -239,14 +239,8 @@ func task_HandlingChallenges(ch chan bool) {
 		break
 	}
 
-	miner_pubkey, err := chain.GetPublickeyFromPrk(configs.C.SignaturePrk)
-	if err != nil {
-		Err.Sugar().Errorf("GetPublickeyFromPrk err: %v", err)
-		os.Exit(1)
-	}
-
 	for {
-		chlng, code, err = chain.GetChallengesById(miner_pubkey)
+		chlng, code, err = chain.GetChallenges(configs.C.SignaturePrk)
 		if err != nil {
 			if code != configs.Code_404 {
 				Out.Sugar().Infof("[ERR] %v", err)
@@ -345,7 +339,7 @@ func task_HandlingChallenges(ch chan bool) {
 		ts := time.Now().Unix()
 		code = 0
 		for code != int(configs.Code_200) && code != int(configs.Code_600) {
-			code, err = chain.PutProofToChain(configs.C.SignaturePrk, configs.MinerId_I, proveInfos)
+			code, err = chain.SubmitProofs(configs.C.SignaturePrk, configs.MinerId_I, proveInfos)
 			if err == nil {
 				Out.Sugar().Infof("Proofs submitted successfully")
 				break
@@ -375,7 +369,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 	Out.Info(">>>Start task_RemoveInvalidFiles task<<<")
 
 	for {
-		invalidFiles, code, err := chain.GetInvalidFileById(configs.MinerId_I)
+		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignaturePrk)
 		if err != nil {
 			if code == configs.Code_404 {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
@@ -397,7 +391,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			if ext == "" {
 				filedir := filepath.Join(configs.SpaceDir, string(invalidFiles[i]))
 				os.RemoveAll(filedir)
-				_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
+				_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
 				if err == nil {
 					fmt.Printf("     removed successfully [%v]\n", string(invalidFiles[i]))
 					Out.Sugar().Infof("%v", err)
@@ -409,7 +403,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			filetagfullpath := filepath.Join(configs.FilesDir, fileid, string(invalidFiles[i])+".tag")
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
-			_, err = chain.ClearInvalidFileNoChain(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
+			_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
 			if err == nil {
 				Out.Sugar().Infof("%v", err)
 			}

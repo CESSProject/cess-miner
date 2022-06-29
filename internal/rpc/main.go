@@ -15,10 +15,8 @@ import (
 	"cess-bucket/tools"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -129,7 +127,7 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	if b.BlockIndex == 0 {
 		var schds []chain.SchedulerInfo
 		for i := 0; i < 3; i++ {
-			_, schds, err = chain.GetAllSchedulerInfo()
+			schds, _, err = chain.GetSchedulingNodes()
 			if err == nil {
 				for _, v := range schds {
 					if v.Controller_user == types.NewAccountID(b.Publickey) {
@@ -299,91 +297,6 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 	ftag.Close()
 	Out.Sugar().Infof("[%v]Save tag suc", b.FileId)
 	return &RespBody{Code: Code_200, Msg: "success"}, nil
-}
-
-// Readfiletag is used to return the file tag to the scheduling service.
-// The return code is 200 for success, non-200 for failure.
-// The returned Msg indicates the result reason.
-func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
-	var (
-		err          error
-		flag         bool
-		filefullpath string
-		b            ReadTagReq
-	)
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Read file tag request.....", t)
-
-	//Parse the requested data
-	err = proto.Unmarshal(body, &b)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
-	}
-
-	//Query on-chain scheduling service information
-	sd, code, err := chain.GetSchedulerInfoOnChain()
-	if err != nil {
-		if code == Code_404 {
-			Out.Sugar().Infof("[T:%v][%v]Err:Not found scheduler info", t, b.FileId)
-			return &RespBody{Code: Code_404, Msg: "Not found scheduler info", Data: nil}, nil
-		}
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
-
-	//Determine whether to use the new test chain address prefix
-	var pre []byte
-	if configs.NewTestAddr {
-		pre = tools.ChainCessTestPrefix
-	} else {
-		pre = tools.SubstratePrefix
-	}
-
-	//Parse address
-	pubkey, err := tools.DecodeToPub(b.Acc, pre)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
-	}
-
-	//Whether the judge scheduling is registered
-	for _, v := range sd {
-		if v.Controller_user == types.NewAccountID(pubkey) {
-			flag = true
-			break
-		}
-	}
-	if !flag {
-		Out.Sugar().Infof("[T:%v][%v]Err:Not found scheduler info", b.FileId, t)
-		return &RespBody{Code: Code_404, Msg: "Not found scheduler info", Data: nil}, nil
-	}
-
-	//Get fileid and Calculate absolute file path
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		filefullpath = filepath.Join(SpaceDir, b.FileId, b.FileId+".tag")
-	} else {
-		filefullpath = filepath.Join(FilesDir, strings.TrimSuffix(b.FileId, ext), b.FileId+".tag")
-	}
-
-	//Check if the file exists
-	_, err = os.Stat(filefullpath)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
-	}
-
-	// read file content
-	buf, err := ioutil.ReadFile(filefullpath)
-	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
-		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
-	}
-
-	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
-	return &RespBody{Code: Code_200, Msg: "success", Data: buf}, nil
 }
 
 // Divide the size according to 2M

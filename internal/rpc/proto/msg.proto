@@ -23,22 +23,6 @@ message RespBody {
     bytes   data = 3;
 }
 
-message auth_req {
-    string file_id     = 1;
-    string file_name   = 2;
-    uint64 file_size   = 3;
-    uint32 block_total = 4;
-    bytes  public_key  = 5;
-    bytes  msg         = 6;
-    bytes  sign        = 7;
-}
-
-message file_upload_req {
-    uint32 block_index = 1;
-    bytes  auth        = 2;
-    bytes  file_data   = 3;
-}
-
 message file_download_info {
   uint32 block_total = 1;
   uint32 block_index = 2;
@@ -78,9 +62,4 @@ message PutTagToBucket {
 	repeated bytes u = 4;
   bytes    signature = 5;
   repeated bytes sigmas = 6;
-}
-
-message ReadTag_req {
-  string acc = 1;
-  string fileId = 2;
 }
