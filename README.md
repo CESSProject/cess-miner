@@ -85,6 +85,7 @@ sudo ufw allow 15001/tcp
 
 ```shell
 sysctl -w net.ipv4.tcp_syncookies = 1
+
 sysctl -w net.ipv4.tcp_tw_reuse = 1
 sysctl -w net.ipv4.tcp_tw_recycle = 1
 sysctl -w net.ipv4.tcp_fin_timeout = 30
@@ -168,6 +169,7 @@ MountedPath  = ""
 
 # Total space used to store files, the unit is GB
 StorageSpace = 1000
+
 # The IP address of the machine's public network used by the mining program
 ServiceAddr  = ""
 
