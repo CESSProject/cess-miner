@@ -15,5 +15,6 @@ ServicePort  = 15001
 
 # The address of income account
 IncomeAcc    = ""
+
 # phrase or seed of the signature account
 SignaturePrk = ""
