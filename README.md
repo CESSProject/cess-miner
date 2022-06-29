@@ -35,7 +35,9 @@ sudo lzip -d gmp-6.2.1.tar.lz
 sudo tar -xvf gmp-6.2.1.tar
 
 cd gmp-6.2.1/
+
 sudo chmod +x ./configure
+
 sudo ./configure --enable-cxx
 sudo make
 sudo make check
