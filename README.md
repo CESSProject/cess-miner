@@ -146,7 +146,7 @@ Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [C
 
 If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
-**Step 3:** Prepare configuration file
+**Step 3:** Prepare configuration information
 
 Use `bucket` to generate configuration file templates directly in the current directory:
 
