@@ -25,7 +25,7 @@ sudo apt upgrade
 sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
-**Step 2:** Install the necessary pbc library
+**Step 2:** Install the requirement pbc library
 
 ```shell
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
