@@ -174,8 +174,10 @@ ServiceAddr  = ""
 
 # Port number monitored by the mining program
 ServicePort  = 15001
+
 # The address of income account
 IncomeAcc    = ""
+
 # Phrase or seed of the signature account
 SignaturePrk = ""
 ```
