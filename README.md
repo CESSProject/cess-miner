@@ -39,6 +39,7 @@ cd gmp-6.2.1/
 sudo chmod +x ./configure
 
 sudo ./configure --enable-cxx
+
 sudo make
 sudo make check
 sudo make install
