@@ -168,6 +168,7 @@ MountedPath  = ""
 
 # Total space used to store files, the unit is GB
 StorageSpace = 1000
+
 # The IP address of the machine's public network used by the mining program
 ServiceAddr  = ""
 # Port number monitored by the mining program
