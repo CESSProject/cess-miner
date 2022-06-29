@@ -97,6 +97,7 @@ sysctl -w net.ipv4.tcp_max_syn_backlog = 8192
 sysctl -w net.ipv4.tcp_max_tw_buckets = 6000
 
 sysctl -w net.ipv4.tcp_timestsmps = 0
+
 sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 ```
 
