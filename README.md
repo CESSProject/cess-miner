@@ -162,7 +162,6 @@ The content of the configuration file template is as follows. You need to fill i
 ```
 # The rpc address of the chain node
 RpcAddr      = ""
-
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
 
