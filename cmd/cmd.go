@@ -226,7 +226,7 @@ func register() {
 	}
 
 	//Registration information on the chain
-	txhash, code, err := chain.RegisterBucketToChain(
+	txhash, code, err := chain.Register(
 		configs.C.SignaturePrk,
 		configs.C.IncomeAcc,
 		ipAddr,
@@ -309,18 +309,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(0)
 	}
 
-	// //Query your own details on-chain
-	// minerInfo, err := chain.GetMinerDetailInfo(
-	// 	configs.C.SignaturePrk,
-	// 	chain.State_Sminer,
-	// 	chain.Sminer_MinerItems,
-	// 	chain.Sminer_MinerDetails,
-	// )
-	// if err != nil {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-	// 	Err.Sugar().Errorf("%v", err)
-	// 	os.Exit(1)
-	// }
 	mData.Collaterals.Div(new(big.Int).SetBytes(mData.Collaterals.Bytes()), big.NewInt(1000000000000))
 	addr := base58.Decode(string(mData.Ip))
 	var power, space float32
@@ -568,8 +556,8 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query the block height when the miner exits
-	number, code, err := chain.GetMinerExitNumber(configs.C.SignaturePrk)
-	if err != nil {
+	number, code, err := chain.GetBlockHeightExited(configs.C.SignaturePrk)
+	if err != nil && code != configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
 	}
@@ -578,8 +566,8 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Query latest block height
-	lastnumber, err := chain.GetLastNumber()
+	//Get the current block height
+	lastnumber, err := chain.GetBlockHeight()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please try again later. [%v]\n", 41, err)
 		os.Exit(1)
@@ -681,7 +669,7 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	addr, err := chain.GetCESSAddressFromPrk(configs.C.SignaturePrk)
+	addr, err := chain.GetCESSAccount(configs.C.SignaturePrk)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
