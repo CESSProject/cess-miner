@@ -207,17 +207,17 @@ func task_SpaceManagement(ch chan bool) {
 //It keeps running as a subtask.
 func task_HandlingChallenges(ch chan bool) {
 	var (
-		err           error
-		code          int
-		fileid        string
-		filedir       string
-		tagfilename   string
-		blocksize     int64
-		filetag       pt.TagInfo
-		poDR2prove    api.PoDR2Prove
-		proveResponse api.PoDR2ProveResponse
-		puk           chain.Chain_SchedulerPuk
-		chlng         []chain.ChallengesInfo
+		err             error
+		code            int
+		fileid          string
+		fileFullPath    string
+		fileTagFullPath string
+		blocksize       int64
+		filetag         pt.TagInfo
+		poDR2prove      api.PoDR2Prove
+		proveResponse   api.PoDR2ProveResponse
+		puk             chain.Chain_SchedulerPuk
+		chlng           []chain.ChallengesInfo
 	)
 	defer func() {
 		err := recover()
@@ -271,16 +271,17 @@ func task_HandlingChallenges(ch chan bool) {
 			fileid = string(chlng[i].File_id)
 			if chlng[i].File_type == 1 {
 				//space file
-				filedir = filepath.Join(configs.SpaceDir, fileid)
+				fileFullPath = filepath.Join(configs.SpaceDir, fileid)
+				fileTagFullPath = filepath.Join(configs.SpaceDir, fileid+".tag")
 			} else {
 				//user file
-				filedir = filepath.Join(configs.FilesDir, fileid)
+				fileFullPath = filepath.Join(configs.FilesDir, fileid)
+				fileTagFullPath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
 
-			tagfilename = fileid + ".tag"
-			fstat, err := os.Stat(filedir)
+			fstat, err := os.Stat(fileFullPath)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filedir, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 			if chlng[i].File_type == 1 {
@@ -291,10 +292,10 @@ func task_HandlingChallenges(ch chan bool) {
 
 			qSlice, err := api.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", filedir, err)
+				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
-			ftag, err := ioutil.ReadFile(filepath.Join(filedir, tagfilename))
+			ftag, err := ioutil.ReadFile(fileTagFullPath)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
@@ -309,7 +310,7 @@ func task_HandlingChallenges(ch chan bool) {
 			poDR2prove.T = filetag.T
 			poDR2prove.Sigmas = filetag.Sigmas
 
-			matrix, _, err := split(filedir, blocksize, fstat.Size())
+			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
