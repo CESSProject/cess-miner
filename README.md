@@ -148,7 +148,7 @@ If you are using the test network, Please join the [CESS discord](https://discor
 
 **Step 3:** Prepare configuration file
 
-Use `bucket` to generate configuration information templates directly in the current directory:
+Use `bucket` to generate configuration file templates directly in the current directory:
 
 ```shell
 sudo chmod +x bucket
