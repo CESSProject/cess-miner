@@ -29,8 +29,11 @@ sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 
 ```shell
 sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
+
 sudo lzip -d gmp-6.2.1.tar.lz
+
 sudo tar -xvf gmp-6.2.1.tar
+
 cd gmp-6.2.1/
 sudo chmod +x ./configure
 sudo ./configure --enable-cxx
