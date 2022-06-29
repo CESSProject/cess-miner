@@ -165,9 +165,9 @@ RpcAddr      = ""
 
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
+
 # Total space used to store files, the unit is GB
 StorageSpace = 1000
-
 # The IP address of the machine's public network used by the mining program
 ServiceAddr  = ""
 
