@@ -61,8 +61,11 @@ sudo ./configure
 sudo make
 
 sudo make install
+
 sudo touch /etc/ld.so.conf.d/libpbc.conf
+
 sudo echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
+
 sudo ldconfig
 ```
 
