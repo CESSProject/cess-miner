@@ -41,6 +41,7 @@ sudo chmod +x ./configure
 sudo ./configure --enable-cxx
 
 sudo make
+
 sudo make check
 sudo make install
 cd ..
