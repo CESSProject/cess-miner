@@ -1,6 +1,7 @@
 package proof
 
 import (
+	"bytes"
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
@@ -10,12 +11,14 @@ import (
 	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +34,11 @@ type RespSpaceInfo struct {
 	Token  string `json:"token"`
 	T      api.FileTagT
 	Sigmas [][]byte `json:"sigmas"`
+}
+
+type kvpair struct {
+	K string
+	V int
 }
 
 // Start the proof module
@@ -458,8 +466,9 @@ func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
 
 func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var (
-		err error
-		cli *rpc.Client
+		err   error
+		state = make(map[string]int)
+		cli   *rpc.Client
 	)
 	if len(schds) == 0 {
 		return nil, errors.New("No scheduler service available")
@@ -477,9 +486,30 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {
-			if (i + 1) == len(schds) {
-				return nil, errors.New("All schedules unavailable")
-			}
+			continue
+		}
+		respCode, respBody, _, _ := rpc.WriteData(cli, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_State, nil)
+		if respCode != 200 {
+			cli.Close()
+			continue
+		}
+		var tmp int
+		bytesBuffer := bytes.NewBuffer(respBody)
+		err = binary.Read(bytesBuffer, binary.BigEndian, &tmp)
+		state[wsURL] = tmp
+		cli.Close()
+	}
+	tmpList := make([]kvpair, 0)
+	for k, v := range state {
+		tmpList = append(tmpList, kvpair{K: k, V: v})
+	}
+	sort.Slice(tmpList, func(i, j int) bool {
+		return tmpList[i].V < tmpList[j].V
+	})
+	for _, pair := range tmpList {
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		cli, err = rpc.DialWebsocket(ctx, pair.K, "")
+		if err != nil {
 			continue
 		}
 		break
