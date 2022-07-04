@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -219,4 +220,12 @@ func RemoveX(str string, x string) string {
 		}
 	}
 	return res
+}
+
+func RecoverError(err interface{}) string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "%v\n", "----------------------------------------")
+	fmt.Fprintf(buf, "%v\n", err)
+	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
+	return buf.String()
 }

@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	keyring "github.com/CESSProject/go-keyring"
@@ -83,7 +82,7 @@ func task_SpaceManagement(ch chan bool) {
 		}
 		ch <- true
 	}()
-	Out.Info(">>>Start task_SpaceManagement <<<")
+	Out.Info(">>>>> Start task_SpaceManagement <<<<<")
 
 	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
 	if err != nil {
@@ -230,7 +229,7 @@ func task_HandlingChallenges(ch chan bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			Err.Sugar().Errorf("[panic]: %v", err)
+			Err.Error(tools.RecoverError(err))
 		}
 		ch <- true
 	}()
@@ -243,8 +242,14 @@ func task_HandlingChallenges(ch chan bool) {
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
-		Out.Info(">>>>> Get puk ok <<<<<")
+		Out.Info("Get the scheduling public key")
 		break
+	}
+
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
+	if err != nil {
+		Err.Sugar().Errorf("[%v] %v", fileid, err)
+		os.Exit(1)
 	}
 
 	for {
@@ -260,16 +265,17 @@ func task_HandlingChallenges(ch chan bool) {
 		if len(chlng) == 0 {
 			continue
 		}
-
-		Out.Sugar().Infof("---> Prepare to generate challenges [%v]\n", len(chlng))
+		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
+		Out.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
 		for x := 0; x < len(chlng); x++ {
-			Out.Sugar().Infof("     %v: %s\n", x, string(chlng[x].File_id))
+			Out.Sugar().Infof("  %v: %s ", x, string(chlng[x].File_id))
 		}
 		var proveInfos = make([]chain.ProveInfo, 0)
 		for i := 0; i < len(chlng); i++ {
 			if len(proveInfos) > 80 {
 				break
 			}
+
 			fileid = string(chlng[i].File_id)
 			if chlng[i].File_type == 1 {
 				//space file
@@ -287,7 +293,7 @@ func task_HandlingChallenges(ch chan bool) {
 				continue
 			}
 			if chlng[i].File_type == 1 {
-				blocksize = configs.Space_1MB
+				blocksize = configs.BlockSize
 			} else {
 				blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
 			}
@@ -297,6 +303,7 @@ func task_HandlingChallenges(ch chan bool) {
 				Err.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
+
 			ftag, err := ioutil.ReadFile(fileTagFullPath)
 			if err != nil {
 				Err.Sugar().Errorf("[%v] %v", fileid, err)
@@ -320,7 +327,7 @@ func task_HandlingChallenges(ch chan bool) {
 
 			poDR2prove.Matrix = matrix
 			poDR2prove.S = blocksize
-			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(chlng[i].Scan_size))
+			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(configs.ScanBlockSize))
 			select {
 			case proveResponse = <-proveResponseCh:
 			}
@@ -340,16 +347,17 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			proveInfoTemp.Mu = mus
 			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
-			proveInfoTemp.MinerId = types.U64(configs.MinerId_I)
+			proveInfoTemp.MinerAcc = types.NewAccountID(pubkey)
 			proveInfos = append(proveInfos, proveInfoTemp)
 		}
 		// proof up chain
 		ts := time.Now().Unix()
 		code = 0
+		txhash := ""
 		for code != int(configs.Code_200) && code != int(configs.Code_600) {
-			code, err = chain.SubmitProofs(configs.C.SignaturePrk, configs.MinerId_I, proveInfos)
-			if err == nil {
-				Out.Sugar().Infof("Proofs submitted successfully")
+			txhash, code, err = chain.SubmitProofs(configs.C.SignaturePrk, proveInfos)
+			if txhash != "" {
+				Out.Sugar().Infof("Proofs submitted successfully [%v]", txhash)
 				break
 			}
 			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
@@ -358,8 +366,6 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 		}
-		proveInfos = proveInfos[:0]
-		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 	}
 }
 
@@ -374,8 +380,8 @@ func task_RemoveInvalidFiles(ch chan bool) {
 		}
 		ch <- true
 	}()
-	Out.Info(">>>Start task_RemoveInvalidFiles task<<<")
-
+	Out.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
+	Out.Sugar().Infow("%v")
 	for {
 		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignaturePrk)
 		if err != nil {
@@ -389,32 +395,28 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			continue
 		}
 
-		fmt.Printf("---> Prepare to remove invalid files [%v]\n", len(invalidFiles))
+		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]\n", len(invalidFiles))
 		for x := 0; x < len(invalidFiles); x++ {
-			fmt.Printf("     %v: %s\n", x, string(invalidFiles[x]))
+			Out.Sugar().Infof("--> %v: %s\n", x, string(invalidFiles[x]))
 		}
 
 		for i := 0; i < len(invalidFiles); i++ {
-			ext := filepath.Ext(string(invalidFiles[i]))
-			if ext == "" {
-				filedir := filepath.Join(configs.SpaceDir, string(invalidFiles[i]))
-				os.RemoveAll(filedir)
-				_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, configs.MinerId_I, invalidFiles[i])
-				if err == nil {
-					fmt.Printf("     removed successfully [%v]\n", string(invalidFiles[i]))
-					Out.Sugar().Infof("%v", err)
-				}
-				continue
+			fileid := string(invalidFiles[i])
+			filefullpath := ""
+			filetagfullpath := ""
+			if fileid[:4] != "cess" {
+				filefullpath = filepath.Join(configs.SpaceDir, fileid)
+				filetagfullpath = filepath.Join(configs.SpaceDir, fileid+".tag")
+			} else {
+				filefullpath = filepath.Join(configs.FilesDir, fileid)
+				filetagfullpath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
-			fileid := strings.TrimSuffix(string(invalidFiles[i]), ext)
-			filefullpath := filepath.Join(configs.FilesDir, fileid, string(invalidFiles[i]))
-			filetagfullpath := filepath.Join(configs.FilesDir, fileid, string(invalidFiles[i])+".tag")
+			_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, invalidFiles[i])
+			if err == nil {
+				Out.Sugar().Infof("Cleared [%v]", string(invalidFiles[i]))
+			}
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
-			_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, configs.MinerId_I, types.Bytes([]byte(fileid)))
-			if err == nil {
-				Out.Sugar().Infof("%v", err)
-			}
 		}
 	}
 }
@@ -527,13 +529,13 @@ func split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, er
 	if filesize/blocksize == 0 {
 		return nil, 0, errors.New("filesize invalid")
 	}
-	n := uint64(math.Ceil(float64(filesize / blocksize)))
+	n := filesize / blocksize
 	if n == 0 {
 		n = 1
 	}
 	// matrix is indexed as m_ij, so the first dimension has n items and the second has s.
 	matrix := make([][]byte, n)
-	for i := uint64(0); i < n; i++ {
+	for i := int64(0); i < n; i++ {
 		piece := make([]byte, blocksize)
 		_, err := file.Read(piece)
 		if err != nil {
@@ -541,7 +543,7 @@ func split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, er
 		}
 		matrix[i] = piece
 	}
-	return matrix, n, nil
+	return matrix, uint64(n), nil
 }
 
 func genSpaceFile(fpath, content string, rule []byte) error {

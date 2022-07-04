@@ -49,7 +49,11 @@ func PoDR2ChallengeGenerateFromChain(blockindex types.Bytes, blockrandom []types
 	}
 	challenge := make([]QElement, len(blockindex))
 	for j := 0; j < len(blockindex); j++ {
-		challenge[j].I = int64(blockindex[j])
+		if int64(blockindex[j]) == 0 {
+			challenge[j].I = 1
+		} else {
+			challenge[j].I = int64(blockindex[j])
+		}
 		challenge[j].V = blockrandom[j]
 	}
 	return challenge, nil

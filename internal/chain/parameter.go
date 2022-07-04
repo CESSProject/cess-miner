@@ -79,9 +79,9 @@ type Chain_SchedulerPuk struct {
 
 // Proof information structure
 type ProveInfo struct {
-	FileId  types.Bytes
-	MinerId types.U64
-	Cinfo   ChallengesInfo
-	Mu      []types.Bytes
-	Sigma   types.Bytes
+	FileId   types.Bytes
+	MinerAcc types.AccountID
+	Cinfo    ChallengesInfo
+	Mu       []types.Bytes
+	Sigma    types.Bytes
 }
