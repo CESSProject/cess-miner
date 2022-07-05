@@ -223,7 +223,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	if fstat.Size()%configs.RpcFileBuffer != 0 {
 		blockTotal++
 	}
-	if b.BlockIndex > uint32(blockTotal) {
+	if b.BlockIndex > uint32(blockTotal) || b.BlockIndex == 0 {
 		Out.Sugar().Infof("[%v]Err:Invalid block index", b.FileId)
 		return &RespBody{Code: Code_400, Msg: "Invalid block index"}, nil
 	}
@@ -232,7 +232,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	rtnData.BlockTotal = uint32(blockTotal)
 	rtnData.BlockIndex = b.BlockIndex
 	var tmp = make([]byte, configs.RpcFileBuffer)
-	f.Seek(int64(b.BlockIndex*configs.RpcFileBuffer), 0)
+	f.Seek(int64((b.BlockIndex-1)*configs.RpcFileBuffer), 0)
 	n, _ := f.Read(tmp)
 	rtnData.Data = tmp[:n]
 	f.Close()
