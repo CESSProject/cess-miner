@@ -84,7 +84,7 @@ func task_SpaceManagement(ch chan bool) {
 	}()
 	Out.Info(">>>>> Start task_SpaceManagement <<<<<")
 
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -99,7 +99,7 @@ func task_SpaceManagement(ch chan bool) {
 
 	reqspace.Publickey = pubkey
 
-	kr, _ := keyring.FromURI(configs.C.SignaturePrk, keyring.NetSubstrate{})
+	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
 		if client == nil || reconn {
@@ -246,14 +246,14 @@ func task_HandlingChallenges(ch chan bool) {
 		break
 	}
 
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
 	if err != nil {
 		Err.Sugar().Errorf("[%v] %v", fileid, err)
 		os.Exit(1)
 	}
 
 	for {
-		chlng, code, err = chain.GetChallenges(configs.C.SignaturePrk)
+		chlng, code, err = chain.GetChallenges(configs.C.SignatureAcc)
 		if err != nil {
 			if code != configs.Code_404 {
 				Out.Sugar().Infof("[ERR] %v", err)
@@ -356,7 +356,7 @@ func task_HandlingChallenges(ch chan bool) {
 		code = 0
 		txhash := ""
 		for code != int(configs.Code_200) && code != int(configs.Code_600) {
-			txhash, code, err = chain.SubmitProofs(configs.C.SignaturePrk, proveInfos)
+			txhash, code, err = chain.SubmitProofs(configs.C.SignatureAcc, proveInfos)
 			if txhash != "" {
 				Out.Sugar().Infof("Proofs submitted successfully [%v]", txhash)
 				break
@@ -383,7 +383,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 	}()
 	Out.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
 	for {
-		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignaturePrk)
+		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignatureAcc)
 		if err != nil {
 			if code != configs.Code_404 {
 				Out.Sugar().Infof("%v", err)
@@ -413,7 +413,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 				filefullpath = filepath.Join(configs.FilesDir, fileid)
 				filetagfullpath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
-			_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, invalidFiles[i])
+			_, err = chain.ClearInvalidFiles(configs.C.SignatureAcc, invalidFiles[i])
 			if err == nil {
 				Out.Sugar().Infof("Cleared [%v]", string(invalidFiles[i]))
 			}

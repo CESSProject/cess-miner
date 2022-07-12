@@ -171,7 +171,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		err = register(api)
 		if err != nil {
@@ -200,7 +200,7 @@ func register(api *gsrpc.SubstrateAPI) error {
 	if configs.C.DomainName != "" {
 		res = configs.C.DomainName
 	} else {
-		res = base58.Encode([]byte(configs.C.ServiceAddr + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
+		res = base58.Encode([]byte(configs.C.ServiceIP + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
 	}
 
 	_, err := os.Stat(configs.BaseDir)
@@ -212,7 +212,7 @@ func register(api *gsrpc.SubstrateAPI) error {
 	//Registration information on the chain
 	txhash, _, err := chain.Register(
 		api,
-		configs.C.SignaturePrk,
+		configs.C.SignatureAcc,
 		configs.C.IncomeAcc,
 		res,
 		pledgeTokens,
@@ -257,7 +257,7 @@ func register(api *gsrpc.SubstrateAPI) error {
 	Out.Sugar().Infof("MountedPath:%v", configs.C.MountedPath)
 	Out.Sugar().Infof("ServiceAddr:%v", res)
 	Out.Sugar().Infof("RevenueAcc:%v", configs.C.IncomeAcc)
-	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignaturePrk)
+	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignatureAcc)
 	Out.Sugar().Infof("DomainName:%v", configs.C.DomainName)
 	Out.Sugar().Infof("Register transaction hash:%v", txhash)
 	return nil
@@ -277,7 +277,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	mData, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m No miner found, please check the network or whether to register.\n", 41)
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
@@ -430,7 +430,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute exit.\n", 41)
 		os.Exit(1)
@@ -442,9 +442,9 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Exit the mining function
-	txhash, err := chain.ExitMining(api, configs.C.SignaturePrk, chain.ChainTx_Sminer_ExitMining)
+	txhash, err := chain.ExitMining(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_ExitMining)
 	if txhash != "" {
-		chain.ClearFiller(api, configs.C.SignaturePrk)
+		chain.ClearFiller(api, configs.C.SignatureAcc)
 		fmt.Println("success")
 		os.Exit(0)
 	}
@@ -477,7 +477,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute exit.\n", 41)
 		os.Exit(1)
@@ -495,7 +495,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//increase deposit
-	txhash, err := chain.Increase(api, configs.C.SignaturePrk, chain.ChainTx_Sminer_Increase, tokens)
+	txhash, err := chain.Increase(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_Increase, tokens)
 	if txhash == "" {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to increase: %v\n", 41, err)
 		os.Exit(1)
@@ -516,7 +516,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute withdraw.\n", 41)
 		os.Exit(1)
@@ -528,7 +528,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query the block height when the miner exits
-	number, code, err := chain.GetBlockHeightExited(api, configs.C.SignaturePrk)
+	number, code, err := chain.GetBlockHeightExited(api, configs.C.SignatureAcc)
 	if code == configs.Code_500 {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query exit block: %v\n", 41, err)
 		os.Exit(1)
@@ -558,7 +558,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Withdraw deposit function
-	txhash, err := chain.Withdraw(api, configs.C.SignaturePrk, chain.ChainTx_Sminer_Withdraw)
+	txhash, err := chain.Withdraw(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_Withdraw)
 	if txhash != "" {
 		fmt.Println("success")
 		os.Exit(0)
@@ -617,9 +617,9 @@ func parseProfile() {
 	}
 
 	if configs.C.MountedPath == "" ||
-		configs.C.ServiceAddr == "" ||
+		configs.C.ServiceIP == "" ||
 		configs.C.IncomeAcc == "" ||
-		configs.C.SignaturePrk == "" {
+		configs.C.SignatureAcc == "" {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m The configuration file cannot have empty entries\n", 41)
 		os.Exit(1)
 	}
@@ -639,7 +639,7 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	addr, err := chain.GetCESSAccount(configs.C.SignaturePrk)
+	addr, err := chain.GetCESSAccount(configs.C.SignatureAcc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -653,7 +653,7 @@ func register_if() error {
 		return err
 	}
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignaturePrk)
+	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
 		return register(api)
 	}
