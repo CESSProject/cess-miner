@@ -1,29 +1,32 @@
 package configs
 
 type Confile struct {
-	RpcAddr      string `toml:"RpcAddr"`
-	MountedPath  string `toml:"MountedPath"`
-	StorageSpace uint64 `toml:"StorageSpace"`
-	ServiceAddr  string `toml:"ServiceAddr"`
-	ServicePort  uint32 `toml:"ServicePort"`
-	IncomeAcc    string `toml:"IncomeAcc"`
-	SignaturePrk string `toml:"SignaturePrk"`
+	RpcAddr      string `toml:"Rpc_Address"`
+	MountedPath  string `toml:"Mounted_Path"`
+	StorageSpace uint64 `toml:"Storage_Space"`
+	ServiceAddr  string `toml:"Service_IP"`
+	ServicePort  uint32 `toml:"Service_Port"`
+	IncomeAcc    string `toml:"Income_Acc"`
+	SignaturePrk string `toml:"Signature_Acc"`
+	DomainName   string `toml:"Domain_Name"`
 }
 
 var C = new(Confile)
 var ConfFilePath string
 
 const ConfigFile_Templete = `# The rpc address of the chain node
-RpcAddr      = ""
+Rpc_Address      = ""
 # Path to the mounted disk where the data is saved
-MountedPath  = ""
+Mounted_Path  = ""
 # Total space used to store files, the unit is GB
-StorageSpace = 1000
-# The IP address of the machine's public network used by the mining program
-ServiceAddr  = ""
-# Port number monitored by the mining program
-ServicePort  = 15001
+Storage_Space = 0
+# The IP of the machine running the mining service
+Service_IP  = ""
+# Port number monitored by the mining service
+Service_Port  = 0
 # The address of income account
-IncomeAcc    = ""
-# phrase or seed of the signature account
-SignaturePrk = ""`
+Income_Acc    = ""
+# phrase of the signature account
+Signature_Acc = ""
+# If you don't have a public IP, you must set an access domain name
+Domain_Name   = ""`

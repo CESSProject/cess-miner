@@ -37,5 +37,5 @@ func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
 			return mp, nil
 		}
 	}
-	return mp, errors.New("Mount path not found")
+	return mp, errors.New("mount point not found")
 }
