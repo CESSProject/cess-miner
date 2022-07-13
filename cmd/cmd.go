@@ -379,18 +379,41 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	//Parse command arguments and  configuration file
 	parseFlags(cmd)
 
-	err := register_if()
+	//global initialization
+	initlz.SystemInit()
+
+	flag, err := register_if()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
 		os.Exit(1)
 	}
 
-	//global initialization
-	initlz.SystemInit()
+	if !flag {
+		//Initialize the logger
+		logger.LoggerInit()
 
-	//Initialize the logger
-	logger.LoggerInit()
+		//update data directory
+		configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
+		configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
+		configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
 
+		//Determine whether the data directory exists, and exit if it does not exist
+		_, err = os.Stat(configs.LogfileDir)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.LogfileDir)
+			os.Exit(1)
+		}
+		_, err = os.Stat(configs.SpaceDir)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.SpaceDir)
+			os.Exit(1)
+		}
+		_, err = os.Stat(configs.FilesDir)
+		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.FilesDir)
+			os.Exit(1)
+		}
+	}
 	// start-up
 	go proof.Proof_Main()
 	rpc.Rpc_Main()
@@ -625,15 +648,15 @@ func parseProfile() {
 	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
 }
 
-func register_if() error {
+func register_if() (bool, error) {
 	api, err := chain.NewRpcClient(configs.C.RpcAddr)
 	if err != nil {
-		return err
+		return false, err
 	}
 	//Query your own information on the chain
 	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
 	if code == configs.Code_404 {
-		return register(api)
+		return true, register(api)
 	}
-	return err
+	return false, err
 }

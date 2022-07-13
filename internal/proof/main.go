@@ -1,7 +1,6 @@
 package proof
 
 import (
-	"bytes"
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
@@ -11,7 +10,6 @@ import (
 	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -37,7 +35,7 @@ type RespSpaceInfo struct {
 
 type kvpair struct {
 	K string
-	V int
+	V int32
 }
 
 // Start the proof module
@@ -78,6 +76,7 @@ func task_SpaceManagement(ch chan bool) {
 	)
 	defer func() {
 		if err := recover(); err != nil {
+			fmt.Println("2:", err)
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 		ch <- true
@@ -102,8 +101,15 @@ func task_SpaceManagement(ch chan bool) {
 	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
+		time.Sleep(time.Second)
 		if client == nil || reconn {
-			schds, _, _ := chain.GetSchedulingNodes()
+			schds, _, err := chain.GetSchedulingNodes()
+			fmt.Println(schds)
+			if err != nil {
+				Err.Sugar().Errorf("   %v", err)
+				time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
+				continue
+			}
 			client, err = connectionScheduler(schds)
 			if err != nil {
 				Err.Sugar().Errorf("-->Err: All schedules unavailable")
@@ -125,7 +131,8 @@ func task_SpaceManagement(ch chan bool) {
 		}
 
 		if availableSpace < uint64(8*configs.Space_1MB) {
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 10)))
+			Out.Info("Your space is certified")
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(10, 30)))
 			continue
 		}
 
@@ -474,22 +481,16 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var (
 		ok    bool
 		err   error
-		state = make(map[string]int)
+		state = make(map[string]int32)
 		cli   *rpc.Client
 	)
 	if len(schds) == 0 {
 		return nil, errors.New("No scheduler service available")
 	}
-	var deduplication = make(map[int]struct{}, len(schds))
 	var wsURL string
 	for i := 0; i < len(schds); i++ {
-		index := tools.RandomInRange(0, len(schds))
-		_, ok = deduplication[index]
-		if ok {
-			continue
-		}
-		deduplication[index] = struct{}{}
-		wsURL = "ws://" + string(base58.Decode(string(schds[index].Ip)))
+		wsURL = "ws://" + string(base58.Decode(string(schds[i].Ip)))
+		fmt.Println(wsURL)
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {
@@ -500,10 +501,17 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 			cli.Close()
 			continue
 		}
-		var tmp int
-		bytesBuffer := bytes.NewBuffer(respBody)
-		err = binary.Read(bytesBuffer, binary.BigEndian, &tmp)
-		state[wsURL] = tmp
+		var resu int32
+		if len(respBody) == 4 {
+			resu += int32(respBody[0])
+			resu = resu << 8
+			resu += int32(respBody[1])
+			resu = resu << 8
+			resu += int32(respBody[2])
+			resu = resu << 8
+			resu += int32(respBody[3])
+		}
+		state[wsURL] = resu
 		cli.Close()
 	}
 	tmpList := make([]kvpair, 0)
