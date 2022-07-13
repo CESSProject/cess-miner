@@ -138,7 +138,9 @@ sudo chmod +x bucket
 
 The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `bucket` uses `conf.toml` in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
 
-> Our testnet rpc address is: `wss://testnet-rpc.cess.cloud/ws/`
+*Our testnet rpc address is as follows:*<br>
+`wss://testnet-rpc.cess.cloud/ws/`<br>
+`wss://testnet-rpc1.cess.cloud/ws/`
 
 ```
 # The rpc address of the chain node
@@ -146,15 +148,17 @@ RpcAddr      = ""
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
 # Total space used to store files, the unit is GB
-StorageSpace = 1000
-# The IP address of the machine's public network used by the mining program
-ServiceAddr  = ""
-# Port number monitored by the mining program
-ServicePort  = 15001
+StorageSpace = 0
+# The IP of the machine running the mining service
+ServiceIP    = ""
+# Port number monitored by the mining service
+ServicePort  = 0
 # The address of income account
 IncomeAcc    = ""
-# Phrase or seed of the signature account
-SignaturePrk = ""
+# phrase of the signature account
+SignatureAcc = ""
+# If 'ServiceIP' is not public IP, You can set up a domain name
+DomainName   = ""
 ```
 
 **Step 4:** View bucket features
@@ -176,7 +180,7 @@ The `bucket` has many functions, you can use `-h` or `--help` to view, as follow
 | default  | Generate configuration file template           |
 | register | Register mining miner information to the chain |
 | state    | Query mining miner information                 |
-| run      | Start mining normally                          |
+| run      | Register and run the mining program            |
 | exit     | Exit the mining platform                       |
 | increase | Increase the deposit of mining miner           |
 | withdraw | Redemption deposit of mining miner             |
