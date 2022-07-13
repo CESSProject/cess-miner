@@ -385,28 +385,6 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//update data directory
-	configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
-	configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
-	configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
-
-	//Determine whether the data directory exists, and exit if it does not exist
-	_, err = os.Stat(configs.LogfileDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.LogfileDir)
-		os.Exit(1)
-	}
-	_, err = os.Stat(configs.SpaceDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.SpaceDir)
-		os.Exit(1)
-	}
-	_, err = os.Stat(configs.FilesDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.FilesDir)
-		os.Exit(1)
-	}
-
 	//global initialization
 	initlz.SystemInit()
 
