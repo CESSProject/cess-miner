@@ -397,9 +397,9 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			continue
 		}
 
-		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]\n", len(invalidFiles))
+		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]", len(invalidFiles))
 		for x := 0; x < len(invalidFiles); x++ {
-			Out.Sugar().Infof("--> %v: %s\n", x, string(invalidFiles[x]))
+			Out.Sugar().Infof("   %v: %s", x, string(invalidFiles[x]))
 		}
 
 		for i := 0; i < len(invalidFiles); i++ {
@@ -413,9 +413,11 @@ func task_RemoveInvalidFiles(ch chan bool) {
 				filefullpath = filepath.Join(configs.FilesDir, fileid)
 				filetagfullpath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
-			_, err = chain.ClearInvalidFiles(configs.C.SignatureAcc, invalidFiles[i])
-			if err == nil {
-				Out.Sugar().Infof("Cleared [%v]", string(invalidFiles[i]))
+			txhash, err := chain.ClearInvalidFiles(configs.C.SignatureAcc, invalidFiles[i])
+			if txhash != "" {
+				Out.Sugar().Infof("[%v] Cleared %v", string(invalidFiles[i]), txhash)
+			} else {
+				Out.Sugar().Infof("[err] [%v] Clear: %v", string(invalidFiles[i]), err)
 			}
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
