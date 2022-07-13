@@ -20,7 +20,7 @@ If you find out any vulnerability, Please send an email to tech@cess.one, we are
 Take the ubuntu distribution as an example:
 
 ```shell
-sudo apt upgrade
+sudo apt update && apt upgrade
 sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
 ```
 
