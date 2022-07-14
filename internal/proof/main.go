@@ -76,7 +76,6 @@ func task_SpaceManagement(ch chan bool) {
 	)
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("2:", err)
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 		ch <- true
@@ -104,7 +103,6 @@ func task_SpaceManagement(ch chan bool) {
 		time.Sleep(time.Second)
 		if client == nil || reconn {
 			schds, _, err := chain.GetSchedulingNodes()
-			fmt.Println(schds)
 			if err != nil {
 				Err.Sugar().Errorf("   %v", err)
 				time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
@@ -490,7 +488,6 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var wsURL string
 	for i := 0; i < len(schds); i++ {
 		wsURL = "ws://" + string(base58.Decode(string(schds[i].Ip)))
-		fmt.Println(wsURL)
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {

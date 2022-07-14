@@ -177,11 +177,10 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 		if err != nil {
 			os.Exit(1)
 		}
-		fmt.Printf("\x1b[%dm[ok]\x1b[0m Registration success\n", 42)
 		os.Exit(0)
 	}
 	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
 		os.Exit(1)
 	}
 

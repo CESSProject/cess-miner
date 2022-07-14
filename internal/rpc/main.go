@@ -304,7 +304,7 @@ func cutDataRule(size int) (int, int, uint8, error) {
 	if size <= 0 {
 		return 0, 0, 0, errors.New("size is lt 0")
 	}
-	fmt.Println(size)
+
 	num := size / configs.RpcFileBuffer
 	slicesize := size / (num + 1)
 	tailsize := size - slicesize*(num+1)
