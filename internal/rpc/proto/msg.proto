@@ -47,6 +47,11 @@ message space_file_req{
     uint32 block_index = 2;
 }
 
+message ReadTag_req {
+  bytes  acc =     1;
+  string file_id = 2;
+} 
+
 message PutFileToBucket {
   uint32 block_total = 1;
   uint32 block_index = 2;

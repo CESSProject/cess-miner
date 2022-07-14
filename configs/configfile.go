@@ -28,5 +28,5 @@ ServicePort  = 0
 IncomeAcc    = ""
 # phrase of the signature account
 SignatureAcc = ""
-# If you don't have a public IP, you must set an access domain name
+# If 'ServiceIP' is not public IP, You can set up a domain name
 DomainName   = ""`
