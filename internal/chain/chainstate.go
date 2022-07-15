@@ -5,48 +5,43 @@ import (
 	. "cess-bucket/internal/logger"
 	"cess-bucket/tools"
 
+	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
 
 // Get storage miner information
-func GetMinerInfo(prvkey string) (MinerInfo, int, error) {
-	var (
-		err   error
-		mdata MinerInfo
-	)
-	api := getSubstrateAPI()
+func GetMinerInfo(api *gsrpc.SubstrateAPI, prvkey string) (MinerInfo, int, error) {
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-
+	var minfo MinerInfo
 	keyring, err := signature.KeyringPairFromSecret(prvkey, 0)
 	if err != nil {
-		return mdata, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
+		return minfo, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
 	}
 
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return mdata, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
+		return minfo, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
 	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, keyring.PublicKey)
 	if err != nil {
-		return mdata, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
+		return minfo, configs.Code_500, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &mdata)
+	ok, err := api.RPC.State.GetStorageLatest(key, &minfo)
 	if err != nil {
-		return mdata, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
+		return minfo, configs.Code_500, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return mdata, configs.Code_404, errors.New("[value is empty]")
+		return minfo, configs.Code_404, errors.New("[value is empty]")
 	}
-	return mdata, configs.Code_200, nil
+	return minfo, configs.Code_200, nil
 }
 
 // Get all challenges
@@ -55,14 +50,15 @@ func GetChallenges(privkey string) ([]ChallengesInfo, int, error) {
 		err  error
 		data []ChallengesInfo
 	)
-	api := getSubstrateAPI()
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
+	}
 	keyring, err := signature.KeyringPairFromSecret(privkey, 0)
 	if err != nil {
 		return nil, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
@@ -94,13 +90,15 @@ func GetPublicKey() (Chain_SchedulerPuk, int, error) {
 		err  error
 		data Chain_SchedulerPuk
 	)
-	api := getSubstrateAPI()
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
+	}
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
@@ -127,14 +125,15 @@ func GetInvalidFiles(privkey string) ([]types.Bytes, int, error) {
 		err  error
 		data []types.Bytes
 	)
-	api := getSubstrateAPI()
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
+	}
 	keyring, err := signature.KeyringPairFromSecret(privkey, 0)
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[KeyringPairFromSecret]")
@@ -166,13 +165,15 @@ func GetSchedulingNodes() ([]SchedulerInfo, int, error) {
 		err   error
 		mdata []SchedulerInfo
 	)
-	api := getSubstrateAPI()
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return mdata, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
+	}
 	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
 		return mdata, configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
@@ -194,14 +195,12 @@ func GetSchedulingNodes() ([]SchedulerInfo, int, error) {
 }
 
 // Get the block height when the miner exits
-func GetBlockHeightExited(prk string) (types.U32, int, error) {
+func GetBlockHeightExited(api *gsrpc.SubstrateAPI, prk string) (types.U32, int, error) {
 	var (
 		err    error
 		number types.U32
 	)
-	api := getSubstrateAPI()
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
@@ -232,10 +231,8 @@ func GetBlockHeightExited(prk string) (types.U32, int, error) {
 }
 
 // Get the current block height
-func GetBlockHeight() (types.U32, error) {
-	api := getSubstrateAPI()
+func GetBlockHeight(api *gsrpc.SubstrateAPI) (types.U32, error) {
 	defer func() {
-		releaseSubstrateAPI()
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}

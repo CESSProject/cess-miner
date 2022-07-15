@@ -4,10 +4,11 @@ type Confile struct {
 	RpcAddr      string `toml:"RpcAddr"`
 	MountedPath  string `toml:"MountedPath"`
 	StorageSpace uint64 `toml:"StorageSpace"`
-	ServiceAddr  string `toml:"ServiceAddr"`
+	ServiceIP    string `toml:"ServiceIP"`
 	ServicePort  uint32 `toml:"ServicePort"`
 	IncomeAcc    string `toml:"IncomeAcc"`
-	SignaturePrk string `toml:"SignaturePrk"`
+	SignatureAcc string `toml:"SignatureAcc"`
+	DomainName   string `toml:"DomainName"`
 }
 
 var C = new(Confile)
@@ -18,12 +19,14 @@ RpcAddr      = ""
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
 # Total space used to store files, the unit is GB
-StorageSpace = 1000
-# The IP address of the machine's public network used by the mining program
-ServiceAddr  = ""
-# Port number monitored by the mining program
-ServicePort  = 15001
+StorageSpace = 0
+# The IP of the machine running the mining service
+ServiceIP    = ""
+# Port number monitored by the mining service
+ServicePort  = 0
 # The address of income account
 IncomeAcc    = ""
-# phrase or seed of the signature account
-SignaturePrk = ""`
+# phrase of the signature account
+SignatureAcc = ""
+# If 'ServiceIP' is not public IP, You can set up a domain name
+DomainName   = ""`

@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket v0.4.3.220704 dev"
+const Version = "CESS-Bucket v0.4.3.220715 dev-rs"
 
 // rpc service and method
 const (
@@ -35,7 +35,7 @@ const (
 	Space_1GB          = 1024 * 1024 * 1024 // 1GB
 	Space_1MB          = 1024 * 1024        // 1MB
 	ByteSize_1Kb       = 1024               // 1KB
-	TimeToWaitEvents_S = 15                 //The time to wait for the event, in seconds
+	TimeToWaitEvents_S = 20                 //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000"     //Unit precision of CESS coins
 	ExitColling        = 57600              //blocks
 	BlockSize          = 1024 * 1024        //1MB
@@ -45,8 +45,8 @@ const (
 // Miner info
 // updated at runtime
 var (
-	MinerId_S string = ""
-	MinerId_I uint64 = 0
+	// MinerId_S string = ""
+	// MinerId_I uint64 = 0
 
 	//data path
 	BaseDir    = "bucket"

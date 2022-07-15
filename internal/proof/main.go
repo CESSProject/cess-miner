@@ -1,7 +1,6 @@
 package proof
 
 import (
-	"bytes"
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
@@ -11,7 +10,6 @@ import (
 	p "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -37,7 +35,7 @@ type RespSpaceInfo struct {
 
 type kvpair struct {
 	K string
-	V int
+	V int32
 }
 
 // Start the proof module
@@ -84,7 +82,7 @@ func task_SpaceManagement(ch chan bool) {
 	}()
 	Out.Info(">>>>> Start task_SpaceManagement <<<<<")
 
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -92,25 +90,31 @@ func task_SpaceManagement(ch chan bool) {
 
 	availableSpace, err = calcAvailableSpace()
 	if err != nil {
-		Err.Sugar().Errorf("[C%v] %v", configs.MinerId_S, err)
+		Err.Sugar().Errorf("%v", err)
 	} else {
 		tSpace = time.Now()
 	}
 
 	reqspace.Publickey = pubkey
 
-	kr, _ := keyring.FromURI(configs.C.SignaturePrk, keyring.NetSubstrate{})
+	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
+		time.Sleep(time.Second)
 		if client == nil || reconn {
-			schds, _, _ := chain.GetSchedulingNodes()
+			schds, _, err := chain.GetSchedulingNodes()
+			if err != nil {
+				Err.Sugar().Errorf("   %v", err)
+				time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
+				continue
+			}
 			client, err = connectionScheduler(schds)
 			if err != nil {
 				Err.Sugar().Errorf("-->Err: All schedules unavailable")
 				for i := 0; i < len(schds); i++ {
 					Err.Sugar().Errorf("   %v", string(schds[i].Ip))
 				}
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+				time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
 				continue
 			}
 		}
@@ -118,14 +122,15 @@ func task_SpaceManagement(ch chan bool) {
 		if time.Since(tSpace).Minutes() >= 10 {
 			availableSpace, err = calcAvailableSpace()
 			if err != nil {
-				Err.Sugar().Errorf("[C%v] %v", configs.MinerId_S, err)
+				Err.Sugar().Errorf(" %v", err)
 			} else {
 				tSpace = time.Now()
 			}
 		}
 
 		if availableSpace < uint64(8*configs.Space_1MB) {
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 10)))
+			Out.Info("Your space is certified")
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(10, 30)))
 			continue
 		}
 
@@ -137,20 +142,20 @@ func task_SpaceManagement(ch chan bool) {
 
 		req_b, err := proto.Marshal(&reqspace)
 		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 
 		respCode, respBody, clo, err := rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
 		reconn = clo
 		if err != nil || respCode != configs.Code_200 {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 
 		err = json.Unmarshal(respBody, &respspace)
 		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 
@@ -161,13 +166,13 @@ func task_SpaceManagement(ch chan bool) {
 		tagInfo.Sigmas = respspace.Sigmas
 		tag, err := json.Marshal(tagInfo)
 		if err != nil {
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 		err = genFileTag(tagfilefullpath, tag)
 		if err != nil {
 			os.Remove(tagfilefullpath)
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 
@@ -175,7 +180,7 @@ func task_SpaceManagement(ch chan bool) {
 		f, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 		if err != nil {
 			os.Remove(tagfilefullpath)
-			Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+			Err.Sugar().Errorf(" %v", err)
 			continue
 		}
 		reqspacefile.Token = respspace.Token
@@ -184,7 +189,7 @@ func task_SpaceManagement(ch chan bool) {
 			reqspacefile.BlockIndex = uint32(i)
 			req_b, err = proto.Marshal(&reqspacefile)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				Err.Sugar().Errorf(" %v", err)
 				f.Close()
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
@@ -193,7 +198,7 @@ func task_SpaceManagement(ch chan bool) {
 			respCode, respBody, clo, err = rpc.WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
 			reconn = clo
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", configs.MinerId_S, err)
+				Err.Sugar().Errorf(" %v", err)
 				f.Close()
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
@@ -246,23 +251,24 @@ func task_HandlingChallenges(ch chan bool) {
 		break
 	}
 
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignaturePrk)
+	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
 	if err != nil {
 		Err.Sugar().Errorf("[%v] %v", fileid, err)
 		os.Exit(1)
 	}
 
 	for {
-		chlng, code, err = chain.GetChallenges(configs.C.SignaturePrk)
+		chlng, code, err = chain.GetChallenges(configs.C.SignatureAcc)
 		if err != nil {
 			if code != configs.Code_404 {
 				Out.Sugar().Infof("[ERR] %v", err)
 			}
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(3, 5)))
 			continue
 		}
 
 		if len(chlng) == 0 {
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 10)))
 			continue
 		}
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
@@ -355,7 +361,7 @@ func task_HandlingChallenges(ch chan bool) {
 		code = 0
 		txhash := ""
 		for code != int(configs.Code_200) && code != int(configs.Code_600) {
-			txhash, code, err = chain.SubmitProofs(configs.C.SignaturePrk, proveInfos)
+			txhash, code, err = chain.SubmitProofs(configs.C.SignatureAcc, proveInfos)
 			if txhash != "" {
 				Out.Sugar().Infof("Proofs submitted successfully [%v]", txhash)
 				break
@@ -381,23 +387,24 @@ func task_RemoveInvalidFiles(ch chan bool) {
 		ch <- true
 	}()
 	Out.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
-	Out.Sugar().Infow("%v")
 	for {
-		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignaturePrk)
+		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignatureAcc)
 		if err != nil {
-			if code == configs.Code_404 {
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 120)))
+			if code != configs.Code_404 {
+				Out.Sugar().Infof("%v", err)
 			}
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 
 		if len(invalidFiles) == 0 {
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 
-		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]\n", len(invalidFiles))
+		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]", len(invalidFiles))
 		for x := 0; x < len(invalidFiles); x++ {
-			Out.Sugar().Infof("--> %v: %s\n", x, string(invalidFiles[x]))
+			Out.Sugar().Infof("   %v: %s", x, string(invalidFiles[x]))
 		}
 
 		for i := 0; i < len(invalidFiles); i++ {
@@ -411,9 +418,11 @@ func task_RemoveInvalidFiles(ch chan bool) {
 				filefullpath = filepath.Join(configs.FilesDir, fileid)
 				filetagfullpath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
-			_, err = chain.ClearInvalidFiles(configs.C.SignaturePrk, invalidFiles[i])
-			if err == nil {
-				Out.Sugar().Infof("Cleared [%v]", string(invalidFiles[i]))
+			txhash, err := chain.ClearInvalidFiles(configs.C.SignatureAcc, invalidFiles[i])
+			if txhash != "" {
+				Out.Sugar().Infof("[%v] Cleared %v", string(invalidFiles[i]), txhash)
+			} else {
+				Out.Sugar().Infof("[err] [%v] Clear: %v", string(invalidFiles[i]), err)
 			}
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
@@ -468,23 +477,17 @@ func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
 
 func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var (
+		ok    bool
 		err   error
-		state = make(map[string]int)
+		state = make(map[string]int32)
 		cli   *rpc.Client
 	)
 	if len(schds) == 0 {
 		return nil, errors.New("No scheduler service available")
 	}
-	var deduplication = make(map[int]struct{}, len(schds))
 	var wsURL string
 	for i := 0; i < len(schds); i++ {
-		index := tools.RandomInRange(0, len(schds))
-		_, ok := deduplication[index]
-		if ok {
-			continue
-		}
-		deduplication[index] = struct{}{}
-		wsURL = "ws://" + string(base58.Decode(string(schds[index].Ip)))
+		wsURL = "ws://" + string(base58.Decode(string(schds[i].Ip)))
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {
@@ -495,10 +498,17 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 			cli.Close()
 			continue
 		}
-		var tmp int
-		bytesBuffer := bytes.NewBuffer(respBody)
-		err = binary.Read(bytesBuffer, binary.BigEndian, &tmp)
-		state[wsURL] = tmp
+		var resu int32
+		if len(respBody) == 4 {
+			resu += int32(respBody[0])
+			resu = resu << 8
+			resu += int32(respBody[1])
+			resu = resu << 8
+			resu += int32(respBody[2])
+			resu = resu << 8
+			resu += int32(respBody[3])
+		}
+		state[wsURL] = resu
 		cli.Close()
 	}
 	tmpList := make([]kvpair, 0)
@@ -508,13 +518,22 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	sort.Slice(tmpList, func(i, j int) bool {
 		return tmpList[i].V < tmpList[j].V
 	})
+	ok = false
 	for _, pair := range tmpList {
-		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-		cli, err = rpc.DialWebsocket(ctx, pair.K, "")
-		if err != nil {
-			continue
+		t := time.Duration(1)
+		for i := 0; i < 3; i++ {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(t*time.Second))
+			cli, err = rpc.DialWebsocket(ctx, pair.K, "")
+			cancel()
+			if err == nil {
+				ok = true
+				break
+			}
+			t += 2
 		}
-		break
+		if ok {
+			break
+		}
 	}
 	return cli, err
 }
@@ -544,33 +563,6 @@ func split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, er
 		matrix[i] = piece
 	}
 	return matrix, uint64(n), nil
-}
-
-func genSpaceFile(fpath, content string, rule []byte) error {
-	if len(content) != 4096 || len(rule) != 1023 {
-		return errors.New("content err")
-	}
-
-	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	for i := 0; i < len(rule); i++ {
-		f.WriteString(content[rule[i]:])
-		f.WriteString(content[:rule[i]])
-		f.WriteString("\n")
-		f.WriteString(content[rule[i]*rule[i]:])
-		f.WriteString(content[:rule[i]*rule[i]])
-		f.WriteString("\n")
-		if i+1 == len(rule) {
-			f.WriteString(content)
-			f.WriteString("\n")
-			f.WriteString(content[3884:])
-		}
-	}
-	return f.Sync()
 }
 
 func genFileTag(fpath string, data []byte) error {

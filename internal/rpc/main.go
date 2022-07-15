@@ -7,6 +7,7 @@ import (
 	. "cess-bucket/internal/logger"
 	"cess-bucket/internal/pt"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -223,7 +224,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	if fstat.Size()%configs.RpcFileBuffer != 0 {
 		blockTotal++
 	}
-	if b.BlockIndex > uint32(blockTotal) {
+	if b.BlockIndex > uint32(blockTotal) || b.BlockIndex == 0 {
 		Out.Sugar().Infof("[%v]Err:Invalid block index", b.FileId)
 		return &RespBody{Code: Code_400, Msg: "Invalid block index"}, nil
 	}
@@ -232,7 +233,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	rtnData.BlockTotal = uint32(blockTotal)
 	rtnData.BlockIndex = b.BlockIndex
 	var tmp = make([]byte, configs.RpcFileBuffer)
-	f.Seek(int64(b.BlockIndex*configs.RpcFileBuffer), 0)
+	f.Seek(int64((b.BlockIndex-1)*configs.RpcFileBuffer), 0)
 	n, _ := f.Read(tmp)
 	rtnData.Data = tmp[:n]
 	f.Close()
@@ -299,12 +300,57 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 	return &RespBody{Code: Code_200, Msg: "success"}, nil
 }
 
+// Readfiletag is used to return the file tag to the scheduling service.
+// The return code is 200 for success, non-200 for failure.
+// The returned Msg indicates the result reason.
+func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
+	var (
+		err error
+		b   ReadTagReq
+	)
+	//Generate a random number to track the log record of this request
+	t := tools.RandomInRange(100000000, 999999999)
+	Out.Sugar().Infof("[T:%v]Read file tag request.....", t)
+
+	//Parse the requested data
+	err = proto.Unmarshal(body, &b)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
+		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+	}
+
+	//Get fileid and Calculate absolute file path
+	filetagfullpath := ""
+	if b.FileId[:4] != "cess" {
+		filetagfullpath = filepath.Join(configs.SpaceDir, b.FileId+".tag")
+	} else {
+		filetagfullpath = filepath.Join(configs.FilesDir, b.FileId+".tag")
+	}
+
+	//Check if the file exists
+	_, err = os.Stat(filetagfullpath)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
+	}
+
+	// read file content
+	buf, err := ioutil.ReadFile(filetagfullpath)
+	if err != nil {
+		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
+	}
+
+	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filetagfullpath)
+	return &RespBody{Code: Code_200, Msg: "success", Data: buf}, nil
+}
+
 // Divide the size according to 2M
 func cutDataRule(size int) (int, int, uint8, error) {
 	if size <= 0 {
 		return 0, 0, 0, errors.New("size is lt 0")
 	}
-	fmt.Println(size)
+
 	num := size / configs.RpcFileBuffer
 	slicesize := size / (num + 1)
 	tailsize := size - slicesize*(num+1)
