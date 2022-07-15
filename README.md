@@ -137,11 +137,6 @@ sudo chmod +x bucket
 ```
 
 The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `bucket` uses `conf.toml` in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
-
-*Our testnet rpc address is as follows:*<br>
-`wss://testnet-rpc.cess.cloud/ws/`<br>
-`wss://testnet-rpc1.cess.cloud/ws/`
-
 ```
 # The rpc address of the chain node
 RpcAddr      = ""
@@ -160,6 +155,10 @@ SignatureAcc = ""
 # If 'ServiceIP' is not public IP, You can set up a domain name
 DomainName   = ""
 ```
+*Our testnet rpc address is as follows:*<br>
+`wss://testnet-rpc0.cess.cloud/ws/`<br>
+`wss://testnet-rpc1.cess.cloud/ws/`
+
 
 **Step 4:** View bucket features
 
