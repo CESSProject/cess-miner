@@ -11,7 +11,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strings"
 
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
@@ -306,9 +305,8 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 // The returned Msg indicates the result reason.
 func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 	var (
-		err          error
-		filefullpath string
-		b            ReadTagReq
+		err error
+		b   ReadTagReq
 	)
 	//Generate a random number to track the log record of this request
 	t := tools.RandomInRange(100000000, 999999999)
@@ -322,28 +320,28 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 	}
 
 	//Get fileid and Calculate absolute file path
-	ext := filepath.Ext(b.FileId)
-	if ext == "" {
-		filefullpath = filepath.Join(SpaceDir, b.FileId, b.FileId+".tag")
+	filetagfullpath := ""
+	if b.FileId[:4] != "cess" {
+		filetagfullpath = filepath.Join(configs.SpaceDir, b.FileId+".tag")
 	} else {
-		filefullpath = filepath.Join(FilesDir, strings.TrimSuffix(b.FileId, ext), b.FileId+".tag")
+		filetagfullpath = filepath.Join(configs.FilesDir, b.FileId+".tag")
 	}
 
 	//Check if the file exists
-	_, err = os.Stat(filefullpath)
+	_, err = os.Stat(filetagfullpath)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
 	}
 
 	// read file content
-	buf, err := ioutil.ReadFile(filefullpath)
+	buf, err := ioutil.ReadFile(filetagfullpath)
 	if err != nil {
 		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
-	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filefullpath)
+	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filetagfullpath)
 	return &RespBody{Code: Code_200, Msg: "success", Data: buf}, nil
 }
 
