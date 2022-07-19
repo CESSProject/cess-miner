@@ -1,0 +1,8 @@
+Dockerfile
+Dockerfile.fast
+README.md
+LICENSE
+.git/
+!.git/HEAD
+!.git/refs/
+!.git/packed-refs
