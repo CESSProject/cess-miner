@@ -68,3 +68,9 @@ message PutTagToBucket {
   bytes    signature = 5;
   repeated bytes sigmas = 6;
 }
+
+message FillerBackReq {
+  bytes file_id   = 1;
+  bytes file_hash = 2;
+  bytes publickey = 3;
+}

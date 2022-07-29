@@ -6,7 +6,6 @@ import (
 	"cess-bucket/internal/chain"
 	"cess-bucket/internal/logger"
 	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/proof"
 	"cess-bucket/internal/pt"
 	"cess-bucket/internal/rpc"
 	"cess-bucket/tools"
@@ -414,7 +413,6 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		}
 	}
 	// start-up
-	go proof.Proof_Main()
 	rpc.Rpc_Main()
 }
 

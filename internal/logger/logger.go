@@ -4,6 +4,7 @@ import (
 	"cess-bucket/configs"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/natefinch/lumberjack"
@@ -12,10 +13,12 @@ import (
 )
 
 var (
-	Warn *zap.Logger
-	Err  *zap.Logger
-	Out  *zap.Logger
-	Uld  *zap.Logger
+	Out *zap.Logger
+	Err *zap.Logger
+	Uld *zap.Logger
+	Dld *zap.Logger
+	Flr *zap.Logger
+	Pnc *zap.Logger
 )
 
 func LoggerInit() {
@@ -27,148 +30,79 @@ func LoggerInit() {
 			os.Exit(1)
 		}
 	}
-	initOutLogger()
-	initWarnLogger()
-	initErrLogger()
-	initUldLogger()
+
+	var log_file = []string{
+		"common.log",
+		"error.log",
+		"upfile.log",
+		"downfile.log",
+		"filler.log",
+		"panic.log",
+	}
+
+	for i := 0; i < len(log_file); i++ {
+		Encoder := GetEncoder()
+		fpath := filepath.Join(configs.LogfileDir, log_file[i])
+		WriteSyncer := GetWriteSyncer(fpath)
+		newCore := zapcore.NewTee(zapcore.NewCore(Encoder, WriteSyncer, zap.NewAtomicLevel()))
+		switch i {
+		case 0:
+			Out = zap.New(newCore, zap.AddCaller())
+			Out.Sugar().Infof("%v", fpath)
+		case 1:
+			Uld = zap.New(newCore, zap.AddCaller())
+			Uld.Sugar().Infof("%v", fpath)
+		case 2:
+			Dld = zap.New(newCore, zap.AddCaller())
+			Dld.Sugar().Infof("%v", fpath)
+		case 3:
+			Flr = zap.New(newCore, zap.AddCaller())
+			Flr.Sugar().Infof("%v", fpath)
+		case 4:
+			Pnc = zap.New(newCore, zap.AddCaller())
+			Pnc.Sugar().Infof("%v", fpath)
+		}
+	}
 }
 
-// out log
-func initOutLogger() {
-	outlogpath := configs.LogfileDir + "/out.log"
-	hook := lumberjack.Logger{
-		Filename:   outlogpath,
-		MaxSize:    50, //MB
-		MaxAge:     90, //Day
-		MaxBackups: 0,
+func GetEncoder() zapcore.Encoder {
+	return zapcore.NewConsoleEncoder(
+		zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller_line",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    cEncodeLevel,
+			EncodeTime:     cEncodeTime,
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   cEncodeCaller,
+		})
+}
+
+func GetWriteSyncer(fpath string) zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   fpath,
+		MaxSize:    30,
+		MaxBackups: 99,
+		MaxAge:     180,
 		LocalTime:  true,
 		Compress:   true,
 	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:   "msg",
-		TimeKey:      "time",
-		CallerKey:    "file",
-		LineEnding:   zapcore.DefaultLineEnding,
-		EncodeLevel:  zapcore.LowercaseLevelEncoder,
-		EncodeTime:   formatEncodeTime,
-		EncodeCaller: zapcore.ShortCallerEncoder,
-	}
-	atomicLevel := zap.NewAtomicLevel()
-	atomicLevel.SetLevel(zap.InfoLevel)
-	var writes = []zapcore.WriteSyncer{zapcore.AddSync(&hook)}
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(writes...),
-		atomicLevel,
-	)
-	caller := zap.AddCaller()
-	development := zap.Development()
-	Out = zap.New(core, caller, development)
-	Out.Sugar().Errorf("The service has started and created a log file in the %v", outlogpath)
+	return zapcore.AddSync(lumberJackLogger)
 }
 
-// warn log
-func initWarnLogger() {
-	warnlogpath := configs.LogfileDir + "/warn.log"
-	hook := lumberjack.Logger{
-		Filename:   warnlogpath,
-		MaxSize:    30,  //MB
-		MaxAge:     180, //Day
-		MaxBackups: 0,
-		LocalTime:  true,
-		Compress:   true,
-	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:   "msg",
-		TimeKey:      "time",
-		CallerKey:    "file",
-		LineEnding:   zapcore.DefaultLineEnding,
-		EncodeLevel:  zapcore.LowercaseLevelEncoder,
-		EncodeTime:   formatEncodeTime,
-		EncodeCaller: zapcore.ShortCallerEncoder,
-	}
-	atomicLevel := zap.NewAtomicLevel()
-	atomicLevel.SetLevel(zap.WarnLevel)
-	var writes = []zapcore.WriteSyncer{zapcore.AddSync(&hook)}
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(writes...),
-		atomicLevel,
-	)
-	caller := zap.AddCaller()
-	development := zap.Development()
-	Warn = zap.New(core, caller, development)
-	Warn.Sugar().Warnf("The service has started and created a log file in the %v", warnlogpath)
+func cEncodeLevel(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + level.CapitalString() + "]")
 }
 
-// error log
-func initErrLogger() {
-	errlogpath := configs.LogfileDir + "/error.log"
-	hook := lumberjack.Logger{
-		Filename:   errlogpath,
-		MaxSize:    30,  //MB
-		MaxAge:     180, //Day
-		MaxBackups: 0,
-		LocalTime:  true,
-		Compress:   true,
-	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:   "msg",
-		TimeKey:      "time",
-		CallerKey:    "file",
-		LineEnding:   zapcore.DefaultLineEnding,
-		EncodeLevel:  zapcore.LowercaseLevelEncoder,
-		EncodeTime:   formatEncodeTime,
-		EncodeCaller: zapcore.ShortCallerEncoder,
-	}
-	atomicLevel := zap.NewAtomicLevel()
-	atomicLevel.SetLevel(zap.ErrorLevel)
-	var writes = []zapcore.WriteSyncer{zapcore.AddSync(&hook)}
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(writes...),
-		atomicLevel,
-	)
-	caller := zap.AddCaller()
-	development := zap.Development()
-	Err = zap.New(core, caller, development)
-	Err.Sugar().Errorf("The service has started and created a log file in the %v", errlogpath)
+func cEncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + t.Format("2006-01-02 15:04:05") + "]")
 }
 
-// uld log
-func initUldLogger() {
-	uldlogpath := configs.LogfileDir + "/uld.log"
-	hook := lumberjack.Logger{
-		Filename:   uldlogpath,
-		MaxSize:    50, //MB
-		MaxAge:     90, //Day
-		MaxBackups: 0,
-		LocalTime:  true,
-		Compress:   true,
-	}
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:   "msg",
-		TimeKey:      "time",
-		CallerKey:    "file",
-		LineEnding:   zapcore.DefaultLineEnding,
-		EncodeLevel:  zapcore.LowercaseLevelEncoder,
-		EncodeTime:   formatEncodeTime,
-		EncodeCaller: zapcore.ShortCallerEncoder,
-	}
-	atomicLevel := zap.NewAtomicLevel()
-	atomicLevel.SetLevel(zap.InfoLevel)
-	var writes = []zapcore.WriteSyncer{zapcore.AddSync(&hook)}
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(writes...),
-		atomicLevel,
-	)
-	caller := zap.AddCaller()
-	development := zap.Development()
-	Uld = zap.New(core, caller, development)
-	Uld.Sugar().Errorf("The service has started and created a log file in the %v", uldlogpath)
-}
-
-func formatEncodeTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(fmt.Sprintf("%d-%02d-%02d %02d:%02d:%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second()))
+func cEncodeCaller(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString("[" + caller.TrimmedPath() + "]")
 }

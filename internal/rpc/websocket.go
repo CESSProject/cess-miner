@@ -80,7 +80,7 @@ func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
 		if allowAllOrigins || originIsAllowed(origins, origin) {
 			return true
 		}
-		logger.Warn.Sugar().Warnf("Rejected WebSocket connection origin:%v", origin)
+		logger.Err.Sugar().Errorf("Rejected WebSocket connection origin:%v", origin)
 		return false
 	}
 
@@ -105,12 +105,12 @@ func ruleAllowsOrigin(allowedOrigin string, browserOrigin string) bool {
 	)
 	allowedScheme, allowedHostname, allowedPort, err = parseOriginURL(allowedOrigin)
 	if err != nil {
-		logger.Warn.Sugar().Warnf("Error parsing allowed origin specification, spec:%v err:%v", allowedOrigin, err)
+		logger.Err.Sugar().Errorf("Error parsing allowed origin specification, spec:%v err:%v", allowedOrigin, err)
 		return false
 	}
 	browserScheme, browserHostname, browserPort, err = parseOriginURL(browserOrigin)
 	if err != nil {
-		logger.Warn.Sugar().Warnf("parsing browser 'Origin' field, Origin:%v err:%v", browserOrigin, err)
+		logger.Err.Sugar().Errorf("parsing browser 'Origin' field, Origin:%v err:%v", browserOrigin, err)
 		return false
 	}
 	if allowedScheme != "" && allowedScheme != browserScheme {
