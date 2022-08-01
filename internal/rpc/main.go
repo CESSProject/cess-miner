@@ -56,14 +56,14 @@ type baseFiller struct {
 var globalTransport *http.Transport
 
 // Init
-func Rpc_Init() {
+func init() {
 	globalTransport = &http.Transport{
 		DisableKeepAlives: true,
 	}
-	if err := tools.CreatDirIfNotExist(C.MountedPath); err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
+	// if err := tools.CreatDirIfNotExist(C.MountedPath); err != nil {
+	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	// 	os.Exit(1)
+	// }
 }
 
 // Start http service.
@@ -81,6 +81,7 @@ func Rpc_Main() {
 	go serveWs(conn_ws)
 	go serveHttp(conn_http)
 
+	log.Println("Start and listen on port ", configs.C.ServicePort, "...")
 	if err := m.Serve(); err != nil {
 		Err.Sugar().Errorf("%v", err)
 	}
@@ -139,9 +140,13 @@ func serveHttp(l net.Listener) {
 		fpath := filepath.Join(configs.FilesDir, fid)
 		_, err := os.Stat(fpath)
 		if err != nil {
-			Err.Sugar().Errorf("[%v] file not found", c.ClientIP())
-			c.JSON(http.StatusNotFound, "Not found")
-			return
+			fpath = filepath.Join(configs.SpaceDir, fid)
+			_, err = os.Stat(fpath)
+			if err != nil {
+				Err.Sugar().Errorf("[%v] file not found", c.ClientIP())
+				c.JSON(http.StatusNotFound, "Not found")
+				return
+			}
 		}
 		c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", fid))
 		c.Writer.Header().Add("Content-Type", "application/octet-stream")
@@ -532,14 +537,14 @@ func task_SpaceManagement(ch chan bool) {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			var fillerurl string = "http://" + basefiller.MinerIp[0] + "/" + basefiller.FillerId
+			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[0])) + "/" + basefiller.FillerId
 			var fillertagurl string = fillerurl + ".tag"
 			fillerbody, err := getFiller(fillerurl)
 			if err != nil {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			spacefilefullpath := filepath.Join(configs.SpaceDir, respspace.FileId)
+			spacefilefullpath := filepath.Join(configs.SpaceDir, basefiller.FillerId)
 			err = write_file(spacefilefullpath, fillerbody)
 			if err != nil {
 				os.Remove(spacefilefullpath)
@@ -551,7 +556,7 @@ func task_SpaceManagement(ch chan bool) {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			tagfilename := respspace.FileId + ".tag"
+			tagfilename := basefiller.FillerId + ".tag"
 			tagfilefullpath := filepath.Join(configs.SpaceDir, tagfilename)
 			err = write_file(tagfilefullpath, fillertagbody)
 			if err != nil {
@@ -577,11 +582,16 @@ func task_SpaceManagement(ch chan bool) {
 				continue
 			}
 
-			_, _, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_back_req)
+			_, _, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_FillerBack, req_back_req)
 			reconn = clo
 			if err != nil {
 				Flr.Sugar().Errorf(" %v", err)
 			}
+			continue
+		}
+
+		if respCode != 200 {
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
 			continue
 		}
 

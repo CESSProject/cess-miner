@@ -3,6 +3,7 @@ package logger
 import (
 	"cess-bucket/configs"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -50,19 +51,23 @@ func LoggerInit() {
 			Out = zap.New(newCore, zap.AddCaller())
 			Out.Sugar().Infof("%v", fpath)
 		case 1:
+			Err = zap.New(newCore, zap.AddCaller())
+			Err.Sugar().Infof("%v", fpath)
+		case 2:
 			Uld = zap.New(newCore, zap.AddCaller())
 			Uld.Sugar().Infof("%v", fpath)
-		case 2:
+		case 3:
 			Dld = zap.New(newCore, zap.AddCaller())
 			Dld.Sugar().Infof("%v", fpath)
-		case 3:
+		case 4:
 			Flr = zap.New(newCore, zap.AddCaller())
 			Flr.Sugar().Infof("%v", fpath)
-		case 4:
+		case 5:
 			Pnc = zap.New(newCore, zap.AddCaller())
 			Pnc.Sugar().Infof("%v", fpath)
 		}
 	}
+	log.Println("log loaded successfully")
 }
 
 func GetEncoder() zapcore.Encoder {
