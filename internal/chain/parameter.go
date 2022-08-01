@@ -29,6 +29,8 @@ const (
 	ChainTx_SegmentBook_IntentSubmit = "SegmentBook.intent_submit"
 	ChainTx_Sminer_ExitMining        = "Sminer.exit_miner"
 	ChainTx_Sminer_Withdraw          = "Sminer.withdraw"
+	ChainTx_Sminer_UpdateIp          = "Sminer.update_ip"
+	ChainTx_Sminer_UpdateBeneficiary = "Sminer.update_beneficiary"
 	ChainTx_Sminer_Increase          = "Sminer.increase_collateral"
 	SegmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
 	FileBank_ClearInvalidFile        = "FileBank.clear_invalid_file"

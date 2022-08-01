@@ -60,10 +60,6 @@ func init() {
 	globalTransport = &http.Transport{
 		DisableKeepAlives: true,
 	}
-	// if err := tools.CreatDirIfNotExist(C.MountedPath); err != nil {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-	// 	os.Exit(1)
-	// }
 }
 
 // Start http service.

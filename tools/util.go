@@ -229,3 +229,8 @@ func RecoverError(err interface{}) string {
 	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
 	return buf.String()
 }
+
+func IsIPv4(ipAddr string) bool {
+	ip := net.ParseIP(ipAddr)
+	return ip != nil && strings.Contains(ipAddr, ".")
+}

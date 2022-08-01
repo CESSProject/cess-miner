@@ -11,13 +11,16 @@ import (
 	"cess-bucket/tools"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -56,6 +59,8 @@ func init() {
 		Command_Exit(),
 		Command_Increase(),
 		Command_Withdraw(),
+		Command_UpdateAddress(),
+		Command_UpdateIncome(),
 	)
 }
 
@@ -72,7 +77,7 @@ func Command_Version() *cobra.Command {
 func Command_Default() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "default",
-		Short:                 "Generate configuration file template",
+		Short:                 "Generate configuration file template in current directory",
 		Run:                   Command_Default_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -102,7 +107,7 @@ func Command_State() *cobra.Command {
 func Command_Run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
-		Short:                 "Start mining",
+		Short:                 "Register and start mining",
 		Run:                   Command_Run_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -134,6 +139,26 @@ func Command_Withdraw() *cobra.Command {
 		Use:                   "withdraw",
 		Short:                 "Redemption deposit",
 		Run:                   Command_Withdraw_Runfunc,
+		DisableFlagsInUseLine: true,
+	}
+	return cc
+}
+
+func Command_UpdateAddress() *cobra.Command {
+	cc := &cobra.Command{
+		Use:                   "update_address",
+		Short:                 "Update the miner's access address",
+		Run:                   Command_UpdateAddress_Runfunc,
+		DisableFlagsInUseLine: true,
+	}
+	return cc
+}
+
+func Command_UpdateIncome() *cobra.Command {
+	cc := &cobra.Command{
+		Use:                   "update_income",
+		Short:                 "Update the miner's income account",
+		Run:                   Command_UpdateIncome_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -560,6 +585,54 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(0)
 	}
 	fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed: %v\n", 41, err)
+	os.Exit(1)
+}
+
+// Update the miner's access address
+func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
+	if len(os.Args) == 3 {
+		data := strings.Split(os.Args[2], ":")
+		if len(data) == 2 {
+			if !tools.IsIPv4(data[0]) {
+				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+				os.Exit(1)
+			}
+			_, err := strconv.Atoi(data[1])
+			if err != nil {
+				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+				os.Exit(1)
+			}
+		}
+		txhash, _, _ := chain.UpdateAddress(configs.C.SignatureAcc, os.Args[2])
+		if txhash == "" {
+			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.\n", 41)
+			os.Exit(1)
+		}
+		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
+		os.Exit(0)
+	}
+	log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket address ip:port[domain_name]'\n", 41)
+	os.Exit(1)
+}
+
+// Update the miner's access address
+func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
+	if len(os.Args) == 3 {
+		pubkey, err := tools.DecodeToCessPub(os.Args[2])
+		if err != nil {
+			log.Printf("\x1b[%dm[ok]\x1b[0m account error\n", 42)
+			os.Exit(1)
+		}
+
+		txhash, _, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
+		if txhash == "" {
+			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.\n", 41)
+			os.Exit(1)
+		}
+		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
+		os.Exit(0)
+	}
+	log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket update_income account'\n", 41)
 	os.Exit(1)
 }
 
