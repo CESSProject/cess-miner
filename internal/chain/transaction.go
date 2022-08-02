@@ -698,7 +698,7 @@ func UpdateAddress(transactionPrK, addr string) (string, int, error) {
 	)
 	api, err := NewRpcClient(configs.C.RpcAddr)
 	if err != nil {
-		return "", configs.Code_500, err
+		return "", configs.Code_500, errors.Wrap(err, "NewRpcClient err")
 	}
 	defer func() {
 		if err := recover(); err != nil {

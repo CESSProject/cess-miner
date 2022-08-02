@@ -603,9 +603,11 @@ func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 				os.Exit(1)
 			}
 		}
-		txhash, _, _ := chain.UpdateAddress(configs.C.SignatureAcc, os.Args[2])
+		//Parse command arguments and  configuration file
+		parseFlags(cmd)
+		txhash, _, err := chain.UpdateAddress(configs.C.SignatureAcc, os.Args[2])
 		if txhash == "" {
-			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.\n", 41)
+			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.%v\n", 41, err)
 			os.Exit(1)
 		}
 		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
@@ -623,10 +625,11 @@ func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 			log.Printf("\x1b[%dm[ok]\x1b[0m account error\n", 42)
 			os.Exit(1)
 		}
-
+		//Parse command arguments and  configuration file
+		parseFlags(cmd)
 		txhash, _, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
 		if txhash == "" {
-			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.\n", 41)
+			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.%v\n", 41, err)
 			os.Exit(1)
 		}
 		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
