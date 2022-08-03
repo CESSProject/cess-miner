@@ -285,7 +285,7 @@ func register(api *gsrpc.SubstrateAPI) error {
 	Out.Sugar().Infof("Register transaction hash:%v", txhash)
 	return nil
 Err:
-	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
+	log.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 	return err
 }
 
@@ -590,7 +590,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 
 // Update the miner's access address
 func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
-	if len(os.Args) == 3 {
+	if len(os.Args) >= 3 {
 		data := strings.Split(os.Args[2], ":")
 		if len(data) == 2 {
 			if !tools.IsIPv4(data[0]) {
@@ -619,7 +619,7 @@ func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 
 // Update the miner's access address
 func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
-	if len(os.Args) == 3 {
+	if len(os.Args) >= 3 {
 		pubkey, err := tools.DecodeToCessPub(os.Args[2])
 		if err != nil {
 			log.Printf("\x1b[%dm[ok]\x1b[0m account error\n", 42)
