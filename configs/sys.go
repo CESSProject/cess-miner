@@ -1,7 +1,7 @@
 package configs
 
 // type and version
-const Version = "CESS-Bucket v0.4.3.220803.1026"
+const Version = "CESS-Bucket v0.4.3.220803.1350"
 
 // rpc service and method
 const (

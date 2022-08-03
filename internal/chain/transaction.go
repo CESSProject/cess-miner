@@ -812,12 +812,7 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, int, erro
 		return "", configs.Code_500, errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	b, err := types.EncodeToBytes(acc)
-	if err != nil {
-		return "", configs.Code_500, errors.Wrap(err, "DecodeToCessPub err")
-	}
-
-	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateBeneficiary, b)
+	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateBeneficiary, acc)
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "NewCall err")
 	}
