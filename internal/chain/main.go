@@ -1,24 +1,40 @@
 package chain
 
 import (
+	"sync"
+
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 )
 
-// var (
-// 	wlock *sync.Mutex
-// 	r     *gsrpc.SubstrateAPI
-// )
+var (
+	l   *sync.Mutex
+	api *gsrpc.SubstrateAPI
+)
 
-//func Chain_Init() {
-// var err error
-// r, err = gsrpc.NewSubstrateAPI(C.RpcAddr)
-// if err != nil {
-// 	fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-// 	os.Exit(1)
-// }
-// wlock = new(sync.Mutex)
-// go substrateAPIKeepAlive()
-//}
+func init() {
+	l = new(sync.Mutex)
+}
+
+func GetRpcClient_Safe(rpcaddr string) (*gsrpc.SubstrateAPI, error) {
+	var err error
+	l.Lock()
+	if api == nil {
+		api, err = gsrpc.NewSubstrateAPI(rpcaddr)
+		return api, err
+	}
+	id, err := healthchek(api)
+	if id == 0 || err != nil {
+		api, err = gsrpc.NewSubstrateAPI(rpcaddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return api, nil
+}
+
+func Free() {
+	l.Unlock()
+}
 
 func NewRpcClient(rpcaddr string) (*gsrpc.SubstrateAPI, error) {
 	return gsrpc.NewSubstrateAPI(rpcaddr)
@@ -50,16 +66,13 @@ func NewRpcClient(rpcaddr string) (*gsrpc.SubstrateAPI, error) {
 // 	}
 // }
 
-// func healthchek(a *gsrpc.SubstrateAPI) (uint64, error) {
-// 	defer func() {
-// 		err := recover()
-// 		if err != nil {
-// 			Err.Sugar().Errorf("[panic]: %v", err)
-// 		}
-// 	}()
-// 	h, err := a.RPC.System.Health()
-// 	return uint64(h.Peers), err
-// }
+func healthchek(a *gsrpc.SubstrateAPI) (uint64, error) {
+	defer func() {
+		recover()
+	}()
+	h, err := a.RPC.System.Health()
+	return uint64(h.Peers), err
+}
 
 // func getSubstrateAPI() *gsrpc.SubstrateAPI {
 // 	wlock.Lock()

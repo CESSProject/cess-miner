@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
@@ -213,6 +214,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 }
 
 func register(api *gsrpc.SubstrateAPI) error {
+	defer chain.Free()
 	//Calculate the deposit based on the size of the storage space
 	pledgeTokens := 2000 * (configs.C.StorageSpace / 1024)
 	if configs.C.StorageSpace%1024 != 0 {
@@ -228,8 +230,8 @@ func register(api *gsrpc.SubstrateAPI) error {
 
 	_, err := os.Stat(configs.BaseDir)
 	if err == nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' directory conflict\n", 41, configs.BaseDir)
-		return errors.New("directory conflict")
+		bkpname := configs.BaseDir + "_" + fmt.Sprintf("%v", time.Now().Unix()) + "_bkp"
+		os.Rename(configs.BaseDir, bkpname)
 	}
 
 	//Registration information on the chain
@@ -294,7 +296,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	//Parse command arguments and  configuration file
 	parseFlags(cmd)
 
-	api, err := chain.NewRpcClient(configs.C.RpcAddr)
+	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
+	defer chain.Free()
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Connection error: %v\n", 41, err)
 		os.Exit(1)
@@ -720,8 +723,9 @@ func parseProfile() {
 }
 
 func register_if() (bool, error) {
-	api, err := chain.NewRpcClient(configs.C.RpcAddr)
+	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
 	if err != nil {
+		chain.Free()
 		return false, err
 	}
 	//Query your own information on the chain
@@ -729,5 +733,6 @@ func register_if() (bool, error) {
 	if code == configs.Code_404 {
 		return true, register(api)
 	}
+	chain.Free()
 	return false, err
 }

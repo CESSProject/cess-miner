@@ -419,7 +419,8 @@ func SubmitProofs(signaturePrk string, data []ProveInfo) (string, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return txhash, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
 	}
@@ -515,7 +516,8 @@ func ClearInvalidFiles(signaturePrk string, fid types.Bytes) (string, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewRpcClient]")
 	}
@@ -696,15 +698,17 @@ func UpdateAddress(transactionPrK, addr string) (string, int, error) {
 		err         error
 		accountInfo types.AccountInfo
 	)
-	api, err := NewRpcClient(configs.C.RpcAddr)
-	if err != nil {
-		return "", configs.Code_500, errors.Wrap(err, "NewRpcClient err")
-	}
+
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 	}()
+
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return "", configs.Code_500, errors.Wrap(err, "NewRpcClient err")
+	}
 
 	keyring, err := signature.KeyringPairFromSecret(transactionPrK, 0)
 	if err != nil {
@@ -792,16 +796,15 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, int, erro
 		err         error
 		accountInfo types.AccountInfo
 	)
-	api, err := NewRpcClient(configs.C.RpcAddr)
-	if err != nil {
-		return "", configs.Code_500, err
-	}
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 	}()
-
+	api, err := NewRpcClient(configs.C.RpcAddr)
+	if err != nil {
+		return "", configs.Code_500, errors.Wrap(err, "NewRpcClient err")
+	}
 	keyring, err := signature.KeyringPairFromSecret(transactionPrK, 0)
 	if err != nil {
 		return "", configs.Code_500, errors.Wrap(err, "KeyringPairFromSecret err")

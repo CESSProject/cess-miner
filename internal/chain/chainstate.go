@@ -55,7 +55,8 @@ func GetChallenges(privkey string) ([]ChallengesInfo, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
 	}
@@ -95,7 +96,8 @@ func GetPublicKey() (Chain_SchedulerPuk, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
 	}
@@ -130,7 +132,8 @@ func GetInvalidFiles(privkey string) ([]types.Bytes, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return data, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
 	}
@@ -170,7 +173,8 @@ func GetSchedulingNodes() ([]SchedulerInfo, int, error) {
 			Err.Sugar().Errorf("[panic]: %v", err)
 		}
 	}()
-	api, err := NewRpcClient(configs.C.RpcAddr)
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
 	if err != nil {
 		return mdata, configs.Code_500, errors.Wrap(err, "[NewRpcClient]")
 	}
