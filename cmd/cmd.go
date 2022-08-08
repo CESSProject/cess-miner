@@ -149,6 +149,7 @@ func Command_UpdateAddress() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "update_address",
 		Short:                 "Update the miner's access address",
+		Example:               "bucket update_address ip:port[domain_name]",
 		Run:                   Command_UpdateAddress_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -200,6 +201,7 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	if code == configs.Code_404 {
 		err = register(api)
 		if err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m Register failed: %v\n", 41, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -331,29 +333,29 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	switch count {
 	case 0:
-		power_unit = "B"
+		power_unit = "Byte"
 	case 1:
-		power_unit = "KB"
+		power_unit = "KiB"
 	case 2:
-		power_unit = "MB"
+		power_unit = "MiB"
 	case 3:
-		power_unit = "GB"
+		power_unit = "GiB"
 	case 4:
-		power_unit = "TB"
+		power_unit = "TiB"
 	case 5:
-		power_unit = "PB"
+		power_unit = "PiB"
 	case 6:
-		power_unit = "EB"
+		power_unit = "EiB"
 	case 7:
-		power_unit = "ZB"
+		power_unit = "ZiB"
 	case 8:
-		power_unit = "YB"
+		power_unit = "YiB"
 	case 9:
-		power_unit = "NB"
+		power_unit = "NiB"
 	case 10:
-		power_unit = "DB"
+		power_unit = "DiB"
 	default:
-		power_unit = fmt.Sprintf("DB(%v)", count-10)
+		power_unit = fmt.Sprintf("DiB(%v)", count-10)
 	}
 	count = 0
 	for mData.Space.BitLen() > int(16) {
@@ -369,29 +371,29 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	switch count {
 	case 0:
-		space_unit = "B"
+		space_unit = "Byte"
 	case 1:
-		space_unit = "KB"
+		space_unit = "KiB"
 	case 2:
-		space_unit = "MB"
+		space_unit = "MiB"
 	case 3:
-		space_unit = "GB"
+		space_unit = "GiB"
 	case 4:
-		space_unit = "TB"
+		space_unit = "TiB"
 	case 5:
-		space_unit = "PB"
+		space_unit = "PiB"
 	case 6:
-		space_unit = "EB"
+		space_unit = "EiB"
 	case 7:
-		space_unit = "ZB"
+		space_unit = "ZiB"
 	case 8:
-		space_unit = "YB"
+		space_unit = "YiB"
 	case 9:
-		space_unit = "NB"
+		space_unit = "NiB"
 	case 10:
-		space_unit = "DB"
+		space_unit = "DiB"
 	default:
-		power_unit = fmt.Sprintf("DB(%v)", count-10)
+		power_unit = fmt.Sprintf("DiB(%v)", count-10)
 	}
 
 	//print your own details

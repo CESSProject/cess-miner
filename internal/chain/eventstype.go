@@ -23,21 +23,21 @@ type Event_PPDNoOnTimeSubmit struct {
 
 type Event_ChallengeProof struct {
 	Phase  types.Phase
-	PeerId types.U64
+	Miner  types.AccountID
 	Fileid types.Bytes
 	Topics []types.Hash
 }
 
 type Event_VerifyProof struct {
 	Phase  types.Phase
-	PeerId types.U64
+	Miner  types.AccountID
 	Fileid types.Bytes
 	Topics []types.Hash
 }
 
 type Event_OutstandingChallenges struct {
 	Phase  types.Phase
-	PeerId types.U64
+	Miner  types.AccountID
 	Fileid types.Bytes
 	Topics []types.Hash
 }
@@ -101,6 +101,52 @@ type Event_Deposit struct {
 	Phase   types.Phase
 	Balance types.U128
 	Topics  []types.Hash
+}
+
+type Event_Redeemed struct {
+	Phase   types.Phase
+	Acc     types.AccountID
+	Deposit types.U128
+	Topics  []types.Hash
+}
+
+type Event_Claimed struct {
+	Phase   types.Phase
+	Acc     types.AccountID
+	Deposit types.U128
+	Topics  []types.Hash
+}
+
+type Event_TimingStorageSpace struct {
+	Phase  types.Phase
+	Topics []types.Hash
+}
+
+type Event_UpdataBeneficiary struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	New    types.AccountID
+	Topics []types.Hash
+}
+
+type Event_UpdataIp struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Old    types.Bytes
+	New    types.Bytes
+	Topics []types.Hash
+}
+
+type Event_StartOfBufferPeriod struct {
+	Phase  types.Phase
+	When   types.U32
+	Topics []types.Hash
+}
+
+type Event_EndOfBufferPeriod struct {
+	Phase  types.Phase
+	When   types.U32
+	Topics []types.Hash
 }
 
 //------------------------FileBank-------------------------------
@@ -202,10 +248,33 @@ type Event_ReceiveSpace struct {
 }
 
 type Event_UploadDeclaration struct {
+	Phase     types.Phase
+	Acc       types.AccountID
+	File_hash types.Bytes
+	File_name types.Bytes
+	Topics    []types.Hash
+}
+type Event_BuyPackage struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Size   types.U128
+	Fee    types.U128
+	Topics []types.Hash
+}
+
+type Event_PackageUpgrade struct {
 	Phase    types.Phase
-	FileHash types.Bytes
-	FileName types.Bytes
+	Acc      types.AccountID
+	Old_type types.U8
+	New_type types.U8
 	Topics   []types.Hash
+}
+
+type Event_PackageRenewal struct {
+	Phase        types.Phase
+	Acc          types.AccountID
+	Package_type types.U8
+	Topics       []types.Hash
 }
 
 //------------------------FileMap--------------------------------
@@ -214,6 +283,13 @@ type Event_RegistrationScheduler struct {
 	Acc    types.AccountID
 	Ip     types.Bytes
 	Topics []types.Hash
+}
+
+type Event_UpdateScheduler struct {
+	Phase    types.Phase
+	Acc      types.AccountID
+	Endpoint types.Bytes
+	Topics   []types.Hash
 }
 
 //------------------------other system---------------------------
@@ -256,16 +332,23 @@ type MyEventRecords struct {
 	SegmentBook_VerifyProof           []Event_VerifyProof
 	SegmentBook_OutstandingChallenges []Event_OutstandingChallenges
 	//Sminer
-	Sminer_Registered         []Event_Registered
-	Sminer_TimedTask          []Event_TimedTask
-	Sminer_DrawFaucetMoney    []Event_DrawFaucetMoney
-	Sminer_FaucetTopUpMoney   []Event_FaucetTopUpMoney
-	Sminer_LessThan24Hours    []Event_LessThan24Hours
-	Sminer_AlreadyFrozen      []Event_AlreadyFrozen
-	Sminer_MinerExit          []Event_MinerExit
-	Sminer_MinerClaim         []Event_MinerClaim
-	Sminer_IncreaseCollateral []Event_IncreaseCollateral
-	Sminer_Deposit            []Event_Deposit
+	Sminer_Registered          []Event_Registered
+	Sminer_TimedTask           []Event_TimedTask
+	Sminer_DrawFaucetMoney     []Event_DrawFaucetMoney
+	Sminer_FaucetTopUpMoney    []Event_FaucetTopUpMoney
+	Sminer_LessThan24Hours     []Event_LessThan24Hours
+	Sminer_AlreadyFrozen       []Event_AlreadyFrozen
+	Sminer_MinerExit           []Event_MinerExit
+	Sminer_MinerClaim          []Event_MinerClaim
+	Sminer_IncreaseCollateral  []Event_IncreaseCollateral
+	Sminer_Deposit             []Event_Deposit
+	Sminer_Redeemed            []Event_Redeemed
+	Sminer_Claimed             []Event_Claimed
+	Sminer_TimingStorageSpace  []Event_TimingStorageSpace
+	Sminer_UpdataBeneficiary   []Event_UpdataBeneficiary
+	Sminer_UpdataIp            []Event_UpdataIp
+	Sminer_StartOfBufferPeriod []Event_StartOfBufferPeriod
+	Sminer_EndOfBufferPeriod   []Event_EndOfBufferPeriod
 	//FileBank
 	FileBank_DeleteFile           []Event_DeleteFile
 	FileBank_BuySpace             []Event_BuySpace
@@ -282,8 +365,12 @@ type MyEventRecords struct {
 	FileBank_RecoverFile          []Event_RecoverFile
 	FileBank_ReceiveSpace         []Event_ReceiveSpace
 	FileBank_UploadDeclaration    []Event_UploadDeclaration
+	FileBank_BuyPackage           []Event_BuyPackage
+	FileBank_PackageUpgrade       []Event_PackageUpgrade
+	FileBank_PackageRenewal       []Event_PackageRenewal
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
+	FileMap_UpdateScheduler       []Event_UpdateScheduler
 	//other system
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted

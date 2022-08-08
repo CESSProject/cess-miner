@@ -89,10 +89,12 @@ func task_management() {
 		channel_1 = make(chan bool, 1)
 		channel_2 = make(chan bool, 1)
 		channel_3 = make(chan bool, 1)
+		channel_4 = make(chan bool, 1)
 	)
 	go task_SpaceManagement(channel_1)
 	go task_HandlingChallenges(channel_2)
 	go task_RemoveInvalidFiles(channel_3)
+	go task_self_judgment(channel_4)
 	for {
 		select {
 		case <-channel_1:
@@ -101,6 +103,8 @@ func task_management() {
 			go task_HandlingChallenges(channel_2)
 		case <-channel_3:
 			go task_RemoveInvalidFiles(channel_3)
+		case <-channel_4:
+			go task_self_judgment(channel_4)
 		}
 	}
 }
@@ -588,6 +592,7 @@ func task_SpaceManagement(ch chan bool) {
 
 		if respCode != 200 {
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
+			reconn = true
 			continue
 		}
 
@@ -701,14 +706,13 @@ func task_HandlingChallenges(ch chan bool) {
 			if code != configs.Code_404 {
 				Out.Sugar().Infof("[ERR] %v", err)
 			}
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(3, 5)))
-			continue
 		}
 
 		if len(chlng) == 0 {
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 10)))
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
 			continue
 		}
+
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 		Out.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
 		for x := 0; x < len(chlng); x++ {
@@ -716,7 +720,7 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 		var proveInfos = make([]chain.ProveInfo, 0)
 		for i := 0; i < len(chlng); i++ {
-			if len(proveInfos) > 80 {
+			if len(proveInfos) >= 80 {
 				break
 			}
 
@@ -780,7 +784,7 @@ func task_HandlingChallenges(ch chan bool) {
 				continue
 			}
 
-			proveInfoTemp := chain.ProveInfo{}
+			var proveInfoTemp chain.ProveInfo
 			proveInfoTemp.Cinfo = chlng[i]
 			proveInfoTemp.FileId = chlng[i].File_id
 
@@ -793,6 +797,9 @@ func task_HandlingChallenges(ch chan bool) {
 			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
 			proveInfoTemp.MinerAcc = types.NewAccountID(pubkey)
 			proveInfos = append(proveInfos, proveInfoTemp)
+		}
+		if len(proveInfos) == 0 {
+			continue
 		}
 		// proof up chain
 		ts := time.Now().Unix()
@@ -865,6 +872,35 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
 		}
+	}
+}
+
+func task_self_judgment(ch chan bool) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			Err.Sugar().Errorf("[panic]: %v", err)
+		}
+		ch <- true
+	}()
+	Out.Info(">>>>> Start task_self_judgment <<<<<")
+	var failcount uint8
+	for {
+		//Query your own information on the chain
+		api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
+		if err != nil {
+			_, code, _ := chain.GetMinerInfo(api, configs.C.SignatureAcc)
+			if code == configs.Code_404 {
+				failcount++
+			}
+			if code == configs.Code_200 {
+				failcount = 0
+			}
+		}
+		if failcount >= 10 {
+			os.Exit(1)
+		}
+		time.Sleep(time.Minute * 5)
 	}
 }
 
