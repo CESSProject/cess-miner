@@ -9,7 +9,6 @@ import (
 	"cess-bucket/internal/pt"
 	"cess-bucket/internal/rpc"
 	"cess-bucket/tools"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -197,16 +196,16 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		err = register(api)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Register failed: %v\n", 41, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
+	_, err = chain.GetMinerInfo(api)
 	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			err = register(api)
+			if err != nil {
+				fmt.Printf("\x1b[%dm[err]\x1b[0m Register failed: %v\n", 41, err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
 		os.Exit(1)
 	}
@@ -216,7 +215,6 @@ func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
 }
 
 func register(api *gsrpc.SubstrateAPI) error {
-	defer chain.Free()
 	//Calculate the deposit based on the size of the storage space
 	pledgeTokens := 2000 * (configs.C.StorageSpace / 1024)
 	if configs.C.StorageSpace%1024 != 0 {
@@ -237,16 +235,25 @@ func register(api *gsrpc.SubstrateAPI) error {
 	}
 
 	//Registration information on the chain
-	txhash, _, err := chain.Register(
+	txhash, err := chain.Register(
 		api,
-		configs.C.SignatureAcc,
 		configs.C.IncomeAcc,
 		res,
 		pledgeTokens,
 	)
-	if txhash == "" {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Registration failed: [%v]\n", 41, err)
-		return errors.New("failed")
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			log.Println("[err] Please check your wallet balance.")
+		} else {
+			if txhash != "" {
+				msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
+				msg += configs.HELP_register
+				log.Printf("[pending] %v\n", msg)
+			} else {
+				log.Printf("[err] %v.\n", err)
+			}
+		}
+		return err
 	}
 
 	fmt.Printf("\x1b[%dm[ok]\x1b[0m Registration success\n", 42)
@@ -274,6 +281,10 @@ func register(api *gsrpc.SubstrateAPI) error {
 		goto Err
 	}
 
+	log.Println(configs.LogfileDir)
+	log.Println(configs.SpaceDir)
+	log.Println(configs.FilesDir)
+
 	//Initialize the logger
 	logger.LoggerInit()
 
@@ -298,21 +309,19 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	//Parse command arguments and  configuration file
 	parseFlags(cmd)
 
-	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
-	defer chain.Free()
+	api, err := chain.NewRpcClient(configs.C.RpcAddr)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Connection error: %v\n", 41, err)
 		os.Exit(1)
 	}
 	//Query your own information on the chain
-	mData, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m No miner found, please check the network or whether to register.\n", 41)
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-	if code != configs.Code_200 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
+	mData, err := chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			log.Printf("[err] Not found: %v\n", err)
+			os.Exit(1)
+		}
+		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -417,28 +426,35 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	if !flag {
-		//update data directory
+		err = register(nil)
+		if err != nil {
+			log.Printf("[err] Registration failed: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		//Create log directory
 		configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
+		if err = tools.CreatDirIfNotExist(configs.LogfileDir); err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
+			os.Exit(1)
+		}
+		//Create space directory
 		configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
+		if err = tools.CreatDirIfNotExist(configs.SpaceDir); err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
+			os.Exit(1)
+		}
+		//Create file directory
 		configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
+		if err = tools.CreatDirIfNotExist(configs.FilesDir); err != nil {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
+			os.Exit(1)
+		}
+		log.Println(configs.LogfileDir)
+		log.Println(configs.SpaceDir)
+		log.Println(configs.FilesDir)
 		//Initialize the logger
 		logger.LoggerInit()
-		//Determine whether the data directory exists, and exit if it does not exist
-		_, err = os.Stat(configs.LogfileDir)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.LogfileDir)
-			os.Exit(1)
-		}
-		_, err = os.Stat(configs.SpaceDir)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.SpaceDir)
-			os.Exit(1)
-		}
-		_, err = os.Stat(configs.FilesDir)
-		if err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not found\n", 41, configs.FilesDir)
-			os.Exit(1)
-		}
 	}
 	// start-up
 	rpc.Rpc_Main()
@@ -456,14 +472,13 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute exit.\n", 41)
-		os.Exit(1)
-	}
-
-	if code != configs.Code_200 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
+	_, err = chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			log.Printf("[err] Unregistered miner\n")
+			os.Exit(1)
+		}
+		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -503,16 +518,16 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute exit.\n", 41)
+	_, err = chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			log.Printf("[err] Unregistered miner\n")
+			os.Exit(1)
+		}
+		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
-	if code != configs.Code_200 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
-		os.Exit(1)
-	}
 	//Convert the deposit amount into TCESS units
 	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
 	if !ok {
@@ -542,25 +557,24 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Unregistered miner, can't execute withdraw.\n", 41)
-		os.Exit(1)
-	}
-
-	if code != configs.Code_200 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
+	_, err = chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			log.Printf("[err] Unregistered miner\n")
+			os.Exit(1)
+		}
+		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
 	//Query the block height when the miner exits
-	number, code, err := chain.GetBlockHeightExited(api, configs.C.SignatureAcc)
-	if code == configs.Code_500 {
+	number, err := chain.GetBlockHeightExited(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m No exit, can't execute withdraw.\n", 41)
+			os.Exit(1)
+		}
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query exit block: %v\n", 41, err)
-		os.Exit(1)
-	}
-	if code == configs.Code_404 || number == 0 {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m No exit, can't execute withdraw.\n", 41)
 		os.Exit(1)
 	}
 
@@ -716,25 +730,41 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
+	configs.PublicKey, err = chain.GetSelfPublicKey(configs.C.SignatureAcc)
+	if err != nil {
+		log.Printf("[err] %v\n", err)
+		os.Exit(1)
+	}
+
 	addr, err := chain.GetCESSAccount(configs.C.SignatureAcc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
+	data, err := chain.GetSchedulerPublicKey()
+	if err != nil {
+		log.Printf("[err] %v\n", err)
+		os.Exit(1)
+	}
+	configs.Shared_g = data.Shared_g
+	configs.Shared_params = data.Shared_params
+	configs.Spk = data.Spk
 	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
 }
 
 func register_if() (bool, error) {
 	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
+	defer chain.Free()
 	if err != nil {
-		chain.Free()
 		return false, err
 	}
 	//Query your own information on the chain
-	_, code, err := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-	if code == configs.Code_404 {
-		return true, register(api)
+	_, err = chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			return false, nil
+		}
+		return false, err
 	}
-	chain.Free()
-	return false, err
+	return true, nil
 }

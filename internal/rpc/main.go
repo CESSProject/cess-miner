@@ -182,7 +182,7 @@ func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	if b.BlockIndex == 0 {
 		var schds []chain.SchedulerInfo
 		for i := 0; i < 3; i++ {
-			schds, _, err = chain.GetSchedulingNodes()
+			schds, err = chain.GetSchedulingNodes()
 			if err == nil {
 				for _, v := range schds {
 					if v.Controller_user == types.NewAccountID(b.Publickey) {
@@ -262,14 +262,14 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	fpath := filepath.Join(FilesDir, b.FileId)
 	fstat, err := os.Stat(fpath)
 	if err != nil {
-		Out.Sugar().Infof("[%v] Stat Err: %v", b.FileId, err)
+		Dld.Sugar().Errorf("[%v] Stat Err: %v", b.FileId, err)
 		return &RespBody{Code: Code_404, Msg: err.Error()}, nil
 	}
 
 	// read file content
 	f, err := os.OpenFile(fpath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[%v] OpenFile Err: %v", b.FileId, err)
+		Dld.Sugar().Errorf("[%v] OpenFile Err: %v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 
@@ -279,7 +279,7 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 		blockTotal++
 	}
 	if b.BlockIndex > uint32(blockTotal) || b.BlockIndex == 0 {
-		Out.Sugar().Infof("[%v]Err:Invalid block index", b.FileId)
+		Dld.Sugar().Errorf("[%v]Err:Invalid block index", b.FileId)
 		return &RespBody{Code: Code_400, Msg: "Invalid block index"}, nil
 	}
 
@@ -294,11 +294,11 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	//proto encoding
 	rtnData_proto, err := proto.Marshal(&rtnData)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Marshal Err:%v", b.FileId, err)
+		Dld.Sugar().Errorf("[%v]Marshal Err:%v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
-	Out.Sugar().Infof("[%v]Download suc [%v-%v]", b.FileId, blockTotal, b.BlockIndex)
+	Dld.Sugar().Errorf("[%v]Download suc [%v-%v]", b.FileId, blockTotal, b.BlockIndex)
 	return &RespBody{Code: Code_200, Msg: "success", Data: rtnData_proto}, nil
 }
 
@@ -326,7 +326,7 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 	tagInfo.Sigmas = b.Sigmas
 	tag, err := json.Marshal(tagInfo)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		Uld.Sugar().Errorf("[%v]Err:%v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 
@@ -336,7 +336,7 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 	//Save tag information to file
 	ftag, err := os.OpenFile(filefullpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
 	if err != nil {
-		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		Uld.Sugar().Errorf("[%v]Err:%v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 	ftag.Write(tag)
@@ -344,13 +344,13 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 	//flush to disk
 	err = ftag.Sync()
 	if err != nil {
-		Out.Sugar().Infof("[%v]Err:%v", b.FileId, err)
+		Uld.Sugar().Errorf("[%v]Err:%v", b.FileId, err)
 		ftag.Close()
 		os.Remove(filefullpath)
 		return &RespBody{Code: Code_500, Msg: err.Error()}, nil
 	}
 	ftag.Close()
-	Out.Sugar().Infof("[%v]Save tag suc", b.FileId)
+	Uld.Sugar().Infof("[%v]Save tag suc", b.FileId)
 	return &RespBody{Code: Code_200, Msg: "success"}, nil
 }
 
@@ -364,12 +364,12 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 	)
 	//Generate a random number to track the log record of this request
 	t := tools.RandomInRange(100000000, 999999999)
-	Out.Sugar().Infof("[T:%v]Read file tag request.....", t)
+	Dld.Sugar().Infof("[T:%v]Read file tag request.....", t)
 
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, len(body), err)
+		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, len(body), err)
 		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
 	}
 
@@ -384,18 +384,18 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 	//Check if the file exists
 	_, err = os.Stat(filetagfullpath)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
 	}
 
 	// read file content
 	buf, err := ioutil.ReadFile(filetagfullpath)
 	if err != nil {
-		Out.Sugar().Infof("[T:%v][%v]Err:%v", t, b.FileId, err)
+		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
-	Out.Sugar().Infof("[T:%v]Suc:[%v]", t, filetagfullpath)
+	Dld.Sugar().Infof("[T:%v]Suc:[%v]", t, filetagfullpath)
 	return &RespBody{Code: Code_200, Msg: "success", Data: buf}, nil
 }
 
@@ -442,6 +442,7 @@ func WriteData(cli *Client, service, method string, body []byte) (int, []byte, b
 //It keeps running as a subtask.
 func task_SpaceManagement(ch chan bool) {
 	var (
+		err            error
 		availableSpace uint64
 		reconn         bool
 		tSpace         time.Time
@@ -459,12 +460,6 @@ func task_SpaceManagement(ch chan bool) {
 	}()
 	Flr.Info("-----> Start task_SpaceManagement <-----")
 
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-
 	availableSpace, err = calcAvailableSpace()
 	if err != nil {
 		Flr.Sugar().Errorf("%v", err)
@@ -472,26 +467,26 @@ func task_SpaceManagement(ch chan bool) {
 		tSpace = time.Now()
 	}
 
-	reqspace.Publickey = pubkey
+	reqspace.Publickey = configs.PublicKey
 
 	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
 		time.Sleep(time.Second)
 		if client == nil || reconn {
-			schds, _, err := chain.GetSchedulingNodes()
+			schds, err := chain.GetSchedulingNodes()
 			if err != nil {
-				Flr.Sugar().Errorf("   %v", err)
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+				Flr.Sugar().Errorf("%v", err)
+				time.Sleep(time.Minute)
 				continue
 			}
 			client, err = connectionScheduler(schds)
 			if err != nil {
-				Flr.Sugar().Errorf("-->Err: All schedules unavailable")
+				Flr.Sugar().Errorf("--> All schedules unavailable")
 				for i := 0; i < len(schds); i++ {
-					Err.Sugar().Errorf("   %v", string(schds[i].Ip))
+					Flr.Sugar().Errorf("   %v: %v", i, string(schds[i].Ip))
 				}
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+				time.Sleep(time.Minute)
 				continue
 			}
 		}
@@ -499,14 +494,14 @@ func task_SpaceManagement(ch chan bool) {
 		if time.Since(tSpace).Minutes() >= 10 {
 			availableSpace, err = calcAvailableSpace()
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
+				Flr.Sugar().Errorf("%v", err)
 			} else {
 				tSpace = time.Now()
 			}
 		}
 
 		if availableSpace < uint64(8*configs.Space_1MB) {
-			Flr.Info("Your space is certified")
+			Flr.Info("-------- Insufficient disk space --------")
 			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(10, 30)))
 			continue
 		}
@@ -519,14 +514,16 @@ func task_SpaceManagement(ch chan bool) {
 
 		req_b, err := proto.Marshal(&reqspace)
 		if err != nil {
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
 
 		respCode, respBody, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
 		reconn = clo
 		if err != nil {
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
 
@@ -541,27 +538,40 @@ func task_SpaceManagement(ch chan bool) {
 			var fillertagurl string = fillerurl + ".tag"
 			fillerbody, err := getFiller(fillerurl)
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
-				continue
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
+				fillerbody, err = getFiller(fillerurl)
+				if err != nil {
+					Flr.Sugar().Errorf("%v", err)
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
+					continue
+				}
 			}
 			spacefilefullpath := filepath.Join(configs.SpaceDir, basefiller.FillerId)
 			err = write_file(spacefilefullpath, fillerbody)
 			if err != nil {
 				os.Remove(spacefilefullpath)
-				Flr.Sugar().Errorf(" %v", err)
+				Flr.Sugar().Errorf("%v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
 			fillertagbody, err := getFiller(fillertagurl)
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
-				continue
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
+				fillertagbody, err = getFiller(fillertagurl)
+				if err != nil {
+					Flr.Sugar().Errorf("%v", err)
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
+					continue
+				}
 			}
+
 			tagfilename := basefiller.FillerId + ".tag"
 			tagfilefullpath := filepath.Join(configs.SpaceDir, tagfilename)
 			err = write_file(tagfilefullpath, fillertagbody)
 			if err != nil {
 				os.Remove(tagfilefullpath)
-				Flr.Sugar().Errorf(" %v", err)
+				Flr.Sugar().Errorf("%v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
 			hash, err := tools.CalcFileHash(spacefilefullpath)
@@ -569,16 +579,19 @@ func task_SpaceManagement(ch chan bool) {
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
 				Flr.Sugar().Errorf(" %v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
+
 			//
 			var req_back FillerBackReq
-			req_back.Publickey = pubkey
+			req_back.Publickey = configs.PublicKey
 			req_back.FileId = []byte(basefiller.FillerId)
 			req_back.FileHash = []byte(hash)
 			req_back_req, err := proto.Marshal(&req_back)
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
+				Flr.Sugar().Errorf("%v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
 
@@ -586,19 +599,21 @@ func task_SpaceManagement(ch chan bool) {
 			reconn = clo
 			if err != nil {
 				Flr.Sugar().Errorf(" %v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 			}
 			continue
 		}
 
 		if respCode != 200 {
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 60)))
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
 			reconn = true
 			continue
 		}
 
 		err = json.Unmarshal(respBody, &respspace)
 		if err != nil {
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 
@@ -609,13 +624,15 @@ func task_SpaceManagement(ch chan bool) {
 		tagInfo.Sigmas = respspace.Sigmas
 		tag, err := json.Marshal(tagInfo)
 		if err != nil {
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 		err = write_file(tagfilefullpath, tag)
 		if err != nil {
 			os.Remove(tagfilefullpath)
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 
@@ -623,7 +640,8 @@ func task_SpaceManagement(ch chan bool) {
 		f, err := os.OpenFile(spacefilefullpath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
 		if err != nil {
 			os.Remove(tagfilefullpath)
-			Flr.Sugar().Errorf(" %v", err)
+			Flr.Sugar().Errorf("%v", err)
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 			continue
 		}
 		reqspacefile.Token = respspace.Token
@@ -632,10 +650,11 @@ func task_SpaceManagement(ch chan bool) {
 			reqspacefile.BlockIndex = uint32(i)
 			req_b, err = proto.Marshal(&reqspacefile)
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
+				Flr.Sugar().Errorf("%v", err)
 				f.Close()
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				break
 			}
 			respCode, respBody, clo, err = WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
@@ -645,6 +664,7 @@ func task_SpaceManagement(ch chan bool) {
 				f.Close()
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				break
 			}
 			if i < 16 {
@@ -662,8 +682,6 @@ func task_SpaceManagement(ch chan bool) {
 //It keeps running as a subtask.
 func task_HandlingChallenges(ch chan bool) {
 	var (
-		err             error
-		code            int
 		fileid          string
 		fileFullPath    string
 		fileTagFullPath string
@@ -671,41 +689,23 @@ func task_HandlingChallenges(ch chan bool) {
 		filetag         pt.TagInfo
 		poDR2prove      api.PoDR2Prove
 		proveResponse   api.PoDR2ProveResponse
-		puk             chain.Chain_SchedulerPuk
-		chlng           []chain.ChallengesInfo
 	)
 	defer func() {
-		err := recover()
-		if err != nil {
-			Err.Error(tools.RecoverError(err))
+		if err := recover(); err != nil {
+			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 		ch <- true
 	}()
-	Out.Info(">>>>> Start task_HandlingChallenges <<<<<")
-
-	//Get the scheduling service public key
-	for {
-		puk, _, err = chain.GetPublicKey()
-		if err != nil {
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
-			continue
-		}
-		Out.Info("Get the scheduling public key")
-		break
-	}
-
-	pubkey, err := chain.GetAccountPublickey(configs.C.SignatureAcc)
-	if err != nil {
-		Err.Sugar().Errorf("[%v] %v", fileid, err)
-		os.Exit(1)
-	}
+	Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
 
 	for {
-		chlng, code, err = chain.GetChallenges(configs.C.SignatureAcc)
+		chlng, err := chain.GetChallenges()
 		if err != nil {
-			if code != configs.Code_404 {
-				Out.Sugar().Infof("[ERR] %v", err)
+			if err.Error() != chain.ERR_Empty {
+				Chg.Sugar().Errorf("%v", err)
 			}
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 3)))
+			continue
 		}
 
 		if len(chlng) == 0 {
@@ -714,9 +714,9 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
-		Out.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
+		Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
 		for x := 0; x < len(chlng); x++ {
-			Out.Sugar().Infof("  %v: %s ", x, string(chlng[x].File_id))
+			Chg.Sugar().Infof("  %v: %s", x, string(chlng[x].File_id))
 		}
 		var proveInfos = make([]chain.ProveInfo, 0)
 		for i := 0; i < len(chlng); i++ {
@@ -737,7 +737,7 @@ func task_HandlingChallenges(ch chan bool) {
 
 			fstat, err := os.Stat(fileFullPath)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 			if chlng[i].File_type == 1 {
@@ -748,18 +748,18 @@ func task_HandlingChallenges(ch chan bool) {
 
 			qSlice, err := api.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
 			ftag, err := ioutil.ReadFile(fileTagFullPath)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 			err = json.Unmarshal(ftag, &filetag)
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
@@ -769,18 +769,18 @@ func task_HandlingChallenges(ch chan bool) {
 
 			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
 			if err != nil {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
 			}
 
 			poDR2prove.Matrix = matrix
 			poDR2prove.S = blocksize
-			proveResponseCh := poDR2prove.PoDR2ProofProve(puk.Spk, string(puk.Shared_params), puk.Shared_g, int64(configs.ScanBlockSize))
+			proveResponseCh := poDR2prove.PoDR2ProofProve(configs.Spk, string(configs.Shared_params), configs.Shared_g, int64(configs.ScanBlockSize))
 			select {
 			case proveResponse = <-proveResponseCh:
 			}
 			if proveResponse.StatueMsg.StatusCode != api.Success {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("[%v] PoDR2ProofProve failed", fileid)
 				continue
 			}
 
@@ -795,27 +795,31 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			proveInfoTemp.Mu = mus
 			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
-			proveInfoTemp.MinerAcc = types.NewAccountID(pubkey)
+			proveInfoTemp.MinerAcc = types.NewAccountID(configs.PublicKey)
 			proveInfos = append(proveInfos, proveInfoTemp)
 		}
+
 		if len(proveInfos) == 0 {
 			continue
 		}
 		// proof up chain
 		ts := time.Now().Unix()
-		code = 0
-		txhash := ""
-		for code != int(configs.Code_200) && code != int(configs.Code_600) {
-			txhash, code, err = chain.SubmitProofs(configs.C.SignatureAcc, proveInfos)
+		var txhash string
+		for {
+			txhash, err = chain.SubmitProofs(proveInfos)
+			if err != nil {
+				Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+			}
+
 			if txhash != "" {
-				Out.Sugar().Infof("Proofs submitted successfully [%v]", txhash)
+				Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
 				break
 			}
 			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
-				Err.Sugar().Errorf("[%v] %v", fileid, err)
+				Chg.Sugar().Errorf("SubmitProofs fail and exit")
 				break
 			}
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 		}
 	}
 }
@@ -825,17 +829,16 @@ func task_HandlingChallenges(ch chan bool) {
 //It keeps running as a subtask.
 func task_RemoveInvalidFiles(ch chan bool) {
 	defer func() {
-		err := recover()
-		if err != nil {
-			Err.Sugar().Errorf("[panic]: %v", err)
+		if err := recover(); err != nil {
+			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 		ch <- true
 	}()
 	Out.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
 	for {
-		invalidFiles, code, err := chain.GetInvalidFiles(configs.C.SignatureAcc)
+		invalidFiles, err := chain.GetInvalidFiles()
 		if err != nil {
-			if code != configs.Code_404 {
+			if err.Error() != chain.ERR_Empty {
 				Out.Sugar().Infof("%v", err)
 			}
 			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 10)))
@@ -863,7 +866,7 @@ func task_RemoveInvalidFiles(ch chan bool) {
 				filefullpath = filepath.Join(configs.FilesDir, fileid)
 				filetagfullpath = filepath.Join(configs.FilesDir, fileid+".tag")
 			}
-			txhash, err := chain.ClearInvalidFiles(configs.C.SignatureAcc, invalidFiles[i])
+			txhash, err := chain.ClearInvalidFiles(invalidFiles[i])
 			if txhash != "" {
 				Out.Sugar().Infof("[%v] Cleared %v", string(invalidFiles[i]), txhash)
 			} else {
@@ -887,15 +890,13 @@ func task_self_judgment(ch chan bool) {
 	var failcount uint8
 	for {
 		//Query your own information on the chain
-		api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
+		_, err := chain.GetMinerInfo(nil)
 		if err != nil {
-			_, code, _ := chain.GetMinerInfo(api, configs.C.SignatureAcc)
-			if code == configs.Code_404 {
+			if err.Error() == chain.ERR_Empty {
 				failcount++
 			}
-			if code == configs.Code_200 {
-				failcount = 0
-			}
+		} else {
+			failcount = 0
 		}
 		if failcount >= 10 {
 			os.Exit(1)
@@ -1000,6 +1001,7 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*Client, error) {
 			cli, err = DialWebsocket(ctx, pair.K, "")
 			cancel()
 			if err == nil {
+				Flr.Sugar().Infof("Connect to %v", pair.K)
 				ok = true
 				break
 			}
@@ -1063,5 +1065,12 @@ func getFiller(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	bo, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusNotFound || len(bo) < 20 {
+		return nil, errors.New("Failed")
+	}
+	return bo, nil
 }

@@ -86,3 +86,9 @@ type ProveInfo struct {
 	Mu       []types.Bytes
 	Sigma    types.Bytes
 }
+
+const (
+	ERR_Failed  = "Failed"
+	ERR_Timeout = "Timeout"
+	ERR_Empty   = "Empty"
+)

@@ -1,14 +1,23 @@
 package chain
 
 import (
+	"reflect"
 	"sync"
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 var (
-	l   *sync.Mutex
-	api *gsrpc.SubstrateAPI
+	first          bool = true
+	l              *sync.Mutex
+	api            *gsrpc.SubstrateAPI
+	metadata       *types.Metadata
+	keyEvents      types.StorageKey
+	runtimeVersion *types.RuntimeVersion
+	genesisHash    types.Hash
+	keyring        signature.KeyringPair
 )
 
 func init() {
@@ -40,44 +49,64 @@ func NewRpcClient(rpcaddr string) (*gsrpc.SubstrateAPI, error) {
 	return gsrpc.NewSubstrateAPI(rpcaddr)
 }
 
-// func substrateAPIKeepAlive() {
-// 	var (
-// 		err     error
-// 		count_r uint8  = 0
-// 		peer    uint64 = 0
-// 	)
-
-// 	for range time.Tick(time.Second * 25) {
-// 		if count_r <= 1 {
-// 			peer, err = healthchek(r)
-// 			if err != nil || peer == 0 {
-// 				count_r++
-// 			}
-// 		}
-// 		if count_r > 1 {
-// 			count_r = 2
-// 			r, err = gsrpc.NewSubstrateAPI(C.RpcAddr)
-// 			if err != nil {
-// 				Err.Sugar().Errorf("%v", err)
-// 			} else {
-// 				count_r = 0
-// 			}
-// 		}
-// 	}
-// }
-
 func healthchek(a *gsrpc.SubstrateAPI) (uint64, error) {
-	defer func() {
-		recover()
-	}()
+	defer recover()
 	h, err := a.RPC.System.Health()
 	return uint64(h.Peers), err
 }
 
-// func getSubstrateAPI() *gsrpc.SubstrateAPI {
-// 	wlock.Lock()
-// 	return r
-// }
-// func releaseSubstrateAPI() {
-// 	wlock.Unlock()
-// }
+func GetMetadata(api *gsrpc.SubstrateAPI) (*types.Metadata, error) {
+	var err error
+	if metadata == nil {
+		metadata, err = api.RPC.State.GetMetadataLatest()
+		return metadata, err
+	}
+	return metadata, nil
+}
+
+func GetGenesisHash(api *gsrpc.SubstrateAPI) (types.Hash, error) {
+	var err error
+	if first {
+		genesisHash, err = api.RPC.Chain.GetBlockHash(0)
+		if err == nil {
+			first = false
+		}
+		return genesisHash, err
+	}
+	return genesisHash, nil
+}
+
+func GetRuntimeVersion(api *gsrpc.SubstrateAPI) (*types.RuntimeVersion, error) {
+	var err error
+	if runtimeVersion == nil {
+		runtimeVersion, err = api.RPC.State.GetRuntimeVersionLatest()
+		return runtimeVersion, err
+	}
+	return runtimeVersion, nil
+}
+
+func GetKeyEvents() (types.StorageKey, error) {
+	var err error
+	if len(keyEvents) == 0 {
+		keyEvents, err = types.CreateStorageKey(metadata, "System", "Events", nil)
+		return keyEvents, err
+	}
+	return keyEvents, nil
+}
+
+func GetKeyring(prk string) (signature.KeyringPair, error) {
+	var err error
+	if reflect.DeepEqual(keyring, signature.KeyringPair{}) {
+		keyring, err = signature.KeyringPairFromSecret(prk, 0)
+		return keyring, err
+	}
+	return keyring, nil
+}
+
+func GetSelfPublicKey(privatekey string) ([]byte, error) {
+	kring, err := signature.KeyringPairFromSecret(privatekey, 0)
+	if err != nil {
+		return nil, err
+	}
+	return kring.PublicKey, nil
+}
