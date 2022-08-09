@@ -25,7 +25,7 @@ func (c *SrvConn) readLoop() {
 		}
 
 		if err != nil {
-			logger.Warn.Sugar().Warnf("RPC service connection read err:%v", err)
+			logger.Err.Sugar().Errorf("RPC service connection read err:%v", err)
 			c.codec.Close()
 			break
 		}
@@ -48,7 +48,7 @@ func (c *ClientConn) readLoop(recv func(msg RespMsg)) {
 		}
 
 		if err != nil {
-			logger.Warn.Sugar().Warnf("RPC client service connection read err:%v", err)
+			logger.Err.Sugar().Errorf("RPC client service connection read err:%v", err)
 			c.closeCh <- struct{}{}
 			break
 		}

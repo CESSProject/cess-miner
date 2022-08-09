@@ -224,8 +224,13 @@ func RemoveX(str string, x string) string {
 
 func RecoverError(err interface{}) string {
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "%v\n", "----------------------------------------")
+	fmt.Fprintf(buf, "%v\n", "--------------------panic--------------------")
 	fmt.Fprintf(buf, "%v\n", err)
 	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
 	return buf.String()
+}
+
+func IsIPv4(ipAddr string) bool {
+	ip := net.ParseIP(ipAddr)
+	return ip != nil && strings.Contains(ipAddr, ".")
 }
