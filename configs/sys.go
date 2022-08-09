@@ -3,7 +3,7 @@ package configs
 import "time"
 
 // type and version
-const Version = "CESS-Bucket v0.4.3.220809.1436"
+const Version = "CESS-Bucket v0.5.0"
 
 // rpc service and method
 const (
