@@ -534,7 +534,8 @@ func task_SpaceManagement(ch chan bool) {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[0])) + "/" + basefiller.FillerId
+			index := tools.RandomInRange(0, len(basefiller.MinerIp))
+			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[index])) + "/" + basefiller.FillerId
 			var fillertagurl string = fillerurl + ".tag"
 			fillerbody, err := getFiller(fillerurl)
 			if err != nil {
@@ -605,6 +606,7 @@ func task_SpaceManagement(ch chan bool) {
 		}
 
 		if respCode != 200 {
+			Flr.Sugar().Errorf("%v", respCode)
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
 			reconn = true
 			continue
