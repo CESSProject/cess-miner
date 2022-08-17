@@ -29,6 +29,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// rpc service and method
+const (
+	RpcService_Local               = "mservice"
+	RpcService_Scheduler           = "wservice"
+	RpcMethod_Scheduler_Writefile  = "writefile"
+	RpcMethod_Scheduler_Readfile   = "readfile"
+	RpcMethod_Scheduler_Space      = "space"
+	RpcMethod_Scheduler_Spacefile  = "spacefile"
+	RpcMethod_Scheduler_FillerBack = "fillerback"
+	RpcMethod_Scheduler_State      = "state"
+	RpcFileBuffer                  = 1024 * 1024 //1MB
+)
+
 type MService struct {
 }
 
@@ -221,8 +234,8 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	}
 
 	// Calculate the number of slices
-	blockTotal := fstat.Size() / configs.RpcFileBuffer
-	if fstat.Size()%configs.RpcFileBuffer != 0 {
+	blockTotal := fstat.Size() / RpcFileBuffer
+	if fstat.Size()%RpcFileBuffer != 0 {
 		blockTotal++
 	}
 	if b.BlockIndex > uint32(blockTotal) || b.BlockIndex == 0 {
@@ -233,8 +246,8 @@ func (MService) ReadfileAction(body []byte) (proto.Message, error) {
 	//Collate returned data
 	rtnData.BlockTotal = uint32(blockTotal)
 	rtnData.BlockIndex = b.BlockIndex
-	var tmp = make([]byte, configs.RpcFileBuffer)
-	f.Seek(int64((b.BlockIndex-1)*configs.RpcFileBuffer), 0)
+	var tmp = make([]byte, RpcFileBuffer)
+	f.Seek(int64((b.BlockIndex-1)*RpcFileBuffer), 0)
 	n, _ := f.Read(tmp)
 	rtnData.Data = tmp[:n]
 	f.Close()

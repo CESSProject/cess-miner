@@ -752,13 +752,13 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	configs.PublicKey, err = chain.GetSelfPublicKey(configs.C.SignatureAcc)
+	acc, err := chain.GetSelfPublicKey(configs.C.SignatureAcc)
 	if err != nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
 
-	addr, err := tools.EncodeToCESSAddr(configs.PublicKey)
+	addr, err := tools.EncodeToCESSAddr(acc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
@@ -773,7 +773,7 @@ func parseProfile() {
 		configs.Shared_g = data.Shared_g
 		configs.Shared_params = data.Shared_params
 		configs.Spk = data.Spk
-		pattern.SetMinerAcc(configs.PublicKey)
+		pattern.SetMinerAcc(acc)
 		pattern.SetMinerSignAddr(configs.C.IncomeAcc)
 	}
 

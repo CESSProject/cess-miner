@@ -150,7 +150,7 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 			proveInfoTemp.Mu = mus
 			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
-			proveInfoTemp.MinerAcc = types.NewAccountID(configs.PublicKey)
+			proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
 			proveInfos = append(proveInfos, proveInfoTemp)
 		}
 

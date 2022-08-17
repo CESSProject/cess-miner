@@ -3,20 +3,7 @@ package configs
 import "time"
 
 // type and version
-const Version = "CESS-Bucket v0.5.1.220817.1740"
-
-// rpc service and method
-const (
-	RpcService_Local               = "mservice"
-	RpcService_Scheduler           = "wservice"
-	RpcMethod_Scheduler_Writefile  = "writefile"
-	RpcMethod_Scheduler_Readfile   = "readfile"
-	RpcMethod_Scheduler_Space      = "space"
-	RpcMethod_Scheduler_Spacefile  = "spacefile"
-	RpcMethod_Scheduler_FillerBack = "fillerback"
-	RpcMethod_Scheduler_State      = "state"
-	RpcFileBuffer                  = 1024 * 1024 //1MB
-)
+const Version = "CESS-Bucket v0.5.1.220817.1754"
 
 // return code
 const (
@@ -62,7 +49,7 @@ var (
 	Spk           []byte
 	Shared_params []byte
 	Shared_g      []byte
-	PublicKey     []byte
+	//PublicKey     []byte
 
 	//data path
 	BaseDir    = "bucket"

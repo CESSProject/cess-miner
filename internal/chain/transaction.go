@@ -6,6 +6,7 @@ import (
 
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pattern"
 	"cess-bucket/tools"
 	"time"
 
@@ -74,7 +75,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey System Account]")
 	}
@@ -138,7 +139,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 
 				if len(events.Sminer_Registered) > 0 {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if string(events.Sminer_Registered[i].Acc[:]) == string(configs.PublicKey) {
+						if string(events.Sminer_Registered[i].Acc[:]) == string(pattern.GetMinerAcc()) {
 							return txhash, nil
 						}
 					}
@@ -478,7 +479,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -594,7 +595,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -657,7 +658,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 
 				if len(events.FileBank_ClearInvalidFile) > 0 {
 					for i := 0; i < len(events.FileBank_ClearInvalidFile); i++ {
-						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(configs.PublicKey) {
+						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(pattern.GetMinerAcc()) {
 							return txhash, nil
 						}
 					}

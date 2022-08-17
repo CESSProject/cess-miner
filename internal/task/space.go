@@ -142,8 +142,8 @@ func task_SpaceManagement(ch chan bool) {
 
 		respCode, respBody, clo, err := rpc.WriteData(
 			client,
-			configs.RpcService_Scheduler,
-			configs.RpcMethod_Scheduler_Space,
+			rpc.RpcService_Scheduler,
+			rpc.RpcMethod_Scheduler_Space,
 			time.Duration(time.Second*30),
 			req_b,
 		)
@@ -212,7 +212,7 @@ func task_SpaceManagement(ch chan bool) {
 
 			//
 			var req_back FillerBackReq
-			req_back.Publickey = configs.PublicKey
+			req_back.Publickey = pattern.GetMinerAcc()
 			req_back.FileId = []byte(basefiller.FillerId)
 			req_back.FileHash = []byte(hash)
 			req_back_req, err := proto.Marshal(&req_back)
@@ -224,8 +224,8 @@ func task_SpaceManagement(ch chan bool) {
 
 			_, _, reconn, err = rpc.WriteData(
 				client,
-				configs.RpcService_Scheduler,
-				configs.RpcMethod_Scheduler_FillerBack,
+				rpc.RpcService_Scheduler,
+				rpc.RpcMethod_Scheduler_FillerBack,
 				time.Duration(time.Second*30),
 				req_back_req,
 			)
@@ -239,8 +239,8 @@ func task_SpaceManagement(ch chan bool) {
 					}
 					_, _, reconn, err = rpc.WriteData(
 						client,
-						configs.RpcService_Scheduler,
-						configs.RpcMethod_Scheduler_FillerBack,
+						rpc.RpcService_Scheduler,
+						rpc.RpcMethod_Scheduler_FillerBack,
 						time.Duration(time.Second*30),
 						req_back_req,
 					)
@@ -311,8 +311,8 @@ func task_SpaceManagement(ch chan bool) {
 			}
 			respCode, respBody, clo, err = rpc.WriteData(
 				client,
-				configs.RpcService_Scheduler,
-				configs.RpcMethod_Scheduler_Spacefile,
+				rpc.RpcService_Scheduler,
+				rpc.RpcMethod_Scheduler_Spacefile,
 				time.Duration(time.Second*100),
 				req_b,
 			)
@@ -384,8 +384,8 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 		}
 		respCode, respBody, _, _ := rpc.WriteData(
 			cli,
-			configs.RpcService_Scheduler,
-			configs.RpcMethod_Scheduler_State,
+			rpc.RpcService_Scheduler,
+			rpc.RpcMethod_Scheduler_State,
 			time.Duration(time.Second*10),
 			nil,
 		)
