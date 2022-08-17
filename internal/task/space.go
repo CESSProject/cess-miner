@@ -4,8 +4,9 @@ import (
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pattern"
 	api "cess-bucket/internal/proof/apiv1"
-	. "cess-bucket/internal/rpc"
+	"cess-bucket/internal/rpc"
 	. "cess-bucket/internal/rpc/proto"
 	"cess-bucket/tools"
 	"context"
@@ -15,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"time"
 
 	"github.com/CESSProject/go-keyring"
@@ -62,7 +62,7 @@ func task_SpaceManagement(ch chan bool) {
 		reqspacefile   SpaceFileReq
 		tagInfo        api.TagInfo
 		respspace      RespSpaceInfo
-		client         *Client
+		client         *rpc.Client
 	)
 	defer func() {
 		if err := recover(); err != nil {
@@ -84,6 +84,10 @@ func task_SpaceManagement(ch chan bool) {
 	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
+		if pattern.GetMinerState() != pattern.M_Positive {
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
+			continue
+		}
 		time.Sleep(time.Second)
 		if client == nil || reconn {
 			schds, err := chain.GetSchedulingNodes()
@@ -131,7 +135,13 @@ func task_SpaceManagement(ch chan bool) {
 			continue
 		}
 
-		respCode, respBody, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Space, req_b)
+		respCode, respBody, clo, err := rpc.WriteData(
+			client,
+			configs.RpcService_Scheduler,
+			configs.RpcMethod_Scheduler_Space,
+			time.Duration(time.Second*100),
+			req_b,
+		)
 		reconn = clo
 		if err != nil {
 			Flr.Sugar().Errorf("%v", err)
@@ -208,7 +218,13 @@ func task_SpaceManagement(ch chan bool) {
 				continue
 			}
 
-			_, _, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_FillerBack, req_back_req)
+			_, _, clo, err := rpc.WriteData(
+				client,
+				configs.RpcService_Scheduler,
+				configs.RpcMethod_Scheduler_FillerBack,
+				time.Duration(time.Second*100),
+				req_back_req,
+			)
 			reconn = clo
 			if err != nil {
 				if clo {
@@ -229,7 +245,13 @@ func task_SpaceManagement(ch chan bool) {
 					}
 				}
 
-				_, _, clo, err := WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_FillerBack, req_back_req)
+				_, _, clo, err := rpc.WriteData(
+					client,
+					configs.RpcService_Scheduler,
+					configs.RpcMethod_Scheduler_FillerBack,
+					time.Duration(time.Second*100),
+					req_back_req,
+				)
 				reconn = clo
 				if err != nil {
 					Flr.Sugar().Errorf(" %v", err)
@@ -293,7 +315,13 @@ func task_SpaceManagement(ch chan bool) {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				break
 			}
-			respCode, respBody, clo, err = WriteData(client, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_Spacefile, req_b)
+			respCode, respBody, clo, err = rpc.WriteData(
+				client,
+				configs.RpcService_Scheduler,
+				configs.RpcMethod_Scheduler_Spacefile,
+				time.Duration(time.Second*100),
+				req_b,
+			)
 			reconn = clo
 			if err != nil {
 				Flr.Sugar().Errorf(" %v", err)
@@ -340,12 +368,12 @@ func calcAvailableSpace() (uint64, error) {
 	return 0, nil
 }
 
-func connectionScheduler(schds []chain.SchedulerInfo) (*Client, error) {
+func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var (
-		ok    bool
 		err   error
+		resu  int32
 		state = make(map[string]int32)
-		cli   *Client
+		cli   *rpc.Client
 	)
 	if len(schds) == 0 {
 		return nil, errors.New("No scheduler service available")
@@ -354,16 +382,22 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*Client, error) {
 	for i := 0; i < len(schds); i++ {
 		wsURL = "ws://" + string(base58.Decode(string(schds[i].Ip)))
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-		cli, err = DialWebsocket(ctx, wsURL, "")
+		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {
 			continue
 		}
-		respCode, respBody, _, _ := WriteData(cli, configs.RpcService_Scheduler, configs.RpcMethod_Scheduler_State, nil)
+		respCode, respBody, _, _ := rpc.WriteData(
+			cli,
+			configs.RpcService_Scheduler,
+			configs.RpcMethod_Scheduler_State,
+			time.Duration(time.Second*10),
+			nil,
+		)
 		if respCode != 200 {
 			cli.Close()
 			continue
 		}
-		var resu int32
+		resu = 0
 		if len(respBody) == 4 {
 			resu += int32(respBody[0])
 			resu = resu << 8
@@ -373,32 +407,35 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*Client, error) {
 			resu = resu << 8
 			resu += int32(respBody[3])
 		}
+		if resu < 5 {
+			pattern.SetMinerRecentSche(wsURL)
+			return cli, nil
+		}
 		state[wsURL] = resu
 		cli.Close()
 	}
-	tmpList := make([]kvpair, 0)
-	for k, v := range state {
-		tmpList = append(tmpList, kvpair{K: k, V: v})
-	}
-	sort.Slice(tmpList, func(i, j int) bool {
-		return tmpList[i].V < tmpList[j].V
-	})
-	ok = false
-	for _, pair := range tmpList {
-		t := time.Duration(1)
-		for i := 0; i < 3; i++ {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(t*time.Second))
-			cli, err = DialWebsocket(ctx, pair.K, "")
-			cancel()
-			if err == nil {
-				Flr.Sugar().Infof("Connect to %v", pair.K)
-				ok = true
-				break
+	var ok = false
+	var threshold int32 = 5
+	for !ok {
+		for k, v := range state {
+			if (threshold-5) <= v && v < threshold {
+				ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
+				cli, err = rpc.DialWebsocket(ctx, k, "")
+				if err == nil {
+					Flr.Sugar().Infof("Connect to %v", k)
+					pattern.SetMinerRecentSche(k)
+					ok = true
+					break
+				}
 			}
-			t += 2
 		}
-		if ok {
+		if !ok {
+			threshold += 5
+		} else {
 			break
+		}
+		if threshold >= 100 {
+			return nil, errors.New("schedule busy")
 		}
 	}
 	return cli, err

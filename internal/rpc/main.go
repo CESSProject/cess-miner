@@ -360,13 +360,13 @@ func cutDataRule(size int) (int, int, uint8, error) {
 }
 
 //
-func WriteData(cli *Client, service, method string, body []byte) (int, []byte, bool, error) {
+func WriteData(cli *Client, service, method string, t time.Duration, body []byte) (int, []byte, bool, error) {
 	req := &ReqMsg{
 		Service: service,
 		Method:  method,
 		Body:    body,
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), t)
 	resp, err := cli.Call(ctx, req)
 	if err != nil {
 		cli.Close()
@@ -382,9 +382,6 @@ func WriteData(cli *Client, service, method string, body []byte) (int, []byte, b
 	if err != nil {
 		return 0, nil, false, errors.Wrap(err, "Unmarshal:")
 	}
-	// if b.Code == configs.Code_200 || b.Code == configs.Code_600 {
-	// 	return 0,b.Data, false, nil
-	// }
-	//errstr := fmt.Sprintf("%d", b.Code)
+
 	return int(b.Code), b.Data, false, nil
 }

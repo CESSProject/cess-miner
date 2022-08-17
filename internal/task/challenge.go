@@ -4,6 +4,7 @@ import (
 	"cess-bucket/configs"
 	"cess-bucket/internal/chain"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pattern"
 	api "cess-bucket/internal/proof/apiv1"
 	"cess-bucket/tools"
 	"encoding/json"
@@ -40,6 +41,10 @@ func task_HandlingChallenges(ch chan bool) {
 	Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
 
 	for {
+		if pattern.GetMinerState() != pattern.M_Positive {
+			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
+			continue
+		}
 		chlng, err := chain.GetChallenges()
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {

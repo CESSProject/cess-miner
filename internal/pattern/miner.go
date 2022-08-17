@@ -16,6 +16,7 @@ type Miner struct {
 	SignAddr   string
 	IncomeAddr string
 	State      string
+	RecentSche string
 	l          *sync.Mutex
 }
 
@@ -76,5 +77,17 @@ func GetMinerIncomeAddr() string {
 func SetMinerIncomeAddr(addr string) {
 	m.l.Lock()
 	m.IncomeAddr = addr
+	m.l.Unlock()
+}
+
+func GetMinerRecentSche() string {
+	m.l.Lock()
+	defer m.l.Unlock()
+	return m.RecentSche
+}
+
+func SetMinerRecentSche(sche string) {
+	m.l.Lock()
+	m.RecentSche = sche
 	m.l.Unlock()
 }
