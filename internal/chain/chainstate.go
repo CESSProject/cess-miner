@@ -233,12 +233,3 @@ func GetBlockHeight(api *gsrpc.SubstrateAPI) (types.U32, error) {
 	}
 	return types.U32(block.Block.Header.Number), nil
 }
-
-// Get the CESS chain account
-func GetCESSAccount(prk string) (string, error) {
-	addr, err := tools.Encode(configs.PublicKey, tools.ChainCessTestPrefix)
-	if err != nil {
-		return "", errors.Wrap(err, "[Encode]")
-	}
-	return addr, nil
-}

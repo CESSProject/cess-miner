@@ -16,7 +16,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens uint64) (string, error) {
+func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
@@ -41,11 +41,6 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	b, err := tools.DecodeToCessPub(imcodeAcc)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[DecodeToCessPub]")
-	}
-
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
@@ -56,7 +51,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 	c, err := types.NewCall(
 		meta,
 		ChainTx_Sminer_Register,
-		types.NewAccountID(b),
+		types.NewAccountID(acc),
 		types.Bytes([]byte(ipAddr)),
 		types.NewU128(*realTokens),
 	)

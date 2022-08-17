@@ -22,7 +22,14 @@ import (
 	"unsafe"
 
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/disk"
 )
+
+type MountPathInfo struct {
+	Path  string
+	Total uint64
+	Free  uint64
+}
 
 // Convert the ip address of integer type to string type
 func InetNtoA(ip int64) string {
@@ -233,4 +240,26 @@ func RecoverError(err interface{}) string {
 func IsIPv4(ipAddr string) bool {
 	ip := net.ParseIP(ipAddr)
 	return ip != nil && strings.Contains(ipAddr, ".")
+}
+
+func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
+	var mp MountPathInfo
+	pss, err := disk.Partitions(false)
+	if err != nil {
+		return mp, err
+	}
+
+	for _, ps := range pss {
+		us, err := disk.Usage(ps.Mountpoint)
+		if err != nil {
+			continue
+		}
+		if us.Path == mountpath {
+			mp.Path = us.Path
+			mp.Free = us.Free
+			mp.Total = us.Total
+			return mp, nil
+		}
+	}
+	return mp, errors.New("mount point not found")
 }

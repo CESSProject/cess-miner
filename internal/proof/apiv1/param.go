@@ -76,3 +76,8 @@ type HashNameAndI struct {
 	Name string
 	I    int64
 }
+
+type TagInfo struct {
+	T      FileTagT
+	Sigmas [][]byte `json:"sigmas"`
+}
