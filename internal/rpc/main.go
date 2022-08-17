@@ -30,7 +30,6 @@ import (
 )
 
 type MService struct {
-	*pattern.Miner
 }
 
 // Start http service.
@@ -55,7 +54,7 @@ func Rpc_Main() {
 
 func serveWs(l net.Listener) {
 	srv := NewServer()
-	srv.Register(RpcService_Local, MService{pattern.GetMiner()})
+	srv.Register(RpcService_Local, MService{})
 
 	s_websocket := &http.Server{
 		Handler: srv.WebsocketHandler([]string{"*"}),
@@ -109,14 +108,14 @@ func serveHttp(l net.Listener) {
 // Writefile is used to receive files uploaded by the scheduling service.
 // The return code is 200 for success, non-200 for failure.
 // The returned Msg indicates the result reason.
-func (m MService) WritefileAction(body []byte) (proto.Message, error) {
+func (MService) WritefileAction(body []byte) (proto.Message, error) {
 	var (
 		err error
 		b   PutFileToBucket
 	)
 
-	if m.State != pattern.M_Positive {
-		return &RespBody{Code: 400, Msg: "Bad Requset"}, nil
+	if pattern.GetMinerState() != pattern.M_Positive {
+		return &RespBody{Code: 403, Msg: "Forbidden"}, nil
 	}
 
 	//Parse the requested data
@@ -260,6 +259,10 @@ func (MService) WritefiletagAction(body []byte) (proto.Message, error) {
 		tagInfo api.TagInfo
 	)
 
+	if pattern.GetMinerState() != pattern.M_Positive {
+		return &RespBody{Code: 403, Msg: "Forbidden"}, nil
+	}
+
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
@@ -310,15 +313,11 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 		err error
 		b   ReadTagReq
 	)
-	//Generate a random number to track the log record of this request
-	t := tools.RandomInRange(100000000, 999999999)
-	Dld.Sugar().Infof("[T:%v]Read file tag request.....", t)
 
 	//Parse the requested data
 	err = proto.Unmarshal(body, &b)
 	if err != nil {
-		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, len(body), err)
-		return &RespBody{Code: Code_400, Msg: err.Error(), Data: nil}, nil
+		return &RespBody{Code: Code_400, Msg: "Request error"}, nil
 	}
 
 	//Get fileid and Calculate absolute file path
@@ -332,31 +331,19 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 	//Check if the file exists
 	_, err = os.Stat(filetagfullpath)
 	if err != nil {
-		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, b.FileId, err)
+		Dld.Sugar().Errorf("[%v] %v", b.FileId, err)
 		return &RespBody{Code: Code_404, Msg: err.Error(), Data: nil}, nil
 	}
 
 	// read file content
 	buf, err := ioutil.ReadFile(filetagfullpath)
 	if err != nil {
-		Dld.Sugar().Errorf("[T:%v][%v]Err:%v", t, b.FileId, err)
+		Dld.Sugar().Errorf("[%v] %v", b.FileId, err)
 		return &RespBody{Code: Code_500, Msg: err.Error(), Data: nil}, nil
 	}
 
-	Dld.Sugar().Infof("[T:%v]Suc:[%v]", t, filetagfullpath)
+	Dld.Sugar().Infof("Suc: [%v]", b.FileId)
 	return &RespBody{Code: Code_200, Msg: "success", Data: buf}, nil
-}
-
-// Divide the size according to 2M
-func cutDataRule(size int) (int, int, uint8, error) {
-	if size <= 0 {
-		return 0, 0, 0, errors.New("size is lt 0")
-	}
-
-	num := size / configs.RpcFileBuffer
-	slicesize := size / (num + 1)
-	tailsize := size - slicesize*(num+1)
-	return slicesize, slicesize + tailsize, uint8(num) + 1, nil
 }
 
 //
