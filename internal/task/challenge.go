@@ -42,20 +42,24 @@ func task_HandlingChallenges(ch chan bool) {
 
 	for {
 		if pattern.GetMinerState() != pattern.M_Positive {
+			if pattern.GetMinerState() == pattern.M_Pending {
+				time.Sleep(time.Second * 3)
+				continue
+			}
 			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 			continue
 		}
+
 		chlng, err := chain.GetChallenges()
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
 				Chg.Sugar().Errorf("%v", err)
+				chlng, _ = chain.GetChallenges()
 			}
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 3)))
-			continue
 		}
 
 		if len(chlng) == 0 {
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(2, 5)))
+			time.Sleep(time.Minute * 5)
 			continue
 		}
 
@@ -66,7 +70,7 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 		var proveInfos = make([]chain.ProveInfo, 0)
 		for i := 0; i < len(chlng); i++ {
-			if len(proveInfos) >= 80 {
+			if len(proveInfos) >= 50 {
 				break
 			}
 
@@ -121,7 +125,12 @@ func task_HandlingChallenges(ch chan bool) {
 
 			poDR2prove.Matrix = matrix
 			poDR2prove.S = blocksize
-			proveResponseCh := poDR2prove.PoDR2ProofProve(configs.Spk, string(configs.Shared_params), configs.Shared_g, int64(configs.ScanBlockSize))
+			proveResponseCh := poDR2prove.PoDR2ProofProve(
+				configs.Spk,
+				string(configs.Shared_params),
+				configs.Shared_g,
+				int64(configs.ScanBlockSize),
+			)
 			select {
 			case proveResponse = <-proveResponseCh:
 			}
@@ -153,12 +162,9 @@ func task_HandlingChallenges(ch chan bool) {
 		var txhash string
 		for {
 			txhash, err = chain.SubmitProofs(proveInfos)
-			if err != nil {
+			if txhash == "" {
 				Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
-			}
-
-			if txhash != "" {
+			} else {
 				Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
 				break
 			}
@@ -166,6 +172,7 @@ func task_HandlingChallenges(ch chan bool) {
 				Chg.Sugar().Errorf("SubmitProofs fail and exit")
 				break
 			}
+			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
 		}
 	}
 }

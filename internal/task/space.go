@@ -79,15 +79,20 @@ func task_SpaceManagement(ch chan bool) {
 		tSpace = time.Now()
 	}
 
-	reqspace.Publickey = configs.PublicKey
+	reqspace.Publickey = pattern.GetMinerAcc()
 
 	kr, _ := keyring.FromURI(configs.C.SignatureAcc, keyring.NetSubstrate{})
 
 	for {
 		if pattern.GetMinerState() != pattern.M_Positive {
+			if pattern.GetMinerState() == pattern.M_Pending {
+				time.Sleep(time.Second * 3)
+				continue
+			}
 			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
 			continue
 		}
+
 		time.Sleep(time.Second)
 		if client == nil || reconn {
 			schds, err := chain.GetSchedulingNodes()
@@ -139,7 +144,7 @@ func task_SpaceManagement(ch chan bool) {
 			client,
 			configs.RpcService_Scheduler,
 			configs.RpcMethod_Scheduler_Space,
-			time.Duration(time.Second*100),
+			time.Duration(time.Second*30),
 			req_b,
 		)
 		reconn = clo
@@ -156,8 +161,7 @@ func task_SpaceManagement(ch chan bool) {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			index := tools.RandomInRange(0, len(basefiller.MinerIp))
-			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[index])) + "/" + basefiller.FillerId
+			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[0])) + "/" + basefiller.FillerId
 			var fillertagurl string = fillerurl + ".tag"
 			fillerbody, err := getFiller(fillerurl)
 			if err != nil {
@@ -218,46 +222,36 @@ func task_SpaceManagement(ch chan bool) {
 				continue
 			}
 
-			_, _, clo, err := rpc.WriteData(
+			_, _, reconn, err = rpc.WriteData(
 				client,
 				configs.RpcService_Scheduler,
 				configs.RpcMethod_Scheduler_FillerBack,
-				time.Duration(time.Second*100),
+				time.Duration(time.Second*30),
 				req_back_req,
 			)
-			reconn = clo
 			if err != nil {
 				if clo {
-					schds, err := chain.GetSchedulingNodes()
+					client, err = ReConnect(pattern.GetMinerRecentSche())
 					if err != nil {
 						Flr.Sugar().Errorf("%v", err)
-						time.Sleep(time.Minute)
+						time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 						continue
 					}
-					client, err = connectionScheduler(schds)
+					_, _, reconn, err = rpc.WriteData(
+						client,
+						configs.RpcService_Scheduler,
+						configs.RpcMethod_Scheduler_FillerBack,
+						time.Duration(time.Second*30),
+						req_back_req,
+					)
 					if err != nil {
-						Flr.Sugar().Errorf("--> All schedules unavailable")
-						for i := 0; i < len(schds); i++ {
-							Flr.Sugar().Errorf("   %v: %v", i, string(schds[i].Ip))
-						}
-						time.Sleep(time.Minute)
+						Flr.Sugar().Errorf("%v", err)
+						time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 						continue
 					}
-				}
-
-				_, _, clo, err := rpc.WriteData(
-					client,
-					configs.RpcService_Scheduler,
-					configs.RpcMethod_Scheduler_FillerBack,
-					time.Duration(time.Second*100),
-					req_back_req,
-				)
-				reconn = clo
-				if err != nil {
-					Flr.Sugar().Errorf(" %v", err)
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				}
 			}
+			Flr.Sugar().Infof("C-filler: %v", basefiller.FillerId)
 			continue
 		}
 
@@ -336,6 +330,8 @@ func task_SpaceManagement(ch chan bool) {
 				if i == 15 {
 					f.Close()
 				}
+			} else {
+				Flr.Sugar().Infof("B-filler: %v", respspace.FileId)
 			}
 		}
 	}
@@ -452,13 +448,16 @@ func getFiller(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("Failed")
+	}
+
 	bo, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == http.StatusNotFound || len(bo) < 20 {
-		return nil, errors.New("Failed")
-	}
+
 	return bo, nil
 }
 
@@ -473,4 +472,18 @@ func write_file(fpath string, data []byte) error {
 		return err
 	}
 	return ft.Sync()
+}
+
+func ReConnect(url string) (*rpc.Client, error) {
+	var (
+		err error
+		cli *rpc.Client
+	)
+	ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
+	cli, err = rpc.DialWebsocket(ctx, url, "")
+	if err != nil {
+		Flr.Sugar().Infof("Reconnect to %v", url)
+		return nil, errors.New("Failed")
+	}
+	return cli, nil
 }

@@ -3,6 +3,7 @@ package task
 import (
 	"cess-bucket/internal/chain"
 	"cess-bucket/internal/pattern"
+	"log"
 
 	. "cess-bucket/internal/logger"
 	"os"
@@ -19,6 +20,12 @@ func task_self_judgment(ch chan bool) {
 	}()
 	Out.Info(">>>>> Start task_self_judgment <<<<<")
 	var failcount uint8
+	minfo, err := chain.GetMinerInfo(nil)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	pattern.SetMinerState(string(minfo.State))
 	for {
 		minfo, err := chain.GetMinerInfo(nil)
 		if err != nil {

@@ -20,25 +20,24 @@ func task_RemoveInvalidFiles(ch chan bool) {
 		}
 		ch <- true
 	}()
-	Out.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
+	Del.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
 	for {
 		invalidFiles, err := chain.GetInvalidFiles()
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				Out.Sugar().Infof("%v", err)
+				Del.Sugar().Errorf("%v", err)
+				invalidFiles, _ = chain.GetInvalidFiles()
 			}
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 10)))
-			continue
 		}
 
 		if len(invalidFiles) == 0 {
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(5, 10)))
+			time.Sleep(time.Minute * 10)
 			continue
 		}
 
-		Out.Sugar().Infof("--> Prepare to remove invalid files [%v]", len(invalidFiles))
+		Del.Sugar().Infof("--> Prepare to remove invalid files [%v]", len(invalidFiles))
 		for x := 0; x < len(invalidFiles); x++ {
-			Out.Sugar().Infof("   %v: %s", x, string(invalidFiles[x]))
+			Del.Sugar().Infof("   %v: %s", x, string(invalidFiles[x]))
 		}
 
 		for i := 0; i < len(invalidFiles); i++ {
@@ -54,12 +53,13 @@ func task_RemoveInvalidFiles(ch chan bool) {
 			}
 			txhash, err := chain.ClearInvalidFiles(invalidFiles[i])
 			if txhash != "" {
-				Out.Sugar().Infof("[%v] Cleared %v", string(invalidFiles[i]), txhash)
+				Del.Sugar().Infof("[%v] Cleared %v", string(invalidFiles[i]), txhash)
 			} else {
-				Out.Sugar().Infof("[err] [%v] Clear: %v", string(invalidFiles[i]), err)
+				Del.Sugar().Errorf("[err] [%v] Clear: %v", string(invalidFiles[i]), err)
 			}
 			os.Remove(filefullpath)
 			os.Remove(filetagfullpath)
 		}
+		time.Sleep(time.Minute * 10)
 	}
 }

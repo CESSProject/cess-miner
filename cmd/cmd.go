@@ -758,7 +758,7 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	addr, err := tools.EncodeToCESSAddr([]byte(configs.C.SignatureAcc))
+	addr, err := tools.EncodeToCESSAddr(configs.PublicKey)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)

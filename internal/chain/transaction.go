@@ -535,10 +535,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 					return txhash, errors.Wrap(err, "GetStorageRaw")
 				}
 
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.SegmentBook_ChallengeProof) > 0 && len(data) > 0 {
 					if events.SegmentBook_ChallengeProof[0].Miner == data[0].MinerAcc {
