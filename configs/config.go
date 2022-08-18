@@ -3,7 +3,7 @@ package configs
 import "time"
 
 // type and version
-const Version = "CESS-Bucket v0.5.1.220818"
+const Version = "CESS-Bucket v0.5.1"
 
 // return code
 const (
