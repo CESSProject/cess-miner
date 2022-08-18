@@ -21,6 +21,7 @@ var (
 	Flr *zap.Logger
 	Pnc *zap.Logger
 	Chg *zap.Logger
+	Del *zap.Logger
 )
 
 func LoggerInit() {
@@ -41,6 +42,7 @@ func LoggerInit() {
 		"filler.log",
 		"panic.log",
 		"challenge.log",
+		"deleted.log",
 	}
 
 	for i := 0; i < len(log_file); i++ {
@@ -70,6 +72,9 @@ func LoggerInit() {
 		case 6:
 			Chg = zap.New(newCore, zap.AddCaller())
 			Chg.Sugar().Infof("%v", fpath)
+		case 7:
+			Del = zap.New(newCore, zap.AddCaller())
+			Del.Sugar().Infof("%v", fpath)
 		}
 	}
 	log.Println("log loaded successfully")

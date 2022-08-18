@@ -6,6 +6,7 @@ import (
 
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pattern"
 	"cess-bucket/tools"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens uint64) (string, error) {
+func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
@@ -41,11 +42,6 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	b, err := tools.DecodeToCessPub(imcodeAcc)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[DecodeToCessPub]")
-	}
-
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
@@ -56,7 +52,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 	c, err := types.NewCall(
 		meta,
 		ChainTx_Sminer_Register,
-		types.NewAccountID(b),
+		types.NewAccountID(acc),
 		types.Bytes([]byte(ipAddr)),
 		types.NewU128(*realTokens),
 	)
@@ -79,7 +75,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey System Account]")
 	}
@@ -143,7 +139,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 
 				if len(events.Sminer_Registered) > 0 {
 					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if string(events.Sminer_Registered[i].Acc[:]) == string(configs.PublicKey) {
+						if string(events.Sminer_Registered[i].Acc[:]) == string(pattern.GetMinerAcc()) {
 							return txhash, nil
 						}
 					}
@@ -483,7 +479,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -540,10 +536,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 					return txhash, errors.Wrap(err, "GetStorageRaw")
 				}
 
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.SegmentBook_ChallengeProof) > 0 && len(data) > 0 {
 					if events.SegmentBook_ChallengeProof[0].Miner == data[0].MinerAcc {
@@ -602,7 +595,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 		return txhash, errors.Wrap(err, "[GetRuntimeVersion]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, "System", "Account", pattern.GetMinerAcc())
 	if err != nil {
 		return txhash, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -665,7 +658,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 
 				if len(events.FileBank_ClearInvalidFile) > 0 {
 					for i := 0; i < len(events.FileBank_ClearInvalidFile); i++ {
-						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(configs.PublicKey) {
+						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(pattern.GetMinerAcc()) {
 							return txhash, nil
 						}
 					}

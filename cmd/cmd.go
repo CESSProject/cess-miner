@@ -6,8 +6,9 @@ import (
 	"cess-bucket/internal/chain"
 	"cess-bucket/internal/logger"
 	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pt"
+	"cess-bucket/internal/pattern"
 	"cess-bucket/internal/rpc"
+	"cess-bucket/internal/task"
 	"cess-bucket/tools"
 	"fmt"
 	"log"
@@ -240,6 +241,7 @@ func register(api *gsrpc.SubstrateAPI) error {
 		configs.C.IncomeAcc,
 		res,
 		pledgeTokens,
+		pattern.GetMinerAcc(),
 	)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -456,7 +458,9 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		//Initialize the logger
 		logger.LoggerInit()
 	}
+
 	// start-up
+	task.Run()
 	rpc.Rpc_Main()
 }
 
@@ -624,7 +628,8 @@ func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 		}
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
-		txhash, _, err := chain.UpdateAddress(configs.C.SignatureAcc, os.Args[2])
+
+		txhash, _, err := chain.UpdateAddress(configs.C.SignatureAcc, base58.Encode([]byte(os.Args[2])))
 		if txhash == "" {
 			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.%v\n", 41, err)
 			os.Exit(1)
@@ -656,6 +661,23 @@ func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket update_income account'\n", 41)
 	os.Exit(1)
+}
+
+func register_if() (bool, error) {
+	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
+	defer chain.Free()
+	if err != nil {
+		return false, err
+	}
+	//Query your own information on the chain
+	_, err = chain.GetMinerInfo(api)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // Parse command arguments
@@ -724,47 +746,36 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	_, err = pt.GetMountPathInfo(configs.C.MountedPath)
+	_, err = tools.GetMountPathInfo(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' %v\n", 41, configs.C.MountedPath, err)
 		os.Exit(1)
 	}
 
-	configs.PublicKey, err = chain.GetSelfPublicKey(configs.C.SignatureAcc)
+	acc, err := chain.GetSelfPublicKey(configs.C.SignatureAcc)
 	if err != nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
 
-	addr, err := chain.GetCESSAccount(configs.C.SignatureAcc)
+	addr, err := tools.EncodeToCESSAddr(acc)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
 		os.Exit(1)
 	}
-	data, err := chain.GetSchedulerPublicKey()
-	if err != nil {
-		log.Printf("[err] %v\n", err)
-		os.Exit(1)
-	}
-	configs.Shared_g = data.Shared_g
-	configs.Shared_params = data.Shared_params
-	configs.Spk = data.Spk
-	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
-}
 
-func register_if() (bool, error) {
-	api, err := chain.GetRpcClient_Safe(configs.C.RpcAddr)
-	defer chain.Free()
-	if err != nil {
-		return false, err
-	}
-	//Query your own information on the chain
-	_, err = chain.GetMinerInfo(api)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			return false, nil
+	if os.Args[1] == "run" {
+		data, err := chain.GetSchedulerPublicKey()
+		if err != nil {
+			log.Printf("[err] %v\n", err)
+			os.Exit(1)
 		}
-		return false, err
+		configs.Shared_g = data.Shared_g
+		configs.Shared_params = data.Shared_params
+		configs.Spk = data.Spk
+		pattern.SetMinerAcc(acc)
+		pattern.SetMinerSignAddr(configs.C.IncomeAcc)
 	}
-	return true, nil
+
+	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
 }

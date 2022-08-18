@@ -3,6 +3,7 @@ package chain
 import (
 	"cess-bucket/configs"
 	. "cess-bucket/internal/logger"
+	"cess-bucket/internal/pattern"
 	"cess-bucket/tools"
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
@@ -34,7 +35,7 @@ func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, pattern.GetMinerAcc())
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -70,7 +71,7 @@ func GetChallenges() ([]ChallengesInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -136,7 +137,7 @@ func GetInvalidFiles() ([]types.Bytes, error) {
 		return nil, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile, configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -205,7 +206,7 @@ func GetBlockHeightExited(api *gsrpc.SubstrateAPI) (types.U32, error) {
 		return number, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerColling, configs.PublicKey)
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerColling, pattern.GetMinerAcc())
 	if err != nil {
 		return number, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -232,13 +233,4 @@ func GetBlockHeight(api *gsrpc.SubstrateAPI) (types.U32, error) {
 		return 0, errors.Wrap(err, "[GetBlockLatest]")
 	}
 	return types.U32(block.Block.Header.Number), nil
-}
-
-// Get the CESS chain account
-func GetCESSAccount(prk string) (string, error) {
-	addr, err := tools.Encode(configs.PublicKey, tools.ChainCessTestPrefix)
-	if err != nil {
-		return "", errors.Wrap(err, "[Encode]")
-	}
-	return addr, nil
 }
