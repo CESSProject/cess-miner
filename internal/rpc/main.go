@@ -80,6 +80,7 @@ func serveWs(l net.Listener) {
 
 func serveHttp(l net.Listener) {
 	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = ioutil.Discard
 	r := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
