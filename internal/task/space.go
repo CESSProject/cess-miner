@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -112,6 +113,8 @@ func task_SpaceManagement(ch chan bool) {
 			}
 		}
 
+		Flr.Sugar().Infof("Connected to %v", pattern.GetMinerRecentSche())
+
 		if time.Since(tSpace).Minutes() >= 10 {
 			availableSpace, err = calcAvailableSpace()
 			if err != nil {
@@ -140,7 +143,7 @@ func task_SpaceManagement(ch chan bool) {
 			continue
 		}
 
-		respCode, respBody, clo, err := rpc.WriteData(
+		respCode, respMsg, respBody, clo, err := rpc.WriteData(
 			client,
 			rpc.RpcService_Scheduler,
 			rpc.RpcMethod_Scheduler_Space,
@@ -149,7 +152,9 @@ func task_SpaceManagement(ch chan bool) {
 		)
 		reconn = clo
 		if err != nil {
-			Flr.Sugar().Errorf("%v", err)
+			fail_sche := pattern.GetMinerRecentSche()
+			Flr.Sugar().Errorf("Space: %v, code:%v msg:%v err:%v", fail_sche, respCode, respMsg, err)
+			pattern.AddToBlacklist(fail_sche)
 			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 30)))
 			continue
 		}
@@ -161,17 +166,41 @@ func task_SpaceManagement(ch chan bool) {
 				Flr.Sugar().Errorf(" %v", err)
 				continue
 			}
-			var fillerurl string = "http://" + string(base58.Decode(basefiller.MinerIp[0])) + "/" + basefiller.FillerId
+			mip := string(base58.Decode(basefiller.MinerIp[0]))
+			var fillerurl string = "http://" + mip + "/" + basefiller.FillerId
 			var fillertagurl string = fillerurl + ".tag"
-			fillerbody, err := getFiller(fillerurl)
+			if pattern.IsInBlacklist(mip) {
+				continue
+			}
+			Flr.Sugar().Infof("%v", fillerurl)
+			fillerbody, err := getFiller(fillerurl, time.Duration(time.Second*90))
 			if err != nil {
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
-				fillerbody, err = getFiller(fillerurl)
+				Flr.Sugar().Errorf("%v", err)
+				pattern.AddToBlacklist(mip)
+				//
+				var req_back FillerBackReq
+				req_back.Publickey = pattern.GetMinerAcc()
+				req_back.FileId = []byte(basefiller.FillerId)
+				req_back.FileHash = nil
+				req_back_req, err := proto.Marshal(&req_back)
 				if err != nil {
 					Flr.Sugar().Errorf("%v", err)
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 					continue
 				}
+
+				_, _, _, reconn, err = rpc.WriteData(
+					client,
+					rpc.RpcService_Scheduler,
+					rpc.RpcMethod_Scheduler_FillerFall,
+					time.Duration(time.Second*30),
+					req_back_req,
+				)
+				if err != nil {
+					Flr.Sugar().Errorf("%v", err)
+				}
+				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
+				continue
 			}
 			spacefilefullpath := filepath.Join(configs.SpaceDir, basefiller.FillerId)
 			err = write_file(spacefilefullpath, fillerbody)
@@ -181,12 +210,12 @@ func task_SpaceManagement(ch chan bool) {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
-			fillertagbody, err := getFiller(fillertagurl)
+			fillertagbody, err := getFiller(fillertagurl, time.Duration(time.Second*20))
 			if err != nil {
-				time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
-				fillertagbody, err = getFiller(fillertagurl)
 				if err != nil {
 					Flr.Sugar().Errorf("%v", err)
+					pattern.AddToBlacklist(mip)
+					os.Remove(spacefilefullpath)
 					time.Sleep(time.Second * time.Duration(tools.RandomInRange(3, 6)))
 					continue
 				}
@@ -201,6 +230,7 @@ func task_SpaceManagement(ch chan bool) {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				continue
 			}
+
 			hash, err := tools.CalcFileHash(spacefilefullpath)
 			if err != nil {
 				os.Remove(tagfilefullpath)
@@ -222,33 +252,49 @@ func task_SpaceManagement(ch chan bool) {
 				continue
 			}
 
-			_, _, reconn, err = rpc.WriteData(
+			respCode, _, _, reconn, err = rpc.WriteData(
 				client,
 				rpc.RpcService_Scheduler,
 				rpc.RpcMethod_Scheduler_FillerBack,
-				time.Duration(time.Second*30),
+				time.Duration(time.Second*20),
 				req_back_req,
 			)
-			if err != nil {
-				if clo {
+			if respCode != 200 {
+				if reconn {
 					client, err = ReConnect(pattern.GetMinerRecentSche())
 					if err != nil {
 						Flr.Sugar().Errorf("%v", err)
+						os.Remove(tagfilefullpath)
+						os.Remove(spacefilefullpath)
+						fail_sche := pattern.GetMinerRecentSche()
+						pattern.AddToBlacklist(fail_sche)
 						time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 						continue
 					}
-					_, _, reconn, err = rpc.WriteData(
+					respCode, _, _, reconn, err = rpc.WriteData(
 						client,
 						rpc.RpcService_Scheduler,
 						rpc.RpcMethod_Scheduler_FillerBack,
-						time.Duration(time.Second*30),
+						time.Duration(time.Second*20),
 						req_back_req,
 					)
-					if err != nil {
+					if respCode != 200 {
 						Flr.Sugar().Errorf("%v", err)
+						os.Remove(tagfilefullpath)
+						os.Remove(spacefilefullpath)
+						fail_sche := pattern.GetMinerRecentSche()
+						pattern.AddToBlacklist(fail_sche)
 						time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 						continue
 					}
+				} else {
+					reconn = true
+					Flr.Sugar().Errorf("%v", err)
+					os.Remove(tagfilefullpath)
+					os.Remove(spacefilefullpath)
+					fail_sche := pattern.GetMinerRecentSche()
+					pattern.AddToBlacklist(fail_sche)
+					continue
 				}
 			}
 			Flr.Sugar().Infof("C-filler: %v", basefiller.FillerId)
@@ -256,8 +302,10 @@ func task_SpaceManagement(ch chan bool) {
 		}
 
 		if respCode != 200 {
-			Flr.Sugar().Errorf("%v", respCode)
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(10, 30)))
+			fail_sche := pattern.GetMinerRecentSche()
+			Flr.Sugar().Errorf("Call %v, code:%v msg:%v", fail_sche, respCode, respMsg)
+			pattern.AddToBlacklist(fail_sche)
+			time.Sleep(time.Second * 3)
 			reconn = true
 			continue
 		}
@@ -309,17 +357,18 @@ func task_SpaceManagement(ch chan bool) {
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
 				break
 			}
-			respCode, respBody, clo, err = rpc.WriteData(
+			respCode, respMsg, respBody, reconn, err = rpc.WriteData(
 				client,
 				rpc.RpcService_Scheduler,
 				rpc.RpcMethod_Scheduler_Spacefile,
-				time.Duration(time.Second*100),
+				time.Duration(time.Second*60),
 				req_b,
 			)
-			reconn = clo
 			if err != nil {
-				Flr.Sugar().Errorf(" %v", err)
 				f.Close()
+				fail_sche := pattern.GetMinerRecentSche()
+				Flr.Sugar().Errorf("Spacefile: %v, code:%v msg:%v err:%v", fail_sche, respCode, respMsg, err)
+				pattern.AddToBlacklist(fail_sche)
 				os.Remove(tagfilefullpath)
 				os.Remove(spacefilefullpath)
 				time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 10)))
@@ -377,12 +426,26 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	var wsURL string
 	for i := 0; i < len(schds); i++ {
 		wsURL = "ws://" + string(base58.Decode(string(schds[i].Ip)))
+		if pattern.IsInBlacklist(wsURL) {
+			continue
+		}
+		accountinfo, err := chain.GetAccountInfo(schds[i].Controller_user[:])
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				pattern.AddToBlacklist(wsURL)
+			}
+			continue
+		}
+		if accountinfo.Data.Free.CmpAbs(new(big.Int).SetUint64(2000000000000)) == -1 {
+			pattern.AddToBlacklist(wsURL)
+			continue
+		}
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		cli, err = rpc.DialWebsocket(ctx, wsURL, "")
 		if err != nil {
 			continue
 		}
-		respCode, respBody, _, _ := rpc.WriteData(
+		respCode, _, respBody, _, _ := rpc.WriteData(
 			cli,
 			rpc.RpcService_Scheduler,
 			rpc.RpcMethod_Scheduler_State,
@@ -403,7 +466,7 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 			resu = resu << 8
 			resu += int32(respBody[3])
 		}
-		if resu < 5 {
+		if resu < 10 {
 			pattern.SetMinerRecentSche(wsURL)
 			return cli, nil
 		}
@@ -411,14 +474,13 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 		cli.Close()
 	}
 	var ok = false
-	var threshold int32 = 5
+	var threshold int32 = 10
 	for !ok {
 		for k, v := range state {
-			if (threshold-5) <= v && v < threshold {
+			if (threshold-10) <= v && v < threshold {
 				ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
 				cli, err = rpc.DialWebsocket(ctx, k, "")
 				if err == nil {
-					Flr.Sugar().Infof("Connect to %v", k)
 					pattern.SetMinerRecentSche(k)
 					ok = true
 					break
@@ -437,10 +499,11 @@ func connectionScheduler(schds []chain.SchedulerInfo) (*rpc.Client, error) {
 	return cli, err
 }
 
-func getFiller(url string) ([]byte, error) {
+func getFiller(url string, t time.Duration) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 
 	client := &http.Client{
+		Timeout:   t,
 		Transport: globalTransport,
 	}
 	resp, err := client.Do(req)

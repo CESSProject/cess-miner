@@ -460,7 +460,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// start-up
-	task.Run()
+	go task.Run()
 	rpc.Rpc_Main()
 }
 
@@ -629,9 +629,19 @@ func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
 
-		txhash, _, err := chain.UpdateAddress(configs.C.SignatureAcc, base58.Encode([]byte(os.Args[2])))
-		if txhash == "" {
-			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.%v\n", 41, err)
+		txhash, err := chain.UpdateAddress(configs.C.SignatureAcc, base58.Encode([]byte(os.Args[2])))
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				log.Println("[err] Please check your wallet balance.")
+			} else {
+				if txhash != "" {
+					msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
+					msg += configs.HELP_UpdateAddress
+					log.Printf("[pending] %v\n", msg)
+				} else {
+					log.Printf("[err] %v.\n", err)
+				}
+			}
 			os.Exit(1)
 		}
 		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
@@ -651,9 +661,19 @@ func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 		}
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
-		txhash, _, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
-		if txhash == "" {
-			log.Printf("\x1b[%dm[err]\x1b[0m Update failed, Please try again later.%v\n", 41, err)
+		txhash, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				log.Println("[err] Please check your wallet balance.")
+			} else {
+				if txhash != "" {
+					msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
+					msg += configs.HELP_UpdataBeneficiary
+					log.Printf("[pending] %v\n", msg)
+				} else {
+					log.Printf("[err] %v.\n", err)
+				}
+			}
 			os.Exit(1)
 		}
 		log.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
@@ -773,9 +793,8 @@ func parseProfile() {
 		configs.Shared_g = data.Shared_g
 		configs.Shared_params = data.Shared_params
 		configs.Spk = data.Spk
-		pattern.SetMinerAcc(acc)
-		pattern.SetMinerSignAddr(configs.C.IncomeAcc)
 	}
-
+	pattern.SetMinerAcc(acc)
+	pattern.SetMinerSignAddr(configs.C.IncomeAcc)
 	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)
 }

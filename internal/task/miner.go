@@ -39,6 +39,7 @@ func task_self_judgment(ch chan bool) {
 		if failcount >= 10 {
 			os.Exit(1)
 		}
+		pattern.DeleteExpiredBlacklist()
 		time.Sleep(time.Minute * 5)
 	}
 }

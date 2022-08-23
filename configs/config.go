@@ -41,6 +41,12 @@ const (
 	HELP_register = `    3.Check the Sminer_Registered transaction event result in the block hash above:
         If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
+	HELP_UpdateAddress = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:
+        If system.ExtrinsicFailed is prompted, it means failure;
+        If system.ExtrinsicSuccess is prompted, it means success;`
+	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:
+        If system.ExtrinsicFailed is prompted, it means failure;
+        If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
 // Miner info

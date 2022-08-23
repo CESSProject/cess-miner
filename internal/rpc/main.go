@@ -38,6 +38,7 @@ const (
 	RpcMethod_Scheduler_Space      = "space"
 	RpcMethod_Scheduler_Spacefile  = "spacefile"
 	RpcMethod_Scheduler_FillerBack = "fillerback"
+	RpcMethod_Scheduler_FillerFall = "fillerfall"
 	RpcMethod_Scheduler_State      = "state"
 	RpcFileBuffer                  = 1024 * 1024 //1MB
 )
@@ -361,7 +362,7 @@ func (MService) ReadfiletagAction(body []byte) (proto.Message, error) {
 }
 
 //
-func WriteData(cli *Client, service, method string, t time.Duration, body []byte) (int, []byte, bool, error) {
+func WriteData(cli *Client, service, method string, t time.Duration, body []byte) (int, string, []byte, bool, error) {
 	req := &ReqMsg{
 		Service: service,
 		Method:  method,
@@ -371,18 +372,18 @@ func WriteData(cli *Client, service, method string, t time.Duration, body []byte
 	resp, err := cli.Call(ctx, req)
 	if err != nil {
 		cli.Close()
-		return 0, nil, true, errors.Wrap(err, "Call err:")
+		return 0, "", nil, true, errors.Wrap(err, "Call err:")
 	}
 
 	var b RespBody
 	if len(resp.Body) == 0 {
-		return 0, nil, false, errors.New("empty body")
+		return 0, "", nil, false, errors.New("empty body")
 	}
 
 	err = proto.Unmarshal(resp.Body, &b)
 	if err != nil {
-		return 0, nil, false, errors.Wrap(err, "Unmarshal:")
+		return 0, "", nil, false, errors.Wrap(err, "Unmarshal:")
 	}
 
-	return int(b.Code), b.Data, false, nil
+	return int(b.Code), b.Msg, b.Data, false, nil
 }

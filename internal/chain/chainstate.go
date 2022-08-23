@@ -234,3 +234,43 @@ func GetBlockHeight(api *gsrpc.SubstrateAPI) (types.U32, error) {
 	}
 	return types.U32(block.Block.Header.Number), nil
 }
+
+func GetAccountInfo(puk []byte) (types.AccountInfo, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
+		}
+	}()
+
+	var data types.AccountInfo
+
+	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
+	defer Free()
+	if err != nil {
+		return data, errors.Wrap(err, "[GetRpcClient_Safe]")
+	}
+
+	meta, err := GetMetadata(api)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetMetadata]")
+	}
+
+	b, err := types.EncodeToBytes(types.NewAccountID(puk))
+	if err != nil {
+		return data, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	key, err := types.CreateStorageKey(meta, "System", "Account", b)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, errors.New(ERR_Empty)
+	}
+	return data, nil
+}
