@@ -183,6 +183,8 @@ The `bucket` has many functions, you can use `-h` or `--help` to view, as follow
 | exit     | Exit the mining platform                       |
 | increase | Increase the deposit of mining miner           |
 | withdraw | Redemption deposit of mining miner             |
+| update_address | Update the miner's access address             |
+| update_income  | Update the miner's income account             |
 
 **Step 5:** Use bucket
 
@@ -214,6 +216,18 @@ sudo ./bucket exit
 
 ```shell
 sudo ./bucket withdraw
+```
+
+- Update the miner's access address
+```shell
+sudo ./bucket update_address 127.0.0.1:15001
+or
+sudo ./bucket update_address http://<your domain name>
+```
+
+- Update the miner's income account
+```shell
+sudo ./bucket update_income cXic3Whct......vV5Sbq4f
 ```
 
 - Start mining
