@@ -1,15 +1,6 @@
 package cmd
 
 import (
-	"cess-bucket/configs"
-	"cess-bucket/initlz"
-	"cess-bucket/internal/chain"
-	"cess-bucket/internal/logger"
-	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pattern"
-	"cess-bucket/internal/rpc"
-	"cess-bucket/internal/task"
-	"cess-bucket/tools"
 	"fmt"
 	"log"
 	"math/big"
@@ -18,6 +9,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/initlz"
+	"github.com/CESSProject/cess-bucket/internal/chain"
+	"github.com/CESSProject/cess-bucket/internal/logger"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+	"github.com/CESSProject/cess-bucket/internal/rpc"
+	"github.com/CESSProject/cess-bucket/internal/task"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/btcsuite/btcutil/base58"
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"

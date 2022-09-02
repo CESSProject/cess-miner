@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/logger"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/golang/protobuf/proto"

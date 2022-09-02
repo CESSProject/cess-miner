@@ -1,10 +1,10 @@
 package chain
 
 import (
-	"cess-bucket/configs"
-	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pattern"
-	"cess-bucket/tools"
+	"github.com/CESSProject/cess-bucket/configs"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -255,7 +255,7 @@ func GetAccountInfo(puk []byte) (types.AccountInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	b, err := types.EncodeToBytes(types.NewAccountID(puk))
+	b, err := types.Encode(types.NewAccountID(puk))
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}

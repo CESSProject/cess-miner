@@ -1,18 +1,19 @@
 package task
 
 import (
-	"cess-bucket/configs"
-	"cess-bucket/internal/chain"
-	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pattern"
-	api "cess-bucket/internal/proof/apiv1"
-	"cess-bucket/tools"
 	"encoding/json"
 	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/internal/chain"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+	api "github.com/CESSProject/cess-bucket/internal/proof/apiv1"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/pkg/errors"
 

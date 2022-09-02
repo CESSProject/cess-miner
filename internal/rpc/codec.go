@@ -1,8 +1,9 @@
 package rpc
 
 import (
-	. "cess-bucket/internal/rpc/proto"
 	"io"
+
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"

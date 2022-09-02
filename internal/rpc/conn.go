@@ -3,8 +3,8 @@ package rpc
 import (
 	"context"
 
-	"cess-bucket/internal/logger"
-	. "cess-bucket/internal/rpc/proto"
+	"github.com/CESSProject/cess-bucket/internal/logger"
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 )

@@ -1,12 +1,13 @@
 package rpc
 
 import (
-	. "cess-bucket/internal/rpc/proto"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync"
 	"unicode"
+
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 )

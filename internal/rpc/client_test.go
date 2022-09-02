@@ -1,13 +1,14 @@
 package rpc
 
 import (
-	. "cess-bucket/internal/rpc/proto"
 	"context"
 	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 
 	"google.golang.org/protobuf/proto"
 )
