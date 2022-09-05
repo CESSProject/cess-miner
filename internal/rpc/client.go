@@ -1,10 +1,11 @@
 package rpc
 
 import (
-	. "cess-bucket/internal/rpc/proto"
 	"context"
 	"sync"
 	"sync/atomic"
+
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 )
 
 type ID uint32

@@ -4,11 +4,12 @@ import (
 	"math/big"
 	"strconv"
 
-	"cess-bucket/configs"
-	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pattern"
-	"cess-bucket/tools"
 	"time"
+
+	"github.com/CESSProject/cess-bucket/configs"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -17,7 +18,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
+func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
@@ -42,6 +43,11 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
+	b, err := tools.DecodeToCessPub(incomeAcc)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[DecodeToPub]")
+	}
+
 	pTokens := strconv.FormatUint(pledgeTokens, 10)
 	pTokens += configs.TokenAccuracy
 	realTokens, ok := new(big.Int).SetString(pTokens, 10)
@@ -52,7 +58,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 	c, err := types.NewCall(
 		meta,
 		ChainTx_Sminer_Register,
-		types.NewAccountID(acc),
+		types.NewAccountID(b),
 		types.Bytes([]byte(ipAddr)),
 		types.NewU128(*realTokens),
 	)
@@ -122,7 +128,7 @@ func Register(api *gsrpc.SubstrateAPI, imcodeAcc, ipAddr string, pledgeTokens ui
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				keye, err := GetKeyEvents()
 				if err != nil {
 					return txhash, errors.Wrap(err, "GetKeyEvents")
@@ -239,7 +245,7 @@ func Increase(api *gsrpc.SubstrateAPI, identifyAccountPhrase, TransactionName st
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				return txhash, nil
 			}
 		case err = <-sub.Err():
@@ -332,7 +338,7 @@ func ExitMining(api *gsrpc.SubstrateAPI, identifyAccountPhrase, TransactionName 
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				return txhash, nil
 			}
 		case err = <-sub.Err():
@@ -425,7 +431,7 @@ func Withdraw(api *gsrpc.SubstrateAPI, identifyAccountPhrase, TransactionName st
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				return txhash, nil
 			}
 		case err = <-sub.Err():
@@ -526,7 +532,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				keye, err := GetKeyEvents()
 				if err != nil {
 					return txhash, errors.Wrap(err, "GetKeyEvents")
@@ -641,7 +647,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				txhash, _ = types.EncodeToHexString(status.AsInBlock)
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				keye, err := GetKeyEvents()
 				if err != nil {
 					return txhash, errors.Wrap(err, "GetKeyEvents")
@@ -851,7 +857,7 @@ func UpdateAddress(transactionPrK, addr string) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				txhash, _ := types.EncodeToHexString(status.AsInBlock)
+				txhash, _ := types.EncodeToHex(status.AsInBlock)
 				keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
 				if err != nil {
 					return txhash, errors.Wrap(err, "GetKeyEvents")
@@ -963,7 +969,7 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := MyEventRecords{}
-				txhash, _ := types.EncodeToHexString(status.AsInBlock)
+				txhash, _ := types.EncodeToHex(status.AsInBlock)
 				keye, err := types.CreateStorageKey(meta, "System", "Events", nil)
 				if err != nil {
 					return txhash, errors.Wrap(err, "GetKeyEvents")

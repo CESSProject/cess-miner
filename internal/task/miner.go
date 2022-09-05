@@ -1,13 +1,15 @@
 package task
 
 import (
-	"cess-bucket/internal/chain"
-	"cess-bucket/internal/pattern"
 	"log"
 
-	. "cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/chain"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+
 	"os"
 	"time"
+
+	. "github.com/CESSProject/cess-bucket/internal/logger"
 )
 
 func task_self_judgment(ch chan bool) {

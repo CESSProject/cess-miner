@@ -1,14 +1,6 @@
 package rpc
 
 import (
-	"cess-bucket/configs"
-	. "cess-bucket/configs"
-	"cess-bucket/internal/chain"
-	. "cess-bucket/internal/logger"
-	"cess-bucket/internal/pattern"
-	api "cess-bucket/internal/proof/apiv1"
-	. "cess-bucket/internal/rpc/proto"
-	"cess-bucket/tools"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,6 +11,15 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/CESSProject/cess-bucket/configs"
+	. "github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/internal/chain"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/pattern"
+	api "github.com/CESSProject/cess-bucket/internal/proof/apiv1"
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-contrib/cors"

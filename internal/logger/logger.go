@@ -1,12 +1,13 @@
 package logger
 
 import (
-	"cess-bucket/configs"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/CESSProject/cess-bucket/configs"
 
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"

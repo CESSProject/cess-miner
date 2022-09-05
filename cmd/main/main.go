@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cess-bucket/cmd"
+	"github.com/CESSProject/cess-bucket/cmd"
 )
 
 // program entry

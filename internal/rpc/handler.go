@@ -1,8 +1,9 @@
 package rpc
 
 import (
-	. "cess-bucket/internal/rpc/proto"
 	"context"
+
+	. "github.com/CESSProject/cess-bucket/internal/rpc/proto"
 
 	"github.com/golang/protobuf/proto"
 )
