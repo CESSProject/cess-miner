@@ -206,7 +206,7 @@ func GetBlockHeightExited(api *gsrpc.SubstrateAPI) (types.U32, error) {
 		return number, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerColling, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerLockIn, pattern.GetMinerAcc())
 	if err != nil {
 		return number, errors.Wrap(err, "[CreateStorageKey]")
 	}
