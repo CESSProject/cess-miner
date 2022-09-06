@@ -80,14 +80,14 @@ sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 
 **Step 1:** Install go locale
 
-CESS-Bucket requires [Go 1.16.5](https://golang.org/dl/) or higher.
+CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher.
 
 > See the [official Golang installation instructions](https://golang.org/doc/install) If you get stuck in the following process.
 
 - Download go1.16.5 compress the package and extract it to the /use/local directory:
 
 ```shell
-sudo wget -c https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
+sudo wget -c https://golang.org/dl/go1.19.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
 ```
 
 - You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
