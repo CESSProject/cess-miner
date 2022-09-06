@@ -20,7 +20,7 @@ const (
 	FileBank_FillerMap         = "FillerMap"
 	FileMap_SchedulerInfo      = "SchedulerMap"
 	FileBank_InvalidFile       = "InvalidFile"
-	Sminer_MinerColling        = "MinerColling"
+	Sminer_MinerLockIn         = "MinerLockIn"
 )
 
 // Extrinsics

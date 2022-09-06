@@ -27,7 +27,7 @@ const (
 	ByteSize_1Kb       = 1024               // 1KB
 	TimeToWaitEvents_S = 20                 //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000"     //Unit precision of CESS coins
-	ExitColling        = 14400              //blocks
+	ExitColling        = 28800              //blocks
 	BlockSize          = 1024 * 1024        //1MB
 	ScanBlockSize      = 512 * 1024         //512KB
 	// the time to wait for the event, in seconds
