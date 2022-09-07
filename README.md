@@ -1,4 +1,4 @@
-# <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.16-blue.svg" /></a></h1>
+# <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a></h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
@@ -84,7 +84,7 @@ CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher.
 
 > See the [official Golang installation instructions](https://golang.org/doc/install) If you get stuck in the following process.
 
-- Download go1.16.5 compress the package and extract it to the /use/local directory:
+- Download go1.19 compress the package and extract it to the /use/local directory:
 
 ```shell
 sudo wget -c https://golang.org/dl/go1.19.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
