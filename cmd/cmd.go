@@ -15,9 +15,8 @@ import (
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	"github.com/CESSProject/cess-bucket/internal/logger"
 	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/node"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/internal/rpc"
-	"github.com/CESSProject/cess-bucket/internal/task"
 	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -461,8 +460,9 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// start-up
-	go task.Run()
-	rpc.Rpc_Main()
+	//go task.Run()
+	//rpc.Rpc_Main()
+	node.New().Run()
 }
 
 // Exit mining
@@ -498,7 +498,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	os.Exit(1)
 }
 
-//Increase deposit
+// Increase deposit
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	//Too few command line arguments
 	if len(os.Args) < 3 {

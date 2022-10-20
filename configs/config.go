@@ -3,7 +3,7 @@ package configs
 import "time"
 
 // type and version
-const Version = "CESS-Bucket v0.5.2"
+const Version = "CESS-Bucket v0.5.3.221019.1502"
 
 // return code
 const (
@@ -24,12 +24,12 @@ const (
 const (
 	Space_1GB          = 1024 * 1024 * 1024 // 1GB
 	Space_1MB          = 1024 * 1024        // 1MB
-	ByteSize_1Kb       = 1024               // 1KB
-	TimeToWaitEvents_S = 20                 //The time to wait for the event, in seconds
-	TokenAccuracy      = "000000000000"     //Unit precision of CESS coins
-	ExitColling        = 28800              //blocks
-	BlockSize          = 1024 * 1024        //1MB
-	ScanBlockSize      = 512 * 1024         //512KB
+	SIZE_1KiB          = 1024
+	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
+	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
+	ExitColling        = 28800          //blocks
+	BlockSize          = 1024 * 1024    //1MB
+	ScanBlockSize      = 512 * 1024     //512KB
 	// the time to wait for the event, in seconds
 	TimeToWaitEvents = time.Duration(time.Second * 15)
 )

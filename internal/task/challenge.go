@@ -20,9 +20,9 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
-//The task_HandlingChallenges task will automatically help you complete file challenges.
-//Apart from human influence, it ensures that you submit your certificates in a timely manner.
-//It keeps running as a subtask.
+// The task_HandlingChallenges task will automatically help you complete file challenges.
+// Apart from human influence, it ensures that you submit your certificates in a timely manner.
+// It keeps running as a subtask.
 func task_HandlingChallenges(ch chan bool) {
 	var (
 		fileid          string
@@ -183,7 +183,7 @@ func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
 		blockSize     int64
 		scanBlockSize int64
 	)
-	if fsize < configs.ByteSize_1Kb {
+	if fsize < configs.SIZE_1KiB {
 		return fsize, fsize
 	}
 	if fsize > math.MaxUint32 {

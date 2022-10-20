@@ -43,8 +43,9 @@ message space_req{
 
 //space_file
 message space_file_req{
-    string token = 1;
-    uint32 block_index = 2;
+    bytes publickey =1;
+    string token = 2;
+    uint32 block_index = 3;
 }
 
 message ReadTag_req {

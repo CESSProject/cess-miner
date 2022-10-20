@@ -51,20 +51,20 @@ func init() {
 	}
 }
 
-//The task_SpaceManagement task is to automatically allocate hard disk space.
-//It will help you use your allocated hard drive space, until the size you set in the config file is reached.
-//It keeps running as a subtask.
+// The task_SpaceManagement task is to automatically allocate hard disk space.
+// It will help you use your allocated hard drive space, until the size you set in the config file is reached.
+// It keeps running as a subtask.
 func task_SpaceManagement(ch chan bool) {
 	var (
-		err            error
-		availableSpace uint64
-		reconn         bool
-		tSpace         time.Time
-		reqspace       SpaceReq
-		reqspacefile   SpaceFileReq
-		tagInfo        api.TagInfo
-		respspace      RespSpaceInfo
-		client         *rpc.Client
+		err error
+		//availableSpace uint64
+		reconn bool
+		//tSpace         time.Time
+		reqspace     SpaceReq
+		reqspacefile SpaceFileReq
+		tagInfo      api.TagInfo
+		respspace    RespSpaceInfo
+		client       *rpc.Client
 	)
 	defer func() {
 		if err := recover(); err != nil {
@@ -74,12 +74,12 @@ func task_SpaceManagement(ch chan bool) {
 	}()
 	Flr.Info("-----> Start task_SpaceManagement <-----")
 
-	availableSpace, err = calcAvailableSpace()
-	if err != nil {
-		Flr.Sugar().Errorf("%v", err)
-	} else {
-		tSpace = time.Now()
-	}
+	// availableSpace, err = calcAvailableSpace()
+	// if err != nil {
+	// 	Flr.Sugar().Errorf("calcAvailableSpace: %v", err)
+	// } else {
+	// 	tSpace = time.Now()
+	// }
 
 	reqspace.Publickey = pattern.GetMinerAcc()
 
@@ -97,39 +97,53 @@ func task_SpaceManagement(ch chan bool) {
 
 		time.Sleep(time.Second)
 		if client == nil || reconn {
-			schds, err := chain.GetSchedulingNodes()
+			if client != nil {
+				client.Close()
+			}
+			// schds, err := chain.GetSchedulingNodes()
+			// if err != nil {
+			// 	Flr.Sugar().Errorf("%v", err)
+			// 	time.Sleep(time.Minute)
+			// 	continue
+			// }
+			//for i := 0; i < len(schds); i++ {
+			//wsURL := "ws://" + string(base58.Decode(string(schds[i].Ip)))
+			wsURL := "ws://47.242.144.118:15000"
+			ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+			client, err = rpc.DialWebsocket(ctx, wsURL, "")
 			if err != nil {
-				Flr.Sugar().Errorf("%v", err)
-				time.Sleep(time.Minute)
 				continue
 			}
-			client, err = connectionScheduler(schds)
-			if err != nil {
-				Flr.Sugar().Errorf("--> All schedules unavailable")
-				for i := 0; i < len(schds); i++ {
-					Flr.Sugar().Errorf("   %v: %v", i, string(schds[i].Ip))
-				}
-				time.Sleep(time.Minute)
-				continue
-			}
+			Flr.Sugar().Infof("Connected to %v", wsURL)
+			//}
+
+			// client, err = connectionScheduler(schds)
+			// if err != nil {
+			// 	Flr.Sugar().Errorf("--> All schedules unavailable")
+			// 	for i := 0; i < len(schds); i++ {
+			// 		Flr.Sugar().Errorf("   %v: %v", i, string(schds[i].Ip))
+			// 	}
+			// 	time.Sleep(time.Minute)
+			// 	continue
+			// }
 		}
 
-		Flr.Sugar().Infof("Connected to %v", pattern.GetMinerRecentSche())
+		//Flr.Sugar().Infof("Connected to %v", pattern.GetMinerRecentSche())
 
-		if time.Since(tSpace).Minutes() >= 10 {
-			availableSpace, err = calcAvailableSpace()
-			if err != nil {
-				Flr.Sugar().Errorf("%v", err)
-			} else {
-				tSpace = time.Now()
-			}
-		}
+		// if time.Since(tSpace).Minutes() >= 10 {
+		// 	availableSpace, err = calcAvailableSpace()
+		// 	if err != nil {
+		// 		Flr.Sugar().Errorf("%v", err)
+		// 	} else {
+		// 		tSpace = time.Now()
+		// 	}
+		// }
 
-		if availableSpace < uint64(8*configs.Space_1MB) {
-			Flr.Info("-------- Insufficient disk space --------")
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(10, 30)))
-			continue
-		}
+		// if availableSpace < uint64(8*configs.Space_1MB) {
+		// 	Flr.Info("-------- Insufficient disk space --------")
+		// 	time.Sleep(time.Minute * time.Duration(tools.RandomInRange(10, 30)))
+		// 	continue
+		// }
 
 		// sign message
 		msg := []byte(fmt.Sprintf("%v", tools.RandomInRange(100000, 999999)))
@@ -346,7 +360,7 @@ func task_SpaceManagement(ch chan bool) {
 			continue
 		}
 		reqspacefile.Token = respspace.Token
-
+		reqspacefile.Publickey = pattern.GetMinerAcc()
 		for i := 0; i < 17; i++ {
 			reqspacefile.BlockIndex = uint32(i)
 			req_b, err = proto.Marshal(&reqspacefile)

@@ -41,7 +41,7 @@ func WriteStringtoFile(content, fileName string) error {
 // Get the total size of all files in a directory and subdirectories
 func DirSize(path string) (uint64, error) {
 	var size uint64
-	err := filepath.Walk(path, func(s string, info os.FileInfo, err error) error {
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			size += uint64(info.Size())
 		}

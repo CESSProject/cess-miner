@@ -646,30 +646,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := MyEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
-				keye, err := GetKeyEvents()
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetKeyEvents")
-				}
-				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetStorageRaw")
-				}
-
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
-
-				if len(events.FileBank_ClearInvalidFile) > 0 {
-					for i := 0; i < len(events.FileBank_ClearInvalidFile); i++ {
-						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(pattern.GetMinerAcc()) {
-							return txhash, nil
-						}
-					}
-				}
-				return txhash, errors.New(ERR_Failed)
+				return types.EncodeToHex(status.AsInBlock)
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "<-sub")
