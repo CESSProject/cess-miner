@@ -1,4 +1,4 @@
-package task
+package node
 
 import (
 	"os"
@@ -11,10 +11,10 @@ import (
 	"github.com/CESSProject/cess-bucket/tools"
 )
 
-//The task_RemoveInvalidFiles task automatically checks its own failed files and clears them.
-//Delete from the local disk first, and then notify the chain to delete.
-//It keeps running as a subtask.
-func task_RemoveInvalidFiles(ch chan bool) {
+// The task_RemoveInvalidFiles task automatically checks its own failed files and clears them.
+// Delete from the local disk first, and then notify the chain to delete.
+// It keeps running as a subtask.
+func (node *Node) task_RemoveInvalidFiles(ch chan bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))

@@ -16,10 +16,9 @@ const (
 	MsgClose
 	MsgRecvHead
 	MsgRecvFile
-	// MsgFillerHead
-	// MsgFillerHeadNotify
-	// MsgFiller
-	// MsgFillerNotify
+	MsgFillerHead
+	MsgFiller
+	MsgFillerEnd
 )
 
 type Status byte
@@ -112,6 +111,26 @@ func NewHeadMsg(fileName string, fid string, lastmark bool, pkey, signmsg, sign 
 	m.Pubkey = pkey
 	m.SignMsg = signmsg
 	m.Sign = sign
+	return m
+}
+
+func NewFillerHeadMsg(pkey, signmsg, sign []byte) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgFillerHead
+	m.Pubkey = pkey
+	m.SignMsg = signmsg
+	m.Sign = sign
+	return m
+}
+
+func NewFillerMsg(fillerId string) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgFiller
+	m.FileName = fillerId
+	m.Bytes = nil
+	m.Pubkey = nil
+	m.Sign = nil
+	m.SignMsg = nil
 	return m
 }
 

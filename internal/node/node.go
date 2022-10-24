@@ -32,6 +32,7 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
+	go n.CoroutineMgr()
 	// Get an address of TCP end point
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", configs.C.ServicePort))
 	if err != nil {
@@ -70,6 +71,6 @@ func (n *Node) Run() {
 
 		// Start the processing service of the new connection
 		go n.NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Millisecond * 10)
 	}
 }

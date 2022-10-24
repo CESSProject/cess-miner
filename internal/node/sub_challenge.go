@@ -1,4 +1,4 @@
-package task
+package node
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ import (
 // The task_HandlingChallenges task will automatically help you complete file challenges.
 // Apart from human influence, it ensures that you submit your certificates in a timely manner.
 // It keeps running as a subtask.
-func task_HandlingChallenges(ch chan bool) {
+func (node *Node) task_HandlingChallenges(ch chan bool) {
 	var (
 		fileid          string
 		fileFullPath    string

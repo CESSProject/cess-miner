@@ -1,4 +1,4 @@
-package task
+package node
 
 import (
 	"log"
@@ -12,7 +12,7 @@ import (
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 )
 
-func task_self_judgment(ch chan bool) {
+func (node *Node) task_self_judgment(ch chan bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
