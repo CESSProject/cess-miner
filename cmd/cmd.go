@@ -239,9 +239,9 @@ func register(api *gsrpc.SubstrateAPI) error {
 	txhash, err := chain.Register(
 		api,
 		configs.C.IncomeAcc,
-		res,
+		configs.C.ServiceIP,
+		uint16(configs.C.ServicePort),
 		pledgeTokens,
-		pattern.GetMinerAcc(),
 	)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -326,9 +326,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
-
 	mData.Collaterals.Div(new(big.Int).SetBytes(mData.Collaterals.Bytes()), big.NewInt(1000000000000))
-	addr := base58.Decode(string(mData.Ip))
+	addr := fmt.Sprintf("%d.%d.%d.%d:%d", mData.Ip.Value[0], mData.Ip.Value[1], mData.Ip.Value[2], mData.Ip.Value[3], mData.Ip.Port)
 	var power, space float32
 	var power_unit, space_unit string
 	count := 0
@@ -791,9 +790,13 @@ func parseProfile() {
 			log.Printf("[err] %v\n", err)
 			os.Exit(1)
 		}
-		configs.Shared_g = data.Shared_g
+		configs.Shared_g = make([]byte, 128)
+		configs.Spk = make([]byte, 128)
+		for i := 0; i < 128; i++ {
+			configs.Shared_g[i] = byte(data.Shared_g[i])
+			configs.Spk[i] = byte(data.Spk[i])
+		}
 		configs.Shared_params = data.Shared_params
-		configs.Spk = data.Spk
 	}
 	pattern.SetMinerAcc(acc)
 	pattern.SetMinerSignAddr(configs.C.IncomeAcc)

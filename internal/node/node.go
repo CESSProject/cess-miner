@@ -16,7 +16,7 @@ type Scheduler interface {
 }
 
 type Node struct {
-	Conn *ConMgr
+	Conn ConMgr
 	// Confile   configfile.Configfiler
 	// Chain     chain.Chainer
 	// Logs      logger.Logger
@@ -71,6 +71,6 @@ func (n *Node) Run() {
 
 		// Start the processing service of the new connection
 		go n.NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 	}
 }

@@ -94,7 +94,8 @@ func NewNotifyMsg(fileName string, status Status) *Message {
 	m := msgPool.Get().(*Message)
 	m.MsgType = MsgNotify
 	m.Bytes = []byte{byte(status)}
-	m.FileName = fileName
+	m.Bytes = append(m.Bytes, []byte(fileName)...)
+	m.FileName = ""
 	m.FileHash = ""
 	m.Pubkey = nil
 	m.SignMsg = nil

@@ -3,6 +3,7 @@ package chain
 import (
 	"math/big"
 	"strconv"
+	"strings"
 
 	"time"
 
@@ -18,7 +19,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
+func Register(api *gsrpc.SubstrateAPI, incomeAcc, ip string, port uint16, pledgeTokens uint64) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
@@ -55,11 +56,25 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.New("[big.Int.SetString]")
 	}
 
+	var ipType IpAddress
+
+	if tools.IsIPv4(ip) {
+		ipType.IPv4.Index = 0
+		ips := strings.Split(ip, ".")
+		for i := 0; i < 4; i++ {
+			temp, _ := strconv.Atoi(ips[i])
+			ipType.IPv4.Value[i] = types.U8(temp)
+		}
+		ipType.IPv4.Port = types.U16(port)
+	} else {
+		return txhash, errors.New("unsupported ip format")
+	}
+
 	c, err := types.NewCall(
 		meta,
 		ChainTx_Sminer_Register,
 		types.NewAccountID(b),
-		types.Bytes([]byte(ipAddr)),
+		ipType.IPv4,
 		types.NewU128(*realTokens),
 	)
 	if err != nil {
@@ -144,11 +159,7 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens ui
 				}
 
 				if len(events.Sminer_Registered) > 0 {
-					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if string(events.Sminer_Registered[i].Acc[:]) == string(pattern.GetMinerAcc()) {
-							return txhash, nil
-						}
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}

@@ -14,7 +14,7 @@ import (
 )
 
 func (n *Node) NewServer(conn NetConn, fileDir string) Server {
-	n.Conn = &ConMgr{
+	n.Conn = ConMgr{
 		conn:    conn,
 		fileDir: fileDir,
 		stop:    make(chan struct{}),
@@ -35,10 +35,22 @@ func (n *Node) handler() error {
 	var fillerFs *os.File
 	var returnFile *os.File
 	var err error
+	var fillerHash string
 
 	defer func() {
 		if fs != nil {
 			_ = fs.Close()
+		}
+		if fillerFs != nil {
+			_ = fillerFs.Close()
+		}
+		if returnFile != nil {
+			_ = returnFile.Close()
+		}
+		fstat, err := os.Stat(filepath.Join(configs.SpaceDir, fillerHash))
+		if err != nil || fstat.Size() != 8388608 {
+			os.Remove(filepath.Join(configs.SpaceDir, fillerHash))
+			os.Remove(filepath.Join(configs.SpaceDir, fillerHash+".tag"))
 		}
 	}()
 
@@ -137,6 +149,7 @@ func (n *Node) handler() error {
 			}
 		case MsgFiller:
 			if fillerFs == nil {
+				fillerHash = n.Conn.fillerId
 				fmt.Println("Recv msg filler and creat filler: ", m.FileName)
 				fillerFs, err = os.OpenFile(filepath.Join(n.Conn.fileDir, m.FileName), os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.ModePerm)
 				if err != nil {
@@ -146,6 +159,7 @@ func (n *Node) handler() error {
 				}
 			}
 			fillerFs.Write(m.Bytes)
+
 		case MsgEnd:
 			info, err := fs.Stat()
 			if err != nil {
@@ -172,24 +186,24 @@ func (n *Node) handler() error {
 				fillerFs.Close()
 				fillerFs = nil
 				err = fmt.Errorf("err: filler.size %v \n", m.FileSize)
-				n.Conn.conn.SendMsg(NewNotifyMsg(m.FileHash, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 			fillerFs.Close()
 			fillerFs = nil
 			if fillerInfo.Size() != int64(m.FileSize) {
 				err = fmt.Errorf("filler.size %v rece size %v \n", fillerInfo.Size(), m.FileSize)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 			fmt.Printf("save filler %v is success \n", fillerInfo.Name())
-			//n.Conn.conn.SendMsg(NewNotifyMsg(m.FileName, Status_Ok))
+
 		case MsgNotify:
-			fmt.Println("Recv msg notify: ", m.FileName)
 			n.Conn.waitNotify <- m.Bytes[0] == byte(Status_Ok)
 			if len(m.Bytes) > 1 {
 				n.Conn.fillerId = string(m.Bytes[1:])
 			}
+			fmt.Println("Recv notify msg: ", n.Conn.fillerId)
 		case MsgClose:
 			fmt.Printf("recv close msg ....\n")
 			n.Conn.conn.Close()
@@ -203,7 +217,7 @@ func (n *Node) handler() error {
 }
 
 func (n *Node) NewClient(conn NetConn, fileDir string, files []string) Client {
-	n.Conn = &ConMgr{
+	n.Conn = ConMgr{
 		conn:       conn,
 		fileDir:    fileDir,
 		sendFiles:  files,
@@ -373,13 +387,16 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	log.Println("Send a close req: ", fillerHash)
-	n.Conn.conn.SendMsg(NewCloseMsg(n.Conn.fillerId, Status_Ok))
-	timer = time.NewTimer(time.Second * 3)
-	select {
-	case <-timer.C:
-		return nil
+	log.Println("Send notify msg to on chain fillermeta: ", fillerHash)
+	time.Sleep(time.Second)
+	fstat, err := os.Stat(filepath.Join(configs.SpaceDir, fillerHash))
+	if err != nil || fstat.Size() != configs.FillerSize {
+		n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
+	} else {
+		n.Conn.conn.SendMsg(NewNotifyMsg(fillerHash, Status_Ok))
 	}
+	time.Sleep(time.Second)
+	return nil
 }
 
 func PathExists(path string) bool {

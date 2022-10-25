@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/CESSProject/cess-bucket/internal/chain"
@@ -28,6 +29,7 @@ func (node *Node) task_self_judgment(ch chan bool) {
 		os.Exit(1)
 	}
 	pattern.SetMinerState(string(minfo.State))
+	fmt.Println(string(minfo.State))
 	for {
 		minfo, err := chain.GetMinerInfo(nil)
 		if err != nil {
