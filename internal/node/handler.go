@@ -14,7 +14,7 @@ import (
 )
 
 func (n *Node) NewServer(conn NetConn, fileDir string) Server {
-	n.Conn = ConMgr{
+	n.Conn = &ConMgr{
 		conn:    conn,
 		fileDir: fileDir,
 		stop:    make(chan struct{}),
@@ -217,7 +217,7 @@ func (n *Node) handler() error {
 }
 
 func (n *Node) NewClient(conn NetConn, fileDir string, files []string) Client {
-	n.Conn = ConMgr{
+	n.Conn = &ConMgr{
 		conn:       conn,
 		fileDir:    fileDir,
 		sendFiles:  files,
@@ -387,12 +387,12 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	log.Println("Send notify msg to on chain fillermeta: ", fillerHash)
 	time.Sleep(time.Second)
 	fstat, err := os.Stat(filepath.Join(configs.SpaceDir, fillerHash))
 	if err != nil || fstat.Size() != configs.FillerSize {
 		n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 	} else {
+		log.Println("Send notify msg to on chain fillermeta: ", fillerHash)
 		n.Conn.conn.SendMsg(NewNotifyMsg(fillerHash, Status_Ok))
 	}
 	time.Sleep(time.Second)

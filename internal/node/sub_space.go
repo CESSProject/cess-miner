@@ -115,8 +115,8 @@ func (n *Node) task_SpaceManagement(ch chan bool) {
 				Uld.Sugar().Infof("[%v] ", err)
 				continue
 			}
-			d := net.Dialer{Timeout: time.Duration(time.Second * 5)}
-			conn, err := d.Dial("tcp", tcpAddr.String())
+			dialer := net.Dialer{Timeout: time.Duration(time.Second * 5)}
+			conn, err := dialer.Dial("tcp", tcpAddr.String())
 			if err != nil {
 				Uld.Sugar().Infof("[%v] ", err)
 				continue

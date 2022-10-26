@@ -16,7 +16,7 @@ type Scheduler interface {
 }
 
 type Node struct {
-	Conn ConMgr
+	Conn *ConMgr
 	// Confile   configfile.Configfiler
 	// Chain     chain.Chainer
 	// Logs      logger.Logger
@@ -32,6 +32,10 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
+	var (
+		err    error
+		remote string
+	)
 	go n.CoroutineMgr()
 	// Get an address of TCP end point
 	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", configs.C.ServicePort))
@@ -59,18 +63,11 @@ func (n *Node) Run() {
 			continue
 		}
 
-		remote := acceptTCP.RemoteAddr().String()
+		remote = acceptTCP.RemoteAddr().String()
 		log.Printf("received a conn: %v\n", remote)
 
-		// Set server maximum connection control
-		// if TCP_ConnLength.Load() > configs.MAX_TCP_CONNECTION {
-		// 	acceptTCP.Close()
-		// 	n.Logs.Log("common", "info", fmt.Errorf("close conn: %v\n", remote))
-		// 	continue
-		// }
-
 		// Start the processing service of the new connection
-		go n.NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
+		go New().NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
 		time.Sleep(time.Millisecond * 100)
 	}
 }
