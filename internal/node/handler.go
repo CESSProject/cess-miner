@@ -68,55 +68,45 @@ func (n *Node) handler() error {
 			// Verify signature
 			ok, err := VerifySign(m.Pubkey, m.SignMsg, m.Sign)
 			if err != nil {
-				fmt.Println("VerifySign err: ", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 			if !ok {
-				fmt.Println("Verify Sign failed: ", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 
 			n.Conn.fileName = m.FileName
-			fmt.Println("recv head fileName is", n.Conn.fileName)
 
 			fs, err = os.OpenFile(filepath.Join(n.Conn.fileDir, n.Conn.fileName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 			if err != nil {
-				fmt.Println("os.Create err =", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
-			fmt.Println("Create and open file: ", filepath.Join(n.Conn.fileDir, n.Conn.fileName))
-			fmt.Println("send head is ok")
 
-			n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Ok))
+			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 		case MsgRecvHead:
 			// Verify signature
 			ok, err := VerifySign(m.Pubkey, m.SignMsg, m.Sign)
 			if err != nil {
-				fmt.Println("VerifySign err: ", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 			if !ok {
-				fmt.Println("Verify Sign failed: ", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 			returnFile, err = os.Open(filepath.Join(n.Conn.fileDir, m.FileName))
 			if err != nil {
-				fmt.Println("file not found: ", err)
-				n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
 
-			n.Conn.conn.SendMsg(NewNotifyMsg(m.FileName, Status_Ok))
+			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 
 		case MsgRecvFile:
 			if returnFile == nil {
-				fmt.Println(n.Conn.fileName, "recv file is not open!")
-				n.Conn.conn.SendMsg(NewNotifyMsg(m.FileName, Status_Err))
+				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return nil
 			}
 			fileInfo, _ := returnFile.Stat()
@@ -134,26 +124,22 @@ func (n *Node) handler() error {
 			time.Sleep(time.Millisecond)
 			n.Conn.conn.SendMsg(NewEndMsg(m.FileName, uint64(fileInfo.Size())))
 			time.Sleep(time.Millisecond)
-			n.Conn.conn.SendMsg(NewNotifyMsg(m.FileName, Status_Ok))
+			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 		case MsgFile:
 			if fs == nil {
-				fmt.Println(n.Conn.fileName, "file is not open!")
-				n.Conn.conn.SendMsg(NewCloseMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewCloseMsg("", Status_Err))
 				return errors.New("file is not open !")
 			}
 			_, err = fs.Write(m.Bytes)
 			if err != nil {
-				fmt.Println("file.Write err =", err)
-				n.Conn.conn.SendMsg(NewCloseMsg(n.Conn.fileName, Status_Err))
+				n.Conn.conn.SendMsg(NewCloseMsg("", Status_Err))
 				return err
 			}
 		case MsgFiller:
 			if fillerFs == nil {
 				fillerHash = n.Conn.fillerId
-				fmt.Println("Recv msg filler and creat filler: ", m.FileName)
 				fillerFs, err = os.OpenFile(filepath.Join(n.Conn.fileDir, m.FileName), os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.ModePerm)
 				if err != nil {
-					fmt.Println(n.Conn.fileName, "create filler err!")
 					n.Conn.conn.SendMsg(NewCloseMsg(m.FileName, Status_Err))
 					return errors.New("file is not open !")
 				}
@@ -175,12 +161,9 @@ func (n *Node) handler() error {
 			}
 			fs.Close()
 			fs = nil
-			fmt.Printf("save file %v is success \n", info.Name())
-			n.Conn.conn.SendMsg(NewNotifyMsg(n.Conn.fileName, Status_Ok))
+			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 
-			fmt.Printf("close file %v is success \n", n.Conn.fileName)
 		case MsgFillerEnd:
-			fmt.Println("Recv msg filler end: ", m.FileName)
 			fillerInfo, err := fillerFs.Stat()
 			if err != nil {
 				fillerFs.Close()
@@ -196,16 +179,14 @@ func (n *Node) handler() error {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
 			}
-			fmt.Printf("save filler %v is success \n", fillerInfo.Name())
 
 		case MsgNotify:
 			n.Conn.waitNotify <- m.Bytes[0] == byte(Status_Ok)
 			if len(m.Bytes) > 1 {
 				n.Conn.fillerId = string(m.Bytes[1:])
 			}
-			fmt.Println("Recv notify msg: ", n.Conn.fillerId)
+
 		case MsgClose:
-			fmt.Printf("recv close msg ....\n")
 			n.Conn.conn.Close()
 			if m.Bytes[0] != byte(Status_Ok) {
 				return fmt.Errorf("server an error occurred")
@@ -278,7 +259,6 @@ func (c *ConMgr) sendFile(fid string, pkey, signmsg, sign []byte) error {
 func (c *ConMgr) sendSingleFile(filePath string, fid string, lastmark bool, pkey, signmsg, sign []byte) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("open file err %v \n", err)
 		return err
 	}
 
@@ -334,7 +314,6 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, lastmark bool, pkey
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	log.Println("Send " + filePath + " file success...")
 	return nil
 }
 
@@ -356,9 +335,7 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	log.Println("Recv a filler: ", n.Conn.fillerId)
 	fillerHash := n.Conn.fillerId
-	log.Println("Send filler tag req: ", fillerHash+".tag")
 	m = NewFillerMsg(fillerHash + ".tag")
 	n.Conn.conn.SendMsg(m)
 
@@ -372,8 +349,6 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	//log.Println("Recv a filler: ", n.Conn.fillerId)
-	log.Println("Send filler req: ", fillerHash)
 	m = NewFillerMsg(fillerHash)
 	n.Conn.conn.SendMsg(m)
 
