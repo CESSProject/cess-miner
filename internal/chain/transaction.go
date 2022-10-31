@@ -153,10 +153,7 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ip string, port uint16, pledge
 					return txhash, errors.Wrap(err, "GetStorageRaw")
 				}
 
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_Registered) > 0 {
 					return txhash, nil
@@ -556,9 +553,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.SegmentBook_ChallengeProof) > 0 && len(data) > 0 {
-					if events.SegmentBook_ChallengeProof[0].Miner == data[0].MinerAcc {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
@@ -571,7 +566,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 }
 
 // Clear invalid files
-func ClearInvalidFiles(fid types.Bytes) (string, error) {
+func ClearInvalidFiles(fid FileHash) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
@@ -757,7 +752,7 @@ func ClearFiller(api *gsrpc.SubstrateAPI, signaturePrk string) (int, error) {
 	}
 }
 
-func UpdateAddress(transactionPrK, addr string) (string, error) {
+func UpdateAddress(transactionPrK, ip, port string) (string, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -784,7 +779,22 @@ func UpdateAddress(transactionPrK, addr string) (string, error) {
 		return "", errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateIp, types.Bytes([]byte(addr)))
+	var ipType IpAddress
+
+	if tools.IsIPv4(ip) {
+		ipType.IPv4.Index = 0
+		ips := strings.Split(ip, ".")
+		for i := 0; i < 4; i++ {
+			temp, _ := strconv.Atoi(ips[i])
+			ipType.IPv4.Value[i] = types.U8(temp)
+		}
+		temp, _ := strconv.Atoi(port)
+		ipType.IPv4.Port = types.U16(temp)
+	} else {
+		return "", errors.New("unsupported ip format")
+	}
+
+	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateIp, ipType.IPv4)
 	if err != nil {
 		return "", errors.Wrap(err, "NewCall err")
 	}
@@ -858,9 +868,7 @@ func UpdateAddress(transactionPrK, addr string) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_UpdataIp) > 0 {
-					if string(events.Sminer_UpdataIp[0].Acc[:]) == string(pattern.GetMinerAcc()) {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
@@ -970,9 +978,7 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_UpdataBeneficiary) > 0 {
-					if string(events.Sminer_UpdataBeneficiary[0].Acc[:]) == string(pattern.GetMinerAcc()) {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}

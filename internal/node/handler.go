@@ -269,7 +269,6 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, lastmark bool, pkey
 	}()
 	fileInfo, _ := file.Stat()
 
-	log.Println("Ready to write file: ", filePath)
 	m := NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign)
 	c.conn.SendMsg(m)
 
@@ -322,7 +321,6 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 		_ = n.Conn.conn.Close()
 	}()
 
-	log.Println("Send fillerHead")
 	m := NewFillerHeadMsg(pkey, signmsg, sign)
 	n.Conn.conn.SendMsg(m)
 	timer := time.NewTimer(time.Second * 5)
@@ -367,7 +365,6 @@ func (n *Node) recvFiller(pkey, signmsg, sign []byte) error {
 	if err != nil || fstat.Size() != configs.FillerSize {
 		n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 	} else {
-		log.Println("Send notify msg to on chain fillermeta: ", fillerHash)
 		n.Conn.conn.SendMsg(NewNotifyMsg(fillerHash, Status_Ok))
 	}
 	time.Sleep(time.Second)

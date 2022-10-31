@@ -43,9 +43,6 @@ func (t *TcpCon) HandlerLoop() {
 func (t *TcpCon) sendMsg() {
 	var err error
 	defer func() {
-		if err != nil {
-			fmt.Printf("found mistake: %s \n", err)
-		}
 		_ = t.Close()
 	}()
 
@@ -78,9 +75,6 @@ func (t *TcpCon) sendMsg() {
 func (t *TcpCon) readMsg() {
 	var err error
 	defer func() {
-		if err != nil {
-			fmt.Printf("found mistake: %s \n", err)
-		}
 		_ = t.Close()
 	}()
 
@@ -150,7 +144,6 @@ func (t *TcpCon) SendMsg(m *Message) {
 
 func (t *TcpCon) Close() error {
 	t.onceStop.Do(func() {
-		fmt.Println("close a connect, addr: ", t.conn.RemoteAddr())
 		_ = t.conn.Close()
 		close(t.stop)
 	})

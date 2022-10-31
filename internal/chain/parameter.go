@@ -37,6 +37,9 @@ const (
 	FileBank_ClearFiller             = "FileBank.clear_all_filler"
 )
 
+type FileHash [64]types.U8
+type FileBlockId [68]types.U8
+
 // Storage Miner Information Structure
 type MinerInfo struct {
 	PeerId      types.U64
@@ -67,7 +70,8 @@ type ChallengesInfo struct {
 	File_size  types.U64
 	File_type  types.U8
 	Block_list types.Bytes
-	File_id    types.Bytes
+	File_id    FileHash
+	Shard_id   FileBlockId
 	Random     []types.Bytes
 }
 
@@ -80,7 +84,7 @@ type Chain_SchedulerPuk struct {
 
 // Proof information structure
 type ProveInfo struct {
-	FileId   types.Bytes
+	FileId   FileHash
 	MinerAcc types.AccountID
 	Cinfo    ChallengesInfo
 	Mu       []types.Bytes

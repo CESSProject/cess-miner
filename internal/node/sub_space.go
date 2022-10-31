@@ -109,21 +109,21 @@ func (n *Node) task_SpaceManagement(ch chan bool) {
 				schds[i].Ip.Value[3],
 				schds[i].Ip.Port,
 			)
-			fmt.Println("wsURL: ", wsURL)
+
 			tcpAddr, err := net.ResolveTCPAddr("tcp", wsURL)
 			if err != nil {
-				Uld.Sugar().Infof("[%v] ", err)
+				Flr.Sugar().Infof("[%v] ", err)
 				continue
 			}
 			dialer := net.Dialer{Timeout: time.Duration(time.Second * 5)}
 			conn, err := dialer.Dial("tcp", tcpAddr.String())
 			if err != nil {
-				Uld.Sugar().Infof("[%v] ", err)
+				Flr.Sugar().Errorf("[%v] ", err)
 				continue
 			}
 			conTcp, ok := conn.(*net.TCPConn)
 			if !ok {
-				Uld.Sugar().Infof("[%v] ", err)
+				Flr.Sugar().Errorf("[%v] ", err)
 				continue
 			}
 
@@ -136,13 +136,14 @@ func (n *Node) task_SpaceManagement(ch chan bool) {
 				time.Sleep(time.Second)
 				continue
 			}
-
+			Flr.Sugar().Infof("Request filler from [%v]", wsURL)
 			srv := n.NewClient(NewTcp(conTcp), configs.SpaceDir, nil)
 			err = srv.RecvFiller(pattern.GetMinerAcc(), []byte(msg), sign[:])
 			if err != nil {
-				Uld.Sugar().Infof("[%v] ", err)
+				Flr.Sugar().Errorf("[%v] ", err)
 				continue
 			}
+			Flr.Sugar().Infof("Request filler from [%v] successfully ", wsURL)
 		}
 	}
 }

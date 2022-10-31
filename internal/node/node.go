@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	. "github.com/CESSProject/cess-bucket/internal/logger"
 )
 
 type Scheduler interface {
@@ -56,15 +57,15 @@ func (n *Node) Run() {
 		acceptTCP, err := listener.AcceptTCP()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
-				log.Println("[err] The port is closed and the service exits.")
+				Out.Sugar().Error("[err] The port is closed and the service exits.")
 				os.Exit(1)
 			}
-			log.Printf("accept tcp: %v\n", err)
+			Out.Sugar().Infof("Accept tcp: %v\n", err)
 			continue
 		}
 
 		remote = acceptTCP.RemoteAddr().String()
-		log.Printf("received a conn: %v\n", remote)
+		Out.Sugar().Infof("received a conn: %v\n", remote)
 
 		// Start the processing service of the new connection
 		go New().NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()

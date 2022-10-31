@@ -149,7 +149,7 @@ func Command_UpdateAddress() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "update_address",
 		Short:                 "Update the miner's access address",
-		Example:               "bucket update_address ip:port[domain_name]",
+		Example:               "bucket update_address ip:port",
 		Run:                   Command_UpdateAddress_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -615,21 +615,24 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) >= 3 {
 		data := strings.Split(os.Args[2], ":")
-		if len(data) == 2 {
-			if !tools.IsIPv4(data[0]) {
-				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
-				os.Exit(1)
-			}
-			_, err := strconv.Atoi(data[1])
-			if err != nil {
-				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
-				os.Exit(1)
-			}
+		if len(data) != 2 {
+			log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket address ip:port[domain_name]'\n", 41)
+			os.Exit(1)
 		}
+		if !tools.IsIPv4(data[0]) {
+			log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+			os.Exit(1)
+		}
+		_, err := strconv.Atoi(data[1])
+		if err != nil {
+			log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+			os.Exit(1)
+		}
+
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
 
-		txhash, err := chain.UpdateAddress(configs.C.SignatureAcc, base58.Encode([]byte(os.Args[2])))
+		txhash, err := chain.UpdateAddress(configs.C.SignatureAcc, data[0], data[1])
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				log.Println("[err] Please check your wallet balance.")
