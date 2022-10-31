@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func WriteStringtoFile(content, fileName string) error {
 // Get the total size of all files in a directory and subdirectories
 func DirSize(path string) (uint64, error) {
 	var size uint64
-	err := filepath.Walk(path, func(s string, info os.FileInfo, err error) error {
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			size += uint64(info.Size())
 		}
@@ -113,4 +114,38 @@ func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
 		}
 	}
 	return mp, errors.New("mount point not found")
+}
+
+func RandSlice(slice interface{}) {
+	rv := reflect.ValueOf(slice)
+	if rv.Type().Kind() != reflect.Slice {
+		return
+	}
+
+	length := rv.Len()
+	if length < 2 {
+		return
+	}
+
+	swap := reflect.Swapper(slice)
+	rand.Seed(time.Now().Unix())
+	for i := length - 1; i >= 0; i-- {
+		j := rand.Intn(length)
+		swap(i, j)
+	}
+	return
+}
+
+// ----------------------- Random key -----------------------
+const baseStr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()[]{}+-*/_=."
+
+// Generate random password
+func GetRandomcode(length uint8) string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano() + rand.Int63()))
+	bytes := make([]byte, length)
+	l := len(baseStr)
+	for i := uint8(0); i < length; i++ {
+		bytes[i] = baseStr[r.Intn(l)]
+	}
+	return string(bytes)
 }

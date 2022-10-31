@@ -117,14 +117,14 @@ func GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
 }
 
 // Get all invalid files
-func GetInvalidFiles() ([]types.Bytes, error) {
+func GetInvalidFiles() ([]FileHash, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 	}()
 
-	var data []types.Bytes
+	var data []FileHash
 
 	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
 	defer Free()

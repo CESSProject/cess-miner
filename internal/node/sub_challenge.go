@@ -1,4 +1,4 @@
-package task
+package node
 
 import (
 	"encoding/json"
@@ -20,11 +20,12 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
-//The task_HandlingChallenges task will automatically help you complete file challenges.
-//Apart from human influence, it ensures that you submit your certificates in a timely manner.
-//It keeps running as a subtask.
-func task_HandlingChallenges(ch chan bool) {
+// The task_HandlingChallenges task will automatically help you complete file challenges.
+// Apart from human influence, it ensures that you submit your certificates in a timely manner.
+// It keeps running as a subtask.
+func (node *Node) task_HandlingChallenges(ch chan bool) {
 	var (
+		txhash          string
 		fileid          string
 		fileFullPath    string
 		fileTagFullPath string
@@ -32,6 +33,7 @@ func task_HandlingChallenges(ch chan bool) {
 		filetag         api.TagInfo
 		poDR2prove      api.PoDR2Prove
 		proveResponse   api.PoDR2ProveResponse
+		proveInfos      = make([]chain.ProveInfo, 0)
 	)
 	defer func() {
 		if err := recover(); err != nil {
@@ -44,7 +46,7 @@ func task_HandlingChallenges(ch chan bool) {
 	for {
 		if pattern.GetMinerState() != pattern.M_Positive {
 			if pattern.GetMinerState() == pattern.M_Pending {
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 6)
 				continue
 			}
 			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
@@ -60,22 +62,30 @@ func task_HandlingChallenges(ch chan bool) {
 		}
 
 		if len(chlng) == 0 {
-			time.Sleep(time.Minute * 5)
+			time.Sleep(time.Minute)
 			continue
 		}
 
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
 		Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
-		for x := 0; x < len(chlng); x++ {
-			Chg.Sugar().Infof("  %v: %s", x, string(chlng[x].File_id))
-		}
-		var proveInfos = make([]chain.ProveInfo, 0)
+
 		for i := 0; i < len(chlng); i++ {
 			if len(proveInfos) >= 50 {
-				break
+				// proof up chain
+				for {
+					txhash, err = chain.SubmitProofs(proveInfos)
+					if txhash == "" {
+						Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
+					} else {
+						proveInfos = make([]chain.ProveInfo, 0)
+						Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
+						break
+					}
+					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+				}
 			}
 
-			fileid = string(chlng[i].File_id)
+			fileid = string(chlng[i].File_id[:])
 			if chlng[i].File_type == 1 {
 				//space file
 				fileFullPath = filepath.Join(configs.SpaceDir, fileid)
@@ -141,6 +151,7 @@ func task_HandlingChallenges(ch chan bool) {
 			}
 
 			var proveInfoTemp chain.ProveInfo
+			proveInfoTemp.U = make([]types.Bytes, len(filetag.T.T0.U))
 			proveInfoTemp.Cinfo = chlng[i]
 			proveInfoTemp.FileId = chlng[i].File_id
 
@@ -152,21 +163,27 @@ func task_HandlingChallenges(ch chan bool) {
 			proveInfoTemp.Mu = mus
 			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
 			proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
+			proveInfoTemp.Name = filetag.T.T0.Name
+			for j := 0; j < len(filetag.T.T0.U); j++ {
+				proveInfoTemp.U[j] = make(types.Bytes, 0)
+				proveInfoTemp.U[j] = append(proveInfoTemp.U[j], filetag.T.T0.U[j]...)
+			}
 			proveInfos = append(proveInfos, proveInfoTemp)
 		}
 
 		if len(proveInfos) == 0 {
 			continue
 		}
+
 		// proof up chain
 		ts := time.Now().Unix()
-		var txhash string
 		for {
 			txhash, err = chain.SubmitProofs(proveInfos)
 			if txhash == "" {
 				Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
 			} else {
 				Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
+				proveInfos = make([]chain.ProveInfo, 0)
 				break
 			}
 			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
@@ -183,7 +200,7 @@ func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
 		blockSize     int64
 		scanBlockSize int64
 	)
-	if fsize < configs.ByteSize_1Kb {
+	if fsize < configs.SIZE_1KiB {
 		return fsize, fsize
 	}
 	if fsize > math.MaxUint32 {

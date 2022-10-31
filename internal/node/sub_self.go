@@ -1,4 +1,4 @@
-package task
+package node
 
 import (
 	"log"
@@ -12,7 +12,7 @@ import (
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 )
 
-func task_self_judgment(ch chan bool) {
+func (node *Node) task_self_judgment(ch chan bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -28,6 +28,7 @@ func task_self_judgment(ch chan bool) {
 		os.Exit(1)
 	}
 	pattern.SetMinerState(string(minfo.State))
+
 	for {
 		minfo, err := chain.GetMinerInfo(nil)
 		if err != nil {
@@ -41,7 +42,6 @@ func task_self_judgment(ch chan bool) {
 		if failcount >= 10 {
 			os.Exit(1)
 		}
-		pattern.DeleteExpiredBlacklist()
 		time.Sleep(time.Minute * 5)
 	}
 }

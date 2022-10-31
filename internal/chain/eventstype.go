@@ -6,7 +6,7 @@ import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 // custom event type
 // **************************************************************
 
-//------------------------SegmentBook----------------------------
+// ------------------------SegmentBook----------------------------
 type Event_PPBNoOnTimeSubmit struct {
 	Phase     types.Phase
 	Acc       types.AccountID
@@ -42,7 +42,7 @@ type Event_OutstandingChallenges struct {
 	Topics []types.Hash
 }
 
-//------------------------Sminer---------------------------------
+// ------------------------Sminer---------------------------------
 type Event_Registered struct {
 	Phase      types.Phase
 	Acc        types.AccountID
@@ -132,8 +132,8 @@ type Event_UpdataBeneficiary struct {
 type Event_UpdataIp struct {
 	Phase  types.Phase
 	Acc    types.AccountID
-	Old    types.Bytes
-	New    types.Bytes
+	Old    Ipv4Type
+	New    Ipv4Type
 	Topics []types.Hash
 }
 
@@ -149,11 +149,11 @@ type Event_EndOfBufferPeriod struct {
 	Topics []types.Hash
 }
 
-//------------------------FileBank-------------------------------
+// ------------------------FileBank-------------------------------
 type Event_DeleteFile struct {
 	Phase  types.Phase
 	Acc    types.AccountID
-	Fileid types.Bytes
+	Fileid FileHash
 	Topics []types.Hash
 }
 
@@ -277,7 +277,7 @@ type Event_PackageRenewal struct {
 	Topics       []types.Hash
 }
 
-//------------------------FileMap--------------------------------
+// ------------------------FileMap--------------------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
 	Acc    types.AccountID
@@ -292,7 +292,7 @@ type Event_UpdateScheduler struct {
 	Topics   []types.Hash
 }
 
-//------------------------other system---------------------------
+// ------------------------other system---------------------------
 type Event_UnsignedPhaseStarted struct {
 	Phase  types.Phase
 	Round  types.U32

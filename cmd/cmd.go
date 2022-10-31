@@ -15,9 +15,8 @@ import (
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	"github.com/CESSProject/cess-bucket/internal/logger"
 	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/internal/node"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/internal/rpc"
-	"github.com/CESSProject/cess-bucket/internal/task"
 	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -150,7 +149,7 @@ func Command_UpdateAddress() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "update_address",
 		Short:                 "Update the miner's access address",
-		Example:               "bucket update_address ip:port[domain_name]",
+		Example:               "bucket update_address ip:port",
 		Run:                   Command_UpdateAddress_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -240,9 +239,9 @@ func register(api *gsrpc.SubstrateAPI) error {
 	txhash, err := chain.Register(
 		api,
 		configs.C.IncomeAcc,
-		res,
+		configs.C.ServiceIP,
+		uint16(configs.C.ServicePort),
 		pledgeTokens,
-		pattern.GetMinerAcc(),
 	)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -327,9 +326,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
-
 	mData.Collaterals.Div(new(big.Int).SetBytes(mData.Collaterals.Bytes()), big.NewInt(1000000000000))
-	addr := base58.Decode(string(mData.Ip))
+	addr := fmt.Sprintf("%d.%d.%d.%d:%d", mData.Ip.Value[0], mData.Ip.Value[1], mData.Ip.Value[2], mData.Ip.Value[3], mData.Ip.Port)
 	var power, space float32
 	var power_unit, space_unit string
 	count := 0
@@ -461,8 +459,9 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// start-up
-	go task.Run()
-	rpc.Rpc_Main()
+	//go task.Run()
+	//rpc.Rpc_Main()
+	node.New().Run()
 }
 
 // Exit mining
@@ -498,7 +497,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	os.Exit(1)
 }
 
-//Increase deposit
+// Increase deposit
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	//Too few command line arguments
 	if len(os.Args) < 3 {
@@ -616,21 +615,24 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) >= 3 {
 		data := strings.Split(os.Args[2], ":")
-		if len(data) == 2 {
-			if !tools.IsIPv4(data[0]) {
-				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
-				os.Exit(1)
-			}
-			_, err := strconv.Atoi(data[1])
-			if err != nil {
-				log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
-				os.Exit(1)
-			}
+		if len(data) != 2 {
+			log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket address ip:port[domain_name]'\n", 41)
+			os.Exit(1)
 		}
+		if !tools.IsIPv4(data[0]) {
+			log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+			os.Exit(1)
+		}
+		_, err := strconv.Atoi(data[1])
+		if err != nil {
+			log.Printf("\x1b[%dm[ok]\x1b[0m address error\n", 42)
+			os.Exit(1)
+		}
+
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
 
-		txhash, err := chain.UpdateAddress(configs.C.SignatureAcc, base58.Encode([]byte(os.Args[2])))
+		txhash, err := chain.UpdateAddress(configs.C.SignatureAcc, data[0], data[1])
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				log.Println("[err] Please check your wallet balance.")
@@ -791,9 +793,13 @@ func parseProfile() {
 			log.Printf("[err] %v\n", err)
 			os.Exit(1)
 		}
-		configs.Shared_g = data.Shared_g
+		configs.Shared_g = make([]byte, 128)
+		configs.Spk = make([]byte, 128)
+		for i := 0; i < 128; i++ {
+			configs.Shared_g[i] = byte(data.Shared_g[i])
+			configs.Spk[i] = byte(data.Spk[i])
+		}
 		configs.Shared_params = data.Shared_params
-		configs.Spk = data.Spk
 	}
 	pattern.SetMinerAcc(acc)
 	pattern.SetMinerSignAddr(configs.C.IncomeAcc)

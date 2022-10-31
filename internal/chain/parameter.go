@@ -37,11 +37,14 @@ const (
 	FileBank_ClearFiller             = "FileBank.clear_all_filler"
 )
 
+type FileHash [64]types.U8
+type FileBlockId [68]types.U8
+
 // Storage Miner Information Structure
 type MinerInfo struct {
 	PeerId      types.U64
 	IncomeAcc   types.AccountID
-	Ip          types.Bytes
+	Ip          Ipv4Type
 	Collaterals types.U128
 	State       types.Bytes
 	Power       types.U128
@@ -57,7 +60,7 @@ type RewardInfo struct {
 
 // Scheduling Node Information Structure
 type SchedulerInfo struct {
-	Ip              types.Bytes
+	Ip              Ipv4Type
 	Stash_user      types.AccountID
 	Controller_user types.AccountID
 }
@@ -67,24 +70,49 @@ type ChallengesInfo struct {
 	File_size  types.U64
 	File_type  types.U8
 	Block_list types.Bytes
-	File_id    types.Bytes
+	File_id    FileHash
+	Shard_id   FileBlockId
 	Random     []types.Bytes
 }
 
 // Scheduling node public key information structure
 type Chain_SchedulerPuk struct {
-	Spk           types.Bytes
+	Spk           [128]types.U8
 	Shared_params types.Bytes
-	Shared_g      types.Bytes
+	Shared_g      [128]types.U8
 }
 
 // Proof information structure
 type ProveInfo struct {
-	FileId   types.Bytes
+	FileId   FileHash
 	MinerAcc types.AccountID
 	Cinfo    ChallengesInfo
 	Mu       []types.Bytes
 	Sigma    types.Bytes
+	Name     types.Bytes
+	U        []types.Bytes
+}
+
+type Ipv4Type_Query struct {
+	Placeholder types.U8 //
+	Index       types.U8
+	Value       [4]types.U8
+	Port        types.U16
+}
+
+type IpAddress struct {
+	IPv4 Ipv4Type
+	IPv6 Ipv6Type
+}
+type Ipv4Type struct {
+	Index types.U8
+	Value [4]types.U8
+	Port  types.U16
+}
+type Ipv6Type struct {
+	Index types.U8
+	Value [8]types.U16
+	Port  types.U16
 }
 
 const (

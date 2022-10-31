@@ -3,6 +3,7 @@ package chain
 import (
 	"math/big"
 	"strconv"
+	"strings"
 
 	"time"
 
@@ -18,7 +19,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens uint64, acc []byte) (string, error) {
+func Register(api *gsrpc.SubstrateAPI, incomeAcc, ip string, port uint16, pledgeTokens uint64) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Err.Sugar().Errorf("[panic]: %v", err)
@@ -55,11 +56,25 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens ui
 		return txhash, errors.New("[big.Int.SetString]")
 	}
 
+	var ipType IpAddress
+
+	if tools.IsIPv4(ip) {
+		ipType.IPv4.Index = 0
+		ips := strings.Split(ip, ".")
+		for i := 0; i < 4; i++ {
+			temp, _ := strconv.Atoi(ips[i])
+			ipType.IPv4.Value[i] = types.U8(temp)
+		}
+		ipType.IPv4.Port = types.U16(port)
+	} else {
+		return txhash, errors.New("unsupported ip format")
+	}
+
 	c, err := types.NewCall(
 		meta,
 		ChainTx_Sminer_Register,
 		types.NewAccountID(b),
-		types.Bytes([]byte(ipAddr)),
+		ipType.IPv4,
 		types.NewU128(*realTokens),
 	)
 	if err != nil {
@@ -138,17 +153,10 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ipAddr string, pledgeTokens ui
 					return txhash, errors.Wrap(err, "GetStorageRaw")
 				}
 
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
+				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_Registered) > 0 {
-					for i := 0; i < len(events.Sminer_Registered); i++ {
-						if string(events.Sminer_Registered[i].Acc[:]) == string(pattern.GetMinerAcc()) {
-							return txhash, nil
-						}
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
@@ -545,9 +553,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.SegmentBook_ChallengeProof) > 0 && len(data) > 0 {
-					if events.SegmentBook_ChallengeProof[0].Miner == data[0].MinerAcc {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
@@ -560,7 +566,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 }
 
 // Clear invalid files
-func ClearInvalidFiles(fid types.Bytes) (string, error) {
+func ClearInvalidFiles(fid FileHash) (string, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
@@ -646,30 +652,7 @@ func ClearInvalidFiles(fid types.Bytes) (string, error) {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := MyEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
-				keye, err := GetKeyEvents()
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetKeyEvents")
-				}
-				h, err := api.RPC.State.GetStorageRaw(keye, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetStorageRaw")
-				}
-
-				err = types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
-				if err != nil {
-					Out.Sugar().Infof("[%v]Decode event err:%v", txhash, err)
-				}
-
-				if len(events.FileBank_ClearInvalidFile) > 0 {
-					for i := 0; i < len(events.FileBank_ClearInvalidFile); i++ {
-						if string(events.FileBank_ClearInvalidFile[i].Acc[:]) == string(pattern.GetMinerAcc()) {
-							return txhash, nil
-						}
-					}
-				}
-				return txhash, errors.New(ERR_Failed)
+				return types.EncodeToHex(status.AsInBlock)
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "<-sub")
@@ -769,7 +752,7 @@ func ClearFiller(api *gsrpc.SubstrateAPI, signaturePrk string) (int, error) {
 	}
 }
 
-func UpdateAddress(transactionPrK, addr string) (string, error) {
+func UpdateAddress(transactionPrK, ip, port string) (string, error) {
 	var (
 		err         error
 		accountInfo types.AccountInfo
@@ -796,7 +779,22 @@ func UpdateAddress(transactionPrK, addr string) (string, error) {
 		return "", errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateIp, types.Bytes([]byte(addr)))
+	var ipType IpAddress
+
+	if tools.IsIPv4(ip) {
+		ipType.IPv4.Index = 0
+		ips := strings.Split(ip, ".")
+		for i := 0; i < 4; i++ {
+			temp, _ := strconv.Atoi(ips[i])
+			ipType.IPv4.Value[i] = types.U8(temp)
+		}
+		temp, _ := strconv.Atoi(port)
+		ipType.IPv4.Port = types.U16(temp)
+	} else {
+		return "", errors.New("unsupported ip format")
+	}
+
+	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateIp, ipType.IPv4)
 	if err != nil {
 		return "", errors.Wrap(err, "NewCall err")
 	}
@@ -870,9 +868,7 @@ func UpdateAddress(transactionPrK, addr string) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_UpdataIp) > 0 {
-					if string(events.Sminer_UpdataIp[0].Acc[:]) == string(pattern.GetMinerAcc()) {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
@@ -982,9 +978,7 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(meta, &events)
 
 				if len(events.Sminer_UpdataBeneficiary) > 0 {
-					if string(events.Sminer_UpdataBeneficiary[0].Acc[:]) == string(pattern.GetMinerAcc()) {
-						return txhash, nil
-					}
+					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
