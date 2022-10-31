@@ -1,4 +1,4 @@
-# <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a></h1>
+# <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md)</h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
@@ -220,9 +220,7 @@ sudo ./bucket withdraw
 
 - Update the miner's access address
 ```shell
-sudo ./bucket update_address 127.0.0.1:15001
-or
-sudo ./bucket update_address http://<your domain name>
+sudo ./bucket update_address <ipv4>:<port>
 ```
 
 - Update the miner's income account
