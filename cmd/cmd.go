@@ -769,9 +769,18 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	_, err = tools.GetMountPathInfo(configs.C.MountedPath)
+	// _, err = tools.GetMountPathInfo(configs.C.MountedPath)
+	// if err != nil {
+	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' %v\n", 41, configs.C.MountedPath, err)
+	// 	os.Exit(1)
+	// }
+	mpInfo, err := os.Lstat(configs.C.MountedPath)
 	if err != nil {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' %v\n", 41, configs.C.MountedPath, err)
+		os.Exit(1)
+	}
+	if !mpInfo.IsDir() {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m '%v' not directory\n", 41, configs.C.MountedPath)
 		os.Exit(1)
 	}
 

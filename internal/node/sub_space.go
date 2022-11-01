@@ -158,19 +158,19 @@ func calcAvailableSpace() (uint64, error) {
 	}
 
 	sspace := configs.C.StorageSpace * configs.SIZE_1GiB
-	mountP, err := tools.GetMountPathInfo(configs.C.MountedPath)
-	if err != nil {
-		return 0, err
-	}
+	// mountP, err := tools.GetMountPathInfo(configs.C.MountedPath)
+	// if err != nil {
+	// 	return 0, err
+	// }
 
 	if sspace <= usedSpace {
 		return 0, nil
 	}
 
-	if mountP.Free > configs.SIZE_1MiB*100 {
-		if usedSpace < sspace {
-			return sspace - usedSpace, nil
-		}
+	// if mountP.Free > configs.SIZE_1MiB*100 {
+	if usedSpace < sspace {
+		return sspace - usedSpace, nil
 	}
+	// }
 	return 0, nil
 }
