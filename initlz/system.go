@@ -6,7 +6,7 @@ import (
 	"runtime"
 )
 
-//system init
+// system init
 func SystemInit() {
 	if !runOnLinuxSystem() {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute on Linux system\n", 41)
@@ -24,5 +24,5 @@ func runWithRootPrivileges() bool {
 }
 
 func setAllCores() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
 }

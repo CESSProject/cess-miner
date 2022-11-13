@@ -53,6 +53,7 @@ func (n *Node) Run() {
 	}
 
 	for {
+		time.Sleep(time.Second)
 		// Accepts the next connection
 		acceptTCP, err := listener.AcceptTCP()
 		if err != nil {
@@ -69,6 +70,5 @@ func (n *Node) Run() {
 
 		// Start the processing service of the new connection
 		go New().NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
-		time.Sleep(time.Millisecond * 100)
 	}
 }
