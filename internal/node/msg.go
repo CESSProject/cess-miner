@@ -3,6 +3,8 @@ package node
 import (
 	"encoding/json"
 	"sync"
+
+	"github.com/CESSProject/cess-bucket/configs"
 )
 
 type MsgType byte
@@ -16,9 +18,11 @@ const (
 	MsgClose
 	MsgRecvHead
 	MsgRecvFile
-	MsgFillerHead
-	MsgFiller
-	MsgFillerEnd
+)
+
+const (
+	FileType_file   uint8 = 1
+	FileType_filler uint8 = 2
 )
 
 type Status byte
@@ -29,15 +33,16 @@ const (
 )
 
 type Message struct {
-	MsgType  MsgType `json:"msg_type"`
-	FileName string  `json:"file_name"`
-	FileHash string  `json:"file_hash"`
-	FileSize uint64  `json:"file_size"`
-	LastMark bool    `json:"last_mark"`
-	Pubkey   []byte  `json:"pub_key"`
-	SignMsg  []byte  `json:"sign_msg"`
+	Pubkey   []byte  `json:"pubkey"`
+	SignMsg  []byte  `json:"signmsg"`
 	Sign     []byte  `json:"sign"`
 	Bytes    []byte  `json:"bytes"`
+	FileName string  `json:"filename"`
+	FileHash string  `json:"filehash"`
+	FileSize uint64  `json:"filesize"`
+	MsgType  MsgType `json:"msgtype"`
+	LastMark bool    `json:"lastmark"`
+	FileType uint8   `json:"filetype"`
 }
 
 type Notify struct {
@@ -51,16 +56,16 @@ var (
 		},
 	}
 
-	BytesPool = sync.Pool{
+	bytesPool = sync.Pool{
 		New: func() any {
-			return make([]byte, 40*1024)
+			return make([]byte, configs.TCP_SendBuffer)
 		},
 	}
 )
 
 func (m *Message) GC() {
 	if m.MsgType == MsgFile {
-		BytesPool.Put(m.Bytes[:cap(m.Bytes)])
+		bytesPool.Put(m.Bytes[:cap(m.Bytes)])
 	}
 	m.reset()
 	msgPool.Put(m)
@@ -71,7 +76,6 @@ func (m *Message) reset() {
 	m.FileName = ""
 	m.FileHash = ""
 	m.FileSize = 0
-	m.LastMark = false
 	m.Pubkey = nil
 	m.SignMsg = nil
 	m.Sign = nil
@@ -103,35 +107,14 @@ func NewNotifyMsg(fileName string, status Status) *Message {
 	return m
 }
 
-func NewHeadMsg(fileName string, fid string, lastmark bool, pkey, signmsg, sign []byte) *Message {
+func NewHeadMsg(fileName string, fid string, pkey, signmsg, sign []byte) *Message {
 	m := msgPool.Get().(*Message)
 	m.MsgType = MsgHead
 	m.FileName = fileName
 	m.FileHash = fid
-	m.LastMark = lastmark
 	m.Pubkey = pkey
 	m.SignMsg = signmsg
 	m.Sign = sign
-	return m
-}
-
-func NewFillerHeadMsg(pkey, signmsg, sign []byte) *Message {
-	m := msgPool.Get().(*Message)
-	m.MsgType = MsgFillerHead
-	m.Pubkey = pkey
-	m.SignMsg = signmsg
-	m.Sign = sign
-	return m
-}
-
-func NewFillerMsg(fillerId string) *Message {
-	m := msgPool.Get().(*Message)
-	m.MsgType = MsgFiller
-	m.FileName = fillerId
-	m.Bytes = nil
-	m.Pubkey = nil
-	m.Sign = nil
-	m.SignMsg = nil
 	return m
 }
 

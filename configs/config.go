@@ -3,7 +3,7 @@ package configs
 import "time"
 
 // type and version
-const Version = "CESS-Bucket v0.5.3"
+const Version = "CESS-Bucket v0.5.4_dev"
 
 // return code
 const (
@@ -33,6 +33,29 @@ const (
 	ScanBlockSize      = 512 * 1024     //512KB
 	// the time to wait for the event, in seconds
 	TimeToWaitEvents = time.Duration(time.Second * 15)
+)
+
+const (
+	// Maximum number of connections in the miner's certification space
+	MAX_TCP_CONNECTION uint8 = 3
+	// Tcp client connection interval
+	TCP_Connection_Interval = time.Duration(time.Millisecond * 100)
+	// Tcp message interval
+	TCP_Message_Interval = time.Duration(time.Millisecond * 10)
+	// Tcp short message waiting time
+	TCP_Time_WaitNotification = time.Duration(time.Second * 10)
+	// Tcp short message waiting time
+	TCP_FillerMessage_WaitingTime = time.Duration(time.Second * 150)
+	// The slowest tcp transfers bytes per second
+	TCP_Transmission_Slowest = SIZE_1KiB * 10
+	// Number of tcp message caches
+	TCP_Message_Send_Buffers = 10
+	TCP_Message_Read_Buffers = 10
+	//
+	TCP_SendBuffer = SIZE_1KiB * 8
+	TCP_ReadBuffer = SIZE_1KiB * 16
+	//
+	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
 )
 
 const (
