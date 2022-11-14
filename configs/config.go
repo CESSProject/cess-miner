@@ -33,6 +33,8 @@ const (
 	ScanBlockSize      = 512 * 1024     //512KB
 	// the time to wait for the event, in seconds
 	TimeToWaitEvents = time.Duration(time.Second * 15)
+	// BlockInterval is the time interval for generating blocks, in seconds
+	BlockInterval = time.Second * time.Duration(6)
 )
 
 const (

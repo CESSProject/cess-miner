@@ -11,6 +11,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+func GetSyncStatus(api *gsrpc.SubstrateAPI) (bool, error) {
+	h, err := api.RPC.System.Health()
+	if err != nil {
+		return false, err
+	}
+	return h.IsSyncing, nil
+}
+
 // Get storage miner information
 func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
 	defer func() {

@@ -48,6 +48,7 @@ func (t *TcpCon) HandlerLoop() {
 
 func (t *TcpCon) sendMsg() {
 	defer func() {
+		recover()
 		t.Close()
 		time.Sleep(time.Second)
 		close(t.send)
@@ -78,19 +79,20 @@ func (t *TcpCon) sendMsg() {
 
 func (t *TcpCon) readMsg() {
 	defer func() {
+		recover()
 		t.Close()
 		close(t.recv)
 	}()
 	var (
 		err    error
 		n      int
-		header = make([]byte, 4)
+		header = make([]byte, len(MAGIC_BYTES))
 		buf    = make([]byte, configs.TCP_ReadBuffer)
 	)
 
 	for !t.IsClose() {
 		// read until we get 4 bytes for the magic
-		_, err = io.ReadFull(t.conn, header)
+		_, err = io.ReadAtLeast(t.conn, header, len(MAGIC_BYTES))
 		if err != nil {
 			if err != io.EOF {
 				runtime.Goexit()
@@ -103,7 +105,7 @@ func (t *TcpCon) readMsg() {
 		}
 
 		// read until we get 4 bytes for the header
-		_, err = io.ReadFull(t.conn, header)
+		_, err = io.ReadAtLeast(t.conn, header, len(MAGIC_BYTES))
 		if err != nil {
 			runtime.Goexit()
 		}

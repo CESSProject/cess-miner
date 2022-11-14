@@ -6,7 +6,6 @@ type Server interface {
 
 type Client interface {
 	SendFile(fid string, pkey, signmsg, sign []byte) error
-	//RecvFiller(pkey, signmsg, sign []byte) error
 }
 
 type NetConn interface {
@@ -25,5 +24,4 @@ type ConMgr struct {
 	sendFiles  []string
 	fillerId   string
 	waitNotify chan bool
-	stop       chan struct{}
 }

@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -20,7 +18,6 @@ func (n *Node) NewServer(conn NetConn, fileDir string) Server {
 		conn:       conn,
 		fileDir:    fileDir,
 		waitNotify: make(chan bool, 1),
-		stop:       make(chan struct{}),
 	}
 	return n
 }
@@ -30,14 +27,13 @@ func (n *Node) Start() {
 	n.handler()
 	time.Sleep(time.Second)
 	Out.Sugar().Infof("Close a conn: %v", n.Conn.conn.GetRemoteAddr())
+	n.Conn = nil
 	n = nil
-	runtime.Goexit()
 }
 
 func (n *Node) handler() error {
 	var err error
 	var fs *os.File
-	var returnFile *os.File
 
 	defer func() {
 		if err != nil {
@@ -48,20 +44,16 @@ func (n *Node) handler() error {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 		n.Conn.conn.Close()
-		close(n.Conn.stop)
 		close(n.Conn.waitNotify)
 		if fs != nil {
 			fs.Close()
-		}
-		if returnFile != nil {
-			returnFile.Close()
 		}
 	}()
 
 	for !n.Conn.conn.IsClose() {
 		m, ok := n.Conn.conn.GetMsg()
 		if !ok {
-			return fmt.Errorf("close by connect")
+			return fmt.Errorf("Getmsg failed")
 		}
 
 		if m == nil {
@@ -72,13 +64,9 @@ func (n *Node) handler() error {
 		case MsgHead:
 			// Verify signature
 			ok, err := VerifySign(m.Pubkey, m.SignMsg, m.Sign)
-			if err != nil {
+			if err != nil || !ok {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
-				return err
-			}
-			if !ok {
-				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
-				return err
+				return errors.New("Signature error")
 			}
 
 			if m.FileType == FileType_file {
@@ -101,15 +89,12 @@ func (n *Node) handler() error {
 		case MsgRecvHead:
 			// Verify signature
 			ok, err := VerifySign(m.Pubkey, m.SignMsg, m.Sign)
-			if err != nil {
+			if err != nil || !ok {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
-				return err
+				return errors.New("Signature error")
 			}
-			if !ok {
-				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
-				return err
-			}
-			returnFile, err = os.Open(filepath.Join(n.Conn.fileDir, m.FileName))
+
+			fs, err = os.Open(filepath.Join(n.Conn.fileDir, m.FileName))
 			if err != nil {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				return err
@@ -118,14 +103,14 @@ func (n *Node) handler() error {
 			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 
 		case MsgRecvFile:
-			if returnFile == nil {
+			if fs == nil {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
-				return nil
+				return errors.New("File not open")
 			}
-			fileInfo, _ := returnFile.Stat()
+			fileInfo, _ := fs.Stat()
 			for !n.Conn.conn.IsClose() {
 				readBuf := bytesPool.Get().([]byte)
-				num, err := returnFile.Read(readBuf)
+				num, err := fs.Read(readBuf)
 				if err != nil && err != io.EOF {
 					return err
 				}
@@ -181,134 +166,4 @@ func (n *Node) handler() error {
 		}
 	}
 	return err
-}
-
-func (n *Node) NewClient(conn NetConn, fileDir string, files []string) Client {
-	n.Conn = &ConMgr{
-		conn:       conn,
-		fileDir:    fileDir,
-		sendFiles:  files,
-		waitNotify: make(chan bool, 1),
-		stop:       make(chan struct{}),
-	}
-	return n
-}
-
-func (n *Node) SendFile(fid string, pkey, signmsg, sign []byte) error {
-	var err error
-	n.Conn.conn.HandlerLoop()
-	go func() {
-		_ = n.handler()
-	}()
-	err = n.Conn.sendFile(fid, pkey, signmsg, sign)
-	return err
-}
-
-func (c *ConMgr) sendFile(fid string, pkey, signmsg, sign []byte) error {
-	defer func() {
-		_ = c.conn.Close()
-	}()
-
-	var err error
-	var lastmatrk bool
-	for i := 0; i < len(c.sendFiles); i++ {
-		err = c.sendSingleFile(c.sendFiles[i], fid, pkey, signmsg, sign)
-		if err != nil {
-			return err
-		}
-		if lastmatrk {
-			for _, v := range c.sendFiles {
-				os.Remove(v)
-			}
-		}
-	}
-
-	c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Ok))
-	return err
-}
-
-func (c *ConMgr) sendSingleFile(filePath string, fid string, pkey, signmsg, sign []byte) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if file != nil {
-			_ = file.Close()
-		}
-	}()
-	fileInfo, _ := file.Stat()
-
-	m := NewHeadMsg(fileInfo.Name(), fid, pkey, signmsg, sign)
-	c.conn.SendMsg(m)
-
-	timer := time.NewTimer(5 * time.Second)
-	select {
-	case ok := <-c.waitNotify:
-		if !ok {
-			return fmt.Errorf("send err")
-		}
-	case <-timer.C:
-		return fmt.Errorf("wait server msg timeout")
-	}
-
-	for !c.conn.IsClose() {
-		readBuf := bytesPool.Get().([]byte)
-
-		n, err := file.Read(readBuf)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-		if n == 0 {
-			break
-		}
-
-		c.conn.SendMsg(NewFileMsg(c.fileName, readBuf[:n]))
-	}
-
-	c.conn.SendMsg(NewEndMsg(c.fileName, uint64(fileInfo.Size())))
-	waitTime := fileInfo.Size() / 1024 / 10
-	if waitTime < 5 {
-		waitTime = 5
-	}
-
-	timer = time.NewTimer(time.Second * time.Duration(waitTime))
-	select {
-	case ok := <-c.waitNotify:
-		if !ok {
-			return fmt.Errorf("send err")
-		}
-	case <-timer.C:
-		return fmt.Errorf("wait server msg timeout")
-	}
-
-	return nil
-}
-
-func PathExists(path string) bool {
-	_, err := os.Stat(path)
-	if err != nil && os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
-func CalcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {
-	var (
-		blockSize     int64
-		scanBlockSize int64
-	)
-	if fsize < configs.SIZE_1KiB {
-		return fsize, fsize
-	}
-	if fsize > math.MaxUint32 {
-		blockSize = math.MaxUint32
-		scanBlockSize = blockSize / 8
-		return blockSize, scanBlockSize
-	}
-	blockSize = fsize / 16
-	scanBlockSize = blockSize / 8
-	return blockSize, scanBlockSize
 }
