@@ -1,8 +1,10 @@
 package node
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -18,13 +20,6 @@ type Scheduler interface {
 
 type Node struct {
 	Conn *ConMgr
-	// Confile   configfile.Configfiler
-	// Chain     chain.Chainer
-	// Logs      logger.Logger
-	// Cache     db.Cacher
-	// FileDir   string
-	// TagDir    string
-	// FillerDir string
 }
 
 // New is used to build a node instance
@@ -59,9 +54,14 @@ func (n *Node) Run() {
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				Out.Sugar().Error("[err] The port is closed and the service exits.")
+				log.Println("[err] The port is closed and the service exits.")
 				os.Exit(1)
 			}
-			Out.Sugar().Infof("Accept tcp: %v\n", err)
+			continue
+		}
+
+		if !ConnectionFiltering(acceptTCP) {
+			acceptTCP.Close()
 			continue
 		}
 
@@ -71,4 +71,13 @@ func (n *Node) Run() {
 		// Start the processing service of the new connection
 		go New().NewServer(NewTcp(acceptTCP), configs.FilesDir).Start()
 	}
+}
+
+func ConnectionFiltering(conn *net.TCPConn) bool {
+	buf := make([]byte, len(HEAD_FILE))
+	_, err := io.ReadAtLeast(conn, buf, len(HEAD_FILE))
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(buf, HEAD_FILE) || bytes.Equal(buf, HEAD_FILLER)
 }

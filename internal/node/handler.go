@@ -86,6 +86,7 @@ func (n *Node) handler() error {
 				return err
 			}
 			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
+
 		case MsgRecvHead:
 			// Verify signature
 			ok, err := VerifySign(m.Pubkey, m.SignMsg, m.Sign)
@@ -123,6 +124,7 @@ func (n *Node) handler() error {
 			n.Conn.conn.SendMsg(NewEndMsg(m.FileName, uint64(fileInfo.Size())))
 			time.Sleep(time.Millisecond)
 			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
+
 		case MsgFile:
 			if fs == nil {
 				n.Conn.conn.SendMsg(NewCloseMsg("", Status_Err))
@@ -149,6 +151,28 @@ func (n *Node) handler() error {
 			}
 			fs.Close()
 			fs = nil
+			if m.FileType == FileType_filler && m.FileName == m.FileHash {
+				fpath := ""
+				if m.FileType == FileType_file {
+					fpath = filepath.Join(configs.FilesDir, m.FileName)
+				} else {
+					fpath = filepath.Join(configs.SpaceDir, m.FileName)
+				}
+
+				hash, err := tools.CalcFileHash(fpath)
+				if err != nil {
+					os.Remove(fpath)
+					os.Remove(fpath + ".tag")
+					n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
+					return err
+				}
+				if hash != m.FileHash {
+					os.Remove(fpath)
+					os.Remove(fpath + ".tag")
+					n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
+					return err
+				}
+			}
 			n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Ok))
 
 		case MsgNotify:
