@@ -58,6 +58,12 @@ func (t *TcpCon) sendMsg() {
 				return
 			}
 
+			switch cap(m.Bytes) {
+			case configs.TCP_SendBuffer:
+				sendBufPool.Put(m.Bytes)
+			default:
+			}
+
 			copy(sendBuf[:len(HEAD_FILE)], HEAD_FILE)
 			binary.BigEndian.PutUint32(sendBuf[len(HEAD_FILE):len(HEAD_FILE)+4], uint32(len(data)))
 			copy(sendBuf[len(HEAD_FILE)+4:], data)
@@ -95,6 +101,7 @@ func (t *TcpCon) readMsg() {
 				if err != io.EOF {
 					return
 				}
+				time.Sleep(configs.TCP_Message_Interval)
 				continue
 			}
 
@@ -112,30 +119,23 @@ func (t *TcpCon) readMsg() {
 			continue
 		}
 
-		m := &Message{}
 		// data size
 		msgSize := binary.BigEndian.Uint32(header)
+		if msgSize > configs.TCP_ReadBuffer {
+			return
+		}
 
 		// read data
-		if msgSize > configs.TCP_ReadBuffer {
-			var readBufMax = make([]byte, msgSize)
-			n, err = io.ReadFull(t.conn, readBufMax)
-			if err != nil {
-				return
-			}
-			err = json.Unmarshal(readBufMax[:n], &m)
-			if err != nil {
-				return
-			}
-		} else {
-			n, err = io.ReadFull(t.conn, readBuf[:msgSize])
-			if err != nil {
-				return
-			}
-			err = json.Unmarshal(readBuf[:n], &m)
-			if err != nil {
-				return
-			}
+		n, err = io.ReadFull(t.conn, readBuf[:msgSize])
+		if err != nil {
+			return
+		}
+		m := &Message{}
+		m.Bytes = readBufPool.Get().([]byte)
+
+		err = json.Unmarshal(readBuf[:n], &m)
+		if err != nil {
+			return
 		}
 
 		t.recv <- m

@@ -56,20 +56,18 @@ var (
 		},
 	}
 
-	bytesPool = sync.Pool{
+	sendBufPool = sync.Pool{
 		New: func() any {
 			return make([]byte, configs.TCP_SendBuffer)
 		},
 	}
-)
 
-func (m *Message) GC() {
-	if m.MsgType == MsgFile {
-		bytesPool.Put(m.Bytes[:cap(m.Bytes)])
+	readBufPool = sync.Pool{
+		New: func() any {
+			return make([]byte, configs.TCP_ReadBuffer)
+		},
 	}
-	m.reset()
-	msgPool.Put(m)
-}
+)
 
 func (m *Message) reset() {
 	m.MsgType = MsgInvalid
@@ -118,11 +116,19 @@ func NewHeadMsg(fileName string, fid string, pkey, signmsg, sign []byte) *Messag
 	return m
 }
 
-func NewFileMsg(fileName string, buf []byte) *Message {
-	m := msgPool.Get().(*Message)
+func NewFileMsg(fileName string, num int, buf []byte) *Message {
+	m := &Message{}
 	m.MsgType = MsgFile
+	m.FileType = FileType_file
 	m.FileName = fileName
-	m.Bytes = buf
+	m.FileHash = ""
+	m.FileSize = uint64(num)
+	m.LastMark = false
+	m.Pubkey = nil
+	m.SignMsg = nil
+	m.Sign = nil
+	m.Bytes = sendBufPool.Get().([]byte)
+	copy(m.Bytes, buf)
 	return m
 }
 
