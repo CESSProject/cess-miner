@@ -43,13 +43,17 @@ func (t *TcpCon) HandlerLoop() {
 }
 
 func (t *TcpCon) sendMsg() {
+	sendBuf := readBufPool.Get().([]byte)
 	defer func() {
 		recover()
 		t.Close()
 		time.Sleep(time.Second)
 		close(t.send)
+		readBufPool.Put(sendBuf)
 	}()
-	sendBuf := make([]byte, configs.TCP_ReadBuffer)
+
+	copy(sendBuf[:len(HEAD_FILE)], HEAD_FILE)
+
 	for !t.IsClose() {
 		select {
 		case m := <-t.send:
@@ -64,7 +68,6 @@ func (t *TcpCon) sendMsg() {
 			default:
 			}
 
-			copy(sendBuf[:len(HEAD_FILE)], HEAD_FILE)
 			binary.BigEndian.PutUint32(sendBuf[len(HEAD_FILE):len(HEAD_FILE)+4], uint32(len(data)))
 			copy(sendBuf[len(HEAD_FILE)+4:], data)
 
@@ -74,24 +77,24 @@ func (t *TcpCon) sendMsg() {
 			}
 		default:
 			time.Sleep(configs.TCP_Message_Interval)
-
 		}
 	}
 }
 
 func (t *TcpCon) readMsg() {
+	var (
+		err    error
+		n      int
+		flag   bool = true
+		header      = make([]byte, 4)
+	)
+	readBuf := readBufPool.Get().([]byte)
 	defer func() {
 		recover()
 		t.Close()
 		close(t.recv)
+		readBufPool.Put(readBuf)
 	}()
-	var (
-		err     error
-		n       int
-		flag    bool = true
-		header       = make([]byte, 4)
-		readBuf      = make([]byte, configs.TCP_ReadBuffer)
-	)
 
 	for !t.IsClose() {
 		if !flag {
