@@ -459,9 +459,8 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// start-up
-	//go task.Run()
-	//rpc.Rpc_Main()
-	node.New().Run()
+	n := node.New()
+	n.Run()
 }
 
 // Exit mining
@@ -692,6 +691,21 @@ func register_if() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// sync block
+	for {
+		ok, err := chain.GetSyncStatus(api)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			break
+		}
+		log.Println("In sync block...")
+		time.Sleep(configs.BlockInterval)
+	}
+	log.Println("Complete synchronization of primary network block data")
+
 	//Query your own information on the chain
 	_, err = chain.GetMinerInfo(api)
 	if err != nil {

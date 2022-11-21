@@ -2,6 +2,7 @@ package node
 
 import (
 	"log"
+	"runtime"
 
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
@@ -22,6 +23,7 @@ func (node *Node) task_self_judgment(ch chan bool) {
 	}()
 	Out.Info(">>>>> Start task_self_judgment <<<<<")
 	var failcount uint8
+	var count uint8
 	minfo, err := chain.GetMinerInfo(nil)
 	if err != nil {
 		log.Println(err)
@@ -30,18 +32,23 @@ func (node *Node) task_self_judgment(ch chan bool) {
 	pattern.SetMinerState(string(minfo.State))
 
 	for {
-		minfo, err := chain.GetMinerInfo(nil)
-		if err != nil {
-			if err.Error() == chain.ERR_Empty {
-				failcount++
+		time.Sleep(time.Minute)
+		runtime.GC()
+		count++
+		if count >= 5 {
+			count = 0
+			minfo, err := chain.GetMinerInfo(nil)
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					failcount++
+				}
+			} else {
+				failcount = 0
+				pattern.SetMinerState(string(minfo.State))
 			}
-		} else {
-			failcount = 0
-			pattern.SetMinerState(string(minfo.State))
+			if failcount >= 10 {
+				os.Exit(1)
+			}
 		}
-		if failcount >= 10 {
-			os.Exit(1)
-		}
-		time.Sleep(time.Minute * 5)
 	}
 }

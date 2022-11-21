@@ -78,7 +78,7 @@ func LoggerInit() {
 			Del.Sugar().Infof("%v", fpath)
 		}
 	}
-	log.Println("log loaded successfully")
+	log.Println("Log loading succeeded")
 }
 
 func GetEncoder() zapcore.Encoder {
