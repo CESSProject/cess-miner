@@ -1,25 +1,24 @@
-package proof
+package pbc
 
 import (
 	"github.com/Nik-U/pbc"
 )
 
-func Keygen() PBCKeyPair {
+func KeyGen() PBCKeyPair {
 	var keyPair PBCKeyPair
+
 	params := pbc.GenerateA(160, 512)
+
 	pairing := params.NewPairing()
-	g := pairing.NewG2().Rand()
+	g := pairing.NewG1().Rand()
 
 	privKey := pairing.NewZr().Rand()
-	pubKey := pairing.NewG2().PowZn(g, privKey)
+	pubKey := pairing.NewG1().PowZn(g, privKey)
 	keyPair.Spk = pubKey.Bytes()
 	keyPair.Ssk = privKey.Bytes()
 	keyPair.SharedParams = params.String()
 	keyPair.SharedG = g.Bytes()
-
-	keyPair.Alpha = privKey
-	keyPair.G = g
-	keyPair.V = pubKey
+	keyPair.ZrLength = pairing.ZrLength()
 
 	return keyPair
 }

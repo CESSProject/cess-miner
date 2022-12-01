@@ -87,10 +87,10 @@ type ProveInfo struct {
 	FileId   FileHash
 	MinerAcc types.AccountID
 	Cinfo    ChallengesInfo
-	Mu       []types.Bytes
+	Mu       types.Bytes
 	Sigma    types.Bytes
-	Name     types.Bytes
-	U        []types.Bytes
+	U        types.Bytes
+	HashMi   []types.Bytes
 }
 
 type Ipv4Type_Query struct {

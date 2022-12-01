@@ -12,7 +12,7 @@ import (
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
-	api "github.com/CESSProject/cess-bucket/internal/proof/apiv1"
+	"github.com/CESSProject/cess-bucket/internal/pbc"
 	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/pkg/errors"
@@ -30,9 +30,8 @@ func (node *Node) task_HandlingChallenges(ch chan bool) {
 		fileFullPath    string
 		fileTagFullPath string
 		blocksize       int64
-		filetag         api.TagInfo
-		poDR2prove      api.PoDR2Prove
-		proveResponse   api.PoDR2ProveResponse
+		filetag         pbc.TagInfo
+		proveResponse   pbc.GenProofResponse
 		proveInfos      = make([]chain.ProveInfo, 0)
 	)
 	defer func() {
@@ -107,7 +106,7 @@ func (node *Node) task_HandlingChallenges(ch chan bool) {
 				blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
 			}
 
-			qSlice, err := api.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
+			qSlice, err := pbc.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
 			if err != nil {
 				Chg.Sugar().Errorf("[%v] %v", fileid, err)
 				continue
@@ -124,50 +123,32 @@ func (node *Node) task_HandlingChallenges(ch chan bool) {
 				continue
 			}
 
-			poDR2prove.QSlice = qSlice
-			poDR2prove.T = filetag.T
-			poDR2prove.Sigmas = filetag.Sigmas
+			matrix, _ := pbc.SplitV2(fileFullPath, blocksize)
 
-			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-
-			poDR2prove.Matrix = matrix
-			poDR2prove.S = blocksize
-			proveResponseCh := poDR2prove.PoDR2ProofProve(
-				configs.Spk,
-				string(configs.Shared_params),
-				configs.Shared_g,
-				int64(configs.ScanBlockSize),
-			)
+			proveResponseCh := pbc.PbcKey.GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
 			select {
 			case proveResponse = <-proveResponseCh:
 			}
-			if proveResponse.StatueMsg.StatusCode != api.Success {
+			if proveResponse.StatueMsg.StatusCode != pbc.Success {
 				Chg.Sugar().Errorf("[%v] PoDR2ProofProve failed", fileid)
 				continue
 			}
 
 			var proveInfoTemp chain.ProveInfo
-			proveInfoTemp.U = make([]types.Bytes, len(filetag.T.T0.U))
+			proveInfoTemp.U = filetag.T.U
 			proveInfoTemp.Cinfo = chlng[i]
 			proveInfoTemp.FileId = chlng[i].File_id
 
-			var mus []types.Bytes = make([]types.Bytes, len(proveResponse.MU))
-			for i := 0; i < len(proveResponse.MU); i++ {
-				mus[i] = make(types.Bytes, 0)
-				mus[i] = append(mus[i], proveResponse.MU[i]...)
+			var hashMi []types.Bytes = make([]types.Bytes, len(proveResponse.HashMi))
+			for i := 0; i < len(proveResponse.HashMi); i++ {
+				hashMi[i] = make(types.Bytes, 0)
+				hashMi[i] = append(hashMi[i], proveResponse.HashMi[i]...)
 			}
-			proveInfoTemp.Mu = mus
-			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
+			proveInfoTemp.Mu = proveResponse.MU
+			proveInfoTemp.Sigma = proveResponse.Sigma
 			proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
-			proveInfoTemp.Name = filetag.T.T0.Name
-			for j := 0; j < len(filetag.T.T0.U); j++ {
-				proveInfoTemp.U[j] = make(types.Bytes, 0)
-				proveInfoTemp.U[j] = append(proveInfoTemp.U[j], filetag.T.T0.U[j]...)
-			}
+			proveInfoTemp.HashMi = hashMi
+
 			proveInfos = append(proveInfos, proveInfoTemp)
 		}
 
