@@ -19,7 +19,6 @@ import (
 	"github.com/CESSProject/cess-bucket/internal/pattern"
 	"github.com/CESSProject/cess-bucket/tools"
 
-	"github.com/btcsuite/btcutil/base58"
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/spf13/cobra"
@@ -222,13 +221,6 @@ func register(api *gsrpc.SubstrateAPI) error {
 		pledgeTokens += 2000
 	}
 
-	var res string
-	if configs.C.DomainName != "" {
-		res = configs.C.DomainName
-	} else {
-		res = base58.Encode([]byte(configs.C.ServiceIP + ":" + fmt.Sprintf("%d", configs.C.ServicePort)))
-	}
-
 	_, err := os.Stat(configs.BaseDir)
 	if err == nil {
 		bkpname := configs.BaseDir + "_" + fmt.Sprintf("%v", time.Now().Unix()) + "_bkp"
@@ -293,12 +285,6 @@ func register(api *gsrpc.SubstrateAPI) error {
 	//Record registration information to the log
 	Out.Sugar().Infof("Registration message:")
 	Out.Sugar().Infof("ChainAddr:%v", configs.C.RpcAddr)
-	Out.Sugar().Infof("StorageSpace:%v", configs.C.StorageSpace)
-	Out.Sugar().Infof("MountedPath:%v", configs.C.MountedPath)
-	Out.Sugar().Infof("ServiceAddr:%v", res)
-	Out.Sugar().Infof("RevenueAcc:%v", configs.C.IncomeAcc)
-	Out.Sugar().Infof("SignaturePrk:%v", configs.C.SignatureAcc)
-	Out.Sugar().Infof("DomainName:%v", configs.C.DomainName)
 	Out.Sugar().Infof("Register transaction hash:%v", txhash)
 	return nil
 Err:

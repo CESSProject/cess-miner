@@ -6,6 +6,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
+	"github.com/CESSProject/cess-bucket/tools"
 
 	"os"
 	"time"
@@ -24,6 +25,7 @@ func (node *Node) task_self_judgment(ch chan bool) {
 	Out.Info(">>>>> Start task_self_judgment <<<<<")
 	var failcount uint8
 	var count uint8
+	var clearMemNum uint8
 	minfo, err := chain.GetMinerInfo(nil)
 	if err != nil {
 		log.Println(err)
@@ -35,6 +37,7 @@ func (node *Node) task_self_judgment(ch chan bool) {
 		time.Sleep(time.Minute)
 		runtime.GC()
 		count++
+		clearMemNum++
 		if count >= 5 {
 			count = 0
 			minfo, err := chain.GetMinerInfo(nil)
@@ -49,6 +52,10 @@ func (node *Node) task_self_judgment(ch chan bool) {
 			if failcount >= 10 {
 				os.Exit(1)
 			}
+		}
+		if clearMemNum >= 200 {
+			clearMemNum = 0
+			tools.ClearMemBuf()
 		}
 	}
 }

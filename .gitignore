@@ -21,7 +21,7 @@
 
 ## Binaries for programs and plugins
 main
-bucket
+bucket*
 *.exe
 *.dll
 *.so

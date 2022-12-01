@@ -1,7 +1,6 @@
 package node
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -50,94 +49,76 @@ type Notify struct {
 }
 
 var (
-	msgPool = sync.Pool{
-		New: func() any {
-			return &Message{}
-		},
-	}
-
-	bytesPool = sync.Pool{
+	sendBufPool = &sync.Pool{
 		New: func() any {
 			return make([]byte, configs.TCP_SendBuffer)
 		},
 	}
+
+	readBufPool = &sync.Pool{
+		New: func() any {
+			return make([]byte, configs.TCP_ReadBuffer)
+		},
+	}
 )
 
-func (m *Message) GC() {
-	if m.MsgType == MsgFile {
-		bytesPool.Put(m.Bytes[:cap(m.Bytes)])
-	}
-	m.reset()
-	msgPool.Put(m)
-}
-
-func (m *Message) reset() {
-	m.MsgType = MsgInvalid
+func NewNotifyMsg(fileName string, status Status) *Message {
+	m := &Message{}
+	m.MsgType = MsgNotify
+	m.Bytes = []byte{byte(status)}
 	m.FileName = ""
 	m.FileHash = ""
 	m.FileSize = 0
-	m.Pubkey = nil
-	m.SignMsg = nil
-	m.Sign = nil
-	m.Bytes = nil
-}
-
-func (m *Message) String() string {
-	bytes, _ := json.Marshal(m)
-	return string(bytes)
-}
-
-// Decode will convert from bytes
-func Decode(b []byte) (m *Message, err error) {
-	m = msgPool.Get().(*Message)
-	err = json.Unmarshal(b, &m)
-	return
-}
-
-func NewNotifyMsg(fileName string, status Status) *Message {
-	m := msgPool.Get().(*Message)
-	m.MsgType = MsgNotify
-	m.Bytes = []byte{byte(status)}
-	m.Bytes = append(m.Bytes, []byte(fileName)...)
-	m.FileName = ""
-	m.FileHash = ""
+	m.LastMark = false
+	m.FileType = FileType_file
 	m.Pubkey = nil
 	m.SignMsg = nil
 	m.Sign = nil
 	return m
 }
 
-func NewHeadMsg(fileName string, fid string, pkey, signmsg, sign []byte) *Message {
-	m := msgPool.Get().(*Message)
-	m.MsgType = MsgHead
-	m.FileName = fileName
-	m.FileHash = fid
-	m.Pubkey = pkey
-	m.SignMsg = signmsg
-	m.Sign = sign
-	return m
-}
-
-func NewFileMsg(fileName string, buf []byte) *Message {
-	m := msgPool.Get().(*Message)
+func NewFileMsg(fileName string, num int, buf []byte) *Message {
+	m := &Message{}
 	m.MsgType = MsgFile
+	m.FileType = FileType_file
 	m.FileName = fileName
-	m.Bytes = buf
+	m.FileHash = ""
+	m.FileSize = uint64(num)
+	m.LastMark = false
+	m.Pubkey = nil
+	m.SignMsg = nil
+	m.Sign = nil
+	m.Bytes = sendBufPool.Get().([]byte)
+	copy(m.Bytes, buf)
 	return m
 }
 
 func NewEndMsg(fileName string, fsize uint64) *Message {
-	m := msgPool.Get().(*Message)
+	m := &Message{}
 	m.MsgType = MsgEnd
 	m.FileName = fileName
 	m.FileSize = fsize
+	m.FileHash = ""
+	m.FileType = FileType_file
+	m.LastMark = false
+	m.Pubkey = nil
+	m.SignMsg = nil
+	m.Sign = nil
+	m.Bytes = nil
 	return m
 }
 
 func NewCloseMsg(fileName string, status Status) *Message {
-	m := msgPool.Get().(*Message)
+	m := &Message{}
 	m.MsgType = MsgClose
 	m.Bytes = []byte{byte(status)}
-	m.FileName = fileName
+	m.FileName = ""
+	m.FileHash = ""
+	m.FileSize = 0
+	m.LastMark = false
+	m.FileType = FileType_file
+	m.Pubkey = nil
+	m.SignMsg = nil
+	m.Sign = nil
 	return m
 }

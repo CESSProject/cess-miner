@@ -46,6 +46,7 @@ func (n *Node) Run() {
 		log.Println(err)
 		os.Exit(1)
 	}
+	log.Println("Service started successfully")
 
 	for {
 		time.Sleep(time.Second)

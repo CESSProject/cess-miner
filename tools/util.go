@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
@@ -148,4 +149,12 @@ func GetRandomcode(length uint8) string {
 		bytes[i] = baseStr[r.Intn(l)]
 	}
 	return string(bytes)
+}
+
+// ClearMemBuf is used to clear membuf
+func ClearMemBuf() {
+	exec.Command("bash", "-c", "sync;sync;sync;sync;sync;sync;")
+	exec.Command("bash", "-c", "echo 1 > /proc/sys/vm/drop_caches")
+	exec.Command("bash", "-c", "echo 2 > /proc/sys/vm/drop_caches")
+	exec.Command("bash", "-c", "echo 3 > /proc/sys/vm/drop_caches")
 }
