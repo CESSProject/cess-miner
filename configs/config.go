@@ -2,9 +2,6 @@ package configs
 
 import "time"
 
-// type and version
-const Version = "CESS-Bucket v0.5.4"
-
 // return code
 const (
 	//success

@@ -1,13 +1,15 @@
-package tools
+package utils
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -157,4 +159,57 @@ func ClearMemBuf() {
 	exec.Command("bash", "-c", "echo 1 > /proc/sys/vm/drop_caches")
 	exec.Command("bash", "-c", "echo 2 > /proc/sys/vm/drop_caches")
 	exec.Command("bash", "-c", "echo 3 > /proc/sys/vm/drop_caches")
+}
+
+// Get external network ip
+func GetExternalIp() (string, error) {
+	var (
+		err        error
+		externalIp string
+	)
+
+	client := http.Client{
+		Timeout: time.Duration(10 * time.Second),
+	}
+	resp, err := client.Get("http://myexternalip.com/raw")
+	if err == nil {
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		externalIp = fmt.Sprintf("%s", string(b))
+		if IsIPv4(externalIp) {
+			return externalIp, nil
+		}
+	}
+
+	ctx1, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	output, err := exec.CommandContext(ctx1, "bash", "-c", "curl ifconfig.co").Output()
+	if err == nil {
+		externalIp = strings.ReplaceAll(string(output), "\n", "")
+		externalIp = strings.ReplaceAll(externalIp, " ", "")
+		if IsIPv4(externalIp) {
+			return externalIp, nil
+		}
+	}
+
+	ctx2, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	output, err = exec.CommandContext(ctx2, "bash", "-c", "curl cip.cc | grep  IP | awk '{print $3;}'").Output()
+	if err == nil {
+		externalIp = strings.ReplaceAll(string(output), "\n", "")
+		externalIp = strings.ReplaceAll(externalIp, " ", "")
+		if IsIPv4(externalIp) {
+			return externalIp, nil
+		}
+	}
+
+	ctx3, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	output, err = exec.CommandContext(ctx3, "bash", "-c", `curl ipinfo.io | grep \"ip\" | awk '{print $2;}'`).Output()
+	if err == nil {
+		externalIp = strings.ReplaceAll(string(output), "\"", "")
+		externalIp = strings.ReplaceAll(externalIp, ",", "")
+		externalIp = strings.ReplaceAll(externalIp, "\n", "")
+		if IsIPv4(externalIp) {
+			return externalIp, nil
+		}
+	}
+	return "", errors.New("Please check your network status")
 }
