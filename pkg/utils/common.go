@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -84,12 +85,15 @@ func CalcFileHash(fpath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func RecoverError(err interface{}) string {
+// RecoverError is used to record the stack information of panic
+func RecoverError(err interface{}) error {
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "%v\n", "--------------------panic--------------------")
+	fmt.Fprintf(buf, "%v\n", "[panic]")
 	fmt.Fprintf(buf, "%v\n", err)
-	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
-	return buf.String()
+	if debug.Stack() != nil {
+		fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
+	}
+	return errors.New(buf.String())
 }
 
 func IsIPv4(ipAddr string) bool {
@@ -212,4 +216,14 @@ func GetExternalIp() (string, error) {
 		}
 	}
 	return "", errors.New("Please check your network status")
+}
+
+func Int64ToBytes(i int64) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(i))
+	return buf
+}
+
+func BytesToInt64(buf []byte) int64 {
+	return int64(binary.BigEndian.Uint64(buf))
 }

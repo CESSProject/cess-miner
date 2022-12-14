@@ -1,0 +1,36 @@
+/*
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+package serve
+
+type IDataPack interface {
+	GetHeadLen() uint32
+	Pack(msg IMessage) ([]byte, error)
+	Unpack([]byte) (IMessage, error)
+}
+
+const (
+	// Default packaging and unpacking methods
+	DefaultDataPack string = "default_pack"
+
+	//...(+)
+	// Add custom package method here
+)
+
+const (
+	// Default message protocol format
+	DefaultMessage string = "default_message"
+)

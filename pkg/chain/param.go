@@ -38,6 +38,7 @@ const (
 	segmentBook_MinerHoldSlice = "MinerHoldSlice"
 	segmentBook_ChallengeMap   = "ChallengeMap"
 	// FileMap
+	fileMap_FileMetaInfo  = "File"
 	fileMap_SchedulerPuk  = "SchedulerPuk"
 	fileMap_SchedulerInfo = "SchedulerMap"
 	// FileBank

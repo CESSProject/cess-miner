@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/utils"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )

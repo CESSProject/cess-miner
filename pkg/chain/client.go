@@ -46,6 +46,8 @@ type IChain interface {
 	GetBlockHeight() (types.U32, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
+	// GetFileMetaInfo is used to get the meta information of the file
+	GetFileMetaInfo(fid string) (FileMetaInfo, error)
 
 	// // GetStashPublicKey returns its stash account public key
 	// GetStashPublicKey() ([]byte, error)

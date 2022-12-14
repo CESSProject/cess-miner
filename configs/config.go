@@ -18,10 +18,15 @@ const (
 	Code_600 = 600
 )
 
+// byte size
 const (
-	SIZE_1KiB          = 1024
-	SIZE_1MiB          = SIZE_1KiB * 1024 // 1MB
-	SIZE_1GiB          = SIZE_1MiB * 1024
+	SIZE_1KiB  = 1024
+	SIZE_1MiB  = 1024 * SIZE_1KiB
+	SIZE_1GiB  = 1024 * SIZE_1MiB
+	SIZE_SLICE = 512 * SIZE_1MiB
+)
+
+const (
 	FillerSize         = 8 * SIZE_1MiB
 	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
 	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
@@ -32,6 +37,8 @@ const (
 	TimeToWaitEvents = time.Duration(time.Second * 15)
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
+	// Token length
+	TokenLength = 32
 )
 
 const (
@@ -56,6 +63,8 @@ const (
 	TCP_SendBuffer = 8192
 	TCP_ReadBuffer = 12000
 	TCP_TagBuffer  = 2012
+	//
+	TCP_MaxPacketSize = SIZE_1KiB * 32
 	//
 	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
 )
