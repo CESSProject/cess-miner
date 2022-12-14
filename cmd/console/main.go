@@ -36,7 +36,7 @@ func init() {
 		defaultCommand(),
 		Command_Version(),
 		Command_Register(),
-		Command_State(),
+		stateCommand(),
 		Command_Run(),
 		Command_Exit(),
 		Command_Increase(),
@@ -91,11 +91,11 @@ func Command_Register() *cobra.Command {
 	return cc
 }
 
-func Command_State() *cobra.Command {
+func stateCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "state",
 		Short:                 "Query mining miner information",
-		Run:                   Command_State_Runfunc,
+		Run:                   stateCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

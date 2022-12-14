@@ -104,7 +104,7 @@ func (c *confile) Parse(fpath string) error {
 		return errors.Errorf("SignatureAcc: %v", err)
 	}
 
-	_, err = utils.DecodePublicKeyOfCessAccount(c.SignatureAcc)
+	_, err = utils.DecodePublicKeyOfCessAccount(c.IncomeAcc)
 	if err != nil {
 		return errors.Errorf("Decode SignatureAcc: %v", err)
 	}

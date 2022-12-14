@@ -1,18 +1,36 @@
+/*
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package chain
 
 import (
-	"github.com/CESSProject/cess-bucket/configs"
-	. "github.com/CESSProject/cess-bucket/internal/logger"
-	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/tools"
-
-	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
 
-func GetSyncStatus(api *gsrpc.SubstrateAPI) (bool, error) {
-	h, err := api.RPC.System.Health()
+// GetPublicKey returns your own public key
+func (c *chainClient) GetPublicKey() []byte {
+	return c.keyring.PublicKey
+}
+
+func (c *chainClient) GetSyncStatus() (bool, error) {
+	if !c.IsChainClientOk() {
+		return false, ERR_RPC_CONNECTION
+	}
+	h, err := c.api.RPC.System.Health()
 	if err != nil {
 		return false, err
 	}
@@ -20,35 +38,35 @@ func GetSyncStatus(api *gsrpc.SubstrateAPI) (bool, error) {
 }
 
 // Get storage miner information
-func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
+func (c *chainClient) GetMinerInfo(pkey []byte) (MinerInfo, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
-	var err error
 	var data MinerInfo
 
-	if api == nil {
-		api, err = GetRpcClient_Safe(configs.C.RpcAddr)
-		defer Free()
-		if err != nil {
-			return data, errors.Wrap(err, "[GetRpcClient_Safe]")
-		}
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
+	b, err := types.Encode(types.NewAccountID(pkey))
 	if err != nil {
-		return data, errors.Wrap(err, "[GetMetadata]")
+		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_Sminer,
+		sminer_MinerItems,
+		b,
+	)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return data, errors.Wrap(err, "[GetStorageLatest]")
 	}
@@ -59,32 +77,30 @@ func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
 }
 
 // Get all challenges
-func GetChallenges() ([]ChallengesInfo, error) {
+func (c *chainClient) GetChallenges() ([]ChallengesInfo, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
 	var data []ChallengesInfo
 
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetRpcClient_Safe]")
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_SegmentBook,
+		segmentBook_ChallengeMap,
+		c.GetPublicKey(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
@@ -95,26 +111,29 @@ func GetChallenges() ([]ChallengesInfo, error) {
 }
 
 // get public key
-func GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
+func (c *chainClient) GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
+	defer func() {
+		recover()
+	}()
+
 	var data Chain_SchedulerPuk
 
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return data, errors.Wrap(err, "[GetRpcClient_Safe]")
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerPuk)
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_FileMap,
+		fileMap_SchedulerPuk,
+	)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return data, errors.Wrap(err, "[GetStorageLatest]")
 	}
@@ -125,32 +144,30 @@ func GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
 }
 
 // Get all invalid files
-func GetInvalidFiles() ([]FileHash, error) {
+func (c *chainClient) GetInvalidFiles() ([]FileHash, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
 	var data []FileHash
 
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetRpcClient_Safe]")
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_FileBank,
+		fileBank_InvalidFile,
+		c.GetPublicKey(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
@@ -161,32 +178,29 @@ func GetInvalidFiles() ([]FileHash, error) {
 }
 
 // Get all scheduling nodes
-func GetSchedulingNodes() ([]SchedulerInfo, error) {
+func (c *chainClient) GetAllSchedulerInfo() ([]SchedulerInfo, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
 	var data []SchedulerInfo
 
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetRpcClient_Safe]")
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerInfo)
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_FileMap,
+		fileMap_SchedulerInfo,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
@@ -197,83 +211,81 @@ func GetSchedulingNodes() ([]SchedulerInfo, error) {
 }
 
 // Get the block height when the miner exits
-func GetBlockHeightExited(api *gsrpc.SubstrateAPI) (types.U32, error) {
+func (c *chainClient) GetBlockHeightExited() (types.U32, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
-	var (
-		err    error
-		number types.U32
+	var data types.U32
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_Sminer,
+		sminer_MinerLockIn,
+		c.GetPublicKey(),
 	)
-
-	meta, err := api.RPC.State.GetMetadataLatest()
 	if err != nil {
-		return number, errors.Wrap(err, "[GetMetadataLatest]")
+		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerLockIn, pattern.GetMinerAcc())
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
-		return number, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := api.RPC.State.GetStorageLatest(key, &number)
-	if err != nil {
-		return number, errors.Wrap(err, "[GetStorageLatest]")
+		return data, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return number, errors.New(ERR_Empty)
+		return data, errors.New(ERR_Empty)
 	}
-	return number, nil
+	return data, nil
 }
 
 // Get the current block height
-func GetBlockHeight(api *gsrpc.SubstrateAPI) (types.U32, error) {
+func (c *chainClient) GetBlockHeight() (types.U32, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
-	block, err := api.RPC.Chain.GetBlockLatest()
+
+	block, err := c.api.RPC.Chain.GetBlockLatest()
 	if err != nil {
 		return 0, errors.Wrap(err, "[GetBlockLatest]")
 	}
 	return types.U32(block.Block.Header.Number), nil
 }
 
-func GetAccountInfo(puk []byte) (types.AccountInfo, error) {
+func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
-		}
+		recover()
 	}()
 
 	var data types.AccountInfo
 
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return data, errors.Wrap(err, "[GetRpcClient_Safe]")
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
 	}
+	c.SetChainState(true)
 
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	b, err := types.Encode(types.NewAccountID(puk))
+	b, err := types.Encode(types.NewAccountID(pkey))
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
 
-	key, err := types.CreateStorageKey(meta, "System", "Account", b)
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_System,
+		system_Account,
+		b,
+	)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return data, errors.Wrap(err, "[GetStorageLatest]")
 	}

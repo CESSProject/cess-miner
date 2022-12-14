@@ -1,0 +1,16 @@
+# The rpc address of the chain node
+RpcAddr      = "wss://testnet-rpc0.cess.cloud/ws/"
+# Path to the mounted disk where the data is saved
+MountedPath  = "/"
+# Total space used to store files, the unit is GB
+StorageSpace = 0
+# The IP of the machine running the mining service
+ServiceIP    = "127.0.0.1"
+# Port number monitored by the mining service
+ServicePort  = 15001
+# The address of income account
+IncomeAcc    = "cXfg2SYcq85nyZ1U4ccx6QnAgSeLQB8aXZ2jstbw9CPGSmhXY"
+# phrase of the signature account
+SignatureAcc = "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
+# If 'ServiceIP' is not public IP, You can set up a domain name
+DomainName   = ""
