@@ -37,7 +37,7 @@ func init() {
 		versionCommand(),
 		stateCommand(),
 		runCommand(),
-		Command_Exit(),
+		exitCommand(),
 		Command_Increase(),
 		Command_Withdraw(),
 		Command_UpdateAddress(),
@@ -100,11 +100,11 @@ func runCommand() *cobra.Command {
 	return cc
 }
 
-func Command_Exit() *cobra.Command {
+func exitCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "exit",
 		Short:                 "Exit the mining platform",
-		Run:                   Command_Exit_Runfunc,
+		Run:                   exitCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

@@ -40,6 +40,9 @@ func (c *chainClient) Register(incomeAcc, ip string, port uint16, pledgeTokens u
 		accountInfo types.AccountInfo
 	)
 
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
@@ -172,6 +175,9 @@ func (c *chainClient) Increase(tokens *big.Int) (string, error) {
 		accountInfo types.AccountInfo
 	)
 
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
@@ -270,6 +276,9 @@ func (c *chainClient) ExitMining() (string, error) {
 		accountInfo types.AccountInfo
 	)
 
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
@@ -363,6 +372,9 @@ func (c *chainClient) Withdraw() (string, error) {
 		txhash      string
 		accountInfo types.AccountInfo
 	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -458,6 +470,9 @@ func (c *chainClient) SubmitProofs(data []ProveInfo) (string, error) {
 		accountInfo types.AccountInfo
 	)
 
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
@@ -552,6 +567,9 @@ func (c *chainClient) ClearInvalidFiles(fid FileHash) (string, error) {
 		txhash      string
 		accountInfo types.AccountInfo
 	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -736,6 +754,9 @@ func (c *chainClient) UpdateAddress(ip, port string) (string, error) {
 		accountInfo types.AccountInfo
 	)
 
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
@@ -843,6 +864,9 @@ func (c *chainClient) UpdateIncome(acc types.AccountID) (string, error) {
 		txhash      string
 		accountInfo types.AccountInfo
 	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)

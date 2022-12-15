@@ -50,13 +50,20 @@ func stateCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	api, err := chain.NewRpcClient(configs.C.RpcAddr)
+	// chain client
+	chn, err := chain.NewChainClient(
+		confile.GetRpcAddr(),
+		confile.GetCtrlPrk(),
+		confile.GetIncomeAcc(),
+		configs.TimeOut_WaitBlock,
+	)
 	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Connection error: %v\n", 41, err)
+		log.Println(err)
 		os.Exit(1)
 	}
+
 	//Query your own information on the chain
-	mData, err := chain.GetMinerInfo(api)
+	mData, err := chn.GetMinerInfo(chn.GetPublicKey())
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
 			log.Printf("[err] Not found: %v\n", err)
@@ -71,11 +78,11 @@ func stateCmd(cmd *cobra.Command, args []string) {
 	var power_unit, space_unit string
 	count := 0
 	for mData.Power.BitLen() > int(16) {
-		mData.Power.Div(new(big.Int).SetBytes(mData.Power.Bytes()), big.NewInt(1024))
+		mData.Power.Div(new(big.Int).SetBytes(mData.Power.Bytes()), big.NewInt(configs.SIZE_1KiB))
 		count++
 	}
-	if mData.Power.Int64() > 1024 {
-		power = float32(mData.Power.Int64()) / float32(1024)
+	if mData.Power.Int64() > configs.SIZE_1KiB {
+		power = float32(mData.Power.Int64()) / float32(configs.SIZE_1KiB)
 		count++
 	} else {
 		power = float32(mData.Power.Int64())
@@ -108,11 +115,11 @@ func stateCmd(cmd *cobra.Command, args []string) {
 	}
 	count = 0
 	for mData.Space.BitLen() > int(16) {
-		mData.Space.Div(new(big.Int).SetBytes(mData.Space.Bytes()), big.NewInt(1024))
+		mData.Space.Div(new(big.Int).SetBytes(mData.Space.Bytes()), big.NewInt(configs.SIZE_1KiB))
 		count++
 	}
-	if mData.Space.Int64() > 1024 {
-		space = float32(mData.Space.Int64()) / float32(1024)
+	if mData.Space.Int64() > configs.SIZE_1KiB {
+		space = float32(mData.Space.Int64()) / float32(configs.SIZE_1KiB)
 		count++
 	} else {
 		space = float32(mData.Space.Int64())

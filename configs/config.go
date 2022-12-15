@@ -82,17 +82,14 @@ const (
 )
 
 const (
-	HELP_common = `Please check with the following help information:
+	HELP_Head = `Please check with the following help information:
     1.Check if the wallet balance is sufficient
     2.Block hash:`
-	HELP_register = `    3.Check the Sminer_Registered transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_UpdateAddress = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
+	HELP_register          = `    3.Check the Sminer_Registered transaction event result in the block hash above:`
+	HELP_UpdateAddress     = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:`
+	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:`
+	HELP_MinerExit         = `    3.Check the Sminer_MinerExit transaction event result in the block hash above:`
+	HELP_Tail              = `		If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
 )
 

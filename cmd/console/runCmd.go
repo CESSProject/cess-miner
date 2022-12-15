@@ -84,7 +84,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	//Build server instance
 	node.Ser = buildServer(
-		"Bucket Server",
+		configs.Name,
 		node.Cfile.GetServicePortNum(),
 		node.Chn,
 		node.Logs,
@@ -180,8 +180,9 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 			log.Println("[err] Please check if the wallet is registered and its balance.")
 		} else {
 			if txhash != "" {
-				msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
-				msg += configs.HELP_register
+				msg := configs.HELP_Head + fmt.Sprintf(" %v\n", txhash)
+				msg += fmt.Sprintf("%v\n", configs.HELP_register)
+				msg += configs.HELP_Tail
 				log.Printf("[pending] %v\n", msg)
 			} else {
 				log.Printf("[err] %v.\n", err)
