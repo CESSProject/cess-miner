@@ -38,8 +38,8 @@ func init() {
 		stateCommand(),
 		runCommand(),
 		exitCommand(),
-		Command_Increase(),
-		Command_Withdraw(),
+		increaseCommand(),
+		withdrawCommand(),
 		Command_UpdateAddress(),
 		Command_UpdateIncome(),
 	)
@@ -110,21 +110,21 @@ func exitCommand() *cobra.Command {
 	return cc
 }
 
-func Command_Increase() *cobra.Command {
+func increaseCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "increase <number of tokens>",
 		Short:                 "Increase the deposit of mining miner",
-		Run:                   Command_Increase_Runfunc,
+		Run:                   increaseCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_Withdraw() *cobra.Command {
+func withdrawCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "withdraw",
 		Short:                 "Redemption deposit",
-		Run:                   Command_Withdraw_Runfunc,
+		Run:                   withdrawCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

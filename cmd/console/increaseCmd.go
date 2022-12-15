@@ -19,7 +19,9 @@ package console
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"os"
+	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
@@ -27,12 +29,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// exitCmd is used to exit the mining platform
+// increaseCmd is used to increase the deposit of mining miner
 //
 // Usage:
 //
-//	bucket exit
-func exitCmd(cmd *cobra.Command, args []string) {
+//	bucket increase <amount>
+func increaseCmd(cmd *cobra.Command, args []string) {
+	//Too few command line arguments
+	if len(os.Args) < 3 {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the increased deposit amount.\n", 41)
+		os.Exit(1)
+	}
+
+	//Convert the deposit amount to an integer
+	_, err := strconv.ParseUint(os.Args[2], 10, 64)
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
+		os.Exit(1)
+	}
+
 	// config file
 	var configFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
@@ -65,22 +80,29 @@ func exitCmd(cmd *cobra.Command, args []string) {
 	_, err = chn.GetMinerInfo(chn.GetPublicKey())
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
-			log.Printf("[err] Unregistered miner\n")
+			log.Printf("[err] Not found: %v\n", err)
 			os.Exit(1)
 		}
 		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Exit the mining function
-	txhash, err := chn.ExitMining()
+	//Convert the deposit amount into TCESS units
+	tokens, ok := new(big.Int).SetString(os.Args[2]+configs.TokenAccuracy, 10)
+	if !ok {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Please enter the correct deposit amount (positive integer).\n", 41)
+		os.Exit(1)
+	}
+
+	//increase deposit
+	txhash, err := chn.Increase(tokens)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
 			log.Println("[err] Please check if the wallet is registered and its balance.")
 		} else {
 			if txhash != "" {
 				msg := configs.HELP_Head + fmt.Sprintf(" %v\n", txhash)
-				msg += fmt.Sprintf("%v\n", configs.HELP_MinerExit)
+				msg += fmt.Sprintf("%v\n", configs.HELP_MinerIncrease)
 				msg += configs.HELP_Tail
 				log.Printf("[pending] %v\n", msg)
 			} else {
@@ -89,8 +111,6 @@ func exitCmd(cmd *cobra.Command, args []string) {
 		}
 		os.Exit(1)
 	}
-
-	//chain.ClearFiller()
 
 	fmt.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
 	os.Exit(0)

@@ -446,7 +446,7 @@ func (c *chainClient) Withdraw() (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Sminer_Claimed) > 0 {
+				if len(events.Sminer_Redeemed) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)

@@ -89,6 +89,8 @@ const (
 	HELP_UpdateAddress     = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:`
 	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:`
 	HELP_MinerExit         = `    3.Check the Sminer_MinerExit transaction event result in the block hash above:`
+	HELP_MinerIncrease     = `    3.Check the Sminer_IncreaseCollateral transaction event result in the block hash above:`
+	HELP_MinerWithdraw     = `    3.Check the Sminer_Redeemed transaction event result in the block hash above:`
 	HELP_Tail              = `		If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
 )

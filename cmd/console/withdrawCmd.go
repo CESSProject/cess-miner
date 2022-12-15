@@ -27,12 +27,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// exitCmd is used to exit the mining platform
+// withdrawCmd is used to withdraw the deposit
 //
 // Usage:
 //
-//	bucket exit
-func exitCmd(cmd *cobra.Command, args []string) {
+//	bucket withdraw
+func withdrawCmd(cmd *cobra.Command, args []string) {
 	// config file
 	var configFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
@@ -65,22 +65,52 @@ func exitCmd(cmd *cobra.Command, args []string) {
 	_, err = chn.GetMinerInfo(chn.GetPublicKey())
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
-			log.Printf("[err] Unregistered miner\n")
+			log.Printf("[err] Not found: %v\n", err)
 			os.Exit(1)
 		}
 		log.Printf("[err] Query error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Exit the mining function
-	txhash, err := chn.ExitMining()
+	//Query the block height when the miner exits
+	number, err := chn.GetBlockHeightExited()
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			fmt.Printf("\x1b[%dm[err]\x1b[0m No exit, can't execute withdraw.\n", 41)
+			os.Exit(1)
+		}
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query exit block: %v\n", 41, err)
+		os.Exit(1)
+	}
+
+	//Get the current block height
+	lastnumber, err := chn.GetBlockHeight()
+	if err != nil {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query the latest block: %v\n", 41, err)
+		os.Exit(1)
+	}
+
+	if lastnumber < number {
+		fmt.Printf("\x1b[%dm[err]\x1b[0m unexpected error\n", 41)
+		os.Exit(1)
+	}
+
+	//Determine whether the cooling period is over
+	if (lastnumber - number) < configs.ExitColling {
+		wait := configs.ExitColling + number - lastnumber
+		fmt.Printf("\x1b[%dm[err]\x1b[0m You are in a cooldown period, time remaining: %v blocks.\n", 41, wait)
+		os.Exit(1)
+	}
+
+	// Withdraw deposit function
+	txhash, err := chn.Withdraw()
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
 			log.Println("[err] Please check if the wallet is registered and its balance.")
 		} else {
 			if txhash != "" {
 				msg := configs.HELP_Head + fmt.Sprintf(" %v\n", txhash)
-				msg += fmt.Sprintf("%v\n", configs.HELP_MinerExit)
+				msg += fmt.Sprintf("%v\n", configs.HELP_MinerWithdraw)
 				msg += configs.HELP_Tail
 				log.Printf("[pending] %v\n", msg)
 			} else {
@@ -89,8 +119,6 @@ func exitCmd(cmd *cobra.Command, args []string) {
 		}
 		os.Exit(1)
 	}
-
-	//chain.ClearFiller()
 
 	fmt.Printf("\x1b[%dm[ok]\x1b[0m success\n", 42)
 	os.Exit(0)
