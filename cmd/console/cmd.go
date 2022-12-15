@@ -5,182 +5,18 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/initlz"
 	"github.com/CESSProject/cess-bucket/internal/chain"
-	"github.com/CESSProject/cess-bucket/internal/logger"
 	. "github.com/CESSProject/cess-bucket/internal/logger"
-	"github.com/CESSProject/cess-bucket/internal/node"
 	"github.com/CESSProject/cess-bucket/tools"
 
-	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/spf13/cobra"
 )
-
-// Storage miner registration information on the chain
-func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse command arguments and  configuration file
-	parseFlags(cmd)
-
-	api, err := chain.NewRpcClient(configs.C.RpcAddr)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Connection error: %v\n", 41, err)
-		os.Exit(1)
-	}
-
-	//Query your own information on the chain
-	_, err = chain.GetMinerInfo(api)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			err = register(api)
-			if err != nil {
-				fmt.Printf("\x1b[%dm[err]\x1b[0m Register failed: %v\n", 41, err)
-				os.Exit(1)
-			}
-			os.Exit(0)
-		}
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Query error: %v\n", 41, err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("\x1b[%dm[ok]\x1b[0m You are registered\n", 42)
-	os.Exit(0)
-}
-
-func register(api *gsrpc.SubstrateAPI) error {
-	//Calculate the deposit based on the size of the storage space
-	pledgeTokens := 2000 * (configs.C.StorageSpace / 1024)
-	if configs.C.StorageSpace%1024 != 0 {
-		pledgeTokens += 2000
-	}
-
-	_, err := os.Stat(configs.BaseDir)
-	if err == nil {
-		bkpname := configs.BaseDir + "_" + fmt.Sprintf("%v", time.Now().Unix()) + "_bkp"
-		os.Rename(configs.BaseDir, bkpname)
-	}
-
-	//Registration information on the chain
-	txhash, err := chain.Register(
-		api,
-		configs.C.IncomeAcc,
-		configs.C.ServiceIP,
-		uint16(configs.C.ServicePort),
-		pledgeTokens,
-	)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			log.Println("[err] Please check your wallet balance.")
-		} else {
-			if txhash != "" {
-				msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
-				msg += configs.HELP_register
-				log.Printf("[pending] %v\n", msg)
-			} else {
-				log.Printf("[err] %v.\n", err)
-			}
-		}
-		return err
-	}
-
-	fmt.Printf("\x1b[%dm[ok]\x1b[0m Registration success\n", 42)
-
-	//Create the storage data directory
-	err = os.MkdirAll(configs.BaseDir, os.ModeDir)
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		return err
-	}
-
-	//Create log directory
-	configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
-	if err = tools.CreatDirIfNotExist(configs.LogfileDir); err != nil {
-		goto Err
-	}
-	//Create space directory
-	configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
-	if err = tools.CreatDirIfNotExist(configs.SpaceDir); err != nil {
-		goto Err
-	}
-	//Create file directory
-	configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
-	if err = tools.CreatDirIfNotExist(configs.FilesDir); err != nil {
-		goto Err
-	}
-
-	log.Println(configs.LogfileDir)
-	log.Println(configs.SpaceDir)
-	log.Println(configs.FilesDir)
-
-	//Initialize the logger
-	logger.LoggerInit()
-
-	//Record registration information to the log
-	Out.Sugar().Infof("Registration message:")
-	Out.Sugar().Infof("ChainAddr:%v", configs.C.RpcAddr)
-	Out.Sugar().Infof("Register transaction hash:%v", txhash)
-	return nil
-Err:
-	log.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-	return err
-}
-
-// Start mining
-func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse command arguments and  configuration file
-	parseFlags(cmd)
-
-	//global initialization
-	initlz.SystemInit()
-
-	flag, err := register_if()
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-		os.Exit(1)
-	}
-
-	if !flag {
-		err = register(nil)
-		if err != nil {
-			log.Printf("[err] Registration failed: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		//Create log directory
-		configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
-		if err = tools.CreatDirIfNotExist(configs.LogfileDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		//Create space directory
-		configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
-		if err = tools.CreatDirIfNotExist(configs.SpaceDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		//Create file directory
-		configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
-		if err = tools.CreatDirIfNotExist(configs.FilesDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		log.Println(configs.LogfileDir)
-		log.Println(configs.SpaceDir)
-		log.Println(configs.FilesDir)
-		//Initialize the logger
-		logger.LoggerInit()
-	}
-
-	// start-up
-	n := node.New()
-	n.Run()
-}
 
 // Exit mining
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {

@@ -11,3 +11,13 @@ const (
 	// NameSpace is the cached namespace
 	NameSpace = "bucket"
 )
+
+const (
+	// BaseDir is the base directory where data is stored
+	BaseDir = NameSpace
+	// Data directory
+	LogDir    = "log"
+	CacheDir  = "cache"
+	FileDir   = "file"
+	FillerDir = "filler"
+)

@@ -26,6 +26,18 @@ const (
 	SIZE_SLICE = 512 * SIZE_1MiB
 )
 
+// account
+const (
+	// CESS token precision
+	CESSTokenPrecision = 1_000_000_000_000
+	// MinimumBalance is the minimum balance required for the program to run
+	// The unit is pico
+	MinimumBalance = 2 * CESSTokenPrecision
+	//
+	DepositPerTB  = 2000
+	DirPermission = 755
+)
+
 const (
 	FillerSize         = 8 * SIZE_1MiB
 	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
@@ -33,8 +45,8 @@ const (
 	ExitColling        = 28800          //blocks
 	BlockSize          = 1024 * 1024    //1MB
 	ScanBlockSize      = 512 * 1024     //512KB
-	// the time to wait for the event, in seconds
-	TimeToWaitEvents = time.Duration(time.Second * 15)
+	// Time out waiting for transaction completion
+	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
 	// Token length
@@ -84,17 +96,11 @@ const (
         If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
-// Miner info
-// updated at runtime
+// log file
 var (
-	Spk           []byte
-	Shared_params []byte
-	Shared_g      []byte
-	//PublicKey     []byte
-
-	//data path
-	BaseDir    = "bucket"
-	LogfileDir = "/log"
-	SpaceDir   = "space"
-	FilesDir   = "files"
+	LogFiles = []string{
+		"common", //General log
+		"panic",  //Panic log
+		"upfile", //Upload file log
+	}
 )

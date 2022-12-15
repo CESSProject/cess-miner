@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-bucket/internal/confile"
+	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/spf13/cobra"
 )
 

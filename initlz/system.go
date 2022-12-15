@@ -1,30 +1,19 @@
 package initlz
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"runtime"
 )
 
 // system init
-func SystemInit() {
-	if !runOnLinuxSystem() {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Please execute on Linux system\n", 41)
+func init() {
+	// Determine if the operating system is linux
+	if runtime.GOOS != "linux" {
+		log.Println("[err] Please run on linux system.")
 		os.Exit(1)
 	}
-	setCores()
-}
-
-func runOnLinuxSystem() bool {
-	return runtime.GOOS == "linux"
-}
-
-func runWithRootPrivileges() bool {
-	return os.Geteuid() == 0
-}
-
-// Allocate 2/3 cores to the program
-func setCores() {
+	// Allocate 2/3 cores to the program
 	num := runtime.NumCPU()
 	num = num * 2 / 3
 	if num <= 1 {

@@ -34,7 +34,7 @@ const (
 RpcAddr      = ""
 # Path to the mounted disk where the data is saved
 MountedPath  = ""
-# Total space used to store files, the unit is GB
+# Total space used to store files, the unit is GiB
 StorageSpace = 0
 # The IP of the machine running the mining service
 ServiceIP    = ""
@@ -48,15 +48,17 @@ SignatureAcc = ""
 DomainName   = ""`
 )
 
-type Confiler interface {
+type IConfile interface {
 	Parse(path string) error
 	GetRpcAddr() string
 	GetServiceAddr() string
 	GetServicePort() string
 	GetServicePortNum() int
-	GetDataDir() string
 	GetCtrlPrk() string
 	GetIncomeAcc() string
+	GetMountedPath() string
+	GetStorageSpace() uint64
+	GetStorageSpaceOnTiB() uint64
 }
 
 type confile struct {
@@ -70,7 +72,7 @@ type confile struct {
 	DomainName   string `toml:"DomainName"`
 }
 
-func NewConfigfile() Confiler {
+func NewConfigfile() IConfile {
 	return &confile{}
 }
 
@@ -157,14 +159,26 @@ func (c *confile) GetServicePortNum() int {
 	return int(c.ServicePort)
 }
 
-func (c *confile) GetDataDir() string {
-	return c.MountedPath
-}
-
 func (c *confile) GetCtrlPrk() string {
 	return c.SignatureAcc
 }
 
 func (c *confile) GetIncomeAcc() string {
 	return c.IncomeAcc
+}
+
+func (c *confile) GetMountedPath() string {
+	return c.MountedPath
+}
+
+func (c *confile) GetStorageSpace() uint64 {
+	return c.StorageSpace
+}
+
+func (c *confile) GetStorageSpaceOnTiB() uint64 {
+	val := c.StorageSpace / 1024
+	if c.StorageSpace%1024 > 0 {
+		val += 1
+	}
+	return val
 }

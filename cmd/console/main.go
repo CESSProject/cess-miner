@@ -34,10 +34,9 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(
 		defaultCommand(),
-		Command_Version(),
-		Command_Register(),
+		versionCommand(),
 		stateCommand(),
-		Command_Run(),
+		runCommand(),
 		Command_Exit(),
 		Command_Increase(),
 		Command_Withdraw(),
@@ -58,7 +57,7 @@ func Execute() {
 	}
 }
 
-func Command_Version() *cobra.Command {
+func versionCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
@@ -81,16 +80,6 @@ func defaultCommand() *cobra.Command {
 	return cc
 }
 
-func Command_Register() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "register",
-		Short:                 "Register mining miner information to the chain",
-		Run:                   Command_Register_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
 func stateCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "state",
@@ -101,11 +90,11 @@ func stateCommand() *cobra.Command {
 	return cc
 }
 
-func Command_Run() *cobra.Command {
+func runCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
 		Short:                 "Register and start mining",
-		Run:                   Command_Run_Runfunc,
+		Run:                   runCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

@@ -48,6 +48,8 @@ type IChain interface {
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
 	// GetFileMetaInfo is used to get the meta information of the file
 	GetFileMetaInfo(fid string) (FileMetaInfo, error)
+	// GetCessAccount is used to get the account in cess chain format
+	GetCessAccount() (string, error)
 
 	// // GetStashPublicKey returns its stash account public key
 	// GetStashPublicKey() ([]byte, error)

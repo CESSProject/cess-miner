@@ -17,6 +17,7 @@
 package chain
 
 import (
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
@@ -24,6 +25,10 @@ import (
 // GetPublicKey returns your own public key
 func (c *chainClient) GetPublicKey() []byte {
 	return c.keyring.PublicKey
+}
+
+func (c *chainClient) GetCessAccount() (string, error) {
+	return utils.EncodePublicKeyAsCessAccount(c.keyring.PublicKey)
 }
 
 func (c *chainClient) GetSyncStatus() (bool, error) {

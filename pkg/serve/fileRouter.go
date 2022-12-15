@@ -35,7 +35,7 @@ import (
 type FileRouter struct {
 	BaseRouter
 	Chain   chain.IChain
-	Logs    logger.Logger
+	Logs    logger.ILog
 	Cach    db.ICache
 	FileDir string
 }

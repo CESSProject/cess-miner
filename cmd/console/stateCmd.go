@@ -23,8 +23,8 @@ import (
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/internal/chain"
-	"github.com/CESSProject/cess-bucket/internal/confile"
+	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/spf13/cobra"
 )
 

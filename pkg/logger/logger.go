@@ -29,7 +29,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Logger interface {
+type ILog interface {
 	Log(string, string, error)
 	Pnc(string, error)
 	Common(string, error)
@@ -41,7 +41,7 @@ type logs struct {
 	log     map[string]*zap.Logger
 }
 
-func NewLogs(logfiles map[string]string) (Logger, error) {
+func NewLogs(logfiles map[string]string) (ILog, error) {
 	var (
 		logpath = make(map[string]string, 0)
 		logCli  = make(map[string]*zap.Logger)
