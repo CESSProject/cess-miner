@@ -40,8 +40,8 @@ func init() {
 		exitCommand(),
 		increaseCommand(),
 		withdrawCommand(),
-		Command_UpdateAddress(),
-		Command_UpdateIncome(),
+		updateAddrCommand(),
+		updateIncomeCommand(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Specify the configuration file")
 }
@@ -130,22 +130,22 @@ func withdrawCommand() *cobra.Command {
 	return cc
 }
 
-func Command_UpdateAddress() *cobra.Command {
+func updateAddrCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "update_address",
 		Short:                 "Update the miner's access address",
 		Example:               "bucket update_address ip:port",
-		Run:                   Command_UpdateAddress_Runfunc,
+		Run:                   updateAddrCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_UpdateIncome() *cobra.Command {
+func updateIncomeCommand() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "update_income",
 		Short:                 "Update the miner's income account",
-		Run:                   Command_UpdateIncome_Runfunc,
+		Run:                   updateIncomeCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

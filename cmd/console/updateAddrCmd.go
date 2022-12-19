@@ -30,12 +30,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Update the miner's access address
-func Command_UpdateAddress_Runfunc(cmd *cobra.Command, args []string) {
+// updateAddrCmd is used to Update the miner's access address
+//
+// Usage:
+//
+//	bucket update_address <ipv4:port>
+func updateAddrCmd(cmd *cobra.Command, args []string) {
 	if len(os.Args) >= 3 {
 		data := strings.Split(os.Args[2], ":")
 		if len(data) != 2 {
-			log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket address ip:port[domain_name]'\n", 41)
+			log.Printf("\x1b[%dm[err]\x1b[0m You should enter something like 'bucket address ipv4:port'\n", 41)
 			os.Exit(1)
 		}
 		if !utils.IsIPv4(data[0]) {

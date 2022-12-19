@@ -11,7 +11,7 @@ COPY . /opt/target/
 
 # Build the thing.
 RUN cd /opt/target/ \
-  && go build -ldflags '-w -s' -gcflags '-N -l' -o cess-bucket cmd/main/main.go
+  && go build -ldflags '-w -s' -gcflags '-N -l' -o cess-bucket cmd/main.go
 
 FROM cesslab/cess-pbc-env:latest
 WORKDIR /opt/cess
