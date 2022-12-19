@@ -20,4 +20,5 @@ const (
 	CacheDir  = "cache"
 	FileDir   = "file"
 	FillerDir = "filler"
+	TmpDir    = "tmp"
 )

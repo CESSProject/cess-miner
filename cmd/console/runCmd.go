@@ -62,7 +62,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Build data directory
-	logDir, cacheDir, node.FillerDir, node.FileDir, err = buildDir(node.Cfile, node.Chn)
+	logDir, cacheDir, node.FillerDir, node.FileDir, node.TmpDir, err = buildDir(node.Cfile, node.Chn)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -90,6 +90,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		node.Logs,
 		node.Cach,
 		node.FileDir,
+		node.TmpDir,
 	)
 
 	// run
@@ -195,10 +196,10 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 	return nil
 }
 
-func buildDir(cfg confile.IConfile, chn chain.IChain) (string, string, string, string, error) {
+func buildDir(cfg confile.IConfile, chn chain.IChain) (string, string, string, string, string, error) {
 	ctrlAcc, err := chn.GetCessAccount()
 	if err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", err
 	}
 	baseDir := filepath.Join(cfg.GetMountedPath(), ctrlAcc, configs.BaseDir)
 
@@ -206,32 +207,37 @@ func buildDir(cfg confile.IConfile, chn chain.IChain) (string, string, string, s
 	if err != nil {
 		err = os.MkdirAll(baseDir, configs.DirPermission)
 		if err != nil {
-			return "", "", "", "", err
+			return "", "", "", "", "", err
 		}
 	}
 
 	logDir := filepath.Join(baseDir, configs.LogDir)
 	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(baseDir, configs.CacheDir)
 	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", err
 	}
 
 	fillerDir := filepath.Join(baseDir, configs.FillerDir)
 	if err := os.MkdirAll(fillerDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", err
 	}
 
 	fileDir := filepath.Join(baseDir, configs.FileDir)
 	if err := os.MkdirAll(fileDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", err
+	}
+
+	tmpDir := filepath.Join(baseDir, configs.TmpDir)
+	if err := os.MkdirAll(tmpDir, configs.DirPermission); err != nil {
+		return "", "", "", "", "", err
 	}
 
 	log.Println(baseDir)
-	return logDir, cacheDir, fillerDir, fileDir, nil
+	return logDir, cacheDir, fillerDir, fileDir, tmpDir, nil
 }
 
 func buildCache(cacheDir string) (db.ICache, error) {
@@ -246,14 +252,14 @@ func buildLogs(logDir string) (logger.ILog, error) {
 	return logger.NewLogs(logs_info)
 }
 
-func buildServer(name string, port int, chain chain.IChain, logs logger.ILog, cach db.ICache, filedir string) serve.IServer {
+func buildServer(name string, port int, chain chain.IChain, logs logger.ILog, cach db.ICache, filedir, tmpDir string) serve.IServer {
 	// NewServer
 	s := serve.NewServer(name, "0.0.0.0", port)
 
 	// Configure Routes
 	s.AddRouter(serve.Msg_Ping, &serve.PingRouter{})
 	s.AddRouter(serve.Msg_Auth, &serve.AuthRouter{})
-	s.AddRouter(serve.Msg_File, &serve.FileRouter{Chain: chain, Logs: logs, FileDir: filedir, Cach: cach})
+	s.AddRouter(serve.Msg_File, &serve.FileRouter{Chain: chain, Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
 
 	return s
 }

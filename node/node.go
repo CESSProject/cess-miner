@@ -20,6 +20,7 @@ type Node struct {
 	Cach      db.ICache
 	FillerDir string
 	FileDir   string
+	TmpDir    string
 }
 
 // New is used to build a node instance

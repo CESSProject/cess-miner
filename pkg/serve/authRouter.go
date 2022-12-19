@@ -29,7 +29,7 @@ import (
 
 type AuthRouter struct {
 	BaseRouter
-	Cache db.ICache
+	Cach db.ICache
 }
 
 type MsgAuth struct {
@@ -49,15 +49,15 @@ func (this *AuthRouter) Handle(ctx context.CancelFunc, request IRequest) {
 	}
 
 	remote := request.GetConnection().RemoteAddr().String()
-	val, err := this.Cache.Get([]byte(remote))
+	val, err := this.Cach.Get([]byte(remote))
 	if err != nil {
-		this.Cache.Put([]byte(remote), utils.Int64ToBytes(time.Now().Unix()))
+		this.Cach.Put([]byte(remote), utils.Int64ToBytes(time.Now().Unix()))
 	} else {
 		if time.Since(time.Unix(utils.BytesToInt64(val), 0)).Minutes() < 1 {
 			ctx()
 			return
 		} else {
-			this.Cache.Delete([]byte(remote))
+			this.Cach.Delete([]byte(remote))
 		}
 	}
 
@@ -65,6 +65,12 @@ func (this *AuthRouter) Handle(ctx context.CancelFunc, request IRequest) {
 	err = json.Unmarshal(request.GetData(), &msg)
 	if err != nil {
 		ctx()
+		return
+	}
+
+	val, err = this.Cach.Get([]byte(TokenKey_Acc + msg.Account))
+	if err == nil {
+		request.GetConnection().SendMsg(Msg_OK, val)
 		return
 	}
 
@@ -89,5 +95,6 @@ func (this *AuthRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		ctx()
 		return
 	}
-	Tokens.Add(token)
+	this.Cach.Put([]byte(TokenKey_Acc+msg.Account), []byte(token))
+	this.Cach.Put([]byte(TokenKey_Token+token), nil)
 }

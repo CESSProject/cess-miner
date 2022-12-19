@@ -20,6 +20,7 @@ const (
 	Msg_Ping = iota + 100
 	Msg_Auth
 	Msg_File
+	Msg_Down
 	Msg_Progress
 )
 
@@ -27,6 +28,12 @@ const (
 	Msg_OK        = 200
 	Msg_OK_FILE   = 201
 	Msg_ClientErr = 400
+	Msg_NotFound  = 404
 	Msg_Forbidden = 403
 	Msg_ServerErr = 500
+)
+
+const (
+	TokenKey_Token = "token_token:"
+	TokenKey_Acc   = "token_acc:"
 )

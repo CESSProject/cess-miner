@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
@@ -38,22 +37,15 @@ type FileRouter struct {
 	Logs    logger.ILog
 	Cach    db.ICache
 	FileDir string
+	TmpDir  string
 }
 
 type MsgFile struct {
-	Token    string `json:"token"`
-	RootHash string `json:"roothash"`
-	FileHash string `json:"filehash"`
-	FileSize int64  `json:"filesize"`
-	LastSize int64  `json:"lastsize"`
-	LastFile bool   `json:"lastfile"`
-	Data     []byte `json:"data"`
-}
-
-var sendFileBufPool = &sync.Pool{
-	New: func() interface{} {
-		return make([]byte, configs.SIZE_1MiB)
-	},
+	Token     string `json:"token"`
+	RootHash  string `json:"roothash"`
+	SliceHash string `json:"slicehash"`
+	FileSize  int64  `json:"filesize"`
+	Data      []byte `json:"data"`
 }
 
 // FileRouter Handle
@@ -75,58 +67,76 @@ func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		return
 	}
 
-	if !Tokens.Update(msg.Token) {
-		request.GetConnection().SendMsg(Msg_Forbidden, nil)
-		return
-	}
-
-	fpath := filepath.Join(f.FileDir, msg.FileHash)
-	finfo, err := os.Stat(fpath)
-	if err != nil {
-		request.GetConnection().SendBuffMsg(Msg_ServerErr, nil)
-		return
-	}
-
-	if finfo.Size() == configs.SIZE_SLICE {
-		hash, _ := utils.CalcPathSHA256(fpath)
-		if hash == msg.FileHash {
-			request.GetConnection().SendBuffMsg(Msg_OK_FILE, nil)
-			return
-		}
-	} else if finfo.Size() > configs.SIZE_SLICE {
+	if msg.FileSize > int64(configs.SIZE_SLICE) {
 		request.GetConnection().SendMsg(Msg_ClientErr, nil)
 		return
 	}
 
-	fs, err := os.OpenFile(msg.FileHash, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		fmt.Println("OpenFile  error")
-		ctx()
+	ok, _ := f.Cach.Has([]byte(TokenKey_Token + msg.Token))
+	if !ok {
+		request.GetConnection().SendMsg(Msg_Forbidden, nil)
 		return
 	}
-	defer fs.Close()
+
+	fpath := filepath.Join(f.TmpDir, msg.SliceHash)
+	finfo, err := os.Stat(fpath)
+	if err == nil {
+		if finfo.Size() == configs.SIZE_SLICE {
+			hash, _ := utils.CalcPathSHA256(fpath)
+			if hash == msg.SliceHash {
+				request.GetConnection().SendBuffMsg(Msg_OK_FILE, nil)
+				return
+			} else {
+				os.Remove(fpath)
+				request.GetConnection().SendMsg(Msg_ClientErr, nil)
+				return
+			}
+		} else if finfo.Size() > configs.SIZE_SLICE {
+			request.GetConnection().SendMsg(Msg_ClientErr, nil)
+			os.Remove(fpath)
+			return
+		}
+	}
+	fs, err := os.OpenFile(fpath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		fmt.Println("OpenFile  error")
+		request.GetConnection().SendMsg(Msg_ServerErr, nil)
+		return
+	}
 
 	fs.Write(msg.Data)
 	err = fs.Sync()
 	if err != nil {
+		fs.Close()
 		fmt.Println("Sync  error")
-		ctx()
+		request.GetConnection().SendMsg(Msg_ServerErr, nil)
 		return
 	}
 
-	if msg.LastFile {
-		finfo, err = fs.Stat()
-		if finfo.Size() == msg.LastSize {
-			request.GetConnection().SendMsg(Msg_OK_FILE, nil)
-			//
-			appendBuf := make([]byte, configs.SIZE_SLICE-msg.LastSize)
+	finfo, err = fs.Stat()
+	if finfo.Size() == msg.FileSize {
+		// Fill to 512MB
+		if msg.FileSize < configs.SIZE_SLICE {
+			appendBuf := make([]byte, configs.SIZE_SLICE-msg.FileSize)
 			fs.Write(appendBuf)
 			fs.Sync()
-			return
 		}
+		fs.Close()
+		hash, _ := utils.CalcPathSHA256(fpath)
+		if hash == msg.SliceHash {
+			request.GetConnection().SendBuffMsg(Msg_OK_FILE, nil)
+			// TODO:
+			// Calc tag call sgx
+		} else {
+			os.Remove(fpath)
+			request.GetConnection().SendMsg(Msg_ClientErr, nil)
+		}
+		return
 	}
+
 	err = request.GetConnection().SendMsg(Msg_OK, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
+	fs.Close()
 }
