@@ -163,7 +163,7 @@ func buildChain(cfg confile.IConfile, timeout time.Duration) (chain.IChain, erro
 
 func register(chn chain.IChain, cfg confile.IConfile) error {
 	//Calculate the deposit based on the size of the storage space
-	pledgeTokens := configs.DepositPerTB * cfg.GetStorageSpaceOnTiB()
+	pledgeTokens := configs.DepositPerTiB * cfg.GetStorageSpaceOnTiB()
 
 	//Registration information on the chain
 	txhash, err := chn.Register(

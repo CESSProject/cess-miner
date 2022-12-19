@@ -31,8 +31,8 @@ import (
 
 type ILog interface {
 	Log(string, string, error)
-	Pnc(string, error)
-	Common(string, error)
+	Pnc(error)
+	Out(string, error)
 	Upfile(string, error)
 }
 
@@ -84,18 +84,15 @@ func (l *logs) Log(name, level string, err error) {
 	}
 }
 
-func (l *logs) Pnc(level string, err error) {
+func (l *logs) Pnc(err error) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["panic"]
 	if ok {
-		switch level {
-		case "error", "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		}
+		v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
 	}
 }
 
-func (l *logs) Common(level string, err error) {
+func (l *logs) Out(level string, err error) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["common"]
 	if ok {

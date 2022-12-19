@@ -159,10 +159,10 @@ func GetRandomcode(length uint8) string {
 
 // ClearMemBuf is used to clear membuf
 func ClearMemBuf() {
-	exec.Command("bash", "-c", "sync;sync;sync;sync;sync;sync;")
-	exec.Command("bash", "-c", "echo 1 > /proc/sys/vm/drop_caches")
-	exec.Command("bash", "-c", "echo 2 > /proc/sys/vm/drop_caches")
-	exec.Command("bash", "-c", "echo 3 > /proc/sys/vm/drop_caches")
+	exec.Command("bash", "-c", "sync;sync;sync;sync;sync;sync;").Output()
+	exec.Command("bash", "-c", "echo 1 > /proc/sys/vm/drop_caches").Output()
+	exec.Command("bash", "-c", "echo 2 > /proc/sys/vm/drop_caches").Output()
+	exec.Command("bash", "-c", "echo 3 > /proc/sys/vm/drop_caches").Output()
 }
 
 // Get external network ip

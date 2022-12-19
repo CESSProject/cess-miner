@@ -1,12 +1,28 @@
+/*
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package node
 
 import (
-	"log"
+	"fmt"
 	"runtime"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/internal/chain"
-	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/tools"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 
 	"os"
 	"time"
@@ -14,48 +30,33 @@ import (
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 )
 
-func (node *Node) task_self_judgment(ch chan bool) {
+func (n *Node) task_common(ch chan bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			Pnc.Sugar().Errorf("[panic]: %v", err)
+			n.Logs.Pnc(utils.RecoverError(err))
 		}
 		ch <- true
 	}()
-	Out.Info(">>>>> Start task_self_judgment <<<<<")
-	var failcount uint8
-	var count uint8
-	var clearMemNum uint8
-	minfo, err := chain.GetMinerInfo(nil)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-	pattern.SetMinerState(string(minfo.State))
+	n.Logs.Out("info", fmt.Errorf(">>>>> Start task_common <<<<<"))
+
+	timer_ClearMem := time.NewTimer(configs.ClearMemInterval)
+	defer timer_ClearMem.Stop()
+	timer_GC := time.NewTimer(time.Minute)
+	defer timer_GC.Stop()
 
 	for {
-		time.Sleep(time.Minute)
-		runtime.GC()
-		count++
-		clearMemNum++
-		if count >= 5 {
-			count = 0
-			minfo, err := chain.GetMinerInfo(nil)
+		select {
+		case <-timer_ClearMem.C:
+			utils.ClearMemBuf()
+			_, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
-					failcount++
+					os.Exit(1)
 				}
-			} else {
-				failcount = 0
-				pattern.SetMinerState(string(minfo.State))
 			}
-			if failcount >= 10 {
-				os.Exit(1)
-			}
-		}
-		if clearMemNum >= 200 {
-			clearMemNum = 0
-			tools.ClearMemBuf()
+		case <-timer_GC.C:
+			runtime.GC()
 		}
 	}
 }
