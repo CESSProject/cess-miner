@@ -81,13 +81,12 @@ func (c *chainClient) GetMinerInfo(pkey []byte) (MinerInfo, error) {
 	return data, nil
 }
 
-// Get all challenges
-func (c *chainClient) GetChallenges() ([]ChallengesInfo, error) {
+func (c *chainClient) GetChallenges() (NetworkSnapshot, error) {
 	defer func() {
 		recover()
 	}()
 
-	var data []ChallengesInfo
+	var data NetworkSnapshot
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -98,19 +97,18 @@ func (c *chainClient) GetChallenges() ([]ChallengesInfo, error) {
 	key, err := types.CreateStorageKey(
 		c.metadata,
 		state_SegmentBook,
-		segmentBook_ChallengeMap,
-		c.GetPublicKey(),
+		segmentBook_ChallengeSnapshot,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "[CreateStorageKey]")
+		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
 	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, "[GetStorageLatest]")
+		return data, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return nil, errors.New(ERR_Empty)
+		return data, errors.New(ERR_Empty)
 	}
 	return data, nil
 }

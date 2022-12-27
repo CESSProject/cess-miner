@@ -117,8 +117,9 @@ const (
 // log file
 var (
 	LogFiles = []string{
-		"common", //General log
-		"panic",  //Panic log
-		"upfile", //Upload file log
+		"common",    //General log
+		"panic",     //Panic log
+		"upfile",    //Upload file log
+		"challenge", //Challenge log
 	}
 )

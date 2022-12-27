@@ -35,8 +35,8 @@ const (
 	sminer_MinerDetails = "MinerDetails"
 	sminer_MinerLockIn  = "MinerLockIn"
 	// SegmentBook
-	segmentBook_MinerHoldSlice = "MinerHoldSlice"
-	segmentBook_ChallengeMap   = "ChallengeMap"
+	segmentBook_MinerHoldSlice    = "MinerHoldSlice"
+	segmentBook_ChallengeSnapshot = "ChallengeSnapshot"
 	// FileMap
 	fileMap_FileMetaInfo  = "File"
 	fileMap_SchedulerPuk  = "SchedulerPuk"
@@ -58,4 +58,15 @@ const (
 	segmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
 	tx_FileBank_ClearInvalidFile     = "FileBank.clear_invalid_file"
 	FileBank_ClearFiller             = "FileBank.clear_all_filler"
+)
+
+const (
+	FILE_STATE_ACTIVE  = "active"
+	FILE_STATE_PENDING = "pending"
+)
+
+const (
+	MINER_STATE_POSITIVE = "positive"
+	MINER_STATE_FROZEN   = "frozen"
+	MINER_STATE_EXIT     = "exit"
 )

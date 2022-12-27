@@ -18,16 +18,13 @@ package node
 
 import (
 	"fmt"
-	"runtime"
-
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/internal/chain"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
-
 	"os"
+	"runtime"
 	"time"
 
-	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 )
 
 func (n *Node) task_common(ch chan bool) {

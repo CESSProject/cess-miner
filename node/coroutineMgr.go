@@ -24,7 +24,7 @@ func (n *Node) CoroutineMgr() {
 	)
 	go n.task_common(ch_common)
 	go n.task_RemoveInvalidFiles(channel_2)
-	go n.task_HandlingChallenges(ch_challenge)
+	go n.task_challenge(ch_challenge)
 
 	for {
 		select {
@@ -33,7 +33,7 @@ func (n *Node) CoroutineMgr() {
 		case <-channel_2:
 			go n.task_RemoveInvalidFiles(channel_2)
 		case <-ch_challenge:
-			go n.task_HandlingChallenges(ch_challenge)
+			go n.task_challenge(ch_challenge)
 		}
 	}
 }

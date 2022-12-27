@@ -45,13 +45,13 @@ type MsgFile struct {
 	RootHash  string `json:"roothash"`
 	SliceHash string `json:"slicehash"`
 	FileSize  int64  `json:"filesize"`
+	Lastfile  bool   `json:"lastfile"`
 	Data      []byte `json:"data"`
 }
 
 // FileRouter Handle
 func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
-	fmt.Println("Call FileRouter Handle")
-	fmt.Println("recv from client : msgId=", request.GetMsgID())
+	fmt.Println("Call FileRouter Handle msgId=", request.GetMsgID())
 
 	if request.GetMsgID() != Msg_File {
 		fmt.Println("MsgId error")

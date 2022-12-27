@@ -41,7 +41,6 @@ type DownRouter struct {
 
 type MsgDown struct {
 	Token     string `json:"token"`
-	RootHash  string `json:"roothash"`
 	SliceHash string `json:"slicehash"`
 	FileSize  int64  `json:"filesize"`
 	Index     uint32 `json:"index"`

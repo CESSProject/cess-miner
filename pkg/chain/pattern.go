@@ -34,6 +34,7 @@ var (
 
 type FileHash [64]types.U8
 type SliceId [68]types.U8
+type Random [20]types.U8
 
 // storage miner info
 type MinerInfo struct {
@@ -172,16 +173,6 @@ type ProofResult struct {
 	Result    types.Bool
 }
 
-// Challenge information structure
-type ChallengesInfo struct {
-	File_size  types.U64
-	File_type  types.U8
-	Block_list types.Bytes
-	File_id    FileHash
-	Shard_id   SliceId
-	Random     []types.Bytes
-}
-
 // Scheduling node public key information structure
 type Chain_SchedulerPuk struct {
 	Spk           [128]types.U8
@@ -193,11 +184,11 @@ type Chain_SchedulerPuk struct {
 type ProveInfo struct {
 	FileId   FileHash
 	MinerAcc types.AccountID
-	Cinfo    ChallengesInfo
-	Mu       types.Bytes
-	Sigma    types.Bytes
-	U        types.Bytes
-	HashMi   []types.Bytes
+	//Cinfo    ChallengesInfo
+	Mu     types.Bytes
+	Sigma  types.Bytes
+	U      types.Bytes
+	HashMi []types.Bytes
 }
 
 // IasCert
@@ -218,4 +209,12 @@ type QuoteBody struct {
 // Signature
 type Signature struct {
 	//TODO
+}
+
+type NetworkSnapshot struct {
+	Total_power types.U128
+	Reward      types.U128
+	Random      Random
+	Start       types.U32
+	Deadline    types.U32
 }

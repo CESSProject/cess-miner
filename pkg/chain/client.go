@@ -35,7 +35,7 @@ type IChain interface {
 	// GetMinerInfo is used to get the details of the miner
 	GetMinerInfo(pkey []byte) (MinerInfo, error)
 	//
-	GetChallenges() ([]ChallengesInfo, error)
+	GetChallenges() (NetworkSnapshot, error)
 	//
 	GetInvalidFiles() ([]FileHash, error)
 	// GetAllSchedulerInfo is used to get information about all schedules
@@ -79,7 +79,7 @@ type IChain interface {
 	// Storage miner redemption deposit function
 	Withdraw() (string, error)
 	// submission proof
-	SubmitProofs(data []ProveInfo) (string, error)
+	SubmitProofs(msg []byte, sign Signature) (string, error)
 	// Clear invalid files
 	ClearInvalidFiles(fid FileHash) (string, error)
 	// Clear all filler files
