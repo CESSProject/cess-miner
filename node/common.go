@@ -19,6 +19,7 @@ package node
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -39,6 +40,8 @@ func (n *Node) task_common(ch chan bool) {
 
 	timer_ClearMem := time.NewTimer(configs.ClearMemInterval)
 	defer timer_ClearMem.Stop()
+	timer_ClearFiles := time.NewTimer(configs.ClearFilesInterval)
+	defer timer_ClearFiles.Stop()
 	timer_GC := time.NewTimer(time.Minute)
 	defer timer_GC.Stop()
 
@@ -51,6 +54,43 @@ func (n *Node) task_common(ch chan bool) {
 				if err.Error() == chain.ERR_Empty {
 					os.Exit(1)
 				}
+			}
+		case <-timer_ClearFiles.C:
+			invalidFiles, err := n.Chn.GetInvalidFiles()
+			if err != nil {
+				if err.Error() != chain.ERR_Empty {
+					n.Logs.Clr("err", err)
+				}
+			}
+
+			if len(invalidFiles) == 0 {
+				continue
+			}
+
+			n.Logs.Clr("info", fmt.Errorf("Prepare to remove invalid files [%v]", len(invalidFiles)))
+			for x := 0; x < len(invalidFiles); x++ {
+				n.Logs.Clr("info", fmt.Errorf("   %v: %s", x, string(invalidFiles[x][:])))
+			}
+
+			for i := 0; i < len(invalidFiles); i++ {
+				fileid := string(invalidFiles[i][:])
+				filefullpath := ""
+				filetagfullpath := ""
+				if fileid[:4] != "cess" {
+					filefullpath = filepath.Join(n.FillerDir, fileid)
+					filetagfullpath = filepath.Join(n.FillerDir, fileid+".tag")
+				} else {
+					filefullpath = filepath.Join(n.FileDir, fileid)
+					filetagfullpath = filepath.Join(n.FileDir, fileid+".tag")
+				}
+				txhash, err := n.Chn.ClearInvalidFiles(invalidFiles[i])
+				if txhash != "" {
+					n.Logs.Clr("info", fmt.Errorf("[%v] Cleared %v", string(invalidFiles[i][:]), txhash))
+				} else {
+					n.Logs.Clr("err", fmt.Errorf("[%v] Cleared err: %v", string(invalidFiles[i][:]), err))
+				}
+				os.Remove(filefullpath)
+				os.Remove(filetagfullpath)
 			}
 		case <-timer_GC.C:
 			runtime.GC()

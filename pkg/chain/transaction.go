@@ -459,8 +459,7 @@ func (c *chainClient) Withdraw() (string, error) {
 	}
 }
 
-// Bulk submission proof
-func (c *chainClient) SubmitProofs(data []ProveInfo) (string, error) {
+func (c *chainClient) SubmitProofs(msg []byte, sign Signature) (string, error) {
 	defer func() {
 		recover()
 	}()
@@ -479,7 +478,7 @@ func (c *chainClient) SubmitProofs(data []ProveInfo) (string, error) {
 	}
 	c.SetChainState(true)
 
-	call, err := types.NewCall(c.metadata, segmentBook_SubmitProve, data)
+	call, err := types.NewCall(c.metadata, tx_SegmentBook_SubmitProve, types.Bytes(msg), sign)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}

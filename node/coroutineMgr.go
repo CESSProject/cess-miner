@@ -20,18 +20,14 @@ func (n *Node) CoroutineMgr() {
 	var (
 		ch_common    = make(chan bool, 1)
 		ch_challenge = make(chan bool, 1)
-		channel_2    = make(chan bool, 1)
 	)
 	go n.task_common(ch_common)
-	go n.task_RemoveInvalidFiles(channel_2)
 	go n.task_challenge(ch_challenge)
 
 	for {
 		select {
 		case <-ch_common:
 			go n.task_common(ch_common)
-		case <-channel_2:
-			go n.task_RemoveInvalidFiles(channel_2)
 		case <-ch_challenge:
 			go n.task_challenge(ch_challenge)
 		}

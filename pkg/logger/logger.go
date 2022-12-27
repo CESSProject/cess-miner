@@ -35,6 +35,7 @@ type ILog interface {
 	Out(string, error)
 	Upfile(string, error)
 	Chlg(string, error)
+	Clr(string, error)
 }
 
 type logs struct {
@@ -117,8 +118,6 @@ func (l *logs) Upfile(level string, err error) {
 			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
 		case "error", "err":
 			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
 		}
 	}
 }
@@ -132,8 +131,19 @@ func (l *logs) Chlg(level string, err error) {
 			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
 		case "error", "err":
 			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
+		}
+	}
+}
+
+func (l *logs) Clr(level string, err error) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["clear"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
+		case "error", "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
 		}
 	}
 }

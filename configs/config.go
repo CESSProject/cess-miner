@@ -55,6 +55,8 @@ const (
 	DirPermission = 755
 	//
 	ClearMemInterval = time.Duration(time.Minute * 10)
+	//
+	ClearFilesInterval = time.Duration(time.Minute * 5)
 )
 
 const (
@@ -121,5 +123,6 @@ var (
 		"panic",     //Panic log
 		"upfile",    //Upload file log
 		"challenge", //Challenge log
+		"clear",     //Clear log
 	}
 )
