@@ -88,6 +88,8 @@ type IChain interface {
 	UpdateAddress(ip, port string) (string, error)
 	//
 	UpdateIncome(acc types.AccountID) (string, error)
+	//
+	SubmitFillerMeta(info []FillerMetaInfo) (string, error)
 
 	// // SubmitProofResults is used to submit proof verification results
 	// SubmitProofResults(data []ProofResult) (string, error)

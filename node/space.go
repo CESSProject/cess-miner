@@ -34,9 +34,11 @@ func (n *Node) task_space(ch chan<- bool) {
 		ch <- true
 	}()
 	var (
-		err       error
-		freeSpace uint64
-		minerInfo chain.MinerInfo
+		err        error
+		txHash     string
+		freeSpace  uint64
+		minerInfo  chain.MinerInfo
+		fillerInfo = make([]chain.FillerMetaInfo, configs.NumOfFillerSubmitted)
 	)
 	n.Logs.Space("info", fmt.Errorf(">>>>> Start task_space <<<<<"))
 	time.Sleep(configs.BlockInterval)
@@ -61,13 +63,24 @@ func (n *Node) task_space(ch chan<- bool) {
 		}
 
 		//TODO:
+		for i := 0; i < configs.NumOfFillerSubmitted; i++ {
+			//Call sgx to generate a filler
+			fillerInfo[i] = fillerInfo[i]
+		}
 
-		//Call sgx to generate a filler
-
-		//Call sgx to calc filler tag
-
-		//Report filler tag to chain
-
+		//Submit filler info to chain
+		for {
+			txHash, err = n.Chn.SubmitFillerMeta(fillerInfo)
+			if err != nil {
+				n.Logs.Space("err", err)
+			}
+			if txHash != "" {
+				n.Logs.Space("info", fmt.Errorf("Submit filler meta: %v", txHash))
+				break
+			}
+			time.Sleep(configs.BlockInterval)
+		}
+		fillerInfo = make([]chain.FillerMetaInfo, configs.NumOfFillerSubmitted)
 	}
 }
 

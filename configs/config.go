@@ -50,6 +50,8 @@ const (
 	BlockInterval = time.Second * time.Duration(6)
 	// Token length
 	TokenLength = 32
+	//
+	NumOfFillerSubmitted = 10
 )
 
 const (

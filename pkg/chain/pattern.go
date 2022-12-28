@@ -97,10 +97,7 @@ type SliceInfo struct {
 type FillerMetaInfo struct {
 	Size      types.U64
 	Index     types.U32
-	BlockNum  types.U32
-	BlockSize types.U32
-	ScanSize  types.U32
-	Acc       types.AccountID
+	Miner_acc types.AccountID
 	Hash      FileHash
 }
 

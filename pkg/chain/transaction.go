@@ -932,6 +932,7 @@ func (c *chainClient) UpdateIncome(acc types.AccountID) (string, error) {
 	}
 	defer sub.Unsubscribe()
 	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -946,6 +947,101 @@ func (c *chainClient) UpdateIncome(acc types.AccountID) (string, error) {
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
 				if len(events.Sminer_UpdataBeneficiary) > 0 {
+					return txhash, nil
+				}
+				return txhash, errors.New(ERR_Failed)
+			}
+		case err = <-sub.Err():
+			return "", err
+		case <-timeout.C:
+			return "", errors.Errorf(ERR_Timeout)
+		}
+	}
+}
+
+// Update file meta information
+func (c *chainClient) SubmitFillerMeta(info []FillerMetaInfo) (string, error) {
+	var (
+		txhash      string
+		accountInfo types.AccountInfo
+	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return txhash, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	call, err := types.NewCall(c.metadata, tx_FileBank_UploadFiller, c.keyring.PublicKey, info)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewCall]")
+	}
+
+	ext := types.NewExtrinsic(call)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewExtrinsic]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		state_System,
+		system_Account,
+		c.keyring.PublicKey,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[GetStorageLatest]")
+	}
+
+	if !ok {
+		return txhash, errors.New(ERR_Empty)
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          c.genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        c.genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        c.runtimeVersion.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: c.runtimeVersion.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(c.keyring, o)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[Sign]")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		return "", errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+	}
+	defer sub.Unsubscribe()
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := CessEventRecords{}
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
+				if err != nil {
+					return txhash, errors.Wrap(err, "GetStorageRaw")
+				}
+
+				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
+
+				if len(events.FileBank_FillerUpload) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
