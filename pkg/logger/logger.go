@@ -36,6 +36,7 @@ type ILog interface {
 	Upfile(string, error)
 	Chlg(string, error)
 	Repl(string, error)
+	Space(string, error)
 }
 
 type logs struct {
@@ -138,6 +139,19 @@ func (l *logs) Chlg(level string, err error) {
 func (l *logs) Repl(level string, err error) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["replace"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
+		case "error", "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
+		}
+	}
+}
+
+func (l *logs) Space(level string, err error) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["space"]
 	if ok {
 		switch level {
 		case "info":

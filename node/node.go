@@ -39,6 +39,8 @@ type Node struct {
 	FillerDir string
 	FileDir   string
 	TmpDir    string
+	LogDir    string
+	CacheDir  string
 }
 
 // New is used to build a node instance

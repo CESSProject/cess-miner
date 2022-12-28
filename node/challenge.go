@@ -28,7 +28,7 @@ import (
 // The task_HandlingChallenges task will automatically help you complete file challenges.
 // Apart from human influence, it ensures that you submit your certificates in a timely manner.
 // It keeps running as a subtask.
-func (n *Node) task_challenge(ch chan bool) {
+func (n *Node) task_challenge(ch chan<- bool) {
 	var (
 		txhash string
 	)

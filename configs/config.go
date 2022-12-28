@@ -82,10 +82,11 @@ const (
 // log file
 var (
 	LogFiles = []string{
-		"common",    //General log
-		"panic",     //Panic log
-		"upfile",    //Upload file log
-		"challenge", //Challenge log
+		"common",    //common log
+		"panic",     //panic log
+		"upfile",    //upload file log
+		"challenge", //challenge log
 		"replace",   //replace file log
+		"space",     //space log
 	}
 )

@@ -28,7 +28,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 )
 
-func (n *Node) task_common(ch chan bool) {
+func (n *Node) task_common(ch chan<- bool) {
 	defer func() {
 		err := recover()
 		if err != nil {

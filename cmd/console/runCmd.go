@@ -44,10 +44,8 @@ import (
 //	bucket run
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
-		err      error
-		logDir   string
-		cacheDir string
-		n        = node.New()
+		err error
+		n   = node.New()
 	)
 
 	// Build profile instances
@@ -68,21 +66,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Build data directory
-	logDir, cacheDir, n.FillerDir, n.FileDir, n.TmpDir, err = buildDir(n.Cfile, n.Chn)
+	n.LogDir, n.CacheDir, n.FillerDir, n.FileDir, n.TmpDir, err = buildDir(n.Cfile, n.Chn)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	// Build cache instance
-	n.Cach, err = buildCache(cacheDir)
+	n.Cach, err = buildCache(n.CacheDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build log instance
-	n.Logs, err = buildLogs(logDir)
+	n.Logs, err = buildLogs(n.LogDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -92,7 +90,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	n.Ser = buildServer(
 		configs.Name,
 		n.Cfile.GetServicePortNum(),
-		n.Chn,
 		n.Logs,
 		n.Cach,
 		n.FileDir,
@@ -282,14 +279,15 @@ func buildLogs(logDir string) (logger.ILog, error) {
 	return logger.NewLogs(logs_info)
 }
 
-func buildServer(name string, port int, chain chain.IChain, logs logger.ILog, cach db.ICache, filedir, tmpDir string) serve.IServer {
+func buildServer(name string, port int, logs logger.ILog, cach db.ICache, filedir, tmpDir string) serve.IServer {
 	// NewServer
 	s := serve.NewServer(name, "0.0.0.0", port)
 
 	// Configure Routes
 	s.AddRouter(serve.Msg_Ping, &serve.PingRouter{})
 	s.AddRouter(serve.Msg_Auth, &serve.AuthRouter{})
-	s.AddRouter(serve.Msg_File, &serve.FileRouter{Chain: chain, Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
+	s.AddRouter(serve.Msg_File, &serve.FileRouter{Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
+	s.AddRouter(serve.Msg_Down, &serve.DownRouter{Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
 
 	return s
 }

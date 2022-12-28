@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/chain"
 	"github.com/CESSProject/cess-bucket/pkg/db"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -33,7 +32,6 @@ import (
 // FileRouter
 type FileRouter struct {
 	BaseRouter
-	Chain   chain.IChain
 	Logs    logger.ILog
 	Cach    db.ICache
 	FileDir string
