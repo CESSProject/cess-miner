@@ -17,31 +17,26 @@
 package node
 
 import (
-	"net/http"
+	"fmt"
+	"log"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
-type Report struct {
-	Cert      string
-	Ias_sig   string
-	Quote     string
-	Quote_sig string
-}
-
-const (
-	M_Pending  = "pending"
-	M_Positive = "positive"
-	M_Frozen   = "frozen"
-	M_Exit     = "exit"
-)
-
-var (
-	Ch_Report       chan Report
-	globalTransport *http.Transport
-)
-
-func init() {
-	globalTransport = &http.Transport{
-		DisableKeepAlives: true,
-	}
-	Ch_Report = make(chan Report, 1)
+func (n *Node) StartCallback() {
+	gin.SetMode(gin.ReleaseMode)
+	go func() {
+		n.CallBack = gin.Default()
+		config := cors.DefaultConfig()
+		config.AllowAllOrigins = true
+		config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+		config.AddAllowHeaders("*")
+		n.CallBack.Use(cors.New(config))
+		// Add route
+		n.AddRoute()
+		log.Printf("[START] Callback listening on port %d\n", n.Cfile.GetSgxPortNum())
+		// Run
+		n.CallBack.Run(":" + fmt.Sprintf("%d", n.Cfile.GetSgxPortNum()))
+	}()
 }

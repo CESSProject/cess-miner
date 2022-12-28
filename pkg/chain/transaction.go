@@ -30,7 +30,7 @@ import (
 )
 
 // Storage Miner Registration Function
-func (c *chainClient) Register(incomeAcc, ip string, port uint16, pledgeTokens uint64, cert IasCert, ias_sig IasSig, quote QuoteBody, quote_sig Signature) (string, error) {
+func (c *chainClient) Register(incomeAcc, ip string, port uint16, pledgeTokens uint64, cert, ias_sig, quote, quote_sig types.Bytes) (string, error) {
 	defer func() {
 		recover()
 	}()
@@ -74,6 +74,14 @@ func (c *chainClient) Register(incomeAcc, ip string, port uint16, pledgeTokens u
 		return txhash, errors.New("[unsupported ip format]")
 	}
 
+	var quoteSign Signature
+	if len(quote_sig) != len(quoteSign) {
+		return txhash, errors.New("[Invalid quote sign]")
+	}
+	for i := 0; i < len(quote_sig); i++ {
+		quoteSign[i] = types.U8(quote_sig[i])
+	}
+
 	call, err := types.NewCall(
 		c.metadata,
 		tx_Sminer_Register,
@@ -83,7 +91,7 @@ func (c *chainClient) Register(incomeAcc, ip string, port uint16, pledgeTokens u
 		cert,
 		ias_sig,
 		quote,
-		quote_sig,
+		quoteSign,
 	)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")

@@ -18,7 +18,6 @@ package serve
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 )
 
@@ -38,7 +37,7 @@ func NewMsgHandle() *MsgHandle {
 func (mh *MsgHandle) DoMsgHandler(ctx context.CancelFunc, request IRequest) {
 	handler, ok := mh.Apis[request.GetMsgID()]
 	if !ok {
-		fmt.Println("api msgID = ", request.GetMsgID(), " is not FOUND!")
+		//fmt.Println("api msgID = ", request.GetMsgID(), " is not FOUND!")
 		return
 	}
 
@@ -52,5 +51,5 @@ func (mh *MsgHandle) AddRouter(msgID uint32, router IRouter) {
 		panic("repeated api , msgID = " + strconv.Itoa(int(msgID)))
 	}
 	mh.Apis[msgID] = router
-	fmt.Println("Add api msgID = ", msgID)
+	//fmt.Println("Add api msgID = ", msgID)
 }

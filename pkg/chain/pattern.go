@@ -35,6 +35,7 @@ var (
 type FileHash [64]types.U8
 type SliceId [68]types.U8
 type Random [20]types.U8
+type Signature [65]types.U8
 
 // storage miner info
 type MinerInfo struct {
@@ -189,26 +190,6 @@ type ProveInfo struct {
 	Sigma  types.Bytes
 	U      types.Bytes
 	HashMi []types.Bytes
-}
-
-// IasCert
-type IasCert struct {
-	//TODO
-}
-
-// IasSig
-type IasSig struct {
-	//TODO
-}
-
-// QuoteBody
-type QuoteBody struct {
-	//TODO
-}
-
-// Signature
-type Signature struct {
-	//TODO
 }
 
 type NetworkSnapshot struct {

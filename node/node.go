@@ -22,6 +22,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/db"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/serve"
+	"github.com/gin-gonic/gin"
 )
 
 type Bucket interface {
@@ -34,6 +35,7 @@ type Node struct {
 	Chn       chain.IChain
 	Logs      logger.ILog
 	Cach      db.ICache
+	CallBack  *gin.Engine
 	FillerDir string
 	FileDir   string
 	TmpDir    string
@@ -45,7 +47,7 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
-	// Start the subtask manager
+	// Start subtask manager
 	go n.CoroutineMgr()
 	// Start Service
 	n.Ser.Serve()

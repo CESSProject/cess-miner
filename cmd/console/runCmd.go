@@ -17,6 +17,8 @@
 package console
 
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -31,6 +33,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/db"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/serve"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/spf13/cobra"
 )
 
@@ -44,57 +47,60 @@ func runCmd(cmd *cobra.Command, args []string) {
 		err      error
 		logDir   string
 		cacheDir string
-		node     = node.New()
+		n        = node.New()
 	)
 
 	// Build profile instances
-	node.Cfile, err = buildConfigFile(cmd)
+	n.Cfile, err = buildConfigFile(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
+	// Start Callback
+	n.StartCallback()
+
 	// Build chain instance
-	node.Chn, err = buildChain(node.Cfile, configs.TimeOut_WaitBlock)
+	n.Chn, err = buildChain(n.Cfile, configs.TimeOut_WaitBlock)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	// Build data directory
-	logDir, cacheDir, node.FillerDir, node.FileDir, node.TmpDir, err = buildDir(node.Cfile, node.Chn)
+	logDir, cacheDir, n.FillerDir, n.FileDir, n.TmpDir, err = buildDir(n.Cfile, n.Chn)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	// Build cache instance
-	node.Cach, err = buildCache(cacheDir)
+	n.Cach, err = buildCache(cacheDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build log instance
-	node.Logs, err = buildLogs(logDir)
+	n.Logs, err = buildLogs(logDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build server instance
-	node.Ser = buildServer(
+	n.Ser = buildServer(
 		configs.Name,
-		node.Cfile.GetServicePortNum(),
-		node.Chn,
-		node.Logs,
-		node.Cach,
-		node.FileDir,
-		node.TmpDir,
+		n.Cfile.GetServicePortNum(),
+		n.Chn,
+		n.Logs,
+		n.Cach,
+		n.FileDir,
+		n.TmpDir,
 	)
 
 	// run
-	node.Run()
+	n.Run()
 }
 
 func buildConfigFile(cmd *cobra.Command) (confile.IConfile, error) {
@@ -156,14 +162,38 @@ func buildChain(cfg confile.IConfile, timeout time.Duration) (chain.IChain, erro
 		} else {
 			return nil, err
 		}
+	} else {
+		log.Println("Already registered")
 	}
-
 	return client, nil
 }
 
 func register(chn chain.IChain, cfg confile.IConfile) error {
 	//Calculate the deposit based on the size of the storage space
 	pledgeTokens := configs.DepositPerTiB * cfg.GetStorageSpaceOnTiB()
+	// Get report
+	var report node.Report
+	err := node.GetReportReq(cfg.GetServiceAddr(), cfg.GetSgxPortNum())
+	if err != nil {
+		return errors.New("Please start the sgx service first")
+	}
+
+	timeout := time.NewTimer(configs.TimeOut_WaitReport)
+	defer timeout.Stop()
+	select {
+	case <-timeout.C:
+		return errors.New("Timed out waiting for sgx report")
+	case report = <-node.Ch_Report:
+	}
+
+	if report.Cert == "" || report.Ias_sig == "" || report.Quote == "" || report.Quote_sig == "" {
+		return errors.New("Invalid sgx report")
+	}
+
+	sig, err := hex.DecodeString(report.Quote_sig)
+	if err != nil {
+		return errors.New("Invalid sgx report quote_sig")
+	}
 
 	//Registration information on the chain
 	txhash, err := chn.Register(
@@ -171,10 +201,10 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 		cfg.GetServiceAddr(),
 		uint16(cfg.GetServicePortNum()),
 		pledgeTokens,
-		chain.IasCert{},
-		chain.IasSig{},
-		chain.QuoteBody{},
-		chain.Signature{},
+		types.NewBytes([]byte(report.Cert)),
+		types.NewBytes([]byte(report.Ias_sig)),
+		types.NewBytes([]byte(report.Quote)),
+		types.NewBytes(sig),
 	)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -192,7 +222,7 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 		return err
 	}
 
-	fmt.Printf("\x1b[%dm[ok]\x1b[0m Registration success\n", 42)
+	log.Println("Registration success")
 	return nil
 }
 

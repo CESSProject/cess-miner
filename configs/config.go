@@ -18,22 +18,6 @@ package configs
 
 import "time"
 
-// return code
-const (
-	//success
-	Code_200 = 200
-	//bad request
-	Code_400 = 400
-	//forbidden
-	Code_403 = 403
-	//not found
-	Code_404 = 404
-	//server internal error
-	Code_500 = 500
-	//The block was produced but the event was not resolved
-	Code_600 = 600
-)
-
 // byte size
 const (
 	SIZE_1KiB  = 1024
@@ -55,17 +39,11 @@ const (
 	DirPermission = 755
 	//
 	ClearMemInterval = time.Duration(time.Minute * 10)
-	//
-	ClearFilesInterval = time.Duration(time.Minute * 5)
 )
 
 const (
-	FillerSize         = 8 * SIZE_1MiB
-	TimeToWaitEvents_S = 20             //The time to wait for the event, in seconds
-	TokenAccuracy      = "000000000000" //Unit precision of CESS coins
-	ExitColling        = 28800          //blocks
-	BlockSize          = 1024 * 1024    //1MB
-	ScanBlockSize      = 512 * 1024     //512KB
+	TokenAccuracy = "000000000000" //Unit precision of CESS coins
+	ExitColling   = 28800          //blocks
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	// BlockInterval is the time interval for generating blocks, in seconds
@@ -77,29 +55,14 @@ const (
 const (
 	// Maximum number of connections in the miner's certification space
 	MAX_TCP_CONNECTION uint8 = 3
-	// Tcp client connection interval
-	TCP_Connection_Interval = time.Duration(time.Millisecond * 100)
-	// Tcp message interval
-	TCP_Message_Interval = time.Duration(time.Millisecond * 10)
-	// Tcp short message waiting time
-	TCP_Time_WaitNotification = time.Duration(time.Second * 10)
-	// Tcp short message waiting time
-	TCP_Time_WaitMsg = time.Duration(time.Minute)
-	// Tcp short message waiting time
-	TCP_FillerMessage_WaitingTime = time.Duration(time.Second * 150)
-	// The slowest tcp transfers bytes per second
-	TCP_Transmission_Slowest = SIZE_1KiB * 10
-	// Number of tcp message caches
-	TCP_Message_Send_Buffers = 10
+	//
 	TCP_Message_Read_Buffers = 10
 	//
-	TCP_SendBuffer = 8192
-	TCP_ReadBuffer = 12000
-	TCP_TagBuffer  = 2012
+	TCP_MaxPacketSize = SIZE_1KiB * 1024
 	//
-	TCP_MaxPacketSize = SIZE_1KiB * 32
-	//
-	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
+	Tcp_Dial_Timeout    = time.Duration(time.Second * 5)
+	ReplaceFileInterval = time.Duration(time.Minute * 5)
+	TimeOut_WaitReport  = time.Duration(time.Second * 10)
 )
 
 const (
@@ -123,6 +86,6 @@ var (
 		"panic",     //Panic log
 		"upfile",    //Upload file log
 		"challenge", //Challenge log
-		"clear",     //Clear log
+		"replace",   //replace file log
 	}
 )

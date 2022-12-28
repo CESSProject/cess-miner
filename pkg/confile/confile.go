@@ -31,21 +31,23 @@ const (
 	DefaultConfigurationFile      = "./conf.toml"
 	ConfigurationFileTemplateName = "conf.toml"
 	ConfigurationFileTemplete     = `# The rpc address of the chain node
-RpcAddr      = ""
+RpcAddr          = ""
 # Path to the mounted disk where the data is saved
-MountedPath  = ""
+MountedPath      = ""
 # Total space used to store files, the unit is GiB
-StorageSpace = 0
+StorageSpace     = 0
+# Files in autonomous regions will be rewarded
+AutonomousRegion = ""
 # The IP of the machine running the mining service
-ServiceIP    = ""
+ServiceIP        = ""
 # Port number monitored by the mining service
-ServicePort  = 0
+ServicePort      = 0
+# Sgx service communication port
+SgxPort          = 0
 # The address of income account
-IncomeAcc    = ""
+IncomeAcc        = ""
 # phrase of the signature account
-SignatureAcc = ""
-# If 'ServiceIP' is not public IP, You can set up a domain name
-DomainName   = ""`
+SignatureAcc     = ""`
 )
 
 type IConfile interface {
@@ -54,22 +56,25 @@ type IConfile interface {
 	GetServiceAddr() string
 	GetServicePort() string
 	GetServicePortNum() int
+	GetSgxPortNum() int
 	GetCtrlPrk() string
 	GetIncomeAcc() string
 	GetMountedPath() string
+	GetAutonomousRegion() string
 	GetStorageSpace() uint64
 	GetStorageSpaceOnTiB() uint64
 }
 
 type confile struct {
-	RpcAddr      string `toml:"RpcAddr"`
-	MountedPath  string `toml:"MountedPath"`
-	StorageSpace uint64 `toml:"StorageSpace"`
-	ServiceIP    string `toml:"ServiceIP"`
-	ServicePort  uint32 `toml:"ServicePort"`
-	IncomeAcc    string `toml:"IncomeAcc"`
-	SignatureAcc string `toml:"SignatureAcc"`
-	DomainName   string `toml:"DomainName"`
+	RpcAddr          string `toml:"RpcAddr"`
+	MountedPath      string `toml:"MountedPath"`
+	StorageSpace     uint64 `toml:"StorageSpace"`
+	AutonomousRegion string `toml:"AutonomousRegion"`
+	ServiceIP        string `toml:"ServiceIP"`
+	ServicePort      uint32 `toml:"ServicePort"`
+	SgxPort          uint32 `toml:"SgxPort"`
+	IncomeAcc        string `toml:"IncomeAcc"`
+	SignatureAcc     string `toml:"SignatureAcc"`
 }
 
 func NewConfigfile() IConfile {
@@ -129,10 +134,10 @@ func (c *confile) Parse(fpath string) error {
 		}
 	}
 
-	if c.ServicePort < 1024 {
-		return errors.Errorf("Prohibit the use of system reserved port: %v", c.ServicePort)
+	if c.ServicePort < 1024 || c.SgxPort < 1024 {
+		return errors.New("Prohibit the use of system reserved port")
 	}
-	if c.ServicePort > 65535 {
+	if c.ServicePort > 65535 || c.SgxPort > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
@@ -169,6 +174,12 @@ func (c *confile) GetIncomeAcc() string {
 
 func (c *confile) GetMountedPath() string {
 	return c.MountedPath
+}
+func (c *confile) GetAutonomousRegion() string {
+	return c.AutonomousRegion
+}
+func (c *confile) GetSgxPortNum() int {
+	return int(c.SgxPort)
 }
 
 func (c *confile) GetStorageSpace() uint64 {

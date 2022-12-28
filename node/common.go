@@ -40,8 +40,8 @@ func (n *Node) task_common(ch chan bool) {
 
 	timer_ClearMem := time.NewTimer(configs.ClearMemInterval)
 	defer timer_ClearMem.Stop()
-	timer_ClearFiles := time.NewTimer(configs.ClearFilesInterval)
-	defer timer_ClearFiles.Stop()
+	timer_ReplaceFile := time.NewTimer(configs.ReplaceFileInterval)
+	defer timer_ReplaceFile.Stop()
 	timer_GC := time.NewTimer(time.Minute)
 	defer timer_GC.Stop()
 
@@ -55,11 +55,11 @@ func (n *Node) task_common(ch chan bool) {
 					os.Exit(1)
 				}
 			}
-		case <-timer_ClearFiles.C:
+		case <-timer_ReplaceFile.C:
 			invalidFiles, err := n.Chn.GetInvalidFiles()
 			if err != nil {
 				if err.Error() != chain.ERR_Empty {
-					n.Logs.Clr("err", err)
+					n.Logs.Repl("err", err)
 				}
 			}
 
@@ -67,9 +67,9 @@ func (n *Node) task_common(ch chan bool) {
 				continue
 			}
 
-			n.Logs.Clr("info", fmt.Errorf("Prepare to remove invalid files [%v]", len(invalidFiles)))
+			n.Logs.Repl("info", fmt.Errorf("Prepare to remove invalid files [%v]", len(invalidFiles)))
 			for x := 0; x < len(invalidFiles); x++ {
-				n.Logs.Clr("info", fmt.Errorf("   %v: %s", x, string(invalidFiles[x][:])))
+				n.Logs.Repl("info", fmt.Errorf("   %v: %s", x, string(invalidFiles[x][:])))
 			}
 
 			for i := 0; i < len(invalidFiles); i++ {
@@ -85,9 +85,9 @@ func (n *Node) task_common(ch chan bool) {
 				}
 				txhash, err := n.Chn.ClearInvalidFiles(invalidFiles[i])
 				if txhash != "" {
-					n.Logs.Clr("info", fmt.Errorf("[%v] Cleared %v", string(invalidFiles[i][:]), txhash))
+					n.Logs.Repl("info", fmt.Errorf("[%v] Cleared %v", string(invalidFiles[i][:]), txhash))
 				} else {
-					n.Logs.Clr("err", fmt.Errorf("[%v] Cleared err: %v", string(invalidFiles[i][:]), err))
+					n.Logs.Repl("err", fmt.Errorf("[%v] Cleared err: %v", string(invalidFiles[i][:]), err))
 				}
 				os.Remove(filefullpath)
 				os.Remove(filetagfullpath)

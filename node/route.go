@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+   Copyright 2022 CESS scheduler authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -16,32 +16,6 @@
 
 package node
 
-import (
-	"net/http"
-)
-
-type Report struct {
-	Cert      string
-	Ias_sig   string
-	Quote     string
-	Quote_sig string
-}
-
-const (
-	M_Pending  = "pending"
-	M_Positive = "positive"
-	M_Frozen   = "frozen"
-	M_Exit     = "exit"
-)
-
-var (
-	Ch_Report       chan Report
-	globalTransport *http.Transport
-)
-
-func init() {
-	globalTransport = &http.Transport{
-		DisableKeepAlives: true,
-	}
-	Ch_Report = make(chan Report, 1)
+func (n *Node) AddRoute() {
+	n.CallBack.POST("/report", n.GetReport)
 }

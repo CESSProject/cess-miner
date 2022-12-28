@@ -19,6 +19,7 @@ package serve
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -61,7 +62,7 @@ func NewServer(name, host string, port int) IServer {
 
 // Start
 func (s *Server) Start() {
-	fmt.Printf("[START] Server name: %s,listenner at IP: %s, Port %d is starting\n", s.Name, s.IP, s.Port)
+	log.Printf("[START] Server name: %s, listening port %d \n", s.Name, s.Port)
 	s.exitChan = make(chan struct{})
 
 	// Linster Service
@@ -76,8 +77,6 @@ func (s *Server) Start() {
 		if err != nil {
 			panic(err)
 		}
-
-		fmt.Println("start server  ", s.Name, " suc, now listenning...")
 
 		var cID uint32
 		cID = 0

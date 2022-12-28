@@ -71,7 +71,7 @@ type IChain interface {
 	// GetSpacePackageInfo(pkey []byte) (SpacePackage, error)
 
 	// Register is used by the scheduling service to register
-	Register(incomeAcc, ip string, port uint16, pledgeTokens uint64, cert IasCert, ias_sig IasSig, quote QuoteBody, quote_sig Signature) (string, error)
+	Register(incomeAcc, ip string, port uint16, pledgeTokens uint64, cert, ias_sig, quote, quote_sig types.Bytes) (string, error)
 	//
 	Increase(tokens *big.Int) (string, error)
 	// Storage miner exits the mining function

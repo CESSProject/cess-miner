@@ -35,7 +35,7 @@ type ILog interface {
 	Out(string, error)
 	Upfile(string, error)
 	Chlg(string, error)
-	Clr(string, error)
+	Repl(string, error)
 }
 
 type logs struct {
@@ -135,9 +135,9 @@ func (l *logs) Chlg(level string, err error) {
 	}
 }
 
-func (l *logs) Clr(level string, err error) {
+func (l *logs) Repl(level string, err error) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["clear"]
+	v, ok := l.log["replace"]
 	if ok {
 		switch level {
 		case "info":
