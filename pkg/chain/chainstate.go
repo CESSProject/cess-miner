@@ -27,6 +27,11 @@ func (c *chainClient) GetPublicKey() []byte {
 	return c.keyring.PublicKey
 }
 
+// GetPublicKey returns your own public key
+func (c *chainClient) GetIncomeAccount() string {
+	return c.IncomeAcc
+}
+
 func (c *chainClient) GetCessAccount() (string, error) {
 	return utils.EncodePublicKeyAsCessAccount(c.keyring.PublicKey)
 }

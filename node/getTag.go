@@ -17,35 +17,31 @@
 package node
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/gin-gonic/gin"
 )
 
-type Report struct {
-	Cert      string
-	Ias_sig   string
-	Quote     string
-	Quote_sig string
-}
-
-const (
-	M_Pending  = "pending"
-	M_Positive = "positive"
-	M_Frozen   = "frozen"
-	M_Exit     = "exit"
-)
-
-var (
-	Ch_Report       chan Report
-	Ch_Tag          chan chain.Result
-	globalTransport *http.Transport
-)
-
-func init() {
-	globalTransport = &http.Transport{
-		DisableKeepAlives: true,
+func (n *Node) GetTag(c *gin.Context) {
+	var (
+		err error
+	)
+	val, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+		return
 	}
-	Ch_Report = make(chan Report, 0)
-	Ch_Tag = make(chan chain.Result, 0)
+
+	var result chain.Result
+	err = json.Unmarshal(val, &result)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
+	go func() { Ch_Tag <- result }()
+	c.JSON(http.StatusOK, nil)
+	return
 }

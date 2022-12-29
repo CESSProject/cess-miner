@@ -25,6 +25,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -77,15 +78,15 @@ func stateCmd(cmd *cobra.Command, args []string) {
 	var power, space float32
 	var power_unit, space_unit string
 	count := 0
-	for mData.Power.BitLen() > int(16) {
-		mData.Power.Div(new(big.Int).SetBytes(mData.Power.Bytes()), big.NewInt(configs.SIZE_1KiB))
+	for mData.Idle_space.BitLen() > int(16) {
+		mData.Idle_space.Div(new(big.Int).SetBytes(mData.Idle_space.Bytes()), big.NewInt(configs.SIZE_1KiB))
 		count++
 	}
-	if mData.Power.Int64() > configs.SIZE_1KiB {
-		power = float32(mData.Power.Int64()) / float32(configs.SIZE_1KiB)
+	if mData.Idle_space.Int64() > configs.SIZE_1KiB {
+		power = float32(mData.Idle_space.Int64()) / float32(configs.SIZE_1KiB)
 		count++
 	} else {
-		power = float32(mData.Power.Int64())
+		power = float32(mData.Idle_space.Int64())
 	}
 	switch count {
 	case 0:
@@ -114,15 +115,15 @@ func stateCmd(cmd *cobra.Command, args []string) {
 		power_unit = fmt.Sprintf("DiB(%v)", count-10)
 	}
 	count = 0
-	for mData.Space.BitLen() > int(16) {
-		mData.Space.Div(new(big.Int).SetBytes(mData.Space.Bytes()), big.NewInt(configs.SIZE_1KiB))
+	for mData.Service_space.BitLen() > int(16) {
+		mData.Service_space.Div(new(big.Int).SetBytes(mData.Service_space.Bytes()), big.NewInt(configs.SIZE_1KiB))
 		count++
 	}
-	if mData.Space.Int64() > configs.SIZE_1KiB {
-		space = float32(mData.Space.Int64()) / float32(configs.SIZE_1KiB)
+	if mData.Service_space.Int64() > configs.SIZE_1KiB {
+		space = float32(mData.Service_space.Int64()) / float32(configs.SIZE_1KiB)
 		count++
 	} else {
-		space = float32(mData.Space.Int64())
+		space = float32(mData.Service_space.Int64())
 	}
 
 	switch count {
@@ -152,8 +153,9 @@ func stateCmd(cmd *cobra.Command, args []string) {
 		power_unit = fmt.Sprintf("DiB(%v)", count-10)
 	}
 
+	acc, _ := utils.EncodePublicKeyAsCessAccount(chn.GetPublicKey())
 	//print your own details
-	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %.2f %v\nUsedSpace: %.2f %v\nPledgeTokens: %v TCESS\nServiceAddr: %v\n",
-		mData.PeerId, string(mData.State), power, power_unit, space, space_unit, mData.Collaterals, string(addr))
+	fmt.Printf("Miner Account: %v\nIncome Account: %v\nState: %v\nIdle Space: %.2f %v\nService Space: %.2f %v\nPledgeTokens: %v TCESS\nService Address: %v\n",
+		acc, chn.GetIncomeAccount(), string(mData.State), power, power_unit, space, space_unit, mData.Collaterals, string(addr))
 	os.Exit(0)
 }

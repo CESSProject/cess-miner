@@ -17,8 +17,6 @@
 package node
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,40 +41,16 @@ func (n *Node) GetReport(c *gin.Context) {
 	str = strings.TrimSuffix(str, "\"")
 	strs := strings.Split(str, "|")
 	if len(strs) == 4 {
+		fmt.Println(strs[0])
+		fmt.Println(strs[1])
+		fmt.Println(strs[2])
+		fmt.Println(strs[3])
 		report.Cert = strs[2]
 		report.Ias_sig = strs[1]
 		report.Quote = strs[0]
 		report.Quote_sig = strs[3]
 	}
-	Ch_Report <- report
+	go func() { Ch_Report <- report }()
 	c.JSON(http.StatusOK, nil)
 	return
-}
-
-func GetReportReq(localIp string, sgxPort int) error {
-	callbackurl := fmt.Sprintf("http://%v:%d/report", localIp, sgxPort)
-	param := map[string]string{
-		"callback_url": callbackurl,
-	}
-	data, err := json.Marshal(param)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodPost, "http://localhost:80/get_report", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-
-	cli := http.Client{
-		Transport: globalTransport,
-	}
-
-	_, err = cli.Do(req)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

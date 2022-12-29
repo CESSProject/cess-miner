@@ -16,6 +16,9 @@
 
 package node
 
+import "github.com/CESSProject/cess-bucket/configs"
+
 func (n *Node) AddRoute() {
-	n.CallBack.POST("/report", n.GetReport)
+	n.CallBack.POST(configs.URL_GetReport_Callback, n.GetReport)
+	n.CallBack.POST(configs.URL_GetTag_Callback, n.GetTag)
 }

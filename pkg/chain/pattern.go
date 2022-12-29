@@ -36,17 +36,28 @@ type FileHash [64]types.U8
 type SliceId [68]types.U8
 type Random [20]types.U8
 type Signature [65]types.U8
+type Filter [256]types.U64
+type Public [33]types.U8
 
 // storage miner info
 type MinerInfo struct {
-	PeerId      types.U64
-	IncomeAcc   types.AccountID
-	Ip          Ipv4Type
-	Collaterals types.U128
-	State       types.Bytes
-	Power       types.U128
-	Space       types.U128
-	RewardInfo  RewardInfo
+	Beneficiary    types.AccountID
+	Ip             Ipv4Type
+	Collaterals    types.U128
+	Debt           types.U128
+	State          types.Bytes
+	Idle_space     types.U128
+	Service_space  types.U128
+	Autonomy_space types.U128
+	Puk            Public
+	Ias_cert       types.Bytes
+	Bloom_filter   BloomCollect
+}
+
+type BloomCollect struct {
+	AutonomyFilter Filter
+	ServiceFilter  Filter
+	IdleFilter     Filter
 }
 
 type RewardInfo struct {
@@ -96,7 +107,6 @@ type SliceInfo struct {
 // filler meta info
 type FillerMetaInfo struct {
 	Size      types.U64
-	Index     types.U32
 	Miner_acc types.AccountID
 	Hash      FileHash
 }
@@ -195,4 +205,26 @@ type NetworkSnapshot struct {
 	Random      Random
 	Start       types.U32
 	Deadline    types.U32
+}
+
+type Result struct {
+	Sigmas []string   `json:"sigmas"`
+	Tag    Tag        `json:"tag"`
+	Status StatusInfo `json:"status"`
+}
+
+type Tag struct {
+	T     Tag0   `json:"t"`
+	MacT0 []byte `json:"mac_t0"`
+}
+
+type Tag0 struct {
+	N        int64  `json:"n"`
+	Enc      []byte `json:"enc"`
+	FileHash []byte `json:"file_hash"`
+}
+
+type StatusInfo struct {
+	StatusCode uint   `json:"status_code"`
+	StatusMsg  string `json:"status_msg"`
 }

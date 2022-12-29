@@ -20,10 +20,11 @@ import "time"
 
 // byte size
 const (
-	SIZE_1KiB  = 1024
-	SIZE_1MiB  = 1024 * SIZE_1KiB
-	SIZE_1GiB  = 1024 * SIZE_1MiB
-	SIZE_SLICE = 512 * SIZE_1MiB
+	SIZE_1KiB      = 1024
+	SIZE_1MiB      = 1024 * SIZE_1KiB
+	SIZE_1GiB      = 1024 * SIZE_1MiB
+	SIZE_SLICE     = 512 * SIZE_1MiB
+	SIZE_SLICE_KiB = 512 * SIZE_1KiB
 )
 
 // account
@@ -51,7 +52,7 @@ const (
 	// Token length
 	TokenLength = 32
 	//
-	NumOfFillerSubmitted = 10
+	NumOfFillerSubmitted = 1
 )
 
 const (
@@ -65,6 +66,18 @@ const (
 	Tcp_Dial_Timeout    = time.Duration(time.Second * 5)
 	ReplaceFileInterval = time.Duration(time.Minute * 5)
 	TimeOut_WaitReport  = time.Duration(time.Second * 10)
+	TimeOut_WaitTag     = time.Duration(time.Minute * 5)
+)
+
+const (
+	URL_GetReport          = "http://localhost:80/get_report"
+	URL_GetReport_Callback = "/report"
+	URL_FillFile           = "http://localhost:80/fill_random_file"
+	URL_GetTag             = "http://localhost:80/process_data"
+	URL_GetTag_Callback    = "/tag"
+	SgxMappingPath         = "/kaleido"
+	SgxReportSuc           = 100000
+	BlockSize              = SIZE_1KiB
 )
 
 const (

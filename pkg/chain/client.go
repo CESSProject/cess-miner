@@ -50,9 +50,9 @@ type IChain interface {
 	GetFileMetaInfo(fid string) (FileMetaInfo, error)
 	// GetCessAccount is used to get the account in cess chain format
 	GetCessAccount() (string, error)
+	// GetIncomePublicKey returns its stash account public key
+	GetIncomeAccount() string
 
-	// // GetStashPublicKey returns its stash account public key
-	// GetStashPublicKey() ([]byte, error)
 	// // Getpublickey returns its own private key
 	// GetMnemonicSeed() string
 	// // NewAccountId returns the account id

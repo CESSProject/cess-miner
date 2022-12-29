@@ -975,7 +975,7 @@ func (c *chainClient) SubmitFillerMeta(info []FillerMetaInfo) (string, error) {
 	}
 	c.SetChainState(true)
 
-	call, err := types.NewCall(c.metadata, tx_FileBank_UploadFiller, c.keyring.PublicKey, info)
+	call, err := types.NewCall(c.metadata, tx_FileBank_UploadFiller, info)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}

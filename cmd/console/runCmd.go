@@ -170,7 +170,7 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 	pledgeTokens := configs.DepositPerTiB * cfg.GetStorageSpaceOnTiB()
 	// Get report
 	var report node.Report
-	err := node.GetReportReq(cfg.GetServiceAddr(), cfg.GetSgxPortNum())
+	err := node.GetReportReq(configs.URL_GetReport_Callback, cfg.GetServiceAddr(), cfg.GetSgxPortNum(), configs.URL_GetReport)
 	if err != nil {
 		return errors.New("Please start the sgx service first")
 	}
