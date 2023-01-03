@@ -23,38 +23,38 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/chain"
 	"github.com/CESSProject/cess-bucket/pkg/db"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 )
 
 // FileRouter
-type DownRouter struct {
+type ConfirmRouter struct {
 	BaseRouter
+	Chain   chain.IChain
 	Logs    logger.ILog
 	Cach    db.ICache
 	FileDir string
-	TmpDir  string
 }
 
-type MsgDown struct {
+type MsgConfirm struct {
 	Token     string `json:"token"`
+	RootHash  string `json:"roothash"`
 	SliceHash string `json:"slicehash"`
-	FileSize  int64  `json:"filesize"`
-	Index     uint32 `json:"index"`
+	ShardId   string `json:"shardId"`
 }
 
 // FileRouter Handle
-func (d *DownRouter) Handle(ctx context.CancelFunc, request IRequest) {
-	fmt.Println("Call DownRouter Handle from client : msgId=", request.GetMsgID())
+func (c *ConfirmRouter) Handle(ctx context.CancelFunc, request IRequest) {
+	fmt.Println("Call ConfirmRouter Handle msgId=", request.GetMsgID())
 
-	if request.GetMsgID() != Msg_Down {
+	if request.GetMsgID() != Msg_Confirm {
 		fmt.Println("MsgId error")
 		ctx()
 		return
 	}
 
-	var msg MsgDown
+	var msg MsgConfirm
 	err := json.Unmarshal(request.GetData(), &msg)
 	if err != nil {
 		fmt.Println("Msg format error")
@@ -62,36 +62,26 @@ func (d *DownRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		return
 	}
 
-	ok, _ := d.Cach.Has([]byte(TokenKey_Token + msg.Token))
-	if !ok {
-		request.GetConnection().SendMsg(Msg_Forbidden, nil)
-		return
-	}
-
-	fpath := filepath.Join(d.FileDir, msg.SliceHash)
+	fpath := filepath.Join(c.FileDir, msg.SliceHash)
 	_, err = os.Stat(fpath)
 	if err != nil {
-		request.GetConnection().SendMsg(Msg_NotFound, nil)
+		fmt.Println("file not found: ", fpath)
+		request.GetConnection().SendMsg(Msg_ClientErr, nil)
 		return
 	}
 
-	fs, err := os.Open(fpath)
+	//TODO
+	//Call sgx to generate sign
+
+	var sliceSum chain.SliceSummary
+	b, err := json.Marshal(sliceSum)
 	if err != nil {
-		fmt.Println("OpenFile  error")
+		fmt.Println("Marshal sliceSum err ", fpath)
 		request.GetConnection().SendMsg(Msg_ServerErr, nil)
 		return
 	}
-	defer fs.Close()
 
-	fs.Seek(int64(msg.Index), 0)
-	var buf = make([]byte, configs.SIZE_1MiB)
-	num, _ := fs.Read(buf)
-
-	if int64(msg.Index)+int64(num) > msg.FileSize {
-		err = request.GetConnection().SendMsg(Msg_OK, buf[:(configs.SIZE_1MiB+msg.FileSize-int64(msg.Index)-int64(num))])
-	} else {
-		err = request.GetConnection().SendMsg(Msg_OK, buf[:num])
-	}
+	err = request.GetConnection().SendMsg(Msg_OK, b)
 	if err != nil {
 		fmt.Println(err)
 	}

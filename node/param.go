@@ -36,6 +36,10 @@ const (
 	M_Exit     = "exit"
 )
 
+const (
+	Cach_Blockheight = "blockheight:"
+)
+
 var (
 	Ch_Report       chan Report
 	Ch_Tag          chan chain.Result

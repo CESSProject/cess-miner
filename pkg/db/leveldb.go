@@ -36,6 +36,10 @@ const (
 	minHandles = 32
 )
 
+var (
+	NotFound = leveldb.ErrNotFound
+)
+
 type LevelDB struct {
 	fn string
 	db *leveldb.DB

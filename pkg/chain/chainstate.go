@@ -265,6 +265,23 @@ func (c *chainClient) GetBlockHeight() (types.U32, error) {
 	return types.U32(block.Block.Header.Number), nil
 }
 
+// Get the current block height
+func (c *chainClient) GetBlockHeightByHash(hash string) (types.U32, error) {
+	defer func() {
+		recover()
+	}()
+	var h types.Hash
+	err := types.DecodeFromHex(hash, &h)
+	if err != nil {
+		return 0, err
+	}
+	block, err := c.api.RPC.Chain.GetBlock(h)
+	if err != nil {
+		return 0, errors.Wrap(err, "[GetBlock]")
+	}
+	return types.U32(block.Block.Header.Number), nil
+}
+
 func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 	defer func() {
 		recover()

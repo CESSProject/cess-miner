@@ -59,6 +59,7 @@ const (
 	tx_FileBank_ClearInvalidFile     = "FileBank.clear_invalid_file"
 	FileBank_ClearFiller             = "FileBank.clear_all_filler"
 	tx_FileBank_UploadFiller         = "FileBank.upload_filler"
+	tx_FileBank_UploadAutonomyFile   = "FileBank.upload_autonomy_file"
 )
 
 const (

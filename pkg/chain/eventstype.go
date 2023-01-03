@@ -243,6 +243,14 @@ type Event_FillerUpload struct {
 	Topics   []types.Hash
 }
 
+type Event_UploadAutonomyFile struct {
+	Phase     types.Phase
+	User      types.AccountID
+	File_hash FileHash
+	File_size types.U64
+	Topics    []types.Hash
+}
+
 type Event_ClearInvalidFile struct {
 	Phase  types.Phase
 	Acc    types.AccountID
@@ -377,6 +385,7 @@ type CessEventRecords struct {
 	FileBank_InsertFileSlice      []Event_InsertFileSlice
 	FileBank_LeaseExpired         []Event_LeaseExpired
 	FileBank_FillerUpload         []Event_FillerUpload
+	FileBank_UploadAutonomyFile   []Event_UploadAutonomyFile
 	FileBank_ClearInvalidFile     []Event_ClearInvalidFile
 	FileBank_RecoverFile          []Event_RecoverFile
 	FileBank_ReceiveSpace         []Event_ReceiveSpace

@@ -17,11 +17,12 @@
 package serve
 
 const (
-	Msg_Ping = iota + 100
-	Msg_Auth
-	Msg_File
-	Msg_Down
-	Msg_Progress
+	Msg_Ping     = 100
+	Msg_Auth     = 101
+	Msg_File     = 102
+	Msg_Down     = 103
+	Msg_Confirm  = 104
+	Msg_Progress = 105
 )
 
 const (

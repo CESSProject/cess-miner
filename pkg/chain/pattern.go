@@ -60,19 +60,6 @@ type BloomCollect struct {
 	IdleFilter     Filter
 }
 
-type RewardInfo struct {
-	Total       types.U128
-	Received    types.U128
-	NotReceived types.U128
-}
-
-// cache storage miner
-type Cache_MinerInfo struct {
-	Peerid uint64 `json:"peerid"`
-	Ip     string `json:"ip"`
-	Free   uint64 `json:"free"`
-}
-
 // file meta info
 type FileMetaInfo struct {
 	Size       types.U64
@@ -227,4 +214,16 @@ type Tag0 struct {
 type StatusInfo struct {
 	StatusCode uint   `json:"status_code"`
 	StatusMsg  string `json:"status_msg"`
+}
+
+type AutonomyFileMeta struct {
+	File_hash FileHash
+	File_size types.U64
+	Slice     []FileHash
+}
+
+type SliceSummary struct {
+	Miner_acc types.AccountID
+	Signature Signature
+	Message   types.Bytes
 }

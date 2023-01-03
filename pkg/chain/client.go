@@ -44,6 +44,8 @@ type IChain interface {
 	GetBlockHeightExited() (types.U32, error)
 	// Get the current block height
 	GetBlockHeight() (types.U32, error)
+	//
+	GetBlockHeightByHash(hash string) (types.U32, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
 	// GetFileMetaInfo is used to get the meta information of the file
@@ -90,6 +92,8 @@ type IChain interface {
 	UpdateIncome(acc types.AccountID) (string, error)
 	//
 	SubmitFillerMeta(info []FillerMetaInfo) (string, error)
+	//
+	SubmitAutonomousFileMeta(info AutonomyFileMeta) (string, error)
 
 	// // SubmitProofResults is used to submit proof verification results
 	// SubmitProofResults(data []ProofResult) (string, error)
