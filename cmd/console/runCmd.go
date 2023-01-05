@@ -90,8 +90,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	n.Ser = buildServer(
 		configs.Name,
 		n.Cfile.GetServicePortNum(),
+		n.Chn,
 		n.Logs,
 		n.Cach,
+		n.Cfile,
 		n.FileDir,
 		n.TmpDir,
 	)
@@ -279,15 +281,16 @@ func buildLogs(logDir string) (logger.ILog, error) {
 	return logger.NewLogs(logs_info)
 }
 
-func buildServer(name string, port int, logs logger.ILog, cach db.ICache, filedir, tmpDir string) serve.IServer {
+func buildServer(name string, port int, chn chain.IChain, logs logger.ILog, cach db.ICache, cfile confile.IConfile, filedir, tmpDir string) serve.IServer {
 	// NewServer
 	s := serve.NewServer(name, "0.0.0.0", port)
 
 	// Configure Routes
 	s.AddRouter(serve.Msg_Ping, &serve.PingRouter{})
-	s.AddRouter(serve.Msg_Auth, &serve.AuthRouter{})
+	s.AddRouter(serve.Msg_Auth, &serve.AuthRouter{Cach: cach})
 	s.AddRouter(serve.Msg_File, &serve.FileRouter{Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
 	s.AddRouter(serve.Msg_Down, &serve.DownRouter{Logs: logs, Cach: cach, FileDir: filedir, TmpDir: tmpDir})
+	s.AddRouter(serve.Msg_Confirm, &serve.ConfirmRouter{Chn: chn, Logs: logs, Cach: cach, Cfile: cfile, FileDir: filedir, TmpDir: tmpDir})
 
 	return s
 }

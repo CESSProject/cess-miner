@@ -93,7 +93,7 @@ func (n *Node) ManagementRegion() {
 		return
 	}
 
-	err = GetTagReq(fpath, configs.BlockSize, n.Cfile.GetSgxPortNum(), configs.URL_GetTag, configs.URL_GetTag_Callback, n.Cfile.GetServiceAddr())
+	err = GetTagReq(fpath, configs.BlockSize, configs.SegmentSize, n.Cfile.GetSgxPortNum(), configs.URL_GetTag, configs.URL_GetTag_Callback, n.Cfile.GetServiceAddr())
 	if err != nil {
 		n.Logs.Space("err", err)
 		return
@@ -262,7 +262,7 @@ func (n *Node) AutonomousRegion() {
 				timeout := time.NewTicker(configs.TimeOut_WaitTag)
 				defer timeout.Stop()
 				for j := 0; j < len(slicePath); j++ {
-					err = GetTagReq(slicePath[j], configs.BlockSize, n.Cfile.GetSgxPortNum(), configs.URL_GetTag, configs.URL_GetTag_Callback, n.Cfile.GetServiceAddr())
+					err = GetTagReq(slicePath[j], configs.BlockSize, configs.SegmentSize, n.Cfile.GetSgxPortNum(), configs.URL_GetTag, configs.URL_GetTag_Callback, n.Cfile.GetServiceAddr())
 					if err != nil {
 						n.Logs.Space("err", err)
 						for _, v := range slicePath {

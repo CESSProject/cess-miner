@@ -17,33 +17,31 @@
 package node
 
 import (
-	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/gin-gonic/gin"
 )
 
-type Report struct {
-	Cert      string
-	Ias_sig   string
-	Quote     string
-	Quote_sig string
-}
+func (n *Node) GetSign(c *gin.Context) {
+	var (
+		err error
+	)
+	val, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
 
-const (
-	M_Pending  = "pending"
-	M_Positive = "positive"
-	M_Frozen   = "frozen"
-	M_Exit     = "exit"
-)
+	rtnValue := strings.TrimPrefix(string(val), "\"")
+	rtnValue = strings.TrimSuffix(rtnValue, "\"")
 
-const (
-	Cach_Blockheight = "blockheight:"
-)
+	fmt.Println("Get string(sign): ", rtnValue)
 
-var (
-	Ch_Report chan Report
-	Ch_Tag    chan chain.Result
-)
-
-func init() {
-	Ch_Report = make(chan Report, 0)
-	Ch_Tag = make(chan chain.Result, 0)
+	go func() { configs.Ch_Sign <- rtnValue }()
+	c.JSON(http.StatusOK, nil)
+	return
 }

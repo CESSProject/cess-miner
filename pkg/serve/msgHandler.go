@@ -51,5 +51,4 @@ func (mh *MsgHandle) AddRouter(msgID uint32, router IRouter) {
 		panic("repeated api , msgID = " + strconv.Itoa(int(msgID)))
 	}
 	mh.Apis[msgID] = router
-	//fmt.Println("Add api msgID = ", msgID)
 }

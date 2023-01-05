@@ -223,7 +223,13 @@ type AutonomyFileMeta struct {
 }
 
 type SliceSummary struct {
-	Miner_acc types.AccountID
-	Signature Signature
-	Message   types.Bytes
+	Miner_acc types.AccountID `json:"miner_acc"`
+	Signature Signature       `json:"signature"`
+	Message   types.Bytes     `json:"message"`
+}
+
+type MessageType struct {
+	ShardId   string `json:"shardId"`
+	SliceHash string `json:"sliceHash"`
+	MinerIp   string `json:"minerIp"` //ex:127/0/0/1/15001
 }

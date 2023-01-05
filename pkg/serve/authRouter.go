@@ -40,8 +40,8 @@ type MsgAuth struct {
 
 // AuthRouter Handle
 func (this *AuthRouter) Handle(ctx context.CancelFunc, request IRequest) {
-	fmt.Println("Call AuthRouter Handle")
-	fmt.Println("recv from client : msgId=", request.GetMsgID())
+	fmt.Println("Call AuthRouter Handle msgId=", request.GetMsgID())
+
 	if request.GetMsgID() != Msg_Auth {
 		fmt.Println("MsgId error")
 		ctx()

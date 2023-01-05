@@ -17,24 +17,34 @@
 package serve
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/db"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 // FileRouter
 type ConfirmRouter struct {
 	BaseRouter
-	Chain   chain.IChain
+	Chn     chain.IChain
 	Logs    logger.ILog
 	Cach    db.ICache
+	Cfile   confile.IConfile
 	FileDir string
+	TmpDir  string
 }
 
 type MsgConfirm struct {
@@ -62,7 +72,7 @@ func (c *ConfirmRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		return
 	}
 
-	fpath := filepath.Join(c.FileDir, msg.SliceHash)
+	fpath := filepath.Join(c.TmpDir, msg.SliceHash)
 	_, err = os.Stat(fpath)
 	if err != nil {
 		fmt.Println("file not found: ", fpath)
@@ -70,11 +80,67 @@ func (c *ConfirmRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		return
 	}
 
-	//TODO
-	//Call sgx to generate sign
+	var message chain.MessageType
+	if len(msg.ShardId) != len(chain.SliceId{}) {
+		fmt.Println("invalid ShardId: ", msg.ShardId)
+		request.GetConnection().SendMsg(Msg_ClientErr, nil)
+		return
+	}
+	message.ShardId = msg.ShardId
 
-	var sliceSum chain.SliceSummary
-	b, err := json.Marshal(sliceSum)
+	if len(msg.SliceHash) != len(chain.FileHash{}) {
+		fmt.Println("invalid SliceHash: ", msg.SliceHash)
+		request.GetConnection().SendMsg(Msg_ClientErr, nil)
+		return
+	}
+	message.SliceHash = msg.SliceHash
+
+	ips := strings.Split(c.Cfile.GetServiceAddr(), ".")
+
+	message.MinerIp = fmt.Sprintf("%v/%v/%v/%v/%d", ips[0], ips[1], ips[2], ips[3], c.Cfile.GetServicePortNum())
+
+	val, err := json.Marshal(&message)
+	if err != nil {
+		fmt.Println("Marshal err: ", err)
+		request.GetConnection().SendMsg(Msg_ServerErr, nil)
+		return
+	}
+
+	err = GetSignReq(string(val), configs.URL_GetSign, c.Cfile.GetServiceAddr(), configs.URL_GetSign_Callback, c.Cfile.GetSgxPortNum())
+	if err != nil {
+		fmt.Println("GetSignReq err: ", err)
+		request.GetConnection().SendMsg(Msg_ServerErr, nil)
+		return
+	}
+
+	var sign chain.SliceSummary
+	timeout := time.NewTicker(configs.TimeOut_WaitSign)
+	defer timeout.Stop()
+	select {
+	case <-timeout.C:
+		c.Logs.Space("err", fmt.Errorf("Wait tag timeout"))
+		return
+	case v := <-configs.Ch_Sign:
+		b, err := hex.DecodeString(v)
+		if err != nil {
+			fmt.Println("DecodeString err: ", err)
+			request.GetConnection().SendMsg(Msg_ServerErr, nil)
+			return
+		}
+		if len(b) != len(chain.Signature{}) {
+			fmt.Println("Invalid sign: ", v)
+			request.GetConnection().SendMsg(Msg_ServerErr, nil)
+			return
+		}
+		for i := 0; i < len(b); i++ {
+			sign.Signature[i] = types.U8(b[i])
+		}
+	}
+
+	sign.Message = val
+	sign.Miner_acc = types.NewAccountID(c.Chn.GetPublicKey())
+
+	b, err := json.Marshal(&sign)
 	if err != nil {
 		fmt.Println("Marshal sliceSum err ", fpath)
 		request.GetConnection().SendMsg(Msg_ServerErr, nil)
@@ -84,5 +150,39 @@ func (c *ConfirmRouter) Handle(ctx context.CancelFunc, request IRequest) {
 	err = request.GetConnection().SendMsg(Msg_OK, b)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
+	os.Rename(fpath, filepath.Join(c.FileDir, msg.SliceHash))
+}
+
+func GetSignReq(msg string, callUrl, callbackIp, callbackRouter string, callbackPort int) error {
+	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
+	param := struct {
+		Msg          string `json:"msg"`
+		Callback_url string `json:"callback_url"`
+	}{
+		Msg:          msg,
+		Callback_url: callbackurl,
+	}
+	data, err := json.Marshal(param)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, callUrl, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+
+	cli := http.Client{
+		Transport: configs.GlobalTransport,
+	}
+
+	_, err = cli.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

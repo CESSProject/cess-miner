@@ -42,7 +42,7 @@ func GetReportReq(callbackRouter, callbackIp string, callbackPort int, callUrl s
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 
 	cli := http.Client{
-		Transport: globalTransport,
+		Transport: configs.GlobalTransport,
 	}
 
 	_, err = cli.Do(req)
@@ -73,7 +73,7 @@ func GetFillFileReq(fpath string, fsize int, callUrl string) error {
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 
 	cli := http.Client{
-		Transport: globalTransport,
+		Transport: configs.GlobalTransport,
 	}
 
 	_, err = cli.Do(req)
@@ -84,16 +84,18 @@ func GetFillFileReq(fpath string, fsize int, callUrl string) error {
 	return nil
 }
 
-func GetTagReq(fpath string, blocksize, callbackPort int, callUrl, callbackRouter, callbackIp string) error {
+func GetTagReq(fpath string, blocksize, segmentSize, callbackPort int, callUrl, callbackRouter, callbackIp string) error {
 	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
 	param := struct {
 		File_path    string `json:"file_path"`
 		Block_size   int    `json:"block_size"`
 		Callback_url string `json:"callback_url"`
+		Segment_size int    `json:"segment_size"`
 	}{
 		File_path:    configs.SgxMappingPath + fpath,
 		Block_size:   blocksize,
 		Callback_url: callbackurl,
+		Segment_size: segmentSize,
 	}
 	data, err := json.Marshal(param)
 	if err != nil {
@@ -107,7 +109,7 @@ func GetTagReq(fpath string, blocksize, callbackPort int, callUrl, callbackRoute
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 
 	cli := http.Client{
-		Transport: globalTransport,
+		Transport: configs.GlobalTransport,
 	}
 
 	_, err = cli.Do(req)

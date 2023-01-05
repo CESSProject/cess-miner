@@ -39,12 +39,12 @@ type FileRouter struct {
 }
 
 type MsgFile struct {
-	Token     string `json:"token"`
-	RootHash  string `json:"roothash"`
-	SliceHash string `json:"slicehash"`
-	FileSize  int64  `json:"filesize"`
-	Lastfile  bool   `json:"lastfile"`
-	Data      []byte `json:"data"`
+	Token    string `json:"token"`
+	RootHash string `json:"roothash"`
+	FileHash string `json:"filehash"`
+	FileSize int64  `json:"filesize"`
+	Lastfile bool   `json:"lastfile"`
+	Data     []byte `json:"data"`
 }
 
 // FileRouter Handle
@@ -76,17 +76,14 @@ func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		return
 	}
 
-	fpath := filepath.Join(f.TmpDir, msg.SliceHash)
+	fpath := filepath.Join(f.TmpDir, msg.FileHash)
+
 	finfo, err := os.Stat(fpath)
 	if err == nil {
 		if finfo.Size() == configs.SIZE_SLICE {
 			hash, _ := utils.CalcPathSHA256(fpath)
-			if hash == msg.SliceHash {
+			if hash == msg.FileHash {
 				request.GetConnection().SendBuffMsg(Msg_OK_FILE, nil)
-				return
-			} else {
-				os.Remove(fpath)
-				request.GetConnection().SendMsg(Msg_ClientErr, nil)
 				return
 			}
 		} else if finfo.Size() > configs.SIZE_SLICE {
@@ -97,7 +94,6 @@ func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
 	}
 	fs, err := os.OpenFile(fpath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		fmt.Println("OpenFile  error")
 		request.GetConnection().SendMsg(Msg_ServerErr, nil)
 		return
 	}
@@ -106,13 +102,13 @@ func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
 	err = fs.Sync()
 	if err != nil {
 		fs.Close()
-		fmt.Println("Sync  error")
 		request.GetConnection().SendMsg(Msg_ServerErr, nil)
 		return
 	}
 
 	finfo, err = fs.Stat()
-	if finfo.Size() == msg.FileSize {
+
+	if finfo.Size() >= msg.FileSize {
 		// Fill to 512MB
 		if msg.FileSize < configs.SIZE_SLICE {
 			appendBuf := make([]byte, configs.SIZE_SLICE-msg.FileSize)
@@ -121,10 +117,8 @@ func (f *FileRouter) Handle(ctx context.CancelFunc, request IRequest) {
 		}
 		fs.Close()
 		hash, _ := utils.CalcPathSHA256(fpath)
-		if hash == msg.SliceHash {
+		if hash == msg.FileHash {
 			request.GetConnection().SendBuffMsg(Msg_OK_FILE, nil)
-			// TODO:
-			// Calc tag call sgx
 		} else {
 			os.Remove(fpath)
 			request.GetConnection().SendMsg(Msg_ClientErr, nil)

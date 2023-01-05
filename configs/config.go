@@ -16,7 +16,10 @@
 
 package configs
 
-import "time"
+import (
+	"net/http"
+	"time"
+)
 
 // byte size
 const (
@@ -61,12 +64,13 @@ const (
 	//
 	TCP_Message_Read_Buffers = 10
 	//
-	TCP_MaxPacketSize = SIZE_1KiB * 1024
+	TCP_MaxPacketSize = SIZE_1MiB * 2
 	//
 	Tcp_Dial_Timeout    = time.Duration(time.Second * 5)
 	ReplaceFileInterval = time.Duration(time.Minute * 5)
 	TimeOut_WaitReport  = time.Duration(time.Second * 10)
 	TimeOut_WaitTag     = time.Duration(time.Minute * 5)
+	TimeOut_WaitSign    = time.Duration(time.Second * 30)
 )
 
 const (
@@ -76,8 +80,11 @@ const (
 	URL_GetTag             = "http://localhost:80/process_data"
 	URL_GetTag_Callback    = "/tag"
 	SgxMappingPath         = "/kaleido"
+	URL_GetSign            = "http://localhost:80/message_signature"
+	URL_GetSign_Callback   = "/sign"
 	SgxReportSuc           = 100000
 	BlockSize              = SIZE_1KiB
+	SegmentSize            = 512
 )
 
 const (
@@ -94,6 +101,11 @@ const (
         If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
+var (
+	GlobalTransport *http.Transport
+	Ch_Sign         chan string
+)
+
 // log file
 var (
 	LogFiles = []string{
@@ -105,3 +117,10 @@ var (
 		"space",     //space log
 	}
 )
+
+func init() {
+	GlobalTransport = &http.Transport{
+		DisableKeepAlives: true,
+	}
+	Ch_Sign = make(chan string, 0)
+}
