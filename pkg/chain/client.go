@@ -95,14 +95,8 @@ type IChain interface {
 	//
 	SubmitAutonomousFileMeta(info AutonomyFileMeta) (string, error)
 
-	// // SubmitProofResults is used to submit proof verification results
-	// SubmitProofResults(data []ProofResult) (string, error)
-	// // SubmitFillerMeta is used to submit the meta information of the filler
-	// SubmitFillerMeta(miner_acc types.AccountID, info []FillerMetaInfo) (string, error)
-	// // SubmitFileMeta is used to submit the meta information of the file
-	// SubmitFileMeta(fid string, fsize uint64, backups []Backup) (string, error)
-	// // Update is used to update the communication address of the scheduling service
-	// Update(ip, port, country string) (string, error)
+	//
+	ReceiveRewards() (string, error)
 }
 
 type chainClient struct {
