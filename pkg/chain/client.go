@@ -97,6 +97,8 @@ type IChain interface {
 
 	//
 	ReceiveRewards() (string, error)
+	//
+	UpdateCert(cert, ias_sig, quote, quote_sig types.Bytes) (string, error)
 }
 
 type chainClient struct {

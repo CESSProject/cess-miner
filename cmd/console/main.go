@@ -43,6 +43,7 @@ func init() {
 		updateAddrCommand(),
 		updateIncomeCommand(),
 		rewardCommand(),
+		updateCertCommand(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "", "Specify the configuration file")
 }
@@ -157,6 +158,16 @@ func rewardCommand() *cobra.Command {
 		Use:                   "reward",
 		Short:                 "Miners receive their own rewards",
 		Run:                   rewardCmd,
+		DisableFlagsInUseLine: true,
+	}
+	return cc
+}
+
+func updateCertCommand() *cobra.Command {
+	cc := &cobra.Command{
+		Use:                   "update_cert",
+		Short:                 "Update the certificate of the miner's sgx service",
+		Run:                   updateCertCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
