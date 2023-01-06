@@ -40,7 +40,7 @@ const (
 	//
 	DepositPerTiB = 2000
 	//
-	DirPermission = 755
+	DirPermission = 0755
 	//
 	ClearMemInterval = time.Duration(time.Minute * 10)
 )
@@ -66,25 +66,31 @@ const (
 	//
 	TCP_MaxPacketSize = SIZE_1MiB * 2
 	//
-	Tcp_Dial_Timeout    = time.Duration(time.Second * 5)
-	ReplaceFileInterval = time.Duration(time.Minute * 5)
-	TimeOut_WaitReport  = time.Duration(time.Second * 10)
-	TimeOut_WaitTag     = time.Duration(time.Minute * 5)
-	TimeOut_WaitSign    = time.Duration(time.Second * 30)
+	Tcp_Dial_Timeout        = time.Duration(time.Second * 5)
+	ReplaceFileInterval     = time.Duration(time.Minute * 5)
+	TimeOut_WaitReport      = time.Duration(time.Second * 10)
+	TimeOut_WaitTag         = time.Duration(time.Minute * 5)
+	TimeOut_WaitSign        = time.Duration(time.Second * 30)
+	TimeOut_WaitProofResult = time.Duration(time.Second * 15)
 )
 
 const (
-	URL_GetReport          = "http://localhost:80/get_report"
-	URL_GetReport_Callback = "/report"
-	URL_FillFile           = "http://localhost:80/fill_random_file"
-	URL_GetTag             = "http://localhost:80/process_data"
-	URL_GetTag_Callback    = "/tag"
-	SgxMappingPath         = "/kaleido"
-	URL_GetSign            = "http://localhost:80/message_signature"
-	URL_GetSign_Callback   = "/sign"
-	SgxReportSuc           = 100000
-	BlockSize              = SIZE_1KiB
-	SegmentSize            = 512
+	ProofSign_CallBack          = "/result"
+	URL_GetReport               = "http://localhost:80/get_report"
+	URL_GetReport_Callback      = "/report"
+	URL_FillFile                = "http://localhost:80/fill_random_file"
+	URL_GetTag                  = "http://localhost:80/process_data"
+	URL_GetTag_Callback         = "/tag"
+	SgxMappingPath              = "/sgx"
+	URL_GetSign                 = "http://localhost:80/message_signature"
+	URL_GetSign_Callback        = "/sign"
+	URL_GetChal                 = "http://localhost:80/get_chal"
+	URL_GetProofResult          = "http://localhost:80/verify_proof"
+	URL_GetProofResult_Callback = "/proofresult"
+	SgxReportSuc                = 100000
+	BlockSize                   = SIZE_1MiB
+	SegmentSize                 = 256
+	ChallengeBlocks             = SIZE_SLICE / BlockSize
 )
 
 const (
@@ -122,5 +128,5 @@ func init() {
 	GlobalTransport = &http.Transport{
 		DisableKeepAlives: true,
 	}
-	Ch_Sign = make(chan string, 0)
+	Ch_Sign = make(chan string, 1)
 }

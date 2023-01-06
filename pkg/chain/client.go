@@ -81,7 +81,7 @@ type IChain interface {
 	// Storage miner redemption deposit function
 	Withdraw() (string, error)
 	// submission proof
-	SubmitProofs(msg []byte, sign Signature) (string, error)
+	SubmitChallengeReport(report ChallengeReport) (string, error)
 	// Clear invalid files
 	ClearInvalidFiles(fid FileHash) (string, error)
 	// Clear all filler files

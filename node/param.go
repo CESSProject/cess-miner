@@ -18,6 +18,7 @@ package node
 
 import (
 	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/pbc"
 )
 
 type Report struct {
@@ -26,6 +27,46 @@ type Report struct {
 	Quote     string
 	Quote_sig string
 }
+
+type Challenge struct {
+	ChalID   []int          `json:"chal_id"`
+	QElement []pbc.QElement `json:"q_elements"`
+	TimeOut  int            `json:"time_out"`
+}
+
+type Status struct {
+	StatusCode int    `json:"status_code"`
+	StatusMsg  string `json:"status_msg"`
+}
+
+type ChalResponse struct {
+	Challenge `json:"challenge"`
+	Status    `json:"status"`
+}
+
+type MinerProof struct {
+	Sigma []byte   `json:"sigma"`
+	Miu   [][]byte `json:"miu"`
+	Tag   pbc.T    `json:"tag"`
+}
+
+type ChallengeResult struct {
+	AutonomousBloomFilter      []int64  `json:"autonomous_bloom_filter"`
+	IdleBloomFilter            []int64  `json:"idle_bloom_filter"`
+	ServiceBloomFilter         []int64  `json:"service_bloom_filter"`
+	AutonomousFailedFileHashes [][]byte `json:"autonomous_failed_file_hashes"`
+	IdleFailedFileHashes       [][]byte `json:"idle_failed_file_hashes"`
+	ServiceFailedFileHashes    [][]byte `json:"service_failed_file_hashes"`
+	ChalId                     []byte   `json:"chal_id"`
+	Pkey                       []byte   `json:"pkey"`
+	Sig                        []byte   `json:"sig"`
+}
+
+const (
+	Proof_Autonomous uint = 1
+	Proof_Idle       uint = 2
+	Proof_Service    uint = 3
+)
 
 const (
 	M_Pending  = "pending"
@@ -39,11 +80,13 @@ const (
 )
 
 var (
-	Ch_Report chan Report
-	Ch_Tag    chan chain.Result
+	Ch_Report      chan Report
+	Ch_Tag         chan chain.Result
+	Ch_ProofResult chan ChalResponse
 )
 
 func init() {
-	Ch_Report = make(chan Report, 0)
-	Ch_Tag = make(chan chain.Result, 0)
+	Ch_Report = make(chan Report, 1)
+	Ch_Tag = make(chan chain.Result, 1)
+	Ch_ProofResult = make(chan ChalResponse, 1)
 }

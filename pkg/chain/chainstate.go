@@ -118,39 +118,6 @@ func (c *chainClient) GetChallenges() (NetworkSnapshot, error) {
 	return data, nil
 }
 
-// get public key
-func (c *chainClient) GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
-	defer func() {
-		recover()
-	}()
-
-	var data Chain_SchedulerPuk
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return data, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_FileMap,
-		fileMap_SchedulerPuk,
-	)
-	if err != nil {
-		return data, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return data, errors.New(ERR_Empty)
-	}
-	return data, nil
-}
-
 // Get all invalid files
 func (c *chainClient) GetInvalidFiles() ([]FileHash, error) {
 	defer func() {

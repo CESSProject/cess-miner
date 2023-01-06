@@ -221,6 +221,19 @@ func register(chn chain.IChain, cfg confile.IConfile) error {
 		return err
 	}
 
+	ctrlAcc, err := chn.GetCessAccount()
+	if err != nil {
+		return err
+	}
+	baseDir := filepath.Join(cfg.GetMountedPath(), ctrlAcc, configs.BaseDir)
+
+	fstat, err := os.Stat(baseDir)
+	if err == nil {
+		if fstat.IsDir() {
+			os.RemoveAll(baseDir)
+		}
+	}
+
 	log.Println("Registration success")
 	return nil
 }

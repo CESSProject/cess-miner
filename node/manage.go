@@ -16,63 +16,63 @@
 
 package node
 
-import (
-	"fmt"
-	"time"
+// import (
+// 	"fmt"
+// 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/chain"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
-)
+// 	"github.com/CESSProject/cess-bucket/configs"
+// 	"github.com/CESSProject/cess-bucket/pkg/chain"
+// 	"github.com/CESSProject/cess-bucket/pkg/utils"
+// )
 
-// The task_HandlingChallenges task will automatically help you complete file challenges.
-// Apart from human influence, it ensures that you submit your certificates in a timely manner.
-// It keeps running as a subtask.
-func (n *Node) task_manage(ch chan bool) {
-	var (
-		txhash string
-	)
-	defer func() {
-		if err := recover(); err != nil {
-			n.Logs.Pnc(utils.RecoverError(err))
-		}
-		ch <- true
-	}()
-	n.Logs.Chlg("info", fmt.Errorf(">>>>> Start task_manage <<<<<"))
-	time.Sleep(configs.BlockInterval)
-	for {
-		minerInfo, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
-		if string(minerInfo.State) != chain.MINER_STATE_POSITIVE {
-			time.Sleep(time.Minute)
-			continue
-		}
+// // The task_HandlingChallenges task will automatically help you complete file challenges.
+// // Apart from human influence, it ensures that you submit your certificates in a timely manner.
+// // It keeps running as a subtask.
+// func (n *Node) task_manage(ch chan bool) {
+// 	var (
+// 		txhash string
+// 	)
+// 	defer func() {
+// 		if err := recover(); err != nil {
+// 			n.Logs.Pnc(utils.RecoverError(err))
+// 		}
+// 		ch <- true
+// 	}()
+// 	n.Logs.Chlg("info", fmt.Errorf(">>>>> Start task_manage <<<<<"))
+// 	time.Sleep(configs.BlockInterval)
+// 	for {
+// 		minerInfo, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
+// 		if string(minerInfo.State) != chain.MINER_STATE_POSITIVE {
+// 			time.Sleep(time.Minute)
+// 			continue
+// 		}
 
-		challenge, err := n.Chn.GetChallenges()
-		if err != nil {
-			n.Logs.Chlg("err", err)
-		}
+// 		challenge, err := n.Chn.GetChallenges()
+// 		if err != nil {
+// 			n.Logs.Chlg("err", err)
+// 		}
 
-		if challenge.Start <= 0 {
-			time.Sleep(time.Minute)
-			continue
-		}
+// 		if challenge.Start <= 0 {
+// 			time.Sleep(time.Minute)
+// 			continue
+// 		}
 
-		n.Logs.Chlg("info", fmt.Errorf("challenge height: %v", challenge.Start))
+// 		n.Logs.Chlg("info", fmt.Errorf("challenge height: %v", challenge.Start))
 
-		//Call sgx to generate sign
-		var msg []byte
-		var sign chain.Signature
+// 		//Call sgx to generate sign
+// 		var msg []byte
+// 		var sign chain.Signature
 
-		// proof up chain
-		for {
-			txhash, err = n.Chn.SubmitProofs(msg, sign)
-			if txhash == "" {
-				n.Logs.Chlg("err", fmt.Errorf("SubmitProofs fail: %v", err))
-			} else {
-				n.Logs.Chlg("info", fmt.Errorf("SubmitProofs suc: %v", txhash))
-				break
-			}
-			time.Sleep(configs.BlockInterval)
-		}
-	}
-}
+// 		// proof up chain
+// 		for {
+// 			txhash, err = n.Chn.SubmitProofs(msg, sign)
+// 			if txhash == "" {
+// 				n.Logs.Chlg("err", fmt.Errorf("SubmitProofs fail: %v", err))
+// 			} else {
+// 				n.Logs.Chlg("info", fmt.Errorf("SubmitProofs suc: %v", txhash))
+// 				break
+// 			}
+// 			time.Sleep(configs.BlockInterval)
+// 		}
+// 	}
+// }

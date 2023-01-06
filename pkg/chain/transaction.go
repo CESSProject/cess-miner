@@ -467,7 +467,7 @@ func (c *chainClient) Withdraw() (string, error) {
 	}
 }
 
-func (c *chainClient) SubmitProofs(msg []byte, sign Signature) (string, error) {
+func (c *chainClient) SubmitChallengeReport(report ChallengeReport) (string, error) {
 	defer func() {
 		recover()
 	}()
@@ -486,7 +486,7 @@ func (c *chainClient) SubmitProofs(msg []byte, sign Signature) (string, error) {
 	}
 	c.SetChainState(true)
 
-	call, err := types.NewCall(c.metadata, tx_SegmentBook_SubmitProve, types.Bytes(msg), sign)
+	call, err := types.NewCall(c.metadata, tx_SegmentBook_SubmitResult, report)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -538,6 +538,7 @@ func (c *chainClient) SubmitProofs(msg []byte, sign Signature) (string, error) {
 	}
 	defer sub.Unsubscribe()
 	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -551,7 +552,7 @@ func (c *chainClient) SubmitProofs(msg []byte, sign Signature) (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.SegmentBook_ChallengeProof) > 0 {
+				if len(events.SegmentBook_SubmitReport) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)

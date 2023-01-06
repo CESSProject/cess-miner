@@ -229,6 +229,9 @@ func BytesToInt64(buf []byte) int64 {
 }
 
 func WorkFiles(dir string) ([]string, error) {
+	if dir == "" {
+		return nil, fmt.Errorf("dir is nil")
+	}
 	var files = make([]string, 0)
 	err := filepath.Walk(dir,
 		func(path string, f os.FileInfo, err error) error {

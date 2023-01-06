@@ -37,10 +37,9 @@ type Event_PPDNoOnTimeSubmit struct {
 	Topics    []types.Hash
 }
 
-type Event_ChallengeProof struct {
+type Event_SubmitReport struct {
 	Phase  types.Phase
 	Miner  types.AccountID
-	Fileid types.Bytes
 	Topics []types.Hash
 }
 
@@ -352,7 +351,7 @@ type CessEventRecords struct {
 	//SegmentBook
 	SegmentBook_PPBNoOnTimeSubmit     []Event_PPBNoOnTimeSubmit
 	SegmentBook_PPDNoOnTimeSubmit     []Event_PPDNoOnTimeSubmit
-	SegmentBook_ChallengeProof        []Event_ChallengeProof
+	SegmentBook_SubmitReport          []Event_SubmitReport
 	SegmentBook_VerifyProof           []Event_VerifyProof
 	SegmentBook_OutstandingChallenges []Event_OutstandingChallenges
 	//Sminer

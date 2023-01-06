@@ -50,7 +50,12 @@ func (n *Node) GetReport(c *gin.Context) {
 		report.Quote = strs[0]
 		report.Quote_sig = strs[3]
 	}
-	go func() { Ch_Report <- report }()
+	go func() {
+		if len(Ch_Report) == 1 {
+			_ = <-Ch_Report
+		}
+		Ch_Report <- report
+	}()
 	c.JSON(http.StatusOK, nil)
 	return
 }

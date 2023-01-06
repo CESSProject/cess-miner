@@ -55,6 +55,13 @@ func (n *Node) task_common(ch chan<- bool) {
 					os.Exit(1)
 				}
 			}
+			_, err = n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					fmt.Println("Miner has quit")
+					os.Exit(1)
+				}
+			}
 		case <-timer_ReplaceFile.C:
 			invalidFiles, err := n.Chn.GetInvalidFiles()
 			if err != nil {

@@ -20,9 +20,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/pbc"
 )
 
 func GetReportReq(callbackRouter, callbackIp string, callbackPort int, callUrl string) error {
@@ -96,6 +99,95 @@ func GetTagReq(fpath string, blocksize, segmentSize, callbackPort int, callUrl, 
 		Block_size:   blocksize,
 		Callback_url: callbackurl,
 		Segment_size: segmentSize,
+	}
+	data, err := json.Marshal(param)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, callUrl, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+
+	cli := http.Client{
+		Transport: configs.GlobalTransport,
+	}
+
+	_, err = cli.Do(req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetChallengeReq(bloacks, callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random) ([]pbc.QElement, error) {
+	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
+	randomBytes := make([]byte, len(random))
+	for i := 0; i < len(random); i++ {
+		randomBytes[i] = byte(random[i])
+	}
+	param := struct {
+		N_blocks     int    `json:"n_blocks"`
+		Callback_url string `json:"callback_url"`
+		Proof_id     []byte `json:"proof_id"`
+	}{
+		N_blocks:     bloacks,
+		Callback_url: callbackurl,
+		Proof_id:     randomBytes,
+	}
+	data, err := json.Marshal(param)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, callUrl, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+
+	cli := http.Client{
+		Transport: configs.GlobalTransport,
+	}
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	val, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil, err
+	}
+	var chalResult ChalResponse
+	err = json.Unmarshal(val, &chalResult)
+	if err != nil {
+		return nil, err
+	}
+
+	return chalResult.QElement, nil
+}
+
+func GetProofResultReq(callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random, proofType uint, proofData []byte) error {
+	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
+	randomBytes := make([]byte, len(random))
+	for i := 0; i < len(random); i++ {
+		randomBytes[i] = byte(random[i])
+	}
+	param := struct {
+		ProofId     []byte `json:"proof_id"`
+		ProofJson   []byte `json:"proof_json"`
+		CallbackUrl string `json:"callback_url"`
+		VerifyType  uint   `json:"verify_type"`
+	}{
+		ProofId:     randomBytes,
+		ProofJson:   proofData,
+		CallbackUrl: callbackurl,
+		VerifyType:  proofType,
 	}
 	data, err := json.Marshal(param)
 	if err != nil {

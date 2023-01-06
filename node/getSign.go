@@ -41,7 +41,12 @@ func (n *Node) GetSign(c *gin.Context) {
 
 	fmt.Println("Get string(sign): ", rtnValue)
 
-	go func() { configs.Ch_Sign <- rtnValue }()
+	go func() {
+		if len(configs.Ch_Sign) == 1 {
+			_ = <-configs.Ch_Sign
+		}
+		configs.Ch_Sign <- rtnValue
+	}()
 	c.JSON(http.StatusOK, nil)
 	return
 }

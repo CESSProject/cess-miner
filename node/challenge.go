@@ -17,21 +17,23 @@
 package node
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
+	"github.com/CESSProject/cess-bucket/pkg/pbc"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/pkg/errors"
 )
 
-// The task_HandlingChallenges task will automatically help you complete file challenges.
-// Apart from human influence, it ensures that you submit your certificates in a timely manner.
+// The task_challenge is used to complete the challenge.
 // It keeps running as a subtask.
 func (n *Node) task_challenge(ch chan<- bool) {
-	var (
-		txhash string
-	)
 	defer func() {
 		if err := recover(); err != nil {
 			n.Logs.Pnc(utils.RecoverError(err))
@@ -43,36 +45,103 @@ func (n *Node) task_challenge(ch chan<- bool) {
 	for {
 		minerInfo, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
 		if string(minerInfo.State) != chain.MINER_STATE_POSITIVE {
+			n.Logs.Chlg("err", fmt.Errorf("miner state: %v", string(minerInfo.State)))
 			time.Sleep(time.Minute)
 			continue
 		}
 
 		challenge, err := n.Chn.GetChallenges()
 		if err != nil {
-			n.Logs.Chlg("err", err)
-		}
-
-		if challenge.Start <= 0 {
+			if err.Error() != chain.ERR_Empty {
+				n.Logs.Chlg("err", err)
+			}
 			time.Sleep(time.Minute)
 			continue
 		}
 
-		n.Logs.Chlg("info", fmt.Errorf("challenge height: %v", challenge.Start))
+		if challenge.Start <= 0 || challenge.Deadline <= 0 {
+			time.Sleep(time.Minute)
+			continue
+		}
 
-		//Call sgx to generate sign
-		var msg []byte
-		var sign chain.Signature
+		n.Logs.Chlg("info", fmt.Errorf("challenge time: %v ~ %v", challenge.Start, challenge.Deadline))
 
-		// proof up chain
-		for {
-			txhash, err = n.Chn.SubmitProofs(msg, sign)
-			if txhash == "" {
-				n.Logs.Chlg("err", fmt.Errorf("SubmitProofs fail: %v", err))
-			} else {
-				n.Logs.Chlg("info", fmt.Errorf("SubmitProofs suc: %v", txhash))
-				break
+		//1. start sgx chal time and get QElement
+		qElement, err := GetChallengeReq(configs.ChallengeBlocks, n.Cfile.GetSgxPortNum(), configs.URL_GetChal, configs.URL_GetReport_Callback, n.Cfile.GetServiceAddr(), challenge.Random)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		//2. challange all file
+		n.challengeFiller(challenge, qElement)
+		n.challengeService(challenge, qElement)
+		n.challengeAutonomous(challenge, qElement)
+	}
+}
+
+func (n *Node) challengeFiller(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
+	fillers, _ := utils.WorkFiles(n.FillerDir)
+	for i := 0; i < len(fillers); i++ {
+		if len(filepath.Base(fillers[i])) == len(chain.FileHash{}) {
+			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(fillers[i])))
+			if err != nil {
+				continue
 			}
-			time.Sleep(configs.BlockInterval)
+			recordBlock := utils.BytesToInt64(val)
+			if recordBlock > int64(challenge.Start) {
+				continue
+			}
+			matrix, _, s, _ := pbc.SplitV2(fillers[i], configs.BlockSize, configs.SegmentSize)
+			ftag, err := os.ReadFile(fillers[i] + ".tag")
+			if err != nil {
+				n.Logs.Chlg("err", errors.Wrapf(err, "[%v] [%d/%d]", filepath.Base(fillers[i]), challenge.Start, recordBlock))
+				continue
+			}
+			var tag chain.Result
+			err = json.Unmarshal(ftag, &tag)
+			if err != nil {
+				n.Logs.Chlg("err", err)
+				continue
+			}
+			var sigmas = make([][]byte, len(tag.Sigmas))
+			for j := 0; j < len(tag.Sigmas); j++ {
+				sigmas[j], _ = hex.DecodeString(tag.Sigmas[j])
+			}
+			sigma, miu := pbc.GenProof(sigmas, qElement, matrix, s, configs.SegmentSize)
+			var proof MinerProof
+			proof.Sigma = sigma
+			proof.Miu = miu
+			proof.Tag = tag.Tag
+			data, err := json.Marshal(&proof)
+			if err != nil {
+				n.Logs.Chlg("err", err)
+				continue
+			}
+			err = GetProofResultReq(n.Cfile.GetSgxPortNum(), configs.URL_GetProofResult, configs.URL_GetProofResult_Callback, n.Cfile.GetServiceAddr(), challenge.Random, Proof_Idle, data)
+			if err != nil {
+				n.Logs.Chlg("err", err)
+				continue
+			}
+
+			var proofResult ChalResponse
+			timeout := time.NewTicker(configs.TimeOut_WaitProofResult)
+			defer timeout.Stop()
+			select {
+			case <-timeout.C:
+				n.Logs.Space("err", fmt.Errorf("Wait Proof Result timeout"))
+			case proofResult = <-Ch_ProofResult:
+				if proofResult.Status.StatusCode != configs.SgxReportSuc {
+					n.Logs.Space("err", fmt.Errorf("Recv Proof Result status code: %v", tag.Status.StatusCode))
+				}
+			}
 		}
 	}
+}
+
+func (n *Node) challengeService(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
+
+}
+
+func (n *Node) challengeAutonomous(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
+
 }

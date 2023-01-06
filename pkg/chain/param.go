@@ -55,7 +55,7 @@ const (
 	tx_Sminer_UpdateIp               = "Sminer.update_ip"
 	tx_Sminer_UpdateBeneficiary      = "Sminer.update_beneficiary"
 	tx_Sminer_Increase               = "Sminer.increase_collateral"
-	tx_SegmentBook_SubmitProve       = "SegmentBook.submit_prove"
+	tx_SegmentBook_SubmitResult      = "SegmentBook.submit_challenge_result"
 	tx_FileBank_ClearInvalidFile     = "FileBank.clear_invalid_file"
 	FileBank_ClearFiller             = "FileBank.clear_all_filler"
 	tx_FileBank_UploadFiller         = "FileBank.upload_filler"

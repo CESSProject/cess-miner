@@ -21,11 +21,10 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/CESSProject/cess-bucket/pkg/chain"
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) GetTag(c *gin.Context) {
+func (n *Node) GetProofResult(c *gin.Context) {
 	var (
 		err error
 	)
@@ -34,18 +33,15 @@ func (n *Node) GetTag(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, nil)
 		return
 	}
+	var resule ChalResponse
 
-	var result chain.Result
-	err = json.Unmarshal(val, &result)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, nil)
-		return
-	}
+	err = json.Unmarshal(val, &resule)
+
 	go func() {
-		if len(Ch_Tag) == 1 {
-			_ = <-Ch_Tag
+		if len(Ch_ProofResult) == 1 {
+			_ = <-Ch_ProofResult
 		}
-		Ch_Tag <- result
+		Ch_ProofResult <- resule
 	}()
 	c.JSON(http.StatusOK, nil)
 	return

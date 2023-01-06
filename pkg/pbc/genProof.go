@@ -1,70 +1,50 @@
+/*
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package pbc
 
 import (
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"os"
-
-	"github.com/Nik-U/pbc"
 )
 
-func (keyPair PBCKeyPair) GenProof(QSlice []QElement, t T, Phi []Sigma, Matrix [][]byte, SigRootHash []byte) <-chan GenProofResponse {
-	responseCh := make(chan GenProofResponse, 1)
-	var res GenProofResponse
-
-	pairing, _ := pbc.NewPairingFromString(keyPair.SharedParams)
-	g := pairing.NewG1().SetBytes(keyPair.SharedG)
-	publicKey := pairing.NewG1().SetBytes(keyPair.Spk)
-
-	tmp, err := json.Marshal(t.Tag)
-	if err != nil {
-		res.StatueMsg.StatusCode = ErrorInternal
-		res.StatueMsg.Msg = err.Error()
-		responseCh <- res
-		return responseCh
+func GenProof(sigmas [][]byte, QSlice []QElement, matrix [][]byte, s int64, seg int64) ([]byte, [][]byte) {
+	miu := make([][]byte, s)
+	for j := 0; j < len(miu); j++ {
+		sum := new(big.Int)
+		for i := 0; i < len(QSlice); i++ {
+			mij := new(big.Int).SetBytes(matrix[QSlice[i].I][int64(j)*seg : int64(j+1)*seg])
+			vi := big.NewInt(QSlice[i].V)
+			//Σ νimij (i,νi)∈Q
+			sum.Add(sum, vi.Mul(vi, mij))
+		}
+		miu[j] = sum.Bytes()
 	}
 
-	tagG1 := pairing.NewG1().SetFromStringHash(string(tmp), sha256.New())
-	temp1 := pairing.NewGT().Pair(tagG1, publicKey)
-	temp2 := pairing.NewGT().Pair(pairing.NewG1().SetBytes(t.SigAbove), g)
-	if !temp1.Equals(temp2) {
-		res.StatueMsg.StatusCode = ErrorParam
-		res.StatueMsg.Msg = "Signature information verification error"
-		responseCh <- res
-		return responseCh
-	} else {
-		fmt.Println("Signature information verification success")
-	}
-
-	//Compute Mu
-	mu := pairing.NewZr()
-	sigma := pairing.NewG1()
-
+	sigma := new(big.Int)
 	for i := 0; i < len(QSlice); i++ {
-		//µ =Σ νi*mi ∈ Zp (i ∈ [1, n])
-		mi := pairing.NewZr().SetBytes(Matrix[QSlice[i].I])
-		vi := pairing.NewZr().SetBytes(QSlice[i].V)
-		mu.Add(pairing.NewZr().Mul(mi, vi), mu)
-
-		//σ =∏ σ^vi ∈ G (i ∈ [1, n])
-		sigma_i := pairing.NewG1().SetBytes(Phi[QSlice[i].I])
-		sigma.Mul(pairing.NewG1().PowZn(sigma_i, vi), sigma)
-
-		hash_mi := pairing.NewG1().SetFromStringHash(string(Matrix[QSlice[i].I]), sha256.New())
-		res.HashMi = append(res.HashMi, hash_mi.Bytes())
+		sigmaI := new(big.Int).SetBytes(sigmas[QSlice[i].I])
+		vi := new(big.Int).SetInt64(QSlice[i].V)
+		sigma.Add(sigma, new(big.Int).Mul(vi, sigmaI))
 	}
 
-	res.MU = mu.Bytes()
-	res.Sigma = sigma.Bytes()
-	res.SigRootHash = SigRootHash
-	res.StatueMsg.StatusCode = Success
-	res.StatueMsg.Msg = "Success"
-	responseCh <- res
-	return responseCh
+	return sigma.Bytes(), miu
 }
 
 func Split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, error) {
@@ -94,7 +74,7 @@ func Split(filefullpath string, blocksize, filesize int64) ([][]byte, uint64, er
 	return matrix, n, nil
 }
 
-func SplitV2(filePath string, sep int64) (Data [][]byte, N int64) {
+func SplitV2(filePath string, sep int64, seg int64) (Data [][]byte, N int64, S int64, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		panic(err)
@@ -123,6 +103,11 @@ func SplitV2(filePath string, sep int64) (Data [][]byte, N int64) {
 		if l := sep - int64(len(data[i*sep:])); l > 0 {
 			Data[i] = append(Data[i], make([]byte, l, l)...)
 		}
+	}
+
+	S = sep / seg
+	if sep%seg != 0 {
+		err = errors.New("chunk length is not divisible by segment length")
 	}
 	return
 }

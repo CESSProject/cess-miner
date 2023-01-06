@@ -75,6 +75,15 @@ func (n *Node) ManagementRegion() {
 		fillerInfo = make([]chain.FillerMetaInfo, 0)
 	)
 
+	files, err := utils.WorkFiles(n.FillerDir)
+	if err == nil {
+		for i := 0; i < len(files); i++ {
+			if len(filepath.Base(files[i])) < len(chain.FileHash{}) {
+				os.Remove(files[i])
+			}
+		}
+	}
+
 	freeSpace, err = n.CalcManagementRegionFreeSpace()
 	if err != nil {
 		n.Logs.Space("err", err)
@@ -173,9 +182,11 @@ func (n *Node) AutonomousRegion() {
 		slicePath          = make([]string, 0)
 		sliceHashPath      = make([]string, 0)
 	)
+
 	freeSpace, err := n.CalcAutonomousRegionFreeSpace()
 	if err != nil {
 		n.Logs.Space("err", err)
+		return
 	}
 
 	if freeSpace < configs.SIZE_SLICE {

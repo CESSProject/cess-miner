@@ -17,6 +17,7 @@
 package chain
 
 import (
+	"github.com/CESSProject/cess-bucket/pkg/pbc"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
@@ -127,27 +128,6 @@ type Ipv6Type struct {
 	Port  types.U16
 }
 
-// proof type
-type Proof struct {
-	FileId         FileHash
-	Miner_pubkey   types.AccountID
-	Challenge_info ChallengeInfo
-	Mu             types.Bytes
-	Sigma          types.Bytes
-	U              types.Bytes
-	HashMi         []types.Bytes
-}
-
-// challenge info
-type ChallengeInfo struct {
-	File_size  types.U64
-	File_type  types.U8
-	Block_list types.Bytes
-	File_id    FileHash
-	Shard_id   SliceId
-	Random     []types.Bytes
-}
-
 // user space package Info
 type SpacePackage struct {
 	Space           types.U128
@@ -160,32 +140,6 @@ type SpacePackage struct {
 	State           types.Bytes
 }
 
-// proof result
-type ProofResult struct {
-	PublicKey types.AccountID
-	FileId    FileHash
-	Shard_id  SliceId
-	Result    types.Bool
-}
-
-// Scheduling node public key information structure
-type Chain_SchedulerPuk struct {
-	Spk           [128]types.U8
-	Shared_params types.Bytes
-	Shared_g      [128]types.U8
-}
-
-// Proof information structure
-type ProveInfo struct {
-	FileId   FileHash
-	MinerAcc types.AccountID
-	//Cinfo    ChallengesInfo
-	Mu     types.Bytes
-	Sigma  types.Bytes
-	U      types.Bytes
-	HashMi []types.Bytes
-}
-
 type NetworkSnapshot struct {
 	Total_power types.U128
 	Reward      types.U128
@@ -195,25 +149,9 @@ type NetworkSnapshot struct {
 }
 
 type Result struct {
-	Sigmas []string   `json:"sigmas"`
-	Tag    Tag        `json:"tag"`
-	Status StatusInfo `json:"status"`
-}
-
-type Tag struct {
-	T     Tag0   `json:"t"`
-	MacT0 []byte `json:"mac_t0"`
-}
-
-type Tag0 struct {
-	N        int64  `json:"n"`
-	Enc      []byte `json:"enc"`
-	FileHash []byte `json:"file_hash"`
-}
-
-type StatusInfo struct {
-	StatusCode uint   `json:"status_code"`
-	StatusMsg  string `json:"status_msg"`
+	Sigmas []string       `json:"sigmas"`
+	Tag    pbc.T          `json:"tag"`
+	Status pbc.StatusInfo `json:"status"`
 }
 
 type AutonomyFileMeta struct {
@@ -232,4 +170,9 @@ type MessageType struct {
 	ShardId   string `json:"shardId"`
 	SliceHash string `json:"sliceHash"`
 	MinerIp   string `json:"minerIp"` //ex:127/0/0/1/15001
+}
+
+type ChallengeReport struct {
+	Message   types.Bytes
+	Signature Signature
 }
