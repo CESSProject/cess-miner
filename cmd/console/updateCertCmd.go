@@ -37,8 +37,13 @@ import (
 //
 //	bucket update_cert
 func updateCertCmd(cmd *cobra.Command, args []string) {
+	var (
+		err            error
+		configFilePath string
+		n              = node.New()
+	)
+
 	// config file
-	var configFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
 	if configpath1 != "" {
@@ -47,17 +52,17 @@ func updateCertCmd(cmd *cobra.Command, args []string) {
 		configFilePath = configpath2
 	}
 
-	confile := confile.NewConfigfile()
-	if err := confile.Parse(configFilePath); err != nil {
+	n.Cfile = confile.NewConfigfile()
+	if err := n.Cfile.Parse(configFilePath); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	// chain client
-	chn, err := chain.NewChainClient(
-		confile.GetRpcAddr(),
-		confile.GetCtrlPrk(),
-		confile.GetIncomeAcc(),
+	n.Chn, err = chain.NewChainClient(
+		n.Cfile.GetRpcAddr(),
+		n.Cfile.GetCtrlPrk(),
+		n.Cfile.GetIncomeAcc(),
 		configs.TimeOut_WaitBlock,
 	)
 	if err != nil {
@@ -65,8 +70,11 @@ func updateCertCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Start Callback
+	n.StartCallback()
+
 	//Query your own information on the chain
-	_, err = chn.GetMinerInfo(chn.GetPublicKey())
+	_, err = n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
 			log.Printf("[err] Not found: %v\n", err)
@@ -77,7 +85,7 @@ func updateCertCmd(cmd *cobra.Command, args []string) {
 	}
 
 	var report node.Report
-	err = node.GetReportReq(configs.URL_GetReport_Callback, confile.GetServiceAddr(), confile.GetSgxPortNum(), configs.URL_GetReport)
+	err = node.GetReportReq(configs.URL_GetReport_Callback, n.Cfile.GetServiceAddr(), n.Cfile.GetSgxPortNum(), configs.URL_GetReport)
 	if err != nil {
 		log.Println("Please start the sgx service first")
 		os.Exit(1)
@@ -104,7 +112,7 @@ func updateCertCmd(cmd *cobra.Command, args []string) {
 	}
 
 	//increase deposit
-	txhash, err := chn.UpdateCert(
+	txhash, err := n.Chn.UpdateCert(
 		types.NewBytes([]byte(report.Cert)),
 		types.NewBytes([]byte(report.Ias_sig)),
 		types.NewBytes([]byte(report.Quote)),
@@ -115,7 +123,7 @@ func updateCertCmd(cmd *cobra.Command, args []string) {
 		} else {
 			if txhash != "" {
 				msg := configs.HELP_Head + fmt.Sprintf(" %v\n", txhash)
-				msg += fmt.Sprintf("%v\n", configs.HELP_MinerReward)
+				msg += fmt.Sprintf("%v\n", configs.HELP_MinerUpdateIasCert)
 				msg += configs.HELP_Tail
 				log.Printf("[pending] %v\n", msg)
 			} else {

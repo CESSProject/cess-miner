@@ -171,6 +171,12 @@ type Event_Receive struct {
 	Topics []types.Hash
 }
 
+type Event_UpdateIasCert struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Topics []types.Hash
+}
+
 // ------------------------FileBank-------------------------------
 type Event_DeleteFile struct {
 	Phase  types.Phase
@@ -380,6 +386,7 @@ type CessEventRecords struct {
 	Sminer_StartOfBufferPeriod []Event_StartOfBufferPeriod
 	Sminer_EndOfBufferPeriod   []Event_EndOfBufferPeriod
 	Sminer_Receive             []Event_Receive
+	Sminer_UpdateIasCert       []Event_UpdateIasCert
 	//FileBank
 	FileBank_DeleteFile           []Event_DeleteFile
 	FileBank_BuySpace             []Event_BuySpace

@@ -50,7 +50,7 @@ const (
 const (
 	tx_Sminer_Register               = "Sminer.regnstk"
 	ChainTx_SegmentBook_IntentSubmit = "SegmentBook.intent_submit"
-	tx_Sminer_ExitMining             = "Sminer.exit_miner"
+	tx_FileBank_ExitMining           = "FileBank.exit_miner"
 	tx_Sminer_Withdraw               = "Sminer.withdraw"
 	tx_Sminer_UpdateIp               = "Sminer.update_ip"
 	tx_Sminer_UpdateBeneficiary      = "Sminer.update_beneficiary"

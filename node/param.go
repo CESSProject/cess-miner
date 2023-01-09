@@ -30,8 +30,8 @@ type Report struct {
 
 type Challenge struct {
 	ChalID   []int          `json:"chal_id"`
-	QElement []pbc.QElement `json:"q_elements"`
 	TimeOut  int            `json:"time_out"`
+	QElement []pbc.QElement `json:"q_elements"`
 }
 
 type Status struct {
@@ -51,15 +51,15 @@ type MinerProof struct {
 }
 
 type ChallengeResult struct {
-	AutonomousBloomFilter      []int64  `json:"autonomous_bloom_filter"`
-	IdleBloomFilter            []int64  `json:"idle_bloom_filter"`
-	ServiceBloomFilter         []int64  `json:"service_bloom_filter"`
-	AutonomousFailedFileHashes [][]byte `json:"autonomous_failed_file_hashes"`
-	IdleFailedFileHashes       [][]byte `json:"idle_failed_file_hashes"`
-	ServiceFailedFileHashes    [][]byte `json:"service_failed_file_hashes"`
-	ChalId                     []byte   `json:"chal_id"`
-	Pkey                       []byte   `json:"pkey"`
-	Sig                        []byte   `json:"sig"`
+	AutonomousBloomFilter      []int64 `json:"autonomous_bloom_filter"`
+	IdleBloomFilter            []int64 `json:"idle_bloom_filter"`
+	ServiceBloomFilter         []int64 `json:"service_bloom_filter"`
+	AutonomousFailedFileHashes string  `json:"autonomous_failed_file_hashes"`
+	IdleFailedFileHashes       string  `json:"idle_failed_file_hashes"`
+	ServiceFailedFileHashes    string  `json:"service_failed_file_hashes"`
+	ChalId                     []byte  `json:"chal_id"`
+	Pkey                       []byte  `json:"pkey"`
+	Sig                        []byte  `json:"sig"`
 }
 
 const (
@@ -77,16 +77,19 @@ const (
 
 const (
 	Cach_Blockheight = "blockheight:"
+	Chal_Blockheight = "challengeheight:"
 )
 
 var (
 	Ch_Report      chan Report
 	Ch_Tag         chan chain.Result
 	Ch_ProofResult chan ChalResponse
+	Ch_Challenge   chan ChalResponse
 )
 
 func init() {
 	Ch_Report = make(chan Report, 1)
 	Ch_Tag = make(chan chain.Result, 1)
 	Ch_ProofResult = make(chan ChalResponse, 1)
+	Ch_Challenge = make(chan ChalResponse, 1)
 }

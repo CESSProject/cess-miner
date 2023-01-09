@@ -20,12 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/chain"
-	"github.com/CESSProject/cess-bucket/pkg/pbc"
 )
 
 func GetReportReq(callbackRouter, callbackIp string, callbackPort int, callUrl string) error {
@@ -123,28 +121,25 @@ func GetTagReq(fpath string, blocksize, segmentSize, callbackPort int, callUrl, 
 	return nil
 }
 
-func GetChallengeReq(bloacks, callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random) ([]pbc.QElement, error) {
+func GetChallengeReq(bloacks, callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random) error {
 	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
-	randomBytes := make([]byte, len(random))
-	for i := 0; i < len(random); i++ {
-		randomBytes[i] = byte(random[i])
-	}
+
 	param := struct {
-		N_blocks     int    `json:"n_blocks"`
-		Callback_url string `json:"callback_url"`
-		Proof_id     []byte `json:"proof_id"`
+		N_blocks     int          `json:"n_blocks"`
+		Callback_url string       `json:"callback_url"`
+		Proof_id     chain.Random `json:"proof_id"`
 	}{
 		N_blocks:     bloacks,
 		Callback_url: callbackurl,
-		Proof_id:     randomBytes,
+		Proof_id:     random,
 	}
 	data, err := json.Marshal(param)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req, err := http.NewRequest(http.MethodPost, callUrl, bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
@@ -153,23 +148,12 @@ func GetChallengeReq(bloacks, callbackPort int, callUrl, callbackRouter, callbac
 		Transport: configs.GlobalTransport,
 	}
 
-	resp, err := cli.Do(req)
+	_, err = cli.Do(req)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	val, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return nil, err
-	}
-	var chalResult ChalResponse
-	err = json.Unmarshal(val, &chalResult)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return chalResult.QElement, nil
+	return nil
 }
 
 func GetProofResultReq(callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random, proofType uint, proofData []byte) error {

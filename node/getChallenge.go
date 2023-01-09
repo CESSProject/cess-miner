@@ -16,24 +16,39 @@
 
 package node
 
-func (n *Node) CoroutineMgr() {
-	var (
-		ch_common = make(chan bool, 1)
-		ch_space  = make(chan bool, 1)
-		ch_chal   = make(chan bool, 1)
-	)
-	go n.task_common(ch_common)
-	go n.task_space(ch_space)
-	go n.task_challenge(ch_chal)
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 
-	for {
-		select {
-		case <-ch_common:
-			go n.task_common(ch_common)
-		case <-ch_space:
-			go n.task_space(ch_space)
-		case <-ch_chal:
-			go n.task_challenge(ch_chal)
-		}
+	"github.com/gin-gonic/gin"
+)
+
+func (n *Node) GetChallenge(c *gin.Context) {
+	var (
+		err error
+	)
+	val, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, nil)
+		return
 	}
+	var resule ChalResponse
+
+	err = json.Unmarshal(val, &resule)
+	if err != nil {
+		fmt.Println("GetChallenge unmarshal err: ", err)
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
+
+	go func() {
+		if len(Ch_Challenge) == 1 {
+			_ = <-Ch_Challenge
+		}
+		Ch_Challenge <- resule
+	}()
+	c.JSON(http.StatusOK, nil)
+	return
 }

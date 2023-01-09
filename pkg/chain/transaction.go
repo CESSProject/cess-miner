@@ -293,7 +293,7 @@ func (c *chainClient) ExitMining() (string, error) {
 	}
 	c.SetChainState(true)
 
-	call, err := types.NewCall(c.metadata, tx_Sminer_ExitMining)
+	call, err := types.NewCall(c.metadata, tx_FileBank_ExitMining)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -1342,7 +1342,7 @@ func (c *chainClient) UpdateCert(cert, ias_sig, quote, quote_sig types.Bytes) (s
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Sminer_Receive) > 0 {
+				if len(events.Sminer_UpdateIasCert) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)

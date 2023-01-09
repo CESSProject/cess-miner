@@ -40,11 +40,16 @@ func (n *Node) task_challenge(ch chan<- bool) {
 		}
 		ch <- true
 	}()
+	var (
+		exist   bool
+		chalKey string
+		chal    ChalResponse
+	)
 	n.Logs.Chlg("info", fmt.Errorf(">>>>> Start task_challenge <<<<<"))
 	time.Sleep(configs.BlockInterval)
 	for {
 		minerInfo, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
-		if string(minerInfo.State) != chain.MINER_STATE_POSITIVE {
+		if string(minerInfo.State) != chain.MINER_STATE_POSITIVE && string(minerInfo.State) != chain.MINER_STATE_FROZEN {
 			n.Logs.Chlg("err", fmt.Errorf("miner state: %v", string(minerInfo.State)))
 			time.Sleep(time.Minute)
 			continue
@@ -64,18 +69,51 @@ func (n *Node) task_challenge(ch chan<- bool) {
 			continue
 		}
 
-		n.Logs.Chlg("info", fmt.Errorf("challenge time: %v ~ %v", challenge.Start, challenge.Deadline))
-
-		//1. start sgx chal time and get QElement
-		qElement, err := GetChallengeReq(configs.ChallengeBlocks, n.Cfile.GetSgxPortNum(), configs.URL_GetChal, configs.URL_GetReport_Callback, n.Cfile.GetServiceAddr(), challenge.Random)
-		if err != nil {
-			n.Logs.Chlg("err", err)
+		chalKey = fmt.Sprintf("%s%d", Chal_Blockheight, challenge.Start)
+		exist, _ = n.Cach.Has([]byte(chalKey))
+		if exist {
+			time.Sleep(time.Minute)
 			continue
 		}
+
+		n.Logs.Chlg("info", fmt.Errorf("challenge time: %v ~ %v", challenge.Start, challenge.Deadline))
+
+		if n.IsChallengesFiller(int64(challenge.Start)) ||
+			n.IsChallengesFile(int64(challenge.Start)) {
+			// start sgx chal time and get QElement
+			err = GetChallengeReq(configs.ChallengeBlocks, n.Cfile.GetSgxPortNum(), configs.URL_GetChal, configs.URL_GetChal_Callback, n.Cfile.GetServiceAddr(), challenge.Random)
+			if err != nil {
+				n.Logs.Chlg("err", err)
+				time.Sleep(configs.BlockInterval)
+				continue
+			}
+
+			timeout := time.NewTicker(configs.TimeOut_WaitChallenge)
+			defer timeout.Stop()
+			select {
+			case <-timeout.C:
+				n.Logs.Chlg("err", fmt.Errorf("Wait challenge timeout"))
+			case chal = <-Ch_Challenge:
+			}
+
+			if chal.Status.StatusCode != configs.SgxReportSuc {
+				n.Logs.Chlg("err", fmt.Errorf("Recv challenge status code: %v", chal.Status.StatusCode))
+				continue
+			}
+			fmt.Println("Get chal suc")
+		} else {
+			n.Logs.Chlg("info", fmt.Errorf("There is no file for this challenge: %v ~ %v", challenge.Start, challenge.Deadline))
+			time.Sleep(time.Minute)
+			continue
+		}
+
 		//2. challange all file
-		n.challengeFiller(challenge, qElement)
-		n.challengeService(challenge, qElement)
-		n.challengeAutonomous(challenge, qElement)
+		n.challengeFiller(challenge, chal.QElement)
+		n.challengeService(challenge, chal.QElement)
+		n.challengeAutonomous(challenge, chal.QElement)
+
+		//3. record chal height
+		n.Cach.Put([]byte(chalKey), nil)
 	}
 }
 
@@ -128,10 +166,10 @@ func (n *Node) challengeFiller(challenge chain.NetworkSnapshot, qElement []pbc.Q
 			defer timeout.Stop()
 			select {
 			case <-timeout.C:
-				n.Logs.Space("err", fmt.Errorf("Wait Proof Result timeout"))
+				n.Logs.Chlg("err", fmt.Errorf("Wait Proof Result timeout"))
 			case proofResult = <-Ch_ProofResult:
 				if proofResult.Status.StatusCode != configs.SgxReportSuc {
-					n.Logs.Space("err", fmt.Errorf("Recv Proof Result status code: %v", tag.Status.StatusCode))
+					n.Logs.Chlg("err", fmt.Errorf("Recv Proof Result status code: %v", tag.Status.StatusCode))
 				}
 			}
 		}
@@ -144,4 +182,44 @@ func (n *Node) challengeService(challenge chain.NetworkSnapshot, qElement []pbc.
 
 func (n *Node) challengeAutonomous(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
 
+}
+
+func (n *Node) IsChallengesFiller(start int64) bool {
+	isHas := false
+	fillers, _ := utils.WorkFiles(n.FillerDir)
+	for i := 0; i < len(fillers); i++ {
+		if len(filepath.Base(fillers[i])) == len(chain.FileHash{}) {
+			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(fillers[i])))
+			if err != nil {
+				continue
+			}
+			recordBlock := utils.BytesToInt64(val)
+			if recordBlock > start {
+				continue
+			}
+			isHas = true
+			break
+		}
+	}
+	return isHas
+}
+
+func (n *Node) IsChallengesFile(start int64) bool {
+	isHas := false
+	files, _ := utils.WorkFiles(n.FileDir)
+	for i := 0; i < len(files); i++ {
+		if len(filepath.Base(files[i])) == len(chain.FileHash{}) {
+			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(files[i])))
+			if err != nil {
+				continue
+			}
+			recordBlock := utils.BytesToInt64(val)
+			if recordBlock > start {
+				continue
+			}
+			isHas = true
+			break
+		}
+	}
+	return isHas
 }

@@ -24,4 +24,5 @@ func (n *Node) AddRoute() {
 	n.CallBack.POST(configs.URL_GetSign_Callback, n.GetSign)
 	n.CallBack.POST(configs.ProofSign_CallBack, n.GetResult)
 	n.CallBack.POST(configs.URL_GetProofResult_Callback, n.GetProofResult)
+	n.CallBack.POST(configs.URL_GetChal_Callback, n.GetChallenge)
 }

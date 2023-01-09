@@ -68,10 +68,11 @@ const (
 	//
 	Tcp_Dial_Timeout        = time.Duration(time.Second * 5)
 	ReplaceFileInterval     = time.Duration(time.Minute * 5)
-	TimeOut_WaitReport      = time.Duration(time.Second * 10)
+	TimeOut_WaitReport      = time.Duration(time.Second * 30)
 	TimeOut_WaitTag         = time.Duration(time.Minute * 5)
 	TimeOut_WaitSign        = time.Duration(time.Second * 30)
-	TimeOut_WaitProofResult = time.Duration(time.Second * 15)
+	TimeOut_WaitProofResult = time.Duration(time.Second * 30)
+	TimeOut_WaitChallenge   = time.Duration(time.Second * 30)
 )
 
 const (
@@ -85,6 +86,7 @@ const (
 	URL_GetSign                 = "http://localhost:80/message_signature"
 	URL_GetSign_Callback        = "/sign"
 	URL_GetChal                 = "http://localhost:80/get_chal"
+	URL_GetChal_Callback        = "/challenge"
 	URL_GetProofResult          = "http://localhost:80/verify_proof"
 	URL_GetProofResult_Callback = "/proofresult"
 	SgxReportSuc                = 100000
@@ -97,14 +99,15 @@ const (
 	HELP_Head = `Please check with the following help information:
     1.Check if the wallet balance is sufficient
     2.Block hash:`
-	HELP_register          = `    3.Check the Sminer_Registered transaction event result in the block hash above:`
-	HELP_UpdateAddress     = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:`
-	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:`
-	HELP_MinerExit         = `    3.Check the Sminer_MinerExit transaction event result in the block hash above:`
-	HELP_MinerIncrease     = `    3.Check the Sminer_IncreaseCollateral transaction event result in the block hash above:`
-	HELP_MinerWithdraw     = `    3.Check the Sminer_Redeemed transaction event result in the block hash above:`
-	HELP_MinerReward       = `    3.Check the Sminer_Receive transaction event result in the block hash above:`
-	HELP_Tail              = `		If system.ExtrinsicFailed is prompted, it means failure;
+	HELP_register           = `    3.Check the Sminer_Registered transaction event result in the block hash above:`
+	HELP_UpdateAddress      = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:`
+	HELP_UpdataBeneficiary  = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:`
+	HELP_MinerExit          = `    3.Check the Sminer_MinerExit transaction event result in the block hash above:`
+	HELP_MinerIncrease      = `    3.Check the Sminer_IncreaseCollateral transaction event result in the block hash above:`
+	HELP_MinerWithdraw      = `    3.Check the Sminer_Redeemed transaction event result in the block hash above:`
+	HELP_MinerReward        = `    3.Check the Sminer_Receive transaction event result in the block hash above:`
+	HELP_MinerUpdateIasCert = `    3.Check the Sminer_UpdateIasCert transaction event result in the block hash above:`
+	HELP_Tail               = `		If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
