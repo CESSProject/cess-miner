@@ -56,6 +56,8 @@ const (
 	TokenLength = 32
 	//
 	NumOfFillerSubmitted = 1
+	//
+	MinutesOfFileSaving = 10
 )
 
 const (

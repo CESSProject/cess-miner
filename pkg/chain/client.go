@@ -54,23 +54,15 @@ type IChain interface {
 	GetCessAccount() (string, error)
 	// GetIncomePublicKey returns its stash account public key
 	GetIncomeAccount() string
+	//
+	GetAutonomyFileInfo(fid string) (AutonomyFileInfo, error)
 
 	// // Getpublickey returns its own private key
 	// GetMnemonicSeed() string
-	// // NewAccountId returns the account id
-	// NewAccountId(pubkey []byte) types.AccountID
-	// // GetChainStatus returns chain status
-	// GetChainStatus() bool
 	// // Getallstorageminer is used to obtain the AccountID of all miners
 	// GetAllStorageMiner() ([]types.AccountID, error)
 	// // GetFileMetaInfo is used to get the meta information of the file
 	// GetFileMetaInfo(fid string) (FileMetaInfo, error)
-	// // GetProofs is used to get all the proofs to be verified
-	// GetProofs() ([]Proof, error)
-	// // GetCessAccount is used to get the account in cess chain format
-	// GetCessAccount() (string, error)
-	// // GetSpacePackageInfo is used to get the space package information of the account
-	// GetSpacePackageInfo(pkey []byte) (SpacePackage, error)
 
 	// Register is used by the scheduling service to register
 	Register(incomeAcc, ip string, port uint16, pledgeTokens uint64, cert, ias_sig, quote, quote_sig types.Bytes) (string, error)
@@ -82,8 +74,6 @@ type IChain interface {
 	SubmitChallengeReport(report ChallengeReport) (string, error)
 	// Clear invalid files
 	ClearInvalidFiles(fid FileHash) (string, error)
-	// Clear all filler files
-	// ClearFiller() (int, error)
 	//
 	UpdateAddress(ip, port string) (string, error)
 	//
@@ -91,8 +81,7 @@ type IChain interface {
 	//
 	SubmitFillerMeta(info []FillerMetaInfo) (string, error)
 	//
-	SubmitAutonomousFileMeta(info AutonomyFileMeta) (string, error)
-
+	SubmitAutonomousFileMeta(info SubmitAutonomyFileMeta) (string, error)
 	//
 	ReceiveRewards() (string, error)
 	//

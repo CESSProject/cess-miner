@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -232,4 +233,44 @@ func (n *Node) GetChallengefiles(start int64, dir string) []string {
 		}
 	}
 	return chalFillers
+}
+
+func (n *Node) GetChallengeAutonomousFiles(start int64, dir string) []string {
+	var (
+		ok                  bool
+		recordBlock         int64
+		err                 error
+		fname               string
+		fnameWithoutTag     string
+		chalAutonomousFiles = make([]string, 0)
+	)
+	files, err := utils.WorkFiles(n.Cfile.GetAutonomousRegion())
+	if err != nil {
+		n.Logs.Space("err", err)
+		return chalAutonomousFiles
+	}
+	if len(files) > 0 {
+		for i := 0; i < len(files); i++ {
+			fname = filepath.Base(files[i])
+			ok, err = n.Cach.Has([]byte(fname))
+			if ok {
+				continue
+			}
+			fnameWithoutTag = strings.TrimSuffix(fname, filepath.Ext(fname))
+			ok, err = n.Cach.Has([]byte(fnameWithoutTag))
+			if ok {
+				continue
+			}
+			val, err := n.Cach.Get([]byte(Cach_Blockheight + fnameWithoutTag))
+			if err != nil {
+				continue
+			}
+			recordBlock = utils.BytesToInt64(val)
+			if recordBlock > start {
+				continue
+			}
+			chalAutonomousFiles = append(chalAutonomousFiles, files[i])
+		}
+	}
+	return chalAutonomousFiles
 }

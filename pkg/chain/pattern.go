@@ -154,7 +154,7 @@ type Result struct {
 	Status pbc.StatusInfo `json:"status"`
 }
 
-type AutonomyFileMeta struct {
+type SubmitAutonomyFileMeta struct {
 	File_hash FileHash
 	File_size types.U64
 	Slice     []FileHash
@@ -175,4 +175,11 @@ type MessageType struct {
 type ChallengeReport struct {
 	Message   types.Bytes
 	Signature Signature
+}
+
+type AutonomyFileInfo struct {
+	File_hash FileHash
+	File_size types.U64
+	Slice     []FileHash
+	Miner_acc types.AccountID
 }

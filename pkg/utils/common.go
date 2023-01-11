@@ -229,10 +229,10 @@ func BytesToInt64(buf []byte) int64 {
 }
 
 func WorkFiles(dir string) ([]string, error) {
-	if dir == "" {
-		return nil, fmt.Errorf("dir is nil")
-	}
 	var files = make([]string, 0)
+	if dir == "" {
+		return files, fmt.Errorf("dir is nil")
+	}
 	err := filepath.Walk(dir,
 		func(path string, f os.FileInfo, err error) error {
 			if f == nil {
@@ -244,4 +244,12 @@ func WorkFiles(dir string) ([]string, error) {
 			return nil
 		})
 	return files, err
+}
+
+func GetLastMtime(fpath string) (int64, error) {
+	fstat, err := os.Stat(fpath)
+	if err != nil {
+		return 0, err
+	}
+	return fstat.ModTime().Unix(), nil
 }

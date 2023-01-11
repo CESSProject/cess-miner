@@ -960,7 +960,7 @@ func (c *chainClient) SubmitFillerMeta(info []FillerMetaInfo) (string, error) {
 }
 
 // Update file meta information
-func (c *chainClient) SubmitAutonomousFileMeta(info AutonomyFileMeta) (string, error) {
+func (c *chainClient) SubmitAutonomousFileMeta(info SubmitAutonomyFileMeta) (string, error) {
 	var (
 		txhash      string
 		accountInfo types.AccountInfo

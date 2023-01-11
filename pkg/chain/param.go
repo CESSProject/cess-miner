@@ -42,8 +42,9 @@ const (
 	fileMap_SchedulerPuk  = "SchedulerPuk"
 	fileMap_SchedulerInfo = "SchedulerMap"
 	// FileBank
-	fileBank_FillerMap   = "FillerMap"
-	fileBank_InvalidFile = "InvalidFile"
+	fileBank_FillerMap    = "FillerMap"
+	fileBank_InvalidFile  = "InvalidFile"
+	fileBank_AutonomyFile = "AutonomyFile"
 )
 
 // Extrinsics
