@@ -58,6 +58,8 @@ const (
 	NumOfFillerSubmitted = 1
 	//
 	MinutesOfFileSaving = 10
+	//
+	NumberOfTransactionRetries = 5
 )
 
 const (

@@ -17,7 +17,6 @@
 package chain
 
 import (
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -380,26 +379,26 @@ func (c *chainClient) SubmitChallengeReport(report ChallengeReport) (string, err
 		txhash      string
 		accountInfo types.AccountInfo
 	)
-	fmt.Println("Submit chal sign: 1")
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	fmt.Println("Submit chal sign: 2")
+
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
 	}
 	c.SetChainState(true)
-	fmt.Println("Submit chal sign: 3")
+
 	call, err := types.NewCall(c.metadata, tx_SegmentBook_SubmitResult, report)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
-	fmt.Println("Submit chal sign: 4")
+
 	ext := types.NewExtrinsic(call)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewExtrinsic]")
 	}
-	fmt.Println("Submit chal sign: 5")
+
 	key, err := types.CreateStorageKey(
 		c.metadata,
 		state_System,

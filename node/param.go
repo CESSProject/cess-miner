@@ -103,6 +103,7 @@ var (
 	Ch_ProofResult chan ChalResponse
 	Ch_Challenge   chan ChalResponse
 	chanllengeLock *sync.Mutex
+	Cach_REQFILLER = []byte("REQFILLER")
 )
 
 func init() {

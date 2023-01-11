@@ -83,7 +83,7 @@ func (n *Node) GetResult(c *gin.Context) {
 		if err != nil {
 			n.Logs.Chlg("err", err)
 			tryCount++
-			if tryCount > 5 {
+			if tryCount > configs.NumberOfTransactionRetries {
 				n.Logs.Chlg("err", fmt.Errorf("SubmitChallengeReport failed"))
 				return
 			}

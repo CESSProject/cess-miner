@@ -38,11 +38,9 @@ func NewConnManager() *ConnManager {
 // Add a Connection
 func (connMgr *ConnManager) Add(conn IConnection) {
 	connMgr.connLock.Lock()
-
 	connMgr.connections[conn.GetConnID()] = conn
 	connMgr.connLock.Unlock()
-
-	fmt.Println("connection add to ConnManager successfully: conn num = ", connMgr.Len())
+	//fmt.Println("connection add to ConnManager successfully: conn num = ", connMgr.Len())
 }
 
 // Remove a Connection
@@ -50,7 +48,7 @@ func (connMgr *ConnManager) Remove(conn IConnection) {
 	connMgr.connLock.Lock()
 	delete(connMgr.connections, conn.GetConnID())
 	connMgr.connLock.Unlock()
-	fmt.Println("connection Remove ConnID=", conn.GetConnID(), " successfully: conn num = ", connMgr.Len())
+	//fmt.Println("connection Remove ConnID=", conn.GetConnID(), " successfully: conn num = ", connMgr.Len())
 }
 
 // Get Get the ID of the Connection

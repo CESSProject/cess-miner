@@ -42,11 +42,12 @@ func (n *Node) task_challenge(ch chan<- bool) {
 		ch <- true
 	}()
 	var (
-		exist   bool
-		chalKey string
-		chal    ChalResponse
-		fillers []string
-		files   []string
+		exist          bool
+		chalKey        string
+		chal           ChalResponse
+		fillers        []string
+		files          []string
+		autonomousFils []string
 	)
 	n.Logs.Chlg("info", fmt.Errorf(">>>>> Start task_challenge <<<<<"))
 	time.Sleep(configs.BlockInterval)
@@ -75,13 +76,6 @@ func (n *Node) task_challenge(ch chan<- bool) {
 		chalKey = fmt.Sprintf("%s%d", Chal_Blockheight, challenge.Start)
 		exist, _ = n.Cach.Has([]byte(chalKey))
 		if exist {
-			// nowHeight, err := n.Chn.GetBlockHeight()
-			// if err != nil {
-			// 	time.Sleep(time.Minute)
-			// 	continue
-			// }
-			// fmt.Println("nowHeight: ", nowHeight)
-			// time.Sleep(time.Second * time.Duration(3*(challenge.Deadline-nowHeight)))
 			time.Sleep(time.Minute)
 			continue
 		}
@@ -90,9 +84,9 @@ func (n *Node) task_challenge(ch chan<- bool) {
 
 		fillers = n.GetChallengefiles(int64(challenge.Start), n.FillerDir)
 		files = n.GetChallengefiles(int64(challenge.Start), n.FileDir)
-
-		if len(fillers) > 0 || len(files) > 0 {
-			// start sgx chal time and get QElement
+		autonomousFils = n.GetChallengeAutonomousFiles(int64(challenge.Start))
+		if len(fillers) > 0 || len(files) > 0 || len(autonomousFils) > 0 {
+			// 1.start sgx chal time and get QElement
 			LockChallengeLock()
 			err = GetChallengeReq(configs.ChallengeBlocks, n.Cfile.GetSgxPortNum(), configs.URL_GetChal, configs.URL_GetChal_Callback, n.Cfile.GetServiceAddr(), challenge.Random)
 			if err != nil {
@@ -109,31 +103,32 @@ func (n *Node) task_challenge(ch chan<- bool) {
 				n.Logs.Chlg("err", fmt.Errorf("Wait challenge timeout"))
 			case chal = <-Ch_Challenge:
 			}
-			ReleaseChallengeLock()
+
 			if chal.Status.StatusCode != configs.SgxReportSuc {
 				n.Logs.Chlg("err", fmt.Errorf("Recv challenge status code: %v", chal.Status.StatusCode))
+				ReleaseChallengeLock()
 				continue
 			}
 			n.Logs.Chlg("info", fmt.Errorf("Get challenge suc"))
+
+			//2. challange all file
+			n.challengeFiller(challenge, chal.QElement, fillers)
+			n.challengeService(challenge, chal.QElement, files)
+			n.challengeAutonomous(challenge, chal.QElement, autonomousFils)
+			ReleaseChallengeLock()
 			n.Cach.Put([]byte(chalKey), nil)
 		} else {
 			n.Logs.Chlg("info", fmt.Errorf("There is no file for this challenge: %v ~ %v", challenge.Start, challenge.Deadline))
-			// nowHeight, err := n.Chn.GetBlockHeight()
-			// if err != nil {
-			// 	time.Sleep(time.Minute)
-			// 	continue
-			// }
-			// time.Sleep(time.Second * time.Duration(6*(challenge.Deadline-nowHeight)))
-			time.Sleep(time.Minute)
+			nowHeight, err := n.Chn.GetBlockHeight()
+			if err != nil {
+				time.Sleep(time.Minute)
+			} else {
+				if challenge.Deadline > nowHeight {
+					time.Sleep(time.Second * time.Duration(3*(challenge.Deadline-nowHeight)))
+				}
+			}
 			continue
 		}
-
-		//2. challange all file
-		LockChallengeLock()
-		n.challengeFiller(challenge, chal.QElement, fillers)
-		n.challengeService(challenge, chal.QElement, files)
-		n.challengeAutonomous(challenge, chal.QElement)
-		ReleaseChallengeLock()
 	}
 }
 
@@ -209,8 +204,40 @@ func (n *Node) challengeService(challenge chain.NetworkSnapshot, qElement []pbc.
 	}
 }
 
-func (n *Node) challengeAutonomous(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
-
+func (n *Node) challengeAutonomous(challenge chain.NetworkSnapshot, qElement []pbc.QElement, autonomousFils []string) {
+	for i := 0; i < len(autonomousFils); i++ {
+		ftag, err := os.ReadFile(autonomousFils[i] + ".tag")
+		if err != nil {
+			n.Logs.Chlg("err", errors.Wrapf(err, "[%v] [%d/%d]", filepath.Base(autonomousFils[i]), challenge.Start, challenge.Deadline))
+			continue
+		}
+		n.Logs.Chlg("info", fmt.Errorf("%v", autonomousFils[i]))
+		matrix, _, s, _ := pbc.SplitV2(autonomousFils[i], configs.BlockSize, configs.SegmentSize)
+		var tag chain.Result
+		err = json.Unmarshal(ftag, &tag)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		var sigmas = make([][]byte, len(tag.Sigmas))
+		for j := 0; j < len(tag.Sigmas); j++ {
+			sigmas[j], _ = hex.DecodeString(tag.Sigmas[j])
+		}
+		sigma, miu := pbc.GenProof(sigmas, qElement, matrix, s, configs.SegmentSize)
+		var proof MinerProof
+		proof.Sigma = sigma
+		proof.Miu = miu
+		proof.Tag = tag.Tag
+		data, err := json.Marshal(&proof)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		err = GetProofResultReq(configs.URL_GetProofResult, challenge.Random, Proof_Autonomous, data)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+		}
+	}
 }
 
 func (n *Node) GetChallengefiles(start int64, dir string) []string {
@@ -218,7 +245,11 @@ func (n *Node) GetChallengefiles(start int64, dir string) []string {
 		recordBlock int64
 		chalFillers = make([]string, 0)
 	)
-	files, _ := utils.WorkFiles(dir)
+	files, err := utils.WorkFiles(dir)
+	if err != nil {
+		n.Logs.Space("err", err)
+		return chalFillers
+	}
 	for i := 0; i < len(files); i++ {
 		if len(filepath.Base(files[i])) == len(chain.FileHash{}) {
 			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(files[i])))
@@ -235,13 +266,11 @@ func (n *Node) GetChallengefiles(start int64, dir string) []string {
 	return chalFillers
 }
 
-func (n *Node) GetChallengeAutonomousFiles(start int64, dir string) []string {
+func (n *Node) GetChallengeAutonomousFiles(start int64) []string {
 	var (
-		ok                  bool
 		recordBlock         int64
 		err                 error
 		fname               string
-		fnameWithoutTag     string
 		chalAutonomousFiles = make([]string, 0)
 	)
 	files, err := utils.WorkFiles(n.Cfile.GetAutonomousRegion())
@@ -249,28 +278,23 @@ func (n *Node) GetChallengeAutonomousFiles(start int64, dir string) []string {
 		n.Logs.Space("err", err)
 		return chalAutonomousFiles
 	}
-	if len(files) > 0 {
-		for i := 0; i < len(files); i++ {
-			fname = filepath.Base(files[i])
-			ok, err = n.Cach.Has([]byte(fname))
-			if ok {
-				continue
-			}
-			fnameWithoutTag = strings.TrimSuffix(fname, filepath.Ext(fname))
-			ok, err = n.Cach.Has([]byte(fnameWithoutTag))
-			if ok {
-				continue
-			}
-			val, err := n.Cach.Get([]byte(Cach_Blockheight + fnameWithoutTag))
-			if err != nil {
-				continue
-			}
-			recordBlock = utils.BytesToInt64(val)
-			if recordBlock > start {
-				continue
-			}
-			chalAutonomousFiles = append(chalAutonomousFiles, files[i])
+
+	for i := 0; i < len(files); i++ {
+		fname = filepath.Base(files[i])
+		if strings.Contains(fname, ".") {
+			fname = strings.TrimSuffix(fname, filepath.Ext(fname))
 		}
+		val, err := n.Cach.Get([]byte(Cach_Blockheight + fname))
+		if err != nil {
+			continue
+		}
+
+		recordBlock = utils.BytesToInt64(val)
+		if recordBlock > start {
+			continue
+		}
+		chalAutonomousFiles = append(chalAutonomousFiles, files[i])
 	}
+
 	return chalAutonomousFiles
 }

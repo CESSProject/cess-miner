@@ -47,6 +47,14 @@ func (n *Node) task_space(ch chan<- bool) {
 	n.Logs.Space("info", fmt.Errorf(">>>>> Start task_space <<<<<"))
 	time.Sleep(configs.BlockInterval)
 
+	val, err := n.Cach.Get(Cach_REQFILLER)
+	if err == nil {
+		tsec := time.Since(time.Unix(utils.BytesToInt64(val), 0)).Seconds()
+		if tsec < configs.TimeOut_WaitTag.Seconds() {
+			time.Sleep(time.Second * time.Duration(configs.TimeOut_WaitTag.Seconds()-tsec))
+		}
+	}
+
 	for {
 		minerInfo, err = n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
 		if err != nil {
@@ -104,6 +112,8 @@ func (n *Node) ManagementRegion() {
 		n.Logs.Space("err", err)
 		return
 	}
+
+	n.Cach.Put(Cach_REQFILLER, utils.Int64ToBytes(time.Now().Unix()))
 
 	err = GetTagReq(fpath, configs.BlockSize, configs.SegmentSize, n.Cfile.GetSgxPortNum(), configs.URL_GetTag, configs.URL_GetTag_Callback, n.Cfile.GetServiceAddr())
 	if err != nil {
@@ -372,6 +382,7 @@ func (n *Node) processAutonomousFile(fpath string, freeSpace uint64) {
 			}
 			for _, v := range sliceHashPath {
 				os.Remove(v)
+				os.Remove(v + ".tag")
 			}
 			return
 		}
@@ -383,8 +394,8 @@ func (n *Node) processAutonomousFile(fpath string, freeSpace uint64) {
 			}
 			for _, v := range sliceHashPath {
 				os.Remove(v)
+				os.Remove(v + ".tag")
 			}
-			os.Remove(newPath + ".tag")
 			return
 		}
 		ftag.Write(value)
@@ -398,6 +409,7 @@ func (n *Node) processAutonomousFile(fpath string, freeSpace uint64) {
 	}
 
 	//Submit filler info to chain
+	tryCount := 0
 	for {
 		txHash, err = n.Chn.SubmitAutonomousFileMeta(autonomousFileMeta)
 		if err != nil {
@@ -422,7 +434,18 @@ func (n *Node) processAutonomousFile(fpath string, freeSpace uint64) {
 			n.Logs.Space("info", fmt.Errorf("Submit autonomous file meta: %v", txHash))
 			break
 		}
-		time.Sleep(configs.BlockInterval)
+		tryCount++
+		if tryCount > configs.NumberOfTransactionRetries {
+			for _, v := range slicePath {
+				os.Remove(v)
+			}
+			for _, v := range sliceHashPath {
+				os.Remove(v)
+				os.Remove(v + ".tag")
+			}
+			break
+		}
+		time.Sleep(configs.BlockInterval * 2)
 	}
 }
 
