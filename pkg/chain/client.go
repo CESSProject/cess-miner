@@ -78,8 +78,6 @@ type IChain interface {
 	Increase(tokens *big.Int) (string, error)
 	// Storage miner exits the mining function
 	ExitMining() (string, error)
-	// Storage miner redemption deposit function
-	Withdraw() (string, error)
 	// submission proof
 	SubmitChallengeReport(report ChallengeReport) (string, error)
 	// Clear invalid files

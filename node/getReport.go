@@ -17,7 +17,6 @@
 package node
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -35,16 +34,11 @@ func (n *Node) GetReport(c *gin.Context) {
 		return
 	}
 	var report Report
-
 	str := strings.ReplaceAll(string(val), "\\", "")
 	str = strings.TrimPrefix(str, "\"")
 	str = strings.TrimSuffix(str, "\"")
 	strs := strings.Split(str, "|")
 	if len(strs) == 4 {
-		fmt.Println(strs[0])
-		fmt.Println(strs[1])
-		fmt.Println(strs[2])
-		fmt.Println(strs[3])
 		report.Cert = strs[2]
 		report.Ias_sig = strs[1]
 		report.Quote = strs[0]

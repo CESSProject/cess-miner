@@ -71,28 +71,28 @@ const (
 	TimeOut_WaitReport      = time.Duration(time.Second * 30)
 	TimeOut_WaitTag         = time.Duration(time.Minute * 5)
 	TimeOut_WaitSign        = time.Duration(time.Second * 30)
-	TimeOut_WaitProofResult = time.Duration(time.Second * 30)
+	TimeOut_WaitProofResult = time.Duration(time.Second * 20)
 	TimeOut_WaitChallenge   = time.Duration(time.Second * 30)
 )
 
 const (
-	ProofSign_CallBack          = "/result"
-	URL_GetReport               = "http://localhost:80/get_report"
-	URL_GetReport_Callback      = "/report"
-	URL_FillFile                = "http://localhost:80/fill_random_file"
-	URL_GetTag                  = "http://localhost:80/process_data"
-	URL_GetTag_Callback         = "/tag"
-	SgxMappingPath              = "/sgx"
-	URL_GetSign                 = "http://localhost:80/message_signature"
-	URL_GetSign_Callback        = "/sign"
-	URL_GetChal                 = "http://localhost:80/get_chal"
-	URL_GetChal_Callback        = "/challenge"
-	URL_GetProofResult          = "http://localhost:80/verify_proof"
-	URL_GetProofResult_Callback = "/proofresult"
-	SgxReportSuc                = 100000
-	BlockSize                   = SIZE_1MiB
-	SegmentSize                 = 256
-	ChallengeBlocks             = SIZE_SLICE / BlockSize
+	ProofSign_CallBack     = "/result"
+	URL_GetReport          = "http://localhost:80/get_report"
+	URL_GetReport_Callback = "/report"
+	URL_FillFile           = "http://localhost:80/fill_random_file"
+	URL_GetTag             = "http://localhost:80/process_data"
+	URL_GetTag_Callback    = "/tag"
+	SgxMappingPath         = "/sgx"
+	URL_GetSign            = "http://localhost:80/message_signature"
+	URL_GetSign_Callback   = "/sign"
+	URL_GetChal            = "http://localhost:80/get_chal"
+	URL_GetChal_Callback   = "/challenge"
+	URL_GetProofResult     = "http://localhost:80/verify_proof"
+	//URL_GetProofResult_Callback = "/proofresult"
+	SgxReportSuc    = 100000
+	BlockSize       = SIZE_1MiB
+	SegmentSize     = 256
+	ChallengeBlocks = SIZE_SLICE / BlockSize
 )
 
 const (

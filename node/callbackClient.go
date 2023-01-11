@@ -156,22 +156,19 @@ func GetChallengeReq(bloacks, callbackPort int, callUrl, callbackRouter, callbac
 	return nil
 }
 
-func GetProofResultReq(callbackPort int, callUrl, callbackRouter, callbackIp string, random chain.Random, proofType uint, proofData []byte) error {
-	callbackurl := fmt.Sprintf("http://%v:%d%v", callbackIp, callbackPort, callbackRouter)
+func GetProofResultReq(callUrl string, random chain.Random, proofType uint, proofData []byte) error {
 	randomBytes := make([]byte, len(random))
 	for i := 0; i < len(random); i++ {
 		randomBytes[i] = byte(random[i])
 	}
 	param := struct {
-		ProofId     []byte `json:"proof_id"`
-		ProofJson   []byte `json:"proof_json"`
-		CallbackUrl string `json:"callback_url"`
-		VerifyType  uint   `json:"verify_type"`
+		ProofId    []byte `json:"proof_id"`
+		ProofJson  []byte `json:"proof_json"`
+		VerifyType uint   `json:"verify_type"`
 	}{
-		ProofId:     randomBytes,
-		ProofJson:   proofData,
-		CallbackUrl: callbackurl,
-		VerifyType:  proofType,
+		ProofId:    randomBytes,
+		ProofJson:  proofData,
+		VerifyType: proofType,
 	}
 	data, err := json.Marshal(param)
 	if err != nil {
@@ -188,9 +185,13 @@ func GetProofResultReq(callbackPort int, callUrl, callbackRouter, callbackIp str
 		Transport: configs.GlobalTransport,
 	}
 
-	_, err = cli.Do(req)
+	resp, err := cli.Do(req)
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%v", resp.StatusCode)
 	}
 
 	return nil

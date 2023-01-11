@@ -30,7 +30,7 @@ func (n *Node) StartCallback() {
 		n.CallBack = gin.Default()
 		config := cors.DefaultConfig()
 		config.AllowAllOrigins = true
-		config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+		config.AllowMethods = []string{"POST", "OPTIONS"}
 		config.AddAllowHeaders("*")
 		n.CallBack.Use(cors.New(config))
 		// Add route

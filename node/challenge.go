@@ -44,6 +44,8 @@ func (n *Node) task_challenge(ch chan<- bool) {
 		exist   bool
 		chalKey string
 		chal    ChalResponse
+		fillers []string
+		files   []string
 	)
 	n.Logs.Chlg("info", fmt.Errorf(">>>>> Start task_challenge <<<<<"))
 	time.Sleep(configs.BlockInterval)
@@ -72,17 +74,28 @@ func (n *Node) task_challenge(ch chan<- bool) {
 		chalKey = fmt.Sprintf("%s%d", Chal_Blockheight, challenge.Start)
 		exist, _ = n.Cach.Has([]byte(chalKey))
 		if exist {
+			// nowHeight, err := n.Chn.GetBlockHeight()
+			// if err != nil {
+			// 	time.Sleep(time.Minute)
+			// 	continue
+			// }
+			// fmt.Println("nowHeight: ", nowHeight)
+			// time.Sleep(time.Second * time.Duration(3*(challenge.Deadline-nowHeight)))
 			time.Sleep(time.Minute)
 			continue
 		}
 
 		n.Logs.Chlg("info", fmt.Errorf("challenge time: %v ~ %v", challenge.Start, challenge.Deadline))
 
-		if n.IsChallengesFiller(int64(challenge.Start)) ||
-			n.IsChallengesFile(int64(challenge.Start)) {
+		fillers = n.GetChallengefiles(int64(challenge.Start), n.FillerDir)
+		files = n.GetChallengefiles(int64(challenge.Start), n.FileDir)
+
+		if len(fillers) > 0 || len(files) > 0 {
 			// start sgx chal time and get QElement
+			LockChallengeLock()
 			err = GetChallengeReq(configs.ChallengeBlocks, n.Cfile.GetSgxPortNum(), configs.URL_GetChal, configs.URL_GetChal_Callback, n.Cfile.GetServiceAddr(), challenge.Random)
 			if err != nil {
+				ReleaseChallengeLock()
 				n.Logs.Chlg("err", err)
 				time.Sleep(configs.BlockInterval)
 				continue
@@ -95,131 +108,128 @@ func (n *Node) task_challenge(ch chan<- bool) {
 				n.Logs.Chlg("err", fmt.Errorf("Wait challenge timeout"))
 			case chal = <-Ch_Challenge:
 			}
-
+			ReleaseChallengeLock()
 			if chal.Status.StatusCode != configs.SgxReportSuc {
 				n.Logs.Chlg("err", fmt.Errorf("Recv challenge status code: %v", chal.Status.StatusCode))
 				continue
 			}
-			fmt.Println("Get chal suc")
+			n.Logs.Chlg("info", fmt.Errorf("Get challenge suc"))
+			n.Cach.Put([]byte(chalKey), nil)
 		} else {
 			n.Logs.Chlg("info", fmt.Errorf("There is no file for this challenge: %v ~ %v", challenge.Start, challenge.Deadline))
+			// nowHeight, err := n.Chn.GetBlockHeight()
+			// if err != nil {
+			// 	time.Sleep(time.Minute)
+			// 	continue
+			// }
+			// time.Sleep(time.Second * time.Duration(6*(challenge.Deadline-nowHeight)))
 			time.Sleep(time.Minute)
 			continue
 		}
 
 		//2. challange all file
-		n.challengeFiller(challenge, chal.QElement)
-		n.challengeService(challenge, chal.QElement)
+		LockChallengeLock()
+		n.challengeFiller(challenge, chal.QElement, fillers)
+		n.challengeService(challenge, chal.QElement, files)
 		n.challengeAutonomous(challenge, chal.QElement)
-
-		//3. record chal height
-		n.Cach.Put([]byte(chalKey), nil)
+		ReleaseChallengeLock()
 	}
 }
 
-func (n *Node) challengeFiller(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
-	fillers, _ := utils.WorkFiles(n.FillerDir)
+func (n *Node) challengeFiller(challenge chain.NetworkSnapshot, qElement []pbc.QElement, fillers []string) {
 	for i := 0; i < len(fillers); i++ {
-		if len(filepath.Base(fillers[i])) == len(chain.FileHash{}) {
-			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(fillers[i])))
-			if err != nil {
-				continue
-			}
-			recordBlock := utils.BytesToInt64(val)
-			if recordBlock > int64(challenge.Start) {
-				continue
-			}
-			matrix, _, s, _ := pbc.SplitV2(fillers[i], configs.BlockSize, configs.SegmentSize)
-			ftag, err := os.ReadFile(fillers[i] + ".tag")
-			if err != nil {
-				n.Logs.Chlg("err", errors.Wrapf(err, "[%v] [%d/%d]", filepath.Base(fillers[i]), challenge.Start, recordBlock))
-				continue
-			}
-			var tag chain.Result
-			err = json.Unmarshal(ftag, &tag)
-			if err != nil {
-				n.Logs.Chlg("err", err)
-				continue
-			}
-			var sigmas = make([][]byte, len(tag.Sigmas))
-			for j := 0; j < len(tag.Sigmas); j++ {
-				sigmas[j], _ = hex.DecodeString(tag.Sigmas[j])
-			}
-			sigma, miu := pbc.GenProof(sigmas, qElement, matrix, s, configs.SegmentSize)
-			var proof MinerProof
-			proof.Sigma = sigma
-			proof.Miu = miu
-			proof.Tag = tag.Tag
-			data, err := json.Marshal(&proof)
-			if err != nil {
-				n.Logs.Chlg("err", err)
-				continue
-			}
-			err = GetProofResultReq(n.Cfile.GetSgxPortNum(), configs.URL_GetProofResult, configs.URL_GetProofResult_Callback, n.Cfile.GetServiceAddr(), challenge.Random, Proof_Idle, data)
-			if err != nil {
-				n.Logs.Chlg("err", err)
-				continue
-			}
-
-			var proofResult ChalResponse
-			timeout := time.NewTicker(configs.TimeOut_WaitProofResult)
-			defer timeout.Stop()
-			select {
-			case <-timeout.C:
-				n.Logs.Chlg("err", fmt.Errorf("Wait Proof Result timeout"))
-			case proofResult = <-Ch_ProofResult:
-				if proofResult.Status.StatusCode != configs.SgxReportSuc {
-					n.Logs.Chlg("err", fmt.Errorf("Recv Proof Result status code: %v", tag.Status.StatusCode))
-				}
-			}
+		ftag, err := os.ReadFile(fillers[i] + ".tag")
+		if err != nil {
+			n.Logs.Chlg("err", errors.Wrapf(err, "[%v] [%d/%d]", filepath.Base(fillers[i]), challenge.Start, challenge.Deadline))
+			continue
+		}
+		n.Logs.Chlg("info", fmt.Errorf("%v", fillers[i]))
+		matrix, _, s, _ := pbc.SplitV2(fillers[i], configs.BlockSize, configs.SegmentSize)
+		var tag chain.Result
+		err = json.Unmarshal(ftag, &tag)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		var sigmas = make([][]byte, len(tag.Sigmas))
+		for j := 0; j < len(tag.Sigmas); j++ {
+			sigmas[j], _ = hex.DecodeString(tag.Sigmas[j])
+		}
+		sigma, miu := pbc.GenProof(sigmas, qElement, matrix, s, configs.SegmentSize)
+		var proof MinerProof
+		proof.Sigma = sigma
+		proof.Miu = miu
+		proof.Tag = tag.Tag
+		data, err := json.Marshal(&proof)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		err = GetProofResultReq(configs.URL_GetProofResult, challenge.Random, Proof_Idle, data)
+		if err != nil {
+			n.Logs.Chlg("err", err)
 		}
 	}
 }
 
-func (n *Node) challengeService(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
-
+func (n *Node) challengeService(challenge chain.NetworkSnapshot, qElement []pbc.QElement, files []string) {
+	for i := 0; i < len(files); i++ {
+		ftag, err := os.ReadFile(files[i] + ".tag")
+		if err != nil {
+			n.Logs.Chlg("err", errors.Wrapf(err, "[%v] [%d/%d]", filepath.Base(files[i]), challenge.Start, challenge.Deadline))
+			continue
+		}
+		n.Logs.Chlg("info", fmt.Errorf("%v", files[i]))
+		matrix, _, s, _ := pbc.SplitV2(files[i], configs.BlockSize, configs.SegmentSize)
+		var tag chain.Result
+		err = json.Unmarshal(ftag, &tag)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		var sigmas = make([][]byte, len(tag.Sigmas))
+		for j := 0; j < len(tag.Sigmas); j++ {
+			sigmas[j], _ = hex.DecodeString(tag.Sigmas[j])
+		}
+		sigma, miu := pbc.GenProof(sigmas, qElement, matrix, s, configs.SegmentSize)
+		var proof MinerProof
+		proof.Sigma = sigma
+		proof.Miu = miu
+		proof.Tag = tag.Tag
+		data, err := json.Marshal(&proof)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+			continue
+		}
+		err = GetProofResultReq(configs.URL_GetProofResult, challenge.Random, Proof_Service, data)
+		if err != nil {
+			n.Logs.Chlg("err", err)
+		}
+	}
 }
 
 func (n *Node) challengeAutonomous(challenge chain.NetworkSnapshot, qElement []pbc.QElement) {
 
 }
 
-func (n *Node) IsChallengesFiller(start int64) bool {
-	isHas := false
-	fillers, _ := utils.WorkFiles(n.FillerDir)
-	for i := 0; i < len(fillers); i++ {
-		if len(filepath.Base(fillers[i])) == len(chain.FileHash{}) {
-			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(fillers[i])))
-			if err != nil {
-				continue
-			}
-			recordBlock := utils.BytesToInt64(val)
-			if recordBlock > start {
-				continue
-			}
-			isHas = true
-			break
-		}
-	}
-	return isHas
-}
-
-func (n *Node) IsChallengesFile(start int64) bool {
-	isHas := false
-	files, _ := utils.WorkFiles(n.FileDir)
+func (n *Node) GetChallengefiles(start int64, dir string) []string {
+	var (
+		recordBlock int64
+		chalFillers = make([]string, 0)
+	)
+	files, _ := utils.WorkFiles(dir)
 	for i := 0; i < len(files); i++ {
 		if len(filepath.Base(files[i])) == len(chain.FileHash{}) {
 			val, err := n.Cach.Get([]byte(Cach_Blockheight + filepath.Base(files[i])))
 			if err != nil {
 				continue
 			}
-			recordBlock := utils.BytesToInt64(val)
+			recordBlock = utils.BytesToInt64(val)
 			if recordBlock > start {
 				continue
 			}
-			isHas = true
-			break
+			chalFillers = append(chalFillers, files[i])
 		}
 	}
-	return isHas
+	return chalFillers
 }

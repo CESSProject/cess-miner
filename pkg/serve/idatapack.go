@@ -26,7 +26,6 @@ const (
 	// Default packaging and unpacking methods
 	DefaultDataPack string = "default_pack"
 
-	//...(+)
 	// Add custom package method here
 )
 

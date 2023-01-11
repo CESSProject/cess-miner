@@ -17,6 +17,7 @@
 package chain
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -357,7 +358,7 @@ func (c *chainClient) ExitMining() (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Sminer_MinerExit) > 0 {
+				if len(events.FileBank_MinerExit) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -366,103 +367,6 @@ func (c *chainClient) ExitMining() (string, error) {
 			return "", err
 		case <-timeout.C:
 			return "", errors.New(ERR_Timeout)
-		}
-	}
-}
-
-// Storage miner redemption deposit function
-func (c *chainClient) Withdraw() (string, error) {
-	defer func() {
-		recover()
-	}()
-
-	var (
-		txhash      string
-		accountInfo types.AccountInfo
-	)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return txhash, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	call, err := types.NewCall(c.metadata, tx_Sminer_Withdraw)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewCall]")
-	}
-
-	ext := types.NewExtrinsic(call)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewExtrinsic]")
-	}
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_System,
-		system_Account,
-		c.keyring.PublicKey,
-	)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return txhash, errors.New(ERR_Empty)
-	}
-
-	o := types.SignatureOptions{
-		BlockHash:          c.genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        c.genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
-		SpecVersion:        c.runtimeVersion.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: c.runtimeVersion.TransactionVersion,
-	}
-
-	// Sign the transaction
-	err = ext.Sign(c.keyring, o)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[Sign]")
-	}
-
-	// Do the transfer and track the actual status
-	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-	}
-	defer sub.Unsubscribe()
-	timeout := time.NewTimer(c.timeForBlockOut)
-	for {
-		select {
-		case status := <-sub.Chan():
-			if status.IsInBlock {
-				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
-				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "[GetStorageRaw]")
-				}
-
-				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
-
-				if len(events.Sminer_Redeemed) > 0 {
-					return txhash, nil
-				}
-				return txhash, errors.New(ERR_Failed)
-			}
-		case err = <-sub.Err():
-			return txhash, err
-		case <-timeout.C:
-			return txhash, errors.New(ERR_Timeout)
 		}
 	}
 }
@@ -476,26 +380,26 @@ func (c *chainClient) SubmitChallengeReport(report ChallengeReport) (string, err
 		txhash      string
 		accountInfo types.AccountInfo
 	)
-
+	fmt.Println("Submit chal sign: 1")
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
+	fmt.Println("Submit chal sign: 2")
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
 		return txhash, ERR_RPC_CONNECTION
 	}
 	c.SetChainState(true)
-
+	fmt.Println("Submit chal sign: 3")
 	call, err := types.NewCall(c.metadata, tx_SegmentBook_SubmitResult, report)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
-
+	fmt.Println("Submit chal sign: 4")
 	ext := types.NewExtrinsic(call)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewExtrinsic]")
 	}
-
+	fmt.Println("Submit chal sign: 5")
 	key, err := types.CreateStorageKey(
 		c.metadata,
 		state_System,

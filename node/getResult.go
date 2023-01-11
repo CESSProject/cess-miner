@@ -17,6 +17,7 @@
 package node
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,8 +32,10 @@ import (
 
 func (n *Node) GetResult(c *gin.Context) {
 	var (
-		txhash string
 		err    error
+		txhash string
+		result ChallengeResult
+		msg    ChallengeSignMessage
 	)
 	val, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -40,52 +43,54 @@ func (n *Node) GetResult(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Get Result, len()==", len(val))
-	var result ChallengeResult
-
 	err = json.Unmarshal(val, &result)
 	if err != nil {
 		n.Logs.Chlg("err", fmt.Errorf("UnMarshal result err: %v", err))
-		c.JSON(http.StatusOK, nil)
+		c.JSON(http.StatusBadRequest, nil)
+		return
+	}
+	c.JSON(http.StatusOK, nil)
+
+	msg.AutonomousBloomFilter = result.AutonomousBloomFilter
+	msg.AutonomousFailedFileHashes = result.AutonomousFailedFileHashes
+	msg.ChalId = hex.EncodeToString(result.ChalId)
+	msg.IdleBloomFilter = result.IdleBloomFilter
+	msg.IdleFailedFileHashes = result.IdleFailedFileHashes
+	msg.Pkey = hex.EncodeToString(result.Pkey)
+	msg.ServiceBloomFilter = result.ServiceBloomFilter
+	msg.ServiceFailedFileHashes = result.ServiceFailedFileHashes
+
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		n.Logs.Chlg("err", fmt.Errorf("Marshal msg err: %v", err))
 		return
 	}
 
-	msg := revert(result)
 	var report chain.ChallengeReport
-	report.Message = types.Bytes([]byte(msg))
+	report.Message = msgBytes
 	if len(report.Signature) != len(result.Sig) {
 		n.Logs.Chlg("err", fmt.Errorf("report sig length err: %v", len(result.Sig)))
-		c.JSON(http.StatusOK, nil)
 		return
 	}
+
 	for i := 0; i < len(result.Sig); i++ {
 		report.Signature[i] = types.U8(result.Sig[i])
 	}
 
+	tryCount := 0
 	for {
 		txhash, err = n.Chn.SubmitChallengeReport(report)
 		if err != nil {
 			n.Logs.Chlg("err", err)
-			time.Sleep(configs.BlockInterval)
+			tryCount++
+			if tryCount > 5 {
+				n.Logs.Chlg("err", fmt.Errorf("SubmitChallengeReport failed"))
+				return
+			}
+			time.Sleep(configs.BlockInterval * 2)
 			continue
 		}
 		n.Logs.Chlg("info", fmt.Errorf("SubmitChallengeReport suc: %v", txhash))
 		break
 	}
-
-	c.JSON(http.StatusOK, nil)
-	return
-}
-
-func revert(result ChallengeResult) string {
-	abf_json, _ := json.Marshal(result.AutonomousBloomFilter)
-	ibf_json, _ := json.Marshal(result.IdleBloomFilter)
-	sbf_json, _ := json.Marshal(result.ServiceBloomFilter)
-	autonomous_file_hashes_json, _ := json.Marshal(result.AutonomousFailedFileHashes)
-	idle_file_hashes_json, _ := json.Marshal(result.IdleFailedFileHashes)
-	service_failed_file_hashes, _ := json.Marshal(result.ServiceFailedFileHashes)
-	chal_json, _ := json.Marshal(result.ChalId)
-
-	message := string(abf_json) + "|" + string(ibf_json) + "|" + string(sbf_json) + "|" + string(autonomous_file_hashes_json) + "|" + string(idle_file_hashes_json) + "|" + string(service_failed_file_hashes) + "|" + string(chal_json)
-	return message
 }

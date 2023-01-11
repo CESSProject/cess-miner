@@ -37,7 +37,6 @@ func NewMsgHandle() *MsgHandle {
 func (mh *MsgHandle) DoMsgHandler(ctx context.CancelFunc, request IRequest) {
 	handler, ok := mh.Apis[request.GetMsgID()]
 	if !ok {
-		//fmt.Println("api msgID = ", request.GetMsgID(), " is not FOUND!")
 		return
 	}
 

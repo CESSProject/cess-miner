@@ -38,27 +38,20 @@ func (n *Node) task_common(ch chan<- bool) {
 	}()
 	n.Logs.Out("info", fmt.Errorf(">>>>> Start task_common <<<<<"))
 
-	timer_ClearMem := time.NewTimer(configs.ClearMemInterval)
+	timer_ClearMem := time.NewTicker(configs.ClearMemInterval)
 	defer timer_ClearMem.Stop()
-	timer_ReplaceFile := time.NewTimer(configs.ReplaceFileInterval)
+	timer_ReplaceFile := time.NewTicker(configs.ReplaceFileInterval)
 	defer timer_ReplaceFile.Stop()
-	timer_GC := time.NewTimer(time.Minute)
+	timer_GC := time.NewTicker(time.Minute)
 	defer timer_GC.Stop()
 
 	for {
 		select {
 		case <-timer_ClearMem.C:
-			utils.ClearMemBuf()
+			// utils.ClearMemBuf()
 			_, err := n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
-					os.Exit(1)
-				}
-			}
-			_, err = n.Chn.GetMinerInfo(n.Chn.GetPublicKey())
-			if err != nil {
-				if err.Error() == chain.ERR_Empty {
-					fmt.Println("Miner has quit")
 					os.Exit(1)
 				}
 			}

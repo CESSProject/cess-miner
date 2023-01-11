@@ -58,6 +58,7 @@ func (n *Node) task_space(ch chan<- bool) {
 			time.Sleep(time.Minute)
 			continue
 		}
+		//time.Sleep(time.Minute)
 		n.ManagementRegion()
 		time.Sleep(configs.BlockInterval)
 		n.AutonomousRegion()
@@ -74,6 +75,8 @@ func (n *Node) ManagementRegion() {
 		freeSpace  uint64
 		fillerInfo = make([]chain.FillerMetaInfo, 0)
 	)
+	LockChallengeLock()
+	defer ReleaseChallengeLock()
 
 	files, err := utils.WorkFiles(n.FillerDir)
 	if err == nil {
@@ -182,6 +185,9 @@ func (n *Node) AutonomousRegion() {
 		slicePath          = make([]string, 0)
 		sliceHashPath      = make([]string, 0)
 	)
+
+	LockChallengeLock()
+	defer ReleaseChallengeLock()
 
 	freeSpace, err := n.CalcAutonomousRegionFreeSpace()
 	if err != nil {

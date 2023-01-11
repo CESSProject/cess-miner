@@ -17,6 +17,8 @@
 package node
 
 import (
+	"sync"
+
 	"github.com/CESSProject/cess-bucket/pkg/chain"
 	"github.com/CESSProject/cess-bucket/pkg/pbc"
 )
@@ -44,6 +46,10 @@ type ChalResponse struct {
 	Status    `json:"status"`
 }
 
+type ProofResult struct {
+	Msg string `json:"message"`
+}
+
 type MinerProof struct {
 	Sigma []byte   `json:"sigma"`
 	Miu   [][]byte `json:"miu"`
@@ -60,6 +66,17 @@ type ChallengeResult struct {
 	ChalId                     []byte  `json:"chal_id"`
 	Pkey                       []byte  `json:"pkey"`
 	Sig                        []byte  `json:"sig"`
+}
+
+type ChallengeSignMessage struct {
+	AutonomousBloomFilter      []int64 `json:"autonomous_bloom_filter"`
+	IdleBloomFilter            []int64 `json:"idle_bloom_filter"`
+	ServiceBloomFilter         []int64 `json:"service_bloom_filter"`
+	AutonomousFailedFileHashes string  `json:"autonomous_failed_file_hashes"`
+	IdleFailedFileHashes       string  `json:"idle_failed_file_hashes"`
+	ServiceFailedFileHashes    string  `json:"service_failed_file_hashes"`
+	ChalId                     string  `json:"chal_id"`
+	Pkey                       string  `json:"pkey"`
 }
 
 const (
@@ -85,6 +102,7 @@ var (
 	Ch_Tag         chan chain.Result
 	Ch_ProofResult chan ChalResponse
 	Ch_Challenge   chan ChalResponse
+	chanllengeLock *sync.Mutex
 )
 
 func init() {
@@ -92,4 +110,13 @@ func init() {
 	Ch_Tag = make(chan chain.Result, 1)
 	Ch_ProofResult = make(chan ChalResponse, 1)
 	Ch_Challenge = make(chan ChalResponse, 1)
+	chanllengeLock = new(sync.Mutex)
+}
+
+func LockChallengeLock() {
+	chanllengeLock.Lock()
+}
+
+func ReleaseChallengeLock() {
+	chanllengeLock.Unlock()
 }
