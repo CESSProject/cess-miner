@@ -12,7 +12,8 @@ import (
 	"github.com/CESSProject/cess-bucket/internal/chain"
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
-	api "github.com/CESSProject/cess-bucket/internal/proof/apiv1"
+	"github.com/CESSProject/cess-bucket/internal/proof"
+	api "github.com/CESSProject/cess-bucket/internal/proof"
 	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/pkg/errors"
@@ -136,8 +137,8 @@ func (node *Node) task_HandlingChallenges(ch chan bool) {
 
 			poDR2prove.Matrix = matrix
 			poDR2prove.S = blocksize
-			proveResponseCh := poDR2prove.PoDR2ProofProve(
-				configs.Spk,
+			proveResponseCh := proof.GetKey().GenProof(
+				qSlice,
 				string(configs.Shared_params),
 				configs.Shared_g,
 				int64(configs.ScanBlockSize),
