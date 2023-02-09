@@ -13,7 +13,6 @@ import (
 	. "github.com/CESSProject/cess-bucket/internal/logger"
 	"github.com/CESSProject/cess-bucket/internal/pattern"
 	"github.com/CESSProject/cess-bucket/internal/proof"
-	api "github.com/CESSProject/cess-bucket/internal/proof"
 	"github.com/CESSProject/cess-bucket/tools"
 
 	"github.com/pkg/errors"
@@ -24,45 +23,37 @@ import (
 // The task_HandlingChallenges task will automatically help you complete file challenges.
 // Apart from human influence, it ensures that you submit your certificates in a timely manner.
 // It keeps running as a subtask.
-func (node *Node) task_HandlingChallenges(ch chan bool) {
-	var (
-		txhash          string
-		fileid          string
-		fileFullPath    string
-		fileTagFullPath string
-		blocksize       int64
-		filetag         api.TagInfo
-		poDR2prove      api.PoDR2Prove
-		proveResponse   api.PoDR2ProveResponse
-		proveInfos      = make([]chain.ProveInfo, 0)
-	)
+func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 	defer func() {
+		ch <- true
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
-		ch <- true
 	}()
+
+	var (
+		err        error
+		chlng      []chain.ChallengesInfo
+		proveInfos = make([]chain.ProveInfo, 0)
+	)
+
 	Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
 
 	for {
-		if pattern.GetMinerState() != pattern.M_Positive {
-			if pattern.GetMinerState() == pattern.M_Pending {
-				time.Sleep(time.Second * 6)
-				continue
-			}
-			time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
-			continue
-		}
+		// if pattern.GetMinerState() != pattern.M_Positive {
+		// 	if pattern.GetMinerState() == pattern.M_Pending {
+		// 		time.Sleep(time.Second * configs.BlockInterval)
+		// 		continue
+		// 	}
+		// 	time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
+		// 	continue
+		// }
 
-		chlng, err := chain.GetChallenges()
+		chlng, err = chain.GetChallenges()
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
 				Chg.Sugar().Errorf("%v", err)
-				chlng, _ = chain.GetChallenges()
 			}
-		}
-
-		if len(chlng) == 0 {
 			time.Sleep(time.Minute)
 			continue
 		}
@@ -71,129 +62,129 @@ func (node *Node) task_HandlingChallenges(ch chan bool) {
 		Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
 
 		for i := 0; i < len(chlng); i++ {
-			if len(proveInfos) >= 50 {
-				// proof up chain
-				for {
-					txhash, err = chain.SubmitProofs(proveInfos)
-					if txhash == "" {
-						Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
-					} else {
-						proveInfos = make([]chain.ProveInfo, 0)
-						Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
-						break
-					}
-					time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
-				}
+			if len(proveInfos) >= configs.MaxProofData {
+				submitProofResult(proveInfos)
+				proveInfos = make([]chain.ProveInfo, 0)
 			}
-
-			fileid = string(chlng[i].File_id[:])
-			if chlng[i].File_type == 1 {
-				//space file
-				fileFullPath = filepath.Join(configs.SpaceDir, fileid)
-				fileTagFullPath = filepath.Join(configs.SpaceDir, fileid+".tag")
-			} else {
-				//user file
-				fileFullPath = filepath.Join(configs.FilesDir, fileid)
-				fileTagFullPath = filepath.Join(configs.FilesDir, fileid+".tag")
-			}
-
-			fstat, err := os.Stat(fileFullPath)
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-			if chlng[i].File_type == 1 {
-				blocksize = configs.BlockSize
-			} else {
-				blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
-			}
-
-			qSlice, err := api.PoDR2ChallengeGenerateFromChain(chlng[i].Block_list, chlng[i].Random)
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-
-			ftag, err := ioutil.ReadFile(fileTagFullPath)
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-			err = json.Unmarshal(ftag, &filetag)
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-
-			poDR2prove.QSlice = qSlice
-			poDR2prove.T = filetag.T
-			poDR2prove.Sigmas = filetag.Sigmas
-
-			matrix, _, err := split(fileFullPath, blocksize, fstat.Size())
-			if err != nil {
-				Chg.Sugar().Errorf("[%v] %v", fileid, err)
-				continue
-			}
-
-			poDR2prove.Matrix = matrix
-			poDR2prove.S = blocksize
-			proveResponseCh := proof.GetKey().GenProof(
-				qSlice,
-				string(configs.Shared_params),
-				configs.Shared_g,
-				int64(configs.ScanBlockSize),
-			)
-			select {
-			case proveResponse = <-proveResponseCh:
-			}
-			if proveResponse.StatueMsg.StatusCode != api.Success {
-				Chg.Sugar().Errorf("[%v] PoDR2ProofProve failed", fileid)
-				continue
-			}
-
-			var proveInfoTemp chain.ProveInfo
-			proveInfoTemp.U = make([]types.Bytes, len(filetag.T.T0.U))
-			proveInfoTemp.Cinfo = chlng[i]
-			proveInfoTemp.FileId = chlng[i].File_id
-
-			var mus []types.Bytes = make([]types.Bytes, len(proveResponse.MU))
-			for i := 0; i < len(proveResponse.MU); i++ {
-				mus[i] = make(types.Bytes, 0)
-				mus[i] = append(mus[i], proveResponse.MU[i]...)
-			}
-			proveInfoTemp.Mu = mus
-			proveInfoTemp.Sigma = types.Bytes(proveResponse.Sigma)
-			proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
-			proveInfoTemp.Name = filetag.T.T0.Name
-			for j := 0; j < len(filetag.T.T0.U); j++ {
-				proveInfoTemp.U[j] = make(types.Bytes, 0)
-				proveInfoTemp.U[j] = append(proveInfoTemp.U[j], filetag.T.T0.U[j]...)
-			}
-			proveInfos = append(proveInfos, proveInfoTemp)
-		}
-
-		if len(proveInfos) == 0 {
-			continue
+			proveInfos = append(proveInfos, calcProof(chlng[i]))
 		}
 
 		// proof up chain
-		ts := time.Now().Unix()
+		submitProofResult(proveInfos)
+		proveInfos = make([]chain.ProveInfo, 0)
+	}
+}
+
+func submitProofResult(proofs []chain.ProveInfo) {
+	var (
+		err      error
+		tryCount uint8
+		txhash   string
+	)
+	// submit proof results
+	if len(proofs) > 0 {
 		for {
-			txhash, err = chain.SubmitProofs(proveInfos)
-			if txhash == "" {
-				Chg.Sugar().Errorf("SubmitProofs fail: %v", err)
-			} else {
-				Chg.Sugar().Infof("SubmitProofs suc: %v", txhash)
-				proveInfos = make([]chain.ProveInfo, 0)
-				break
+			txhash, err = chain.SubmitProofs(proofs)
+			if err != nil {
+				tryCount++
+				Chg.Sugar().Errorf("Proof result submitted err: %v", err)
 			}
-			if time.Since(time.Unix(ts, 0)).Minutes() > 2.0 {
-				Chg.Sugar().Errorf("SubmitProofs fail and exit")
-				break
+			if txhash != "" {
+				Chg.Sugar().Infof("Proof result submitted suc: %v", txhash)
+				return
 			}
-			time.Sleep(time.Second * time.Duration(tools.RandomInRange(5, 20)))
+			if tryCount >= 3 {
+				return
+			}
+			time.Sleep(configs.BlockInterval)
 		}
 	}
+	return
+}
+
+func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
+	var (
+		err             error
+		fileid          string
+		fileFullPath    string
+		fileTagFullPath string
+		filetag         proof.StorageTagType
+		proveResponse   proof.GenProofResponse
+		proveInfoTemp   chain.ProveInfo
+	)
+
+	proveInfoTemp.Cinfo = challenge
+	proveInfoTemp.FileId = challenge.File_id
+	proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
+
+	fileid = string(challenge.File_id[:])
+	if challenge.File_type == 1 {
+		//space file
+		fileFullPath = filepath.Join(configs.SpaceDir, fileid)
+		fileTagFullPath = filepath.Join(configs.SpaceDir, fileid+".tag")
+	} else {
+		//user file
+		fileFullPath = filepath.Join(configs.FilesDir, fileid)
+		fileTagFullPath = filepath.Join(configs.FilesDir, fileid+".tag")
+	}
+
+	_, err = os.Stat(fileFullPath)
+	if err != nil {
+		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		return proveInfoTemp
+	}
+
+	// if challenge.File_type == 1 {
+	// 	blocksize = configs.BlockSize
+	// } else {
+	// 	blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
+	// }
+
+	qSlice, err := proof.PoDR2ChallengeGenerateFromChain(challenge.Block_list, challenge.Random)
+	if err != nil {
+		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		return proveInfoTemp
+	}
+
+	ftag, err := ioutil.ReadFile(fileTagFullPath)
+	if err != nil {
+		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		return proveInfoTemp
+	}
+
+	err = json.Unmarshal(ftag, &filetag)
+	if err != nil {
+		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		return proveInfoTemp
+	}
+
+	proveInfoTemp.U = filetag.T.U
+
+	matrix, _, err := proof.SplitV2(fileFullPath, configs.BlockSize)
+	if err != nil {
+		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		return proveInfoTemp
+	}
+
+	proveResponseCh := proof.GetKey().GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
+
+	select {
+	case proveResponse = <-proveResponseCh:
+		if proveResponse.StatueMsg.StatusCode != proof.Success {
+			return proveInfoTemp
+		}
+	}
+
+	proveInfoTemp.Mu = proveResponse.MU
+	proveInfoTemp.Sigma = proveResponse.Sigma
+	proveInfoTemp.Omega = proveResponse.Omega
+	proveInfoTemp.SigRootHash = proveResponse.SigRootHash
+	proveInfoTemp.HashMi = make([]types.Bytes, len(proveResponse.HashMi))
+	for i := 0; i < len(proveResponse.HashMi); i++ {
+		proveInfoTemp.HashMi[i] = make(types.Bytes, 0)
+		proveInfoTemp.HashMi[i] = append(proveInfoTemp.HashMi[i], proveResponse.HashMi[i]...)
+	}
+	return proveInfoTemp
 }
 
 func calcFileBlockSizeAndScanSize(fsize int64) (int64, int64) {

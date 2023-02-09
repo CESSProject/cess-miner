@@ -35,6 +35,8 @@ const (
 	TimeToWaitEvents = time.Duration(time.Second * 15)
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
+	//
+	MaxProofData = 50
 )
 
 const (

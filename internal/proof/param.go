@@ -123,7 +123,8 @@ type HashNameAndI struct {
 	I    int64
 }
 
-type TagInfo struct {
-	T      FileTagT
-	Sigmas [][]byte `json:"sigmas"`
+type StorageTagType struct {
+	T           T
+	Phi         []Sigma `json:"phi"`
+	SigRootHash []byte  `json:"sig_root_hash"`
 }

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"math/big"
+	"os"
 
 	"github.com/CESSProject/go-merkletree"
 )
@@ -96,4 +97,35 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, t T, Phi []Sigma, Matrix [
 	responseCh <- res
 
 	return responseCh
+}
+
+func SplitV2(fpath string, sep int64) (Data [][]byte, N int64, err error) {
+	data, err := os.ReadFile(fpath)
+	if err != nil {
+		return nil, 0, err
+	}
+	file_size := int64(len(data))
+	if sep > file_size {
+		Data = append(Data, data)
+		N = 1
+		return
+	}
+
+	N = file_size / sep
+	if file_size%sep != 0 {
+		N += 1
+	}
+
+	for i := int64(0); i < N; i++ {
+		if i != N-1 {
+			Data = append(Data, data[i*sep:(i+1)*sep])
+			continue
+		}
+		Data = append(Data, data[i*sep:])
+		if l := sep - int64(len(data[i*sep:])); l > 0 {
+			Data[i] = append(Data[i], make([]byte, l, l)...)
+		}
+	}
+
+	return
 }
