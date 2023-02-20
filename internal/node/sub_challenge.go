@@ -67,7 +67,8 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 				submitProofResult(proveInfos)
 				proveInfos = make([]chain.ProveInfo, 0)
 			}
-			proveInfos = append(proveInfos, calcProof(chlng[i]))
+			prf := calcProof(chlng[i])
+			proveInfos = append(proveInfos, prf)
 		}
 
 		// proof up chain

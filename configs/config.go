@@ -36,7 +36,7 @@ const (
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
 	//
-	MaxProofData = 50
+	MaxProofData = 2
 )
 
 const (
