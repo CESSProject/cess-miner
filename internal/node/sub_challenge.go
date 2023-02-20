@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"time"
@@ -134,12 +135,6 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 		return proveInfoTemp
 	}
 
-	// if challenge.File_type == 1 {
-	// 	blocksize = configs.BlockSize
-	// } else {
-	// 	blocksize, _ = calcFileBlockSizeAndScanSize(fstat.Size())
-	// }
-
 	qSlice, err := proof.PoDR2ChallengeGenerateFromChain(challenge.Block_list, challenge.Random)
 	if err != nil {
 		Chg.Sugar().Errorf("[%v] %v", fileid, err)
@@ -166,7 +161,9 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 		return proveInfoTemp
 	}
 
-	proveResponseCh := proof.GetKey().GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
+	E_bigint, _ := new(big.Int).SetString(filetag.E, 10)
+	N_bigint, _ := new(big.Int).SetString(filetag.N, 10)
+	proveResponseCh := proof.GetKey(int(E_bigint.Int64()), N_bigint).GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
 
 	select {
 	case proveResponse = <-proveResponseCh:

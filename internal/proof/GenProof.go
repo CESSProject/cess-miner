@@ -48,6 +48,8 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, t T, Phi []Sigma, Matrix [
 		res.HashMi = append(res.HashMi, hash_mi.Sum([]byte{}))
 	}
 
+	sigma.Mod(sigma, keyPair.Spk.N)
+
 	//Generate MHT tree
 	var list []merkletree.Content
 	for _, v := range Matrix {

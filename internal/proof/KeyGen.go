@@ -26,13 +26,8 @@ func KeyGen() RSAKeyPair {
 	}
 }
 
-func SetKey(e int, n *big.Int) {
-	if key.Spk.E == 0 || key.Spk.N == nil {
-		key.Spk.E = e
-		key.Spk.N = n
-	}
-}
-
-func GetKey() *RSAKeyPair {
+func GetKey(e int, n *big.Int) *RSAKeyPair {
+	key.Spk.E = e
+	key.Spk.N = n
 	return key
 }

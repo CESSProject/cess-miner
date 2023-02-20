@@ -127,4 +127,6 @@ type StorageTagType struct {
 	T           T
 	Phi         []Sigma `json:"phi"`
 	SigRootHash []byte  `json:"sig_root_hash"`
+	E           string  `json:"e"`
+	N           string  `json:"n"`
 }
