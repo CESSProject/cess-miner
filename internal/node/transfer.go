@@ -100,7 +100,7 @@ func (t *TcpCon) readMsg() {
 	for !t.IsClose() {
 		if !flag {
 			// read until we get 4 bytes for the magic
-			_, err = io.ReadAtLeast(t.conn, header, 4)
+			_, err = io.ReadFull(t.conn, header)
 			if err != nil {
 				if err != io.EOF {
 					return

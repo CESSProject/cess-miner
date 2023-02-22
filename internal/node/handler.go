@@ -31,9 +31,8 @@ func (n *Node) Start() {
 
 func (n *Node) handler() error {
 	var (
-		err          error
-		fs           *os.File
-		timeOutTimer *time.Timer
+		err error
+		fs  *os.File
 	)
 
 	defer func() {
@@ -42,38 +41,19 @@ func (n *Node) handler() error {
 		if fs != nil {
 			fs.Close()
 		}
-		if timeOutTimer != nil {
-			timeOutTimer.Stop()
-		}
 		if err := recover(); err != nil {
 			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
 		}
 	}()
 
 	for !n.Conn.conn.IsClose() {
-		if timeOutTimer != nil {
-			select {
-			case <-timeOutTimer.C:
-				return errors.New("Get msg timeout")
-			default:
-			}
-		}
-
 		m, ok := n.Conn.conn.GetMsg()
 		if !ok {
 			return fmt.Errorf("Getmsg failed")
 		}
 
 		if m == nil {
-			if timeOutTimer == nil {
-				timeOutTimer = time.NewTimer(configs.TCP_Time_WaitMsg)
-			}
 			continue
-		} else {
-			if timeOutTimer != nil {
-				timeOutTimer.Stop()
-				timeOutTimer = nil
-			}
 		}
 
 		switch m.MsgType {
@@ -168,17 +148,17 @@ func (n *Node) handler() error {
 				return errors.New("file is not open !")
 			}
 			_, err = fs.Write(m.Bytes[:m.FileSize])
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 			if err != nil {
 				n.Conn.conn.SendMsg(NewNotifyMsg("", Status_Err))
 				time.Sleep(configs.TCP_Message_Interval)
 				n.Conn.conn.SendMsg(NewCloseMsg("", Status_Err))
 				time.Sleep(configs.TCP_Message_Interval)
 				return err
-			}
-			switch cap(m.Bytes) {
-			case configs.TCP_ReadBuffer:
-				readBufPool.Put(m.Bytes)
-			default:
 			}
 		case MsgEnd:
 			switch cap(m.Bytes) {
