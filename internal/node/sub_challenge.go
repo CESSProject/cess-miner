@@ -2,11 +2,13 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -34,6 +36,7 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 
 	var (
 		err        error
+		tStart     time.Time
 		chlng      []chain.ChallengesInfo
 		proveInfos = make([]chain.ProveInfo, 0)
 	)
@@ -67,13 +70,16 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 				submitProofResult(proveInfos)
 				proveInfos = make([]chain.ProveInfo, 0)
 			}
+			tStart = time.Now()
 			prf := calcProof(chlng[i])
+			Chg.Sugar().Infof("calc challenge time: %v ", time.Since(tStart).Microseconds())
 			proveInfos = append(proveInfos, prf)
 		}
 
 		// proof up chain
 		submitProofResult(proveInfos)
 		proveInfos = make([]chain.ProveInfo, 0)
+		time.Sleep(configs.BlockInterval)
 	}
 }
 
@@ -85,6 +91,17 @@ func submitProofResult(proofs []chain.ProveInfo) {
 	)
 	// submit proof results
 	if len(proofs) > 0 {
+		// fmt.Println("---------------")
+		// fmt.Println("FileId:", string(proofs[0].FileId[:]))
+		// fmt.Println("chal:", proofs[0].Cinfo)
+		// fmt.Println("u:", proofs[0].U)
+		// fmt.Println("mu:", proofs[0].Mu)
+		// fmt.Println("sigma:", proofs[0].Sigma)
+		// fmt.Println("Omega:", proofs[0].Omega)
+		// fmt.Println("SigRoothash:", proofs[0].SigRootHash)
+		// fmt.Println("HashMi:", proofs[0].HashMi)
+		// fmt.Println("---------------")
+
 		for {
 			txhash, err = chain.SubmitProofs(proofs)
 			if err != nil {
@@ -108,6 +125,7 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 	var (
 		err             error
 		fileid          string
+		shardId         string
 		fileFullPath    string
 		fileTagFullPath string
 		filetag         proof.StorageTagType
@@ -126,8 +144,10 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 		fileTagFullPath = filepath.Join(configs.SpaceDir, fileid+".tag")
 	} else {
 		//user file
-		fileFullPath = filepath.Join(configs.FilesDir, fileid)
-		fileTagFullPath = filepath.Join(configs.FilesDir, fileid+".tag")
+		shardId = string(challenge.Shard_id[:])
+		fileid = strings.Split(shardId, ".")[0]
+		fileFullPath = filepath.Join(configs.FilesDir, shardId)
+		fileTagFullPath = filepath.Join(configs.FilesDir, shardId+".tag")
 	}
 
 	_, err = os.Stat(fileFullPath)
@@ -164,14 +184,24 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 
 	E_bigint, _ := new(big.Int).SetString(filetag.E, 10)
 	N_bigint, _ := new(big.Int).SetString(filetag.N, 10)
-	proveResponseCh := proof.GetKey(int(E_bigint.Int64()), N_bigint).GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
 
+	fmt.Println("Will gen proof: ", string(challenge.File_id[:]))
+	proveResponseCh := proof.GetKey(int(E_bigint.Int64()), N_bigint).GenProof(qSlice, filetag.T, filetag.Phi, matrix, filetag.SigRootHash)
 	select {
 	case proveResponse = <-proveResponseCh:
 		if proveResponse.StatueMsg.StatusCode != proof.Success {
 			return proveInfoTemp
 		}
 	}
+	fmt.Println("Gen proof suc: ", string(challenge.File_id[:]))
+	fmt.Println()
+
+	// Chg.Sugar().Infof("fileid: %v", fileid)
+	// Chg.Sugar().Infof("len(MU)", len(proveResponse.MU))
+	// Chg.Sugar().Infof("len(Sigma)", len(proveResponse.Sigma))
+	// Chg.Sugar().Infof("len(Omega)", len(proveResponse.Omega))
+	// Chg.Sugar().Infof("len(SigRootHash)", len(proveResponse.SigRootHash))
+	// Chg.Sugar().Infof("len(HashMi)", len(proveResponse.HashMi)*32)
 
 	proveInfoTemp.Mu = proveResponse.MU
 	proveInfoTemp.Sigma = proveResponse.Sigma

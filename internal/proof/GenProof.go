@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 
@@ -97,6 +98,15 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, t T, Phi []Sigma, Matrix [
 	res.StatueMsg.StatusCode = Success
 	res.StatueMsg.Msg = "Success"
 	responseCh <- res
+
+	fmt.Println("key.Spk.N:", keyPair.Spk.N)
+	fmt.Println("key.Spk.E:", keyPair.Spk.E)
+	fmt.Println("T.tag.u:", t.U)
+	fmt.Println("T.tag.n:", t.N)
+	fmt.Println("T.tag.name:", t.Name)
+	fmt.Println("T.SigAbove :", t.SigAbove)
+	fmt.Println("T.sigRootHash :", SigRootHash)
+	fmt.Println("random:", QSlice[0])
 
 	return responseCh
 }
