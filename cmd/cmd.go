@@ -787,20 +787,6 @@ func parseProfile() {
 		os.Exit(1)
 	}
 
-	if os.Args[1] == "run" {
-		data, err := chain.GetSchedulerPublicKey()
-		if err != nil {
-			log.Printf("[err] %v\n", err)
-			os.Exit(1)
-		}
-		configs.Shared_g = make([]byte, 128)
-		configs.Spk = make([]byte, 128)
-		for i := 0; i < 128; i++ {
-			configs.Shared_g[i] = byte(data.Shared_g[i])
-			configs.Spk[i] = byte(data.Spk[i])
-		}
-		configs.Shared_params = data.Shared_params
-	}
 	pattern.SetMinerAcc(acc)
 	pattern.SetMinerSignAddr(configs.C.IncomeAcc)
 	configs.BaseDir = filepath.Join(configs.C.MountedPath, addr, configs.BaseDir)

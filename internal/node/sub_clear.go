@@ -1,7 +1,6 @@
 package node
 
 import (
-	"os"
 	"path/filepath"
 	"time"
 
@@ -21,6 +20,10 @@ func (node *Node) task_RemoveInvalidFiles(ch chan bool) {
 		}
 		ch <- true
 	}()
+	var (
+		filefullpath    string
+		filetagfullpath string
+	)
 	Del.Info(">>>>> Start task_RemoveInvalidFiles <<<<<")
 	for {
 		invalidFiles, err := chain.GetInvalidFiles()
@@ -43,8 +46,7 @@ func (node *Node) task_RemoveInvalidFiles(ch chan bool) {
 
 		for i := 0; i < len(invalidFiles); i++ {
 			fileid := string(invalidFiles[i][:])
-			filefullpath := ""
-			filetagfullpath := ""
+
 			if fileid[:4] != "cess" {
 				filefullpath = filepath.Join(configs.SpaceDir, fileid)
 				filetagfullpath = filepath.Join(configs.SpaceDir, fileid+".tag")
@@ -58,8 +60,10 @@ func (node *Node) task_RemoveInvalidFiles(ch chan bool) {
 			} else {
 				Del.Sugar().Errorf("[err] [%v] Clear: %v", string(invalidFiles[i][:]), err)
 			}
-			os.Remove(filefullpath)
-			os.Remove(filetagfullpath)
+			_ = filefullpath
+			_ = filetagfullpath
+			// os.Remove(filefullpath)
+			// os.Remove(filetagfullpath)
 		}
 		time.Sleep(time.Minute)
 	}

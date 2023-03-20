@@ -23,15 +23,15 @@ type Event_PPDNoOnTimeSubmit struct {
 
 type Event_ChallengeProof struct {
 	Phase  types.Phase
-	Miner  types.AccountID
-	Fileid types.Bytes
+	Acc    types.AccountID
+	Hash   FileHash
 	Topics []types.Hash
 }
 
 type Event_VerifyProof struct {
 	Phase  types.Phase
-	Miner  types.AccountID
-	Fileid types.Bytes
+	Acc    types.AccountID
+	Hash   FileHash
 	Topics []types.Hash
 }
 

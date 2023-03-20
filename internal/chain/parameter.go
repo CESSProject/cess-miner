@@ -69,7 +69,7 @@ type SchedulerInfo struct {
 type ChallengesInfo struct {
 	File_size  types.U64
 	File_type  types.U8
-	Block_list types.Bytes
+	Block_list []types.U32
 	File_id    FileHash
 	Shard_id   FileBlockId
 	Random     []types.Bytes
@@ -84,13 +84,15 @@ type Chain_SchedulerPuk struct {
 
 // Proof information structure
 type ProveInfo struct {
-	FileId   FileHash
-	MinerAcc types.AccountID
-	Cinfo    ChallengesInfo
-	Mu       []types.Bytes
-	Sigma    types.Bytes
-	Name     types.Bytes
-	U        []types.Bytes
+	FileId      FileHash
+	MinerAcc    types.AccountID
+	Cinfo       ChallengesInfo
+	U           types.Bytes
+	Mu          types.Bytes
+	Sigma       types.Bytes
+	Omega       types.Bytes
+	SigRootHash types.Bytes
+	HashMi      []types.Bytes
 }
 
 type Ipv4Type_Query struct {
