@@ -43,7 +43,7 @@ func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, Sminer, Sminer_MinerItems, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, SMINER, MINERITEMS, pattern.GetMinerAcc())
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -79,7 +79,7 @@ func GetChallenges() ([]ChallengesInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, Audit, Audit_ChallengeMap, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, AUDIT, CHALLENGEMAP, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -90,36 +90,6 @@ func GetChallenges() ([]ChallengesInfo, error) {
 	}
 	if !ok {
 		return nil, errors.New(ERR_Empty)
-	}
-	return data, nil
-}
-
-// get public key
-func GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
-	var data Chain_SchedulerPuk
-
-	api, err := GetRpcClient_Safe(configs.C.RpcAddr)
-	defer Free()
-	if err != nil {
-		return data, errors.Wrap(err, "[GetRpcClient_Safe]")
-	}
-
-	meta, err := GetMetadata(api)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetMetadata]")
-	}
-
-	key, err := types.CreateStorageKey(meta, TeeWorker, TeeWorker_SchedulerPuk)
-	if err != nil {
-		return data, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := api.RPC.State.GetStorageLatest(key, &data)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return data, errors.New(ERR_Empty)
 	}
 	return data, nil
 }
@@ -145,7 +115,7 @@ func GetInvalidFiles() ([]FileHash, error) {
 		return nil, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, StorageHandler, FileBank_InvalidFile, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, FILEBANK, INVALIDFILE, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -181,7 +151,7 @@ func GetSchedulingNodes() ([]SchedulerInfo, error) {
 		return nil, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, TeeWorker, TeeWorker_SchedulerInfo)
+	key, err := types.CreateStorageKey(meta, TEEWORKER, SCHEDULERMAP)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -214,7 +184,7 @@ func GetBlockHeightExited(api *gsrpc.SubstrateAPI) (types.U32, error) {
 		return number, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, Sminer, Sminer_MinerLockIn, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, SMINER, MINERLOCKIN, pattern.GetMinerAcc())
 	if err != nil {
 		return number, errors.Wrap(err, "[CreateStorageKey]")
 	}

@@ -72,7 +72,7 @@ func Register(api *gsrpc.SubstrateAPI, incomeAcc, ip string, port uint16, pledge
 
 	c, err := types.NewCall(
 		meta,
-		ChainTx_Sminer_Register,
+		TX_SMINER_REG,
 		types.NewAccountID(b),
 		ipType.IPv4,
 		types.NewU128(*realTokens),
@@ -473,7 +473,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, Tx_SubmitProve, data)
+	c, err := types.NewCall(meta, TX_AUDIT_REPORTPROOF, data)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -587,7 +587,7 @@ func ClearInvalidFiles(fid FileHash) (string, error) {
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, Tx_ClearInvalidFile, fid)
+	c, err := types.NewCall(meta, TX_FILEBANK_DELFILE, fid)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -682,7 +682,7 @@ func ClearFiller(api *gsrpc.SubstrateAPI, signaturePrk string) (int, error) {
 		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, Tx_ClearFiller)
+	c, err := types.NewCall(meta, TX_FILEBANK_DELALLFILLER)
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}
@@ -794,7 +794,7 @@ func UpdateAddress(transactionPrK, ip, port string) (string, error) {
 		return "", errors.New("unsupported ip format")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateIp, ipType.IPv4)
+	c, err := types.NewCall(meta, TX_SMINER_UPDATEADDR, ipType.IPv4)
 	if err != nil {
 		return "", errors.Wrap(err, "NewCall err")
 	}
@@ -904,7 +904,7 @@ func UpdateIncome(transactionPrK string, acc types.AccountID) (string, error) {
 		return "", errors.Wrap(err, "GetMetadataLatest err")
 	}
 
-	c, err := types.NewCall(meta, ChainTx_Sminer_UpdateBeneficiary, acc)
+	c, err := types.NewCall(meta, TX_SMINER_UPDATEACC, acc)
 	if err != nil {
 		return "", errors.Wrap(err, "NewCall err")
 	}
