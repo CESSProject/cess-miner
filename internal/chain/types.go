@@ -2,39 +2,56 @@ package chain
 
 import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 
-// Pallert
+// DOT is "." character
+const DOT = "."
+
+// Pallets
 const (
-	State_Sminer      = "Sminer"
-	State_SegmentBook = "SegmentBook"
-	State_FileMap     = "FileMap"
-	State_FileBank    = "FileBank"
+	// SMINER is a module about storage miners
+	SMINER = "Sminer"
+	// AUDIT is a module on data challenges
+	AUDIT = "Audit"
+	// TEEWOEKER is a module about TEE
+	TEEWORKER = "TeeWorker"
+	// FILEBANK is a module about data metadata, bucket info, etc.
+	FILEBANK = "FileBank"
+	// STORAGEHD is a module about storage space
+	STORAGEHD = "StorageHandler"
 )
 
 // Chain state
 const (
-	Sminer_MinerItems          = "MinerItems"
-	Sminer_MinerDetails        = "MinerDetails"
-	SegmentBook_MinerHoldSlice = "MinerHoldSlice"
-	SegmentBook_ChallengeMap   = "ChallengeMap"
-	FileMap_SchedulerPuk       = "SchedulerPuk"
-	FileBank_FillerMap         = "FillerMap"
-	FileMap_SchedulerInfo      = "SchedulerMap"
-	FileBank_InvalidFile       = "InvalidFile"
-	Sminer_MinerLockIn         = "MinerLockIn"
+	// SMINER
+	ALLMINER    = "AllMiner"
+	MINERITEMS  = "MinerItems"
+	MINERLOCKIN = "MinerLockIn"
+
+	// AUDIT
+	CHALLENGEMAP = "ChallengeMap"
+
+	// TEEWORKER
+	SCHEDULERMAP = "SchedulerMap"
+
+	// FILEBANK
+	INVALIDFILE = "InvalidFile"
 )
 
 // Extrinsics
 const (
-	ChainTx_Sminer_Register          = "Sminer.regnstk"
-	ChainTx_SegmentBook_IntentSubmit = "SegmentBook.intent_submit"
-	ChainTx_Sminer_ExitMining        = "Sminer.exit_miner"
-	ChainTx_Sminer_Withdraw          = "Sminer.withdraw"
-	ChainTx_Sminer_UpdateIp          = "Sminer.update_ip"
-	ChainTx_Sminer_UpdateBeneficiary = "Sminer.update_beneficiary"
-	ChainTx_Sminer_Increase          = "Sminer.increase_collateral"
-	SegmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
-	FileBank_ClearInvalidFile        = "FileBank.clear_invalid_file"
-	FileBank_ClearFiller             = "FileBank.clear_all_filler"
+	// SMINER
+	TX_SMINER_REG         = SMINER + DOT + "regnstk"
+	TX_SMINER_EXIT        = SMINER + DOT + "exit_miner"
+	TX_SMINER_WITHDRAW    = SMINER + DOT + "withdraw"
+	TX_SMINER_UPDATEADDR  = SMINER + DOT + "update_ip"
+	TX_SMINER_UPDATEACC   = SMINER + DOT + "update_beneficiary"
+	TX_SMINER_PLEDGETOKEN = SMINER + DOT + "increase_collateral"
+
+	// AUDIT
+	TX_AUDIT_REPORTPROOF = AUDIT + DOT + "submit_challenge_prove"
+
+	// FILEBANK
+	TX_FILEBANK_DELFILE      = FILEBANK + DOT + "clear_invalid_file"
+	TX_FILEBANK_DELALLFILLER = FILEBANK + DOT + "clear_all_filler"
 )
 
 type FileHash [64]types.U8
@@ -93,13 +110,6 @@ type ProveInfo struct {
 	Omega       types.Bytes
 	SigRootHash types.Bytes
 	HashMi      []types.Bytes
-}
-
-type Ipv4Type_Query struct {
-	Placeholder types.U8 //
-	Index       types.U8
-	Value       [4]types.U8
-	Port        types.U16
 }
 
 type IpAddress struct {

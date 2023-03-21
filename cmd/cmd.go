@@ -472,7 +472,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Exit the mining function
-	txhash, err := chain.ExitMining(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_ExitMining)
+	txhash, err := chain.ExitMining(api, configs.C.SignatureAcc, chain.TX_SMINER_EXIT)
 	if txhash != "" {
 		chain.ClearFiller(api, configs.C.SignatureAcc)
 		fmt.Println("success")
@@ -525,7 +525,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//increase deposit
-	txhash, err := chain.Increase(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_Increase, tokens)
+	txhash, err := chain.Increase(api, configs.C.SignatureAcc, chain.TX_SMINER_PLEDGETOKEN, tokens)
 	if txhash == "" {
 		fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to increase: %v\n", 41, err)
 		os.Exit(1)
@@ -587,7 +587,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// Withdraw deposit function
-	txhash, err := chain.Withdraw(api, configs.C.SignatureAcc, chain.ChainTx_Sminer_Withdraw)
+	txhash, err := chain.Withdraw(api, configs.C.SignatureAcc, chain.TX_SMINER_WITHDRAW)
 	if txhash != "" {
 		fmt.Println("success")
 		os.Exit(0)
@@ -649,7 +649,8 @@ func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 		}
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
-		txhash, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
+		acc, _ := types.NewAccountID(pubkey)
+		txhash, err := chain.UpdateIncome(configs.C.SignatureAcc, *acc)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				log.Println("[err] Please check your wallet balance.")
