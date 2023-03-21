@@ -473,7 +473,7 @@ func SubmitProofs(data []ProveInfo) (string, error) {
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, SegmentBook_SubmitProve, data)
+	c, err := types.NewCall(meta, Tx_SubmitProve, data)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -587,7 +587,7 @@ func ClearInvalidFiles(fid FileHash) (string, error) {
 		return txhash, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, FileBank_ClearInvalidFile, fid)
+	c, err := types.NewCall(meta, Tx_ClearInvalidFile, fid)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
 	}
@@ -682,7 +682,7 @@ func ClearFiller(api *gsrpc.SubstrateAPI, signaturePrk string) (int, error) {
 		return configs.Code_500, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	c, err := types.NewCall(meta, FileBank_ClearFiller)
+	c, err := types.NewCall(meta, Tx_ClearFiller)
 	if err != nil {
 		return configs.Code_500, errors.Wrap(err, "[NewCall]")
 	}

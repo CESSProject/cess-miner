@@ -157,14 +157,6 @@ type Event_DeleteFile struct {
 	Topics []types.Hash
 }
 
-type Event_BuySpace struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Size   types.U128
-	Fee    types.U128
-	Topics []types.Hash
-}
-
 type Event_FileUpload struct {
 	Phase  types.Phase
 	Acc    types.AccountID
@@ -175,13 +167,6 @@ type Event_FileUpdate struct {
 	Phase  types.Phase
 	Acc    types.AccountID
 	Fileid types.Bytes
-	Topics []types.Hash
-}
-
-type Event_LeaseExpireIn24Hours struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Size   types.U128
 	Topics []types.Hash
 }
 
@@ -210,13 +195,6 @@ type Event_Purchased struct {
 type Event_InsertFileSlice struct {
 	Phase  types.Phase
 	Fileid types.Bytes
-	Topics []types.Hash
-}
-
-type Event_LeaseExpired struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Size   types.U128
 	Topics []types.Hash
 }
 
@@ -275,6 +253,45 @@ type Event_PackageRenewal struct {
 	Acc          types.AccountID
 	Package_type types.U8
 	Topics       []types.Hash
+}
+
+// ------------------------StorageHandler--------------------------------
+type Event_BuySpace struct {
+	Phase            types.Phase
+	Acc              types.AccountID
+	Storage_capacity types.U128
+	Spend            types.U128
+	Topics           []types.Hash
+}
+
+type Event_ExpansionSpace struct {
+	Phase           types.Phase
+	Acc             types.AccountID
+	Expansion_space types.U128
+	Fee             types.U128
+	Topics          []types.Hash
+}
+
+type Event_RenewalSpace struct {
+	Phase        types.Phase
+	Acc          types.AccountID
+	Renewal_days types.U32
+	Fee          types.U128
+	Topics       []types.Hash
+}
+
+type Event_LeaseExpired struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Size   types.U128
+	Topics []types.Hash
+}
+
+type Event_LeaseExpireIn24Hours struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Size   types.U128
+	Topics []types.Hash
 }
 
 // ------------------------FileMap--------------------------------
@@ -350,24 +367,27 @@ type MyEventRecords struct {
 	Sminer_StartOfBufferPeriod []Event_StartOfBufferPeriod
 	Sminer_EndOfBufferPeriod   []Event_EndOfBufferPeriod
 	//FileBank
-	FileBank_DeleteFile           []Event_DeleteFile
-	FileBank_BuySpace             []Event_BuySpace
-	FileBank_FileUpload           []Event_FileUpload
-	FileBank_FileUpdate           []Event_FileUpdate
-	FileBank_LeaseExpireIn24Hours []Event_LeaseExpireIn24Hours
-	FileBank_FileChangeState      []Event_FileChangeState
-	FileBank_BuyFile              []Event_BuyFile
-	FileBank_Purchased            []Event_Purchased
-	FileBank_InsertFileSlice      []Event_InsertFileSlice
-	FileBank_LeaseExpired         []Event_LeaseExpired
-	FileBank_FillerUpload         []Event_FillerUpload
-	FileBank_ClearInvalidFile     []Event_ClearInvalidFile
-	FileBank_RecoverFile          []Event_RecoverFile
-	FileBank_ReceiveSpace         []Event_ReceiveSpace
-	FileBank_UploadDeclaration    []Event_UploadDeclaration
-	FileBank_BuyPackage           []Event_BuyPackage
-	FileBank_PackageUpgrade       []Event_PackageUpgrade
-	FileBank_PackageRenewal       []Event_PackageRenewal
+	FileBank_DeleteFile        []Event_DeleteFile
+	FileBank_FileUpload        []Event_FileUpload
+	FileBank_FileUpdate        []Event_FileUpdate
+	FileBank_FileChangeState   []Event_FileChangeState
+	FileBank_BuyFile           []Event_BuyFile
+	FileBank_Purchased         []Event_Purchased
+	FileBank_InsertFileSlice   []Event_InsertFileSlice
+	FileBank_FillerUpload      []Event_FillerUpload
+	FileBank_ClearInvalidFile  []Event_ClearInvalidFile
+	FileBank_RecoverFile       []Event_RecoverFile
+	FileBank_ReceiveSpace      []Event_ReceiveSpace
+	FileBank_UploadDeclaration []Event_UploadDeclaration
+	FileBank_BuyPackage        []Event_BuyPackage
+	FileBank_PackageUpgrade    []Event_PackageUpgrade
+	FileBank_PackageRenewal    []Event_PackageRenewal
+	//StorageHandler
+	StorageHandler_BuySpace             []Event_BuySpace
+	StorageHandler_ExpansionSpace       []Event_ExpansionSpace
+	StorageHandler_RenewalSpace         []Event_RenewalSpace
+	StorageHandler_LeaseExpired         []Event_LeaseExpired
+	StorageHandler_LeaseExpireIn24Hours []Event_LeaseExpireIn24Hours
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler

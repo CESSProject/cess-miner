@@ -4,37 +4,44 @@ import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 
 // Pallert
 const (
-	State_Sminer      = "Sminer"
-	State_SegmentBook = "SegmentBook"
-	State_FileMap     = "FileMap"
-	State_FileBank    = "FileBank"
+	Sminer         = "Sminer"
+	Audit          = "Audit"
+	TeeWorker      = "TeeWorker"
+	FileBank       = "FileBank"
+	StorageHandler = "StorageHandler"
 )
 
 // Chain state
 const (
-	Sminer_MinerItems          = "MinerItems"
-	Sminer_MinerDetails        = "MinerDetails"
-	SegmentBook_MinerHoldSlice = "MinerHoldSlice"
-	SegmentBook_ChallengeMap   = "ChallengeMap"
-	FileMap_SchedulerPuk       = "SchedulerPuk"
-	FileBank_FillerMap         = "FillerMap"
-	FileMap_SchedulerInfo      = "SchedulerMap"
-	FileBank_InvalidFile       = "InvalidFile"
-	Sminer_MinerLockIn         = "MinerLockIn"
+	Sminer_MinerItems   = "MinerItems"
+	Sminer_MinerDetails = "MinerDetails"
+
+	Audit_MinerHoldSlice = "MinerHoldSlice"
+	Audit_ChallengeMap   = "ChallengeMap"
+
+	TeeWorker_SchedulerPuk  = "SchedulerPuk"
+	TeeWorker_SchedulerInfo = "SchedulerMap"
+
+	FileBank_FillerMap   = "FillerMap"
+	FileBank_InvalidFile = "InvalidFile"
+
+	Sminer_MinerLockIn = "MinerLockIn"
 )
 
 // Extrinsics
 const (
 	ChainTx_Sminer_Register          = "Sminer.regnstk"
-	ChainTx_SegmentBook_IntentSubmit = "SegmentBook.intent_submit"
 	ChainTx_Sminer_ExitMining        = "Sminer.exit_miner"
 	ChainTx_Sminer_Withdraw          = "Sminer.withdraw"
 	ChainTx_Sminer_UpdateIp          = "Sminer.update_ip"
 	ChainTx_Sminer_UpdateBeneficiary = "Sminer.update_beneficiary"
 	ChainTx_Sminer_Increase          = "Sminer.increase_collateral"
-	SegmentBook_SubmitProve          = "SegmentBook.submit_challenge_prove"
-	FileBank_ClearInvalidFile        = "FileBank.clear_invalid_file"
-	FileBank_ClearFiller             = "FileBank.clear_all_filler"
+
+	Tx_SubmitProve  = Audit + ".submit_challenge_prove"
+	Tx_IntentSubmit = Audit + ".intent_submit"
+
+	Tx_ClearInvalidFile = FileBank + ".clear_invalid_file"
+	Tx_ClearFiller      = FileBank + ".clear_all_filler"
 )
 
 type FileHash [64]types.U8

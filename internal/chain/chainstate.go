@@ -43,7 +43,7 @@ func GetMinerInfo(api *gsrpc.SubstrateAPI) (MinerInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerItems, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, Sminer, Sminer_MinerItems, pattern.GetMinerAcc())
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -79,7 +79,7 @@ func GetChallenges() ([]ChallengesInfo, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_SegmentBook, SegmentBook_ChallengeMap, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, Audit, Audit_ChallengeMap, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -109,7 +109,7 @@ func GetSchedulerPublicKey() (Chain_SchedulerPuk, error) {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerPuk)
+	key, err := types.CreateStorageKey(meta, TeeWorker, TeeWorker_SchedulerPuk)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -145,7 +145,7 @@ func GetInvalidFiles() ([]FileHash, error) {
 		return nil, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileBank, FileBank_InvalidFile, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, StorageHandler, FileBank_InvalidFile, pattern.GetMinerAcc())
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -181,7 +181,7 @@ func GetSchedulingNodes() ([]SchedulerInfo, error) {
 		return nil, errors.Wrap(err, "[GetMetadata]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_FileMap, FileMap_SchedulerInfo)
+	key, err := types.CreateStorageKey(meta, TeeWorker, TeeWorker_SchedulerInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
@@ -214,7 +214,7 @@ func GetBlockHeightExited(api *gsrpc.SubstrateAPI) (types.U32, error) {
 		return number, errors.Wrap(err, "[GetMetadataLatest]")
 	}
 
-	key, err := types.CreateStorageKey(meta, State_Sminer, Sminer_MinerLockIn, pattern.GetMinerAcc())
+	key, err := types.CreateStorageKey(meta, Sminer, Sminer_MinerLockIn, pattern.GetMinerAcc())
 	if err != nil {
 		return number, errors.Wrap(err, "[CreateStorageKey]")
 	}
