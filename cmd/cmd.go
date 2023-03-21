@@ -649,7 +649,8 @@ func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 		}
 		//Parse command arguments and  configuration file
 		parseFlags(cmd)
-		txhash, err := chain.UpdateIncome(configs.C.SignatureAcc, types.NewAccountID(pubkey))
+		acc, _ := types.NewAccountID(pubkey)
+		txhash, err := chain.UpdateIncome(configs.C.SignatureAcc, *acc)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				log.Println("[err] Please check your wallet balance.")

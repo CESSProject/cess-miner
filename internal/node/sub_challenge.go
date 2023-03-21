@@ -135,7 +135,8 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 
 	proveInfoTemp.Cinfo = challenge
 	proveInfoTemp.FileId = challenge.File_id
-	proveInfoTemp.MinerAcc = types.NewAccountID(pattern.GetMinerAcc())
+	acc, _ := types.NewAccountID(pattern.GetMinerAcc())
+	proveInfoTemp.MinerAcc = *acc
 
 	fileid = string(challenge.File_id[:])
 	if challenge.File_type == 1 {

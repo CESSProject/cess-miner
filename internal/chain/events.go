@@ -1,12 +1,19 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package chain
 
 import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 
-// **************************************************************
-// custom event type
-// **************************************************************
+// ******************************************************
+// cess event type
+// ******************************************************
 
-// ------------------------SegmentBook----------------------------
+// ------------------------SegmentBook-------------------
 type Event_PPBNoOnTimeSubmit struct {
 	Phase     types.Phase
 	Acc       types.AccountID
@@ -23,15 +30,15 @@ type Event_PPDNoOnTimeSubmit struct {
 
 type Event_ChallengeProof struct {
 	Phase  types.Phase
-	Acc    types.AccountID
-	Hash   FileHash
+	Miner  types.AccountID
+	Fileid types.Bytes
 	Topics []types.Hash
 }
 
 type Event_VerifyProof struct {
 	Phase  types.Phase
-	Acc    types.AccountID
-	Hash   FileHash
+	Miner  types.AccountID
+	Fileid types.Bytes
 	Topics []types.Hash
 }
 
@@ -42,7 +49,7 @@ type Event_OutstandingChallenges struct {
 	Topics []types.Hash
 }
 
-// ------------------------Sminer---------------------------------
+// ------------------------Sminer------------------------
 type Event_Registered struct {
 	Phase      types.Phase
 	Acc        types.AccountID
@@ -149,12 +156,14 @@ type Event_EndOfBufferPeriod struct {
 	Topics []types.Hash
 }
 
-// ------------------------FileBank-------------------------------
+// ------------------------FileBank----------------------
 type Event_DeleteFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid FileHash
-	Topics []types.Hash
+	Phase      types.Phase
+	Acc        types.AccountID
+	Owner      types.AccountID
+	Filehashs  []FileHash
+	FailedList []FileHash
+	Topics     []types.Hash
 }
 
 type Event_FileUpload struct {
@@ -206,17 +215,17 @@ type Event_FillerUpload struct {
 }
 
 type Event_ClearInvalidFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid types.Bytes
-	Topics []types.Hash
+	Phase     types.Phase
+	Acc       types.AccountID
+	File_hash [64]types.U8
+	Topics    []types.Hash
 }
 
 type Event_RecoverFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid types.Bytes
-	Topics []types.Hash
+	Phase     types.Phase
+	Acc       types.AccountID
+	File_hash [68]types.U8
+	Topics    []types.Hash
 }
 
 type Event_ReceiveSpace struct {
@@ -228,31 +237,26 @@ type Event_ReceiveSpace struct {
 type Event_UploadDeclaration struct {
 	Phase     types.Phase
 	Acc       types.AccountID
-	File_hash types.Bytes
+	Owner     types.AccountID
+	File_hash FileHash
 	File_name types.Bytes
 	Topics    []types.Hash
 }
-type Event_BuyPackage struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Size   types.U128
-	Fee    types.U128
-	Topics []types.Hash
+
+type Event_CreateBucket struct {
+	Phase       types.Phase
+	Acc         types.AccountID
+	Owner       types.AccountID
+	Bucket_name types.Bytes
+	Topics      []types.Hash
 }
 
-type Event_PackageUpgrade struct {
-	Phase    types.Phase
-	Acc      types.AccountID
-	Old_type types.U8
-	New_type types.U8
-	Topics   []types.Hash
-}
-
-type Event_PackageRenewal struct {
-	Phase        types.Phase
-	Acc          types.AccountID
-	Package_type types.U8
-	Topics       []types.Hash
+type Event_DeleteBucket struct {
+	Phase       types.Phase
+	Acc         types.AccountID
+	Owner       types.AccountID
+	Bucket_name types.Bytes
+	Topics      []types.Hash
 }
 
 // ------------------------StorageHandler--------------------------------
@@ -294,22 +298,37 @@ type Event_LeaseExpireIn24Hours struct {
 	Topics []types.Hash
 }
 
-// ------------------------FileMap--------------------------------
+// ------------------------TEE Worker--------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
 	Acc    types.AccountID
-	Ip     types.Bytes
+	Ip     Ipv4Type
 	Topics []types.Hash
 }
 
 type Event_UpdateScheduler struct {
 	Phase    types.Phase
 	Acc      types.AccountID
-	Endpoint types.Bytes
+	Endpoint Ipv4Type
 	Topics   []types.Hash
 }
 
-// ------------------------other system---------------------------
+// ------------------------Oss---------------------------
+type Event_OssRegister struct {
+	Phase    types.Phase
+	Acc      types.AccountID
+	Endpoint Ipv4Type
+	Topics   []types.Hash
+}
+
+type Event_OssUpdate struct {
+	Phase        types.Phase
+	Acc          types.AccountID
+	New_endpoint Ipv4Type
+	Topics       []types.Hash
+}
+
+// ------------------------System------------------------
 type Event_UnsignedPhaseStarted struct {
 	Phase  types.Phase
 	Round  types.U32
@@ -336,19 +355,17 @@ type Event_Balances_Withdraw struct {
 	Topics []types.Hash
 }
 
-//**************************************************************
+//*******************************************************
 
-// All event types
-type MyEventRecords struct {
-	//system
-	types.EventRecords
-	//SegmentBook
+// Events
+type EventRecords struct {
+	// AUDIT
 	SegmentBook_PPBNoOnTimeSubmit     []Event_PPBNoOnTimeSubmit
 	SegmentBook_PPDNoOnTimeSubmit     []Event_PPDNoOnTimeSubmit
 	SegmentBook_ChallengeProof        []Event_ChallengeProof
 	SegmentBook_VerifyProof           []Event_VerifyProof
 	SegmentBook_OutstandingChallenges []Event_OutstandingChallenges
-	//Sminer
+	// SMINER
 	Sminer_Registered          []Event_Registered
 	Sminer_TimedTask           []Event_TimedTask
 	Sminer_DrawFaucetMoney     []Event_DrawFaucetMoney
@@ -366,7 +383,7 @@ type MyEventRecords struct {
 	Sminer_UpdataIp            []Event_UpdataIp
 	Sminer_StartOfBufferPeriod []Event_StartOfBufferPeriod
 	Sminer_EndOfBufferPeriod   []Event_EndOfBufferPeriod
-	//FileBank
+	// FILEBANK
 	FileBank_DeleteFile        []Event_DeleteFile
 	FileBank_FileUpload        []Event_FileUpload
 	FileBank_FileUpdate        []Event_FileUpdate
@@ -379,21 +396,20 @@ type MyEventRecords struct {
 	FileBank_RecoverFile       []Event_RecoverFile
 	FileBank_ReceiveSpace      []Event_ReceiveSpace
 	FileBank_UploadDeclaration []Event_UploadDeclaration
-	FileBank_BuyPackage        []Event_BuyPackage
-	FileBank_PackageUpgrade    []Event_PackageUpgrade
-	FileBank_PackageRenewal    []Event_PackageRenewal
-	//StorageHandler
+	FileBank_CreateBucket      []Event_CreateBucket
+	FileBank_DeleteBucket      []Event_DeleteBucket
+	// StorageHandler
 	StorageHandler_BuySpace             []Event_BuySpace
 	StorageHandler_ExpansionSpace       []Event_ExpansionSpace
 	StorageHandler_RenewalSpace         []Event_RenewalSpace
 	StorageHandler_LeaseExpired         []Event_LeaseExpired
 	StorageHandler_LeaseExpireIn24Hours []Event_LeaseExpireIn24Hours
-	//FileMap
-	FileMap_RegistrationScheduler []Event_RegistrationScheduler
-	FileMap_UpdateScheduler       []Event_UpdateScheduler
-	//other system
-	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
-	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted
-	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
-	Balances_Withdraw                               []Event_Balances_Withdraw
+	// TeeWorker
+	TeeWorker_RegistrationScheduler []Event_RegistrationScheduler
+	TeeWorker_UpdateScheduler       []Event_UpdateScheduler
+	// OSS
+	Oss_OssRegister []Event_OssRegister
+	Oss_OssUpdate   []Event_OssUpdate
+	// System
+	types.EventRecords
 }

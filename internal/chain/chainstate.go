@@ -8,6 +8,7 @@ import (
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types/codec"
 	"github.com/pkg/errors"
 )
 
@@ -232,8 +233,12 @@ func GetAccountInfo(puk []byte) (types.AccountInfo, error) {
 	if err != nil {
 		return data, errors.Wrap(err, "[GetMetadata]")
 	}
+	acc, err := types.NewAccountID(puk)
+	if err != nil {
+		return data, errors.Wrap(err, "[NewAccountID]")
+	}
 
-	b, err := types.Encode(types.NewAccountID(puk))
+	b, err := codec.Encode(*acc)
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}

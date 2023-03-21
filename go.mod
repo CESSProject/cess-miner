@@ -7,7 +7,7 @@ require (
 	github.com/CESSProject/go-merkletree v0.0.3
 	github.com/Nik-U/pbc v0.0.0-20181205041846-3e516ca0c5d6
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
-	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.5
+	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
