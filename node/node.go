@@ -11,23 +11,22 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/confile"
-	"github.com/CESSProject/cess-bucket/pkg/db"
+	"github.com/CESSProject/cess-bucket/pkg/cache"
+	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/sdk-go/core/client"
-	"github.com/gin-gonic/gin"
 )
 
-type Oss interface {
+type Bucket interface {
 	Run()
 }
 
 type Node struct {
-	Confile  confile.Confiler
-	Cli      client.Client
-	Logs     logger.Logger
-	Cache    db.Cacher
-	Handle   *gin.Engine
+	Cfg  confile.Confile
+	Cli  client.Client
+	Log  logger.Logger
+	Cach cache.Cache
+	//Handle   *gin.Engine
 	FileDir  string
 	TrackDir string
 }

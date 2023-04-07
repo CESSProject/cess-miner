@@ -37,7 +37,7 @@ var (
 	NotFound = leveldb.ErrNotFound
 )
 
-func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, error) {
+func NewCache(fpath string, memory int, handles int, namespace string) (Cache, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {
 		err = os.MkdirAll(fpath, configs.DirPermission)
@@ -48,7 +48,7 @@ func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, 
 	return newLevelDB(fpath, memory, handles, namespace)
 }
 
-func newLevelDB(file string, memory int, handles int, namespace string) (Cacher, error) {
+func newLevelDB(file string, memory int, handles int, namespace string) (Cache, error) {
 	options := configureOptions(memory, handles)
 	db, err := leveldb.OpenFile(file, options)
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
