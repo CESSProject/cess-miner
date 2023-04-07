@@ -11,15 +11,25 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	. "github.com/CESSProject/cess-bucket/internal/logger"
+	"github.com/CESSProject/cess-bucket/confile"
+	"github.com/CESSProject/cess-bucket/pkg/db"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
+	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/gin-gonic/gin"
 )
 
-type Scheduler interface {
+type Oss interface {
 	Run()
 }
 
 type Node struct {
-	Conn *ConMgr
+	Confile  confile.Confiler
+	Cli      client.Client
+	Logs     logger.Logger
+	Cache    db.Cacher
+	Handle   *gin.Engine
+	FileDir  string
+	TrackDir string
 }
 
 // New is used to build a node instance

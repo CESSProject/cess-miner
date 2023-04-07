@@ -2,9 +2,6 @@ package configs
 
 import "time"
 
-// type and version
-const Version = "CESS-Bucket v0.5.4 230216.1651 dev"
-
 // return code
 const (
 	//success
@@ -33,8 +30,6 @@ const (
 	//ScanBlockSize      = 512 * 1024     //512KB
 	// the time to wait for the event, in seconds
 	TimeToWaitEvents = time.Duration(time.Second * 15)
-	// BlockInterval is the time interval for generating blocks, in seconds
-	BlockInterval = time.Second * time.Duration(6)
 	//
 	MaxProofData = 1
 )

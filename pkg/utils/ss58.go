@@ -11,7 +11,7 @@ import (
 var (
 	SSPrefix            = []byte{0x53, 0x53, 0x35, 0x38, 0x50, 0x52, 0x45}
 	SubstratePrefix     = []byte{0x2a}
-	ChainCessTestPrefix = []byte{0x50, 0xac}
+	CESSChainTestPrefix = []byte{0x50, 0xac}
 )
 
 func DecodeToPub(address string, prefix []byte) ([]byte, error) {
@@ -27,15 +27,15 @@ func DecodeToPub(address string, prefix []byte) ([]byte, error) {
 }
 
 func DecodeToCessPub(address string) ([]byte, error) {
-	err := VerityAddress(address, ChainCessTestPrefix)
+	err := VerityAddress(address, CESSChainTestPrefix)
 	if err != nil {
 		return nil, errors.New("Invalid addrss")
 	}
 	data := base58.Decode(address)
-	if len(data) != (34 + len(ChainCessTestPrefix)) {
+	if len(data) != (34 + len(CESSChainTestPrefix)) {
 		return nil, errors.New("base58 decode error")
 	}
-	return data[len(ChainCessTestPrefix) : len(data)-2], nil
+	return data[len(CESSChainTestPrefix) : len(data)-2], nil
 }
 
 func PubBytesToString(b []byte) string {
@@ -66,7 +66,7 @@ func EncodeToCESSAddr(publicKeyHash []byte) (string, error) {
 	if len(publicKeyHash) != 32 {
 		return "", errors.New("public hash length is not equal 32")
 	}
-	payload := appendBytes(ChainCessTestPrefix, publicKeyHash)
+	payload := appendBytes(CESSChainTestPrefix, publicKeyHash)
 	input := appendBytes(SSPrefix, payload)
 	ck := blake2b.Sum512(input)
 	checkum := ck[:2]
