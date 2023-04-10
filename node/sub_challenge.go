@@ -12,11 +12,9 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/internal/chain"
-	. "github.com/CESSProject/cess-bucket/internal/logger"
-	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/internal/proof"
-	"github.com/CESSProject/cess-bucket/tools"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
+	"github.com/CESSProject/cess-bucket/pkg/proof"
+	"github.com/CESSProject/cess-bucket/utils"
 
 	"github.com/pkg/errors"
 
@@ -30,7 +28,7 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			Pnc.Sugar().Errorf("%v", tools.RecoverError(err))
+			logger.Pnc("err", utils.RecoverError(err))
 		}
 	}()
 
@@ -41,7 +39,7 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 		proveInfos = make([]chain.ProveInfo, 0)
 	)
 
-	Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
+	//Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
 
 	for {
 		// if pattern.GetMinerState() != pattern.M_Positive {
@@ -56,14 +54,14 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 		chlng, err = chain.GetChallenges()
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				Chg.Sugar().Errorf("%v", err)
+				//Chg.Sugar().Errorf("%v", err)
 			}
 			time.Sleep(time.Minute)
 			continue
 		}
 
 		time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
-		Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
+		//Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
 
 		for i := 0; i < len(chlng); i++ {
 			if len(proveInfos) >= configs.MaxProofData {
@@ -72,7 +70,7 @@ func (node *Node) task_HandlingChallenges(ch chan<- bool) {
 			}
 			tStart = time.Now()
 			prf := calcProof(chlng[i])
-			Chg.Sugar().Infof("calc challenge time: %v ", time.Since(tStart).Microseconds())
+			//Chg.Sugar().Infof("calc challenge time: %v ", time.Since(tStart).Microseconds())
 			proveInfos = append(proveInfos, prf)
 		}
 
@@ -106,10 +104,10 @@ func submitProofResult(proofs []chain.ProveInfo) {
 			txhash, err = chain.SubmitProofs(proofs)
 			if err != nil {
 				tryCount++
-				Chg.Sugar().Errorf("Proof result submitted err: %v", err)
+				//Chg.Sugar().Errorf("Proof result submitted err: %v", err)
 			}
 			if txhash != "" {
-				Chg.Sugar().Infof("Proof result submitted suc: %v", txhash)
+				//Chg.Sugar().Infof("Proof result submitted suc: %v", txhash)
 				return
 			}
 			if tryCount >= 3 {
@@ -147,31 +145,31 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 		//user file
 		shardId = string(challenge.Shard_id[:])
 		fileid = strings.Split(shardId, ".")[0]
-		fileFullPath = filepath.Join(configs.FilesDir, shardId)
-		fileTagFullPath = filepath.Join(configs.FilesDir, shardId+".tag")
+		fileFullPath = filepath.Join(configs.FileDir, shardId)
+		fileTagFullPath = filepath.Join(configs.FileDir, shardId+".tag")
 	}
 
 	_, err = os.Stat(fileFullPath)
 	if err != nil {
-		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		//Chg.Sugar().Errorf("[%v] %v", fileid, err)
 		return proveInfoTemp
 	}
 
 	qSlice, err := proof.PoDR2ChallengeGenerateFromChain(challenge.Block_list, challenge.Random)
 	if err != nil {
-		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		//Chg.Sugar().Errorf("[%v] %v", fileid, err)
 		return proveInfoTemp
 	}
 
 	ftag, err := ioutil.ReadFile(fileTagFullPath)
 	if err != nil {
-		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		//Chg.Sugar().Errorf("[%v] %v", fileid, err)
 		return proveInfoTemp
 	}
 
 	err = json.Unmarshal(ftag, &filetag)
 	if err != nil {
-		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		//Chg.Sugar().Errorf("[%v] %v", fileid, err)
 		return proveInfoTemp
 	}
 
@@ -179,7 +177,7 @@ func calcProof(challenge chain.ChallengesInfo) chain.ProveInfo {
 
 	matrix, _, err := proof.SplitV2(fileFullPath, configs.BlockSize)
 	if err != nil {
-		Chg.Sugar().Errorf("[%v] %v", fileid, err)
+		//Chg.Sugar().Errorf("[%v] %v", fileid, err)
 		return proveInfoTemp
 	}
 

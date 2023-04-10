@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	. "github.com/CESSProject/cess-bucket/internal/logger"
 
 	"github.com/spf13/cobra"
 )
@@ -29,9 +28,7 @@ func Execute() {
 
 // init
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configs.ConfFilePath, "config", "c", "", "Custom profile")
 	rootCmd.AddCommand(
-		Command_Default(),
 		Command_Version(),
 		Command_Register(),
 		Command_State(),
@@ -42,6 +39,11 @@ func init() {
 		Command_UpdateAddress(),
 		Command_UpdateIncome(),
 	)
+	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
+	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
+	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
+	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
+	rootCmd.PersistentFlags().IntP("port", "p", 15000, "listening port")
 }
 
 func Command_Version() *cobra.Command {
@@ -52,16 +54,6 @@ func Command_Version() *cobra.Command {
 			fmt.Println(configs.Name + " " + configs.Version)
 			os.Exit(0)
 		},
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Default() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "default",
-		Short:                 "Generate configuration file template",
-		Run:                   Command_Default_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -91,7 +83,7 @@ func Command_Run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
 		Short:                 "Register and start mining",
-		Run:                   Command_Run_Runfunc,
+		Run:                   runCmd,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

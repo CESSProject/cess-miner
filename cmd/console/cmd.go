@@ -11,32 +11,13 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/initlz"
-	"github.com/CESSProject/cess-bucket/internal/chain"
-	"github.com/CESSProject/cess-bucket/internal/logger"
-	. "github.com/CESSProject/cess-bucket/internal/logger"
-	"github.com/CESSProject/cess-bucket/internal/node"
-	"github.com/CESSProject/cess-bucket/internal/pattern"
-	"github.com/CESSProject/cess-bucket/tools"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 
 	gsrpc "github.com/centrifuge/go-substrate-rpc-client/v4"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-// Generate configuration file template
-func Command_Default_Runfunc(cmd *cobra.Command, args []string) {
-	tools.WriteStringtoFile(configs.ConfigFile_Templete, "config_template.toml")
-	pwd, err := os.Getwd()
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m %v\n", 41, err)
-		os.Exit(1)
-	}
-	path := filepath.Join(pwd, "config_template.toml")
-	fmt.Println("[ok] ", path)
-	os.Exit(0)
-}
 
 // Storage miner registration information on the chain
 func Command_Register_Runfunc(cmd *cobra.Command, args []string) {
@@ -250,57 +231,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	fmt.Printf("MinerId: C%v\nState: %v\nStorageSpace: %.2f %v\nUsedSpace: %.2f %v\nPledgeTokens: %v TCESS\nServiceAddr: %v\n",
 		mData.PeerId, string(mData.State), power, power_unit, space, space_unit, mData.Collaterals, string(addr))
 	os.Exit(0)
-}
-
-// Start mining
-func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse command arguments and  configuration file
-	parseFlags(cmd)
-
-	//global initialization
-	initlz.SystemInit()
-
-	flag, err := register_if()
-	if err != nil {
-		fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-		os.Exit(1)
-	}
-
-	if !flag {
-		err = register(nil)
-		if err != nil {
-			log.Printf("[err] Registration failed: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		//Create log directory
-		configs.LogfileDir = filepath.Join(configs.BaseDir, configs.LogfileDir)
-		if err = tools.CreatDirIfNotExist(configs.LogfileDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		//Create space directory
-		configs.SpaceDir = filepath.Join(configs.BaseDir, configs.SpaceDir)
-		if err = tools.CreatDirIfNotExist(configs.SpaceDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		//Create file directory
-		configs.FilesDir = filepath.Join(configs.BaseDir, configs.FilesDir)
-		if err = tools.CreatDirIfNotExist(configs.FilesDir); err != nil {
-			fmt.Printf("\x1b[%dm[err]\x1b[0m Err: %v\n", 41, err)
-			os.Exit(1)
-		}
-		log.Println(configs.LogfileDir)
-		log.Println(configs.SpaceDir)
-		log.Println(configs.FilesDir)
-		//Initialize the logger
-		logger.LoggerInit()
-	}
-
-	// start-up
-	n := node.New()
-	n.Run()
 }
 
 // Exit mining

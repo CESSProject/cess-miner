@@ -32,6 +32,8 @@ const (
 	TimeToWaitEvents = time.Duration(time.Second * 15)
 	//
 	MaxProofData = 1
+	//
+	DefaultConfigFile = "./conf.yaml"
 )
 
 const (
@@ -77,15 +79,19 @@ const (
 
 // Miner info
 // updated at runtime
-var (
-	Spk           []byte
-	Shared_params []byte
-	Shared_g      []byte
-	//PublicKey     []byte
-
+const (
 	//data path
-	BaseDir    = "bucket"
-	LogfileDir = "/log"
-	SpaceDir   = "space"
-	FilesDir   = "files"
+	DbDir    = "db"
+	LogDir   = "log"
+	SpaceDir = "space"
+	FileDir  = "file"
+	TmpDir   = "tmp"
 )
+
+var LogFiles = []string{
+	"log",      //General log
+	"upfile",   //Upload file log
+	"panic",    //Panic log
+	"downfile", //Download log
+	"record",
+}
