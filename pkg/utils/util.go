@@ -1,43 +1,20 @@
-package tools
+package utils
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"math/rand"
-	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime/debug"
-	"strings"
 	"time"
-
-	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/disk"
 )
 
 type MountPathInfo struct {
 	Path  string
 	Total uint64
 	Free  uint64
-}
-
-// Write string content to file
-func WriteStringtoFile(content, fileName string) error {
-	f, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.WriteString(content)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // Get the total size of all files in a directory and subdirectories
@@ -58,15 +35,6 @@ func RandomInRange(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-// Create a directory
-func CreatDirIfNotExist(dir string) error {
-	_, err := os.Stat(dir)
-	if err != nil {
-		return os.MkdirAll(dir, os.ModeDir)
-	}
-	return nil
-}
-
 // Calculate the file hash value
 func CalcFileHash(fpath string) (string, error) {
 	f, err := os.Open(fpath)
@@ -82,40 +50,27 @@ func CalcFileHash(fpath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func RecoverError(err interface{}) string {
-	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "%v\n", "--------------------panic--------------------")
-	fmt.Fprintf(buf, "%v\n", err)
-	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
-	return buf.String()
-}
+// func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
+// 	var mp MountPathInfo
+// 	pss, err := disk.Partitions(false)
+// 	if err != nil {
+// 		return mp, err
+// 	}
 
-func IsIPv4(ipAddr string) bool {
-	ip := net.ParseIP(ipAddr)
-	return ip != nil && strings.Contains(ipAddr, ".")
-}
-
-func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
-	var mp MountPathInfo
-	pss, err := disk.Partitions(false)
-	if err != nil {
-		return mp, err
-	}
-
-	for _, ps := range pss {
-		us, err := disk.Usage(ps.Mountpoint)
-		if err != nil {
-			continue
-		}
-		if us.Path == mountpath {
-			mp.Path = us.Path
-			mp.Free = us.Free
-			mp.Total = us.Total
-			return mp, nil
-		}
-	}
-	return mp, errors.New("mount point not found")
-}
+// 	for _, ps := range pss {
+// 		us, err := disk.Usage(ps.Mountpoint)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		if us.Path == mountpath {
+// 			mp.Path = us.Path
+// 			mp.Free = us.Free
+// 			mp.Total = us.Total
+// 			return mp, nil
+// 		}
+// 	}
+// 	return mp, errors.New("mount point not found")
+// }
 
 func RandSlice(slice interface{}) {
 	rv := reflect.ValueOf(slice)
@@ -149,12 +104,4 @@ func GetRandomcode(length uint8) string {
 		bytes[i] = baseStr[r.Intn(l)]
 	}
 	return string(bytes)
-}
-
-// ClearMemBuf is used to clear membuf
-func ClearMemBuf() {
-	exec.Command("bash", "-c", "sync;sync;sync;sync;sync;sync;")
-	exec.Command("bash", "-c", "echo 1 > /proc/sys/vm/drop_caches")
-	exec.Command("bash", "-c", "echo 2 > /proc/sys/vm/drop_caches")
-	exec.Command("bash", "-c", "echo 3 > /proc/sys/vm/drop_caches")
 }

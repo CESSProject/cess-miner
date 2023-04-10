@@ -1,0 +1,16 @@
+# The rpc endpoint of the chain node
+Rpc:
+  - "wss://testnet-rpc0.cess.cloud/ws/"
+  - "wss://testnet-rpc1.cess.cloud/ws/"
+# Signature account mnemonic
+Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
+# Income account
+IncomeAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
+# Service workspace
+Workspace: /
+# Service running address
+Address: "127.0.0.1"
+# Service listening port
+Port: 15000
+# Maximum space used, the unit is GIB
+UseSpace: 2000
