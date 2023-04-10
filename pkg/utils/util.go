@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,11 @@ func RandSlice(slice interface{}) {
 }
 
 // ----------------------- Random key -----------------------
+const (
+	letterIdBits = 6
+	letterIdMask = 1<<letterIdBits - 1
+	letterIdMax  = 63 / letterIdBits
+)
 const baseStr = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()[]{}+-*/_=."
 
 // Generate random password
@@ -104,4 +110,23 @@ func GetRandomcode(length uint8) string {
 		bytes[i] = baseStr[r.Intn(l)]
 	}
 	return string(bytes)
+}
+
+func RandStr(n int) string {
+	src := rand.NewSource(time.Now().UnixNano())
+	sb := strings.Builder{}
+	sb.Grow(n)
+	// A rand.Int63() generates 63 random bits, enough for letterIdMax letters!
+	for i, cache, remain := n-1, src.Int63(), letterIdMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdMax
+		}
+		if idx := int(cache & letterIdMask); idx < len(baseStr) {
+			sb.WriteByte(baseStr[idx])
+			i--
+		}
+		cache >>= letterIdBits
+		remain--
+	}
+	return sb.String()
 }

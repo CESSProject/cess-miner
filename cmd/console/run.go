@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -42,13 +43,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		sdkgo.ListenPort(n.Cfg.GetServicePort()),
 		sdkgo.Workspace(n.Cfg.GetWorkspace()),
 		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
+		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
 	)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
+	token := n.Cfg.GetUseSpace() / (configs.SIZE_1GiB * 1024)
+	if n.Cfg.GetUseSpace()%(configs.SIZE_1GiB*1024) != 0 {
+		token += 1
+	}
+	token *= 1000
 
-	_, err = n.Cli.Register(configs.Name, "", 0)
+	_, err = n.Cli.Register(configs.Name, n.Cfg.GetIncomeAcc(), token)
 	if err != nil {
 		log.Println("Register err: ", err)
 		os.Exit(1)
@@ -101,14 +108,22 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	if err != nil {
 		return cfg, err
 	}
+
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
 		return cfg, err
 	}
+
 	ip, err := cmd.Flags().GetString("ip")
 	if err != nil {
 		return cfg, err
 	}
+
+	income, err := cmd.Flags().GetString("income")
+	if err != nil {
+		return cfg, err
+	}
+
 	port, err = cmd.Flags().GetInt("port")
 	if err != nil {
 		port, err = cmd.Flags().GetInt("p")
@@ -116,6 +131,15 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 			return cfg, err
 		}
 	}
+
+	useSpace, err := cmd.Flags().GetUint64("space")
+	if err != nil {
+		useSpace, err = cmd.Flags().GetUint64("s")
+		if err != nil {
+			return cfg, err
+		}
+	}
+
 	cfg.SetRpcAddr([]string{rpc})
 	err = cfg.SetWorkspace(workspace)
 	if err != nil {
@@ -129,6 +153,9 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	if err != nil {
 		return cfg, err
 	}
+	cfg.SetIncomeAcc(income)
+	cfg.SetUseSpace(useSpace)
+
 	mnemonic, err := utils.PasswdWithMask("Please enter your mnemonic and press Enter to end:", "", "")
 	if err != nil {
 		return cfg, err
