@@ -30,14 +30,11 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(
 		Command_Version(),
-		Command_Register(),
 		Command_State(),
 		Command_Run(),
 		Command_Exit(),
 		Command_Increase(),
 		Command_Withdraw(),
-		Command_UpdateAddress(),
-		Command_UpdateIncome(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
 	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
@@ -54,16 +51,6 @@ func Command_Version() *cobra.Command {
 			fmt.Println(configs.Name + " " + configs.Version)
 			os.Exit(0)
 		},
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Register() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "register",
-		Short:                 "Register mining miner information to the chain",
-		Run:                   Command_Register_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -114,27 +101,6 @@ func Command_Withdraw() *cobra.Command {
 		Use:                   "withdraw",
 		Short:                 "Redemption deposit",
 		Run:                   Command_Withdraw_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_UpdateAddress() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "update_address",
-		Short:                 "Update the miner's access address",
-		Example:               "bucket update_address ip:port",
-		Run:                   Command_UpdateAddress_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_UpdateIncome() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "update_income",
-		Short:                 "Update the miner's income account",
-		Run:                   Command_UpdateIncome_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
