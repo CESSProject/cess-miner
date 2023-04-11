@@ -1,9 +1,11 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -46,14 +48,31 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			failfile = false
 			var assignedFragmentHash = make([]string, 0)
 			roothash = filepath.Base(v)
-			ok, _ = n.Cach.Has([]byte(Cach_prefix_report + roothash))
-			if ok {
-				continue
-			}
-
-			_, err = n.Cli.QueryFile(roothash)
+			b, err := n.Cach.Get([]byte(Cach_prefix_report + roothash))
 			if err == nil {
-				continue
+				ok, _ = n.Cach.Has([]byte(Cach_prefix_metadata + roothash))
+				if ok {
+					continue
+				}
+				t, err := strconv.ParseInt(string(b), 10, 64)
+				if err != nil {
+					n.Log.Report("err", err.Error())
+					n.Cach.Delete([]byte(Cach_prefix_report + roothash))
+				} else {
+					if time.Since(time.Unix(t, 0)).Minutes() > 3 {
+						meta, err := n.Cli.QueryFile(roothash)
+						if err != nil {
+							n.Log.Report("err", err.Error())
+							continue
+						}
+						val, err := json.Marshal(meta)
+						if err != nil {
+							n.Log.Report("err", err.Error())
+							continue
+						}
+						n.Cach.Put([]byte(Cach_prefix_metadata+roothash), val)
+					}
+				}
 			}
 
 			n.Log.Report("info", fmt.Sprintf("Will report %s", roothash))
@@ -90,7 +109,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 				continue
 			}
 			n.Log.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
-			n.Cach.Put([]byte(Cach_prefix_report+roothash), nil)
+			n.Cach.Put([]byte(Cach_prefix_report+roothash), []byte(fmt.Sprintf("%d", time.Now().Unix())))
 		}
 		time.Sleep(configs.BlockInterval)
 	}
