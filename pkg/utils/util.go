@@ -30,6 +30,25 @@ func DirSize(path string) (uint64, error) {
 	return size, err
 }
 
+// Get the total size of all files in a directory and subdirectories
+func Dirs(path string) ([]string, error) {
+	var dirs = make([]string, 0)
+	result, err := filepath.Glob(path + "/*")
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range result {
+		f, err := os.Stat(v)
+		if err != nil {
+			continue
+		}
+		if f.IsDir() {
+			dirs = append(dirs, v)
+		}
+	}
+	return dirs, nil
+}
+
 // Get a random integer in a specified range
 func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())
