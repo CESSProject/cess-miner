@@ -49,6 +49,30 @@ func Dirs(path string) ([]string, error) {
 	return dirs, nil
 }
 
+// Get the total size of all files in a directory and subdirectories
+func DirFiles(path string, count uint32) ([]string, error) {
+	var files = make([]string, 0)
+	result, err := filepath.Glob(path + "/*")
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range result {
+		f, err := os.Stat(v)
+		if err != nil {
+			continue
+		}
+		if !f.IsDir() {
+			files = append(files, v)
+		}
+		if count > 0 {
+			if len(files) >= int(count) {
+				break
+			}
+		}
+	}
+	return files, nil
+}
+
 // Get a random integer in a specified range
 func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())

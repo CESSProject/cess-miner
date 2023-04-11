@@ -2,7 +2,6 @@ package node
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -26,12 +25,6 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 	var count = 128 * 10
 	var spacePath string
 	var txhash string
-	puk, err := n.Cfg.GetPublickey()
-	if err != nil {
-		n.Log.Space("err", err.Error())
-		log.Printf("GetPublickey err:%v\n", err)
-		os.Exit(1)
-	}
 
 	for i := 0; i < count; i++ {
 		spacePath, err = generateSpace_8MB(n.SpaceDir)
@@ -39,7 +32,7 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			n.Log.Space("err", err.Error())
 		}
 
-		txhash, err = n.Cli.SubmitIdleFile(configs.SIZE_1MiB*8, 0, 0, 0, puk, filepath.Base(spacePath))
+		txhash, err = n.Cli.SubmitIdleFile(configs.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
 			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
 			continue

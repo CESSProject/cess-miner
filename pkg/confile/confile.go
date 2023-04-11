@@ -39,7 +39,8 @@ type Confile interface {
 	GetMnemonic() string
 	GetIncomeAcc() string
 	GetUseSpace() uint64
-	GetPublickey() ([]byte, error)
+	GetPublickey() []byte
+	GetAccount() string
 }
 
 type confile struct {
@@ -193,12 +194,14 @@ func (c *confile) GetIncomeAcc() string {
 	return c.IncomeAcc
 }
 
-func (c *confile) GetPublickey() ([]byte, error) {
-	key, err := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
-	if err != nil {
-		return nil, err
-	}
-	return key.PublicKey, nil
+func (c *confile) GetPublickey() []byte {
+	key, _ := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
+	return key.PublicKey
+}
+
+func (c *confile) GetAccount() string {
+	acc, _ := utils.EncodeToCESSAddr(c.GetPublickey())
+	return acc
 }
 
 func (c *confile) GetUseSpace() uint64 {

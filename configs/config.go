@@ -93,4 +93,5 @@ var LogFiles = []string{
 	"panic", //Panic log
 	"space",
 	"report",
+	"replace",
 }

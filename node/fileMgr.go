@@ -25,16 +25,6 @@ func (n *Node) fileMgr(ch chan<- bool) {
 	var roothash string
 	var ok bool
 	var failfile bool
-	puk, err := n.Cfg.GetPublickey()
-	if err != nil {
-		n.Log.Report("err", err.Error())
-		os.Exit(1)
-	}
-	addr, err := utils.EncodeToCESSAddr(puk)
-	if err != nil {
-		n.Log.Report("err", err.Error())
-		os.Exit(1)
-	}
 
 	for {
 		roothashs, err := utils.Dirs(filepath.Join(n.Cli.Workspace(), configs.TmpDir))
@@ -85,7 +75,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 
 			for i := 0; i < len(metadata.AssignedMiner); i++ {
 				assignedAddr, _ := utils.EncodeToCESSAddr(metadata.AssignedMiner[i].Account[:])
-				if addr == assignedAddr {
+				if n.Cfg.GetAccount() == assignedAddr {
 					for j := 0; j < len(metadata.AssignedMiner[i].Hash); j++ {
 						assignedFragmentHash = append(assignedFragmentHash, string(metadata.AssignedMiner[i].Hash[j][:]))
 					}
