@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,29 +22,29 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
-	//utils.DirSize(n.Cli.Workspace())
 	var err error
 	var count = 128 * 10
 	var spacePath string
 	var txhash string
 	puk, err := n.Cfg.GetPublickey()
 	if err != nil {
-		n.Log.Log("err", err.Error())
+		n.Log.Space("err", err.Error())
+		log.Printf("GetPublickey err:%v\n", err)
 		os.Exit(1)
 	}
 
 	for i := 0; i < count; i++ {
 		spacePath, err = generateSpace_8MB(n.SpaceDir)
 		if err != nil {
-			n.Log.Log("err", err.Error())
+			n.Log.Space("err", err.Error())
 		}
 
 		txhash, err = n.Cli.SubmitIdleFile(configs.SIZE_1MiB*8, 0, 0, 0, puk, filepath.Base(spacePath))
 		if err != nil {
-			n.Log.Log("err", fmt.Sprintf("Submit idlefile: [%s] [%s] %v", txhash, filepath.Base(spacePath), err))
+			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
 			continue
 		}
-		n.Log.Log("info", fmt.Sprintf("Submit idlefile: %s %s", txhash, filepath.Base(spacePath)))
+		n.Log.Space("info", fmt.Sprintf("Submit idlefile [%s] suc [%s]", filepath.Base(spacePath), txhash))
 	}
 }
 

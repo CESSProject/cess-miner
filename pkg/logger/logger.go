@@ -24,8 +24,8 @@ import (
 type Logger interface {
 	Log(level string, msg string)
 	Pnc(msg string)
-	Upfile(level string, msg string)
-	Downfile(level string, msg string)
+	Space(level string, msg string)
+	Report(level string, msg string)
 }
 
 type logs struct {
@@ -82,9 +82,9 @@ func (l *logs) Pnc(msg string) {
 	}
 }
 
-func (l *logs) Upfile(level string, msg string) {
+func (l *logs) Space(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["upfile"]
+	v, ok := l.log["space"]
 	if ok {
 		switch level {
 		case "info":
@@ -95,24 +95,16 @@ func (l *logs) Upfile(level string, msg string) {
 	}
 }
 
-func (l *logs) Downfile(level string, msg string) {
+func (l *logs) Report(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["downfile"]
+	v, ok := l.log["report"]
 	if ok {
 		switch level {
 		case "info":
-			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
 		case "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 		}
-	}
-}
-
-func (l *logs) Record(err error) {
-	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["record"]
-	if ok {
-		v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
 	}
 }
 
