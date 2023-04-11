@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/go-merkletree v0.0.3
-	github.com/CESSProject/sdk-go v0.0.5
+	github.com/CESSProject/sdk-go v0.0.18
 	github.com/Nik-U/pbc v0.0.0-20181205041846-3e516ca0c5d6
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
@@ -20,7 +20,7 @@ require (
 
 require (
 	github.com/CESSProject/cess-oss v0.1.2 // indirect
-	github.com/CESSProject/p2p-go v0.0.2 // indirect
+	github.com/CESSProject/p2p-go v0.0.6 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

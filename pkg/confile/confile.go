@@ -37,7 +37,10 @@ type Confile interface {
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
-	GetPublickey() ([]byte, error)
+	GetIncomeAcc() string
+	GetUseSpace() uint64
+	GetPublickey() []byte
+	GetAccount() string
 }
 
 type confile struct {
@@ -124,6 +127,10 @@ func (c *confile) SetServiceAddr(address string) error {
 	return nil
 }
 
+func (c *confile) SetUseSpace(useSpace uint64) {
+	c.UseSpace = useSpace
+}
+
 func (c *confile) SetServicePort(port int) error {
 	if c.Port < 1024 {
 		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
@@ -148,6 +155,10 @@ func (c *confile) SetWorkspace(workspace string) error {
 	}
 	c.Workspace = workspace
 	return nil
+}
+
+func (c *confile) SetIncomeAcc(incomde string) {
+	c.IncomeAcc = incomde
 }
 
 func (c *confile) SetMnemonic(mnemonic string) error {
@@ -179,10 +190,20 @@ func (c *confile) GetMnemonic() string {
 	return c.Mnemonic
 }
 
-func (c *confile) GetPublickey() ([]byte, error) {
-	key, err := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
-	if err != nil {
-		return nil, err
-	}
-	return key.PublicKey, nil
+func (c *confile) GetIncomeAcc() string {
+	return c.IncomeAcc
+}
+
+func (c *confile) GetPublickey() []byte {
+	key, _ := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
+	return key.PublicKey
+}
+
+func (c *confile) GetAccount() string {
+	acc, _ := utils.EncodeToCESSAddr(c.GetPublickey())
+	return acc
+}
+
+func (c *confile) GetUseSpace() uint64 {
+	return c.UseSpace
 }

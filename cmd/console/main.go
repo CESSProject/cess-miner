@@ -40,7 +40,9 @@ func init() {
 	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
 	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
 	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
+	rootCmd.PersistentFlags().StringP("income", "", "", "income account")
 	rootCmd.PersistentFlags().IntP("port", "p", 15000, "listening port")
+	rootCmd.PersistentFlags().Uint64P("space", "s", 1000, "maximum space used (GiB)")
 }
 
 func Command_Version() *cobra.Command {

@@ -39,6 +39,7 @@ var createCmd_config = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(createCmd)
+	createCmd.AddCommand(createCmd_config)
 }
 
 // Create a configuration file template

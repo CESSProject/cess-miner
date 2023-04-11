@@ -89,9 +89,9 @@ const (
 )
 
 var LogFiles = []string{
-	"log",      //General log
-	"upfile",   //Upload file log
-	"panic",    //Panic log
-	"downfile", //Download log
-	"record",
+	"log",   //General log
+	"panic", //Panic log
+	"space",
+	"report",
+	"replace",
 }
