@@ -9,6 +9,7 @@ package cache
 
 import (
 	"os"
+	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -31,6 +32,7 @@ const (
 type LevelDB struct {
 	fn string
 	db *leveldb.DB
+	l  *sync.RWMutex
 }
 
 var (
@@ -61,6 +63,7 @@ func newLevelDB(file string, memory int, handles int, namespace string) (Cache, 
 	ldb := &LevelDB{
 		fn: file,
 		db: db,
+		l:  new(sync.RWMutex),
 	}
 	return ldb, nil
 }
@@ -86,14 +89,20 @@ func configureOptions(cache int, handles int) *opt.Options {
 }
 
 func (db *LevelDB) Close() error {
+	db.l.Lock()
+	defer db.l.Unlock()
 	return db.db.Close()
 }
 
 func (db *LevelDB) Has(key []byte) (bool, error) {
+	db.l.RLock()
+	defer db.l.RUnlock()
 	return db.db.Has(key, nil)
 }
 
 func (db *LevelDB) Get(key []byte) ([]byte, error) {
+	db.l.RLock()
+	defer db.l.RUnlock()
 	dat, err := db.db.Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -102,13 +111,19 @@ func (db *LevelDB) Get(key []byte) ([]byte, error) {
 }
 
 func (db *LevelDB) Put(key []byte, value []byte) error {
+	db.l.Lock()
+	defer db.l.Unlock()
 	return db.db.Put(key, value, nil)
 }
 
 func (db *LevelDB) Delete(key []byte) error {
+	db.l.Lock()
+	defer db.l.Unlock()
 	return db.db.Delete(key, nil)
 }
 
 func (db *LevelDB) Compact(start []byte, limit []byte) error {
+	db.l.RLock()
+	defer db.l.RUnlock()
 	return db.db.CompactRange(util.Range{Start: start, Limit: limit})
 }

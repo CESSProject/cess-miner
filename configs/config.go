@@ -34,6 +34,8 @@ const (
 	MaxProofData = 1
 	//
 	DefaultConfigFile = "./conf.yaml"
+	//
+	DirMode = 0644
 )
 
 const (
