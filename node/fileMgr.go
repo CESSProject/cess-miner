@@ -27,7 +27,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 	var metadata chain.FileMetaInfo
 
 	for {
-		roothashs, err := utils.Dirs(filepath.Join(n.Cli.Workspace(), configs.TmpDir))
+		roothashs, err := utils.Dirs(filepath.Join(n.Cli.Workspace(), rule.TempDir))
 		if err != nil {
 			n.Log.Report("err", err.Error())
 			time.Sleep(time.Minute)
@@ -54,7 +54,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 						}
 					} else {
 						if metadata.State == Active {
-							err = RenameDir(filepath.Join(n.Cli.Workspace(), configs.TmpDir, roothash), filepath.Join(n.Cli.Workspace(), configs.FileDir, roothash))
+							err = RenameDir(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash), filepath.Join(n.Cli.Workspace(), rule.FileDir, roothash))
 							if err != nil {
 								n.Log.Report("err", err.Error())
 								continue
@@ -83,7 +83,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 						continue
 					}
 					if metadata.State == Active {
-						err = RenameDir(filepath.Join(n.Cli.Workspace(), configs.TmpDir, roothash), filepath.Join(n.Cli.Workspace(), configs.FileDir, roothash))
+						err = RenameDir(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash), filepath.Join(n.Cli.Workspace(), rule.FileDir, roothash))
 						if err != nil {
 							n.Log.Report("err", err.Error())
 							continue
@@ -110,7 +110,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			n.Log.Report("info", fmt.Sprintf("Query [%s], files: %v", roothash, assignedFragmentHash))
 
 			for i := 0; i < len(assignedFragmentHash); i++ {
-				fstat, err := os.Stat(filepath.Join(n.Cli.Workspace(), configs.TmpDir, roothash, assignedFragmentHash[i]))
+				fstat, err := os.Stat(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash, assignedFragmentHash[i]))
 				if err != nil || fstat.Size() != rule.FragmentSize {
 					failfile = true
 					break
@@ -136,6 +136,24 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			}
 			n.Log.Report("err", fmt.Sprintf("Report file [%s] failed: %s", roothash, txhash))
 		}
+
+		roothashs, err = utils.Dirs(filepath.Join(n.Cli.Workspace(), rule.FileDir))
+		if err != nil {
+			n.Log.Report("err", err.Error())
+			continue
+		}
+
+		for _, v := range roothashs {
+			roothash = filepath.Base(v)
+			_, err = n.Cli.QueryFile(roothash)
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					os.RemoveAll(v)
+				}
+				continue
+			}
+		}
+
 		time.Sleep(configs.BlockInterval)
 	}
 }

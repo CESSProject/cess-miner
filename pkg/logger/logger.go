@@ -43,7 +43,7 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 		dir := getFilePath(fpath)
 		_, err := os.Stat(dir)
 		if err != nil {
-			err = os.MkdirAll(dir, configs.DirPermission)
+			err = os.MkdirAll(dir, configs.DirMode)
 			if err != nil {
 				return nil, errors.Errorf("%v,%v", dir, err)
 			}

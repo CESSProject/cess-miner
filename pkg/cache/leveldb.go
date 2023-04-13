@@ -42,7 +42,7 @@ var (
 func NewCache(fpath string, memory int, handles int, namespace string) (Cache, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {
-		err = os.MkdirAll(fpath, configs.DirPermission)
+		err = os.MkdirAll(fpath, configs.DirMode)
 		if err != nil {
 			return nil, err
 		}
