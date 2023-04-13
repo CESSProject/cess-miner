@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -56,8 +57,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
+
 	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
 	if n.Cfg.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
+
 		token += 1
 	}
 	token *= 1000

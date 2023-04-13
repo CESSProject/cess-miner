@@ -11,7 +11,7 @@ import "time"
 
 const (
 	// Name is the name of the program
-	Name = "bucket"
+	Name = "BUCKET"
 	// version
 	Version = "v0.6.0 sprint4 dev"
 	// Description is the description of the program

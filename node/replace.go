@@ -23,6 +23,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var txhash string
 	var count uint32
 	var spacedir = filepath.Join(n.Cli.Workspace(), configs.SpaceDir)
+
 	for {
 		count, err = n.Cli.QueryReplacements(n.Cfg.GetPublickey())
 		if err != nil {

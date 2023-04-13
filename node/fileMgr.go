@@ -21,6 +21,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			n.Log.Pnc(utils.RecoverError(err))
 		}
 	}()
+
 	var roothash string
 	var failfile bool
 	var storageorder chain.StorageOrder
@@ -120,11 +121,13 @@ func (n *Node) fileMgr(ch chan<- bool) {
 				continue
 			}
 
+
 			txhash, failed, err := n.Cli.ReportFile([]string{roothash})
 			if err != nil {
 				n.Log.Report("err", err.Error())
 				continue
 			}
+
 			if failed == nil {
 				n.Log.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
 				err = n.Cach.Put([]byte(Cach_prefix_report+roothash), []byte(fmt.Sprintf("%v", time.Now().Unix())))
