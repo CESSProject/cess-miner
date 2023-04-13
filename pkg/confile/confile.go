@@ -105,7 +105,7 @@ func (c *confile) Parse(fpath string, ip string, port int) error {
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
-		err = os.MkdirAll(c.Workspace, configs.DirPermission)
+		err = os.MkdirAll(c.Workspace, configs.DirMode)
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func (c *confile) SetServicePort(port int) error {
 func (c *confile) SetWorkspace(workspace string) error {
 	fstat, err := os.Stat(workspace)
 	if err != nil {
-		err = os.MkdirAll(workspace, configs.DirPermission)
+		err = os.MkdirAll(workspace, configs.DirMode)
 		if err != nil {
 			return err
 		}

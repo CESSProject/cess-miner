@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package console
 
 import (
@@ -13,6 +20,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/spf13/cobra"
 )
 
@@ -43,14 +51,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 		sdkgo.ListenPort(n.Cfg.GetServicePort()),
 		sdkgo.Workspace(n.Cfg.GetWorkspace()),
 		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
-		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
+		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
-	token := n.Cfg.GetUseSpace() / (configs.SIZE_1GiB * 1024)
-	if n.Cfg.GetUseSpace()%(configs.SIZE_1GiB*1024) != 0 {
+
+	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
+	if n.Cfg.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
+
 		token += 1
 	}
 	token *= 1000
@@ -167,100 +177,29 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	return cfg, nil
 }
 
-// func register(chn chain.IChain, cfg confile.IConfile) error {
-// 	//Calculate the deposit based on the size of the storage space
-// 	pledgeTokens := configs.DepositPerTiB * cfg.GetStorageSpaceOnTiB()
-// 	// Get report
-// 	var report node.Report
-// 	err := node.GetReportReq(configs.URL_GetReport_Callback, cfg.GetServiceAddr(), cfg.GetSgxPortNum(), configs.URL_GetReport)
-// 	if err != nil {
-// 		return errors.New("Please start the sgx service first")
-// 	}
-
-// 	timeout := time.NewTimer(configs.TimeOut_WaitReport)
-// 	defer timeout.Stop()
-// 	select {
-// 	case <-timeout.C:
-// 		return errors.New("Timed out waiting for sgx report")
-// 	case report = <-node.Ch_Report:
-// 	}
-
-// 	if report.Cert == "" || report.Ias_sig == "" || report.Quote == "" || report.Quote_sig == "" {
-// 		return errors.New("Invalid sgx report")
-// 	}
-
-// 	sig, err := hex.DecodeString(report.Quote_sig)
-// 	if err != nil {
-// 		return errors.New("Invalid sgx report quote_sig")
-// 	}
-
-// 	//Registration information on the chain
-// 	txhash, err := chn.Register(
-// 		cfg.GetIncomeAcc(),
-// 		cfg.GetServiceAddr(),
-// 		uint16(cfg.GetServicePortNum()),
-// 		pledgeTokens,
-// 		types.NewBytes([]byte(report.Cert)),
-// 		types.NewBytes([]byte(report.Ias_sig)),
-// 		types.NewBytes([]byte(report.Quote)),
-// 		types.NewBytes(sig),
-// 	)
-// 	if err != nil {
-// 		if err.Error() == chain.ERR_Empty {
-// 			log.Println("[err] Please check if the wallet is registered and its balance.")
-// 		} else {
-// 			if txhash != "" {
-// 				msg := configs.HELP_Head + fmt.Sprintf(" %v\n", txhash)
-// 				msg += fmt.Sprintf("%v\n", configs.HELP_register)
-// 				msg += configs.HELP_Tail
-// 				log.Printf("[pending] %v\n", msg)
-// 			} else {
-// 				log.Printf("[err] %v.\n", err)
-// 			}
-// 		}
-// 		return err
-// 	}
-
-// 	ctrlAcc, err := chn.GetCessAccount()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	baseDir := filepath.Join(cfg.GetMountedPath(), ctrlAcc, configs.BaseDir)
-
-// 	fstat, err := os.Stat(baseDir)
-// 	if err == nil {
-// 		if fstat.IsDir() {
-// 			os.RemoveAll(baseDir)
-// 		}
-// 	}
-
-// 	log.Println("Registration success")
-// 	return nil
-// }
-
 func buildDir(workspace string) (string, string, string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(logDir, configs.DirMode); err != nil {
 		return "", "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(cacheDir, configs.DirMode); err != nil {
 		return "", "", "", "", "", err
 	}
 
 	spaceDir := filepath.Join(workspace, configs.SpaceDir)
-	if err := os.MkdirAll(spaceDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(spaceDir, configs.DirMode); err != nil {
 		return "", "", "", "", "", err
 	}
 
-	fileDir := filepath.Join(workspace, configs.FileDir)
-	if err := os.MkdirAll(fileDir, configs.DirPermission); err != nil {
+	fileDir := filepath.Join(workspace, rule.FileDir)
+	if err := os.MkdirAll(fileDir, configs.DirMode); err != nil {
 		return "", "", "", "", "", err
 	}
 
-	tmpDir := filepath.Join(workspace, configs.TmpDir)
-	if err := os.MkdirAll(tmpDir, configs.DirPermission); err != nil {
+	tmpDir := filepath.Join(workspace, rule.TempDir)
+	if err := os.MkdirAll(tmpDir, configs.DirMode); err != nil {
 		return "", "", "", "", "", err
 	}
 

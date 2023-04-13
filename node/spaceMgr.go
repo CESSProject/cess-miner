@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/rule"
 )
 
 // spaceMgr task will automatically help you complete file challenges.
@@ -32,7 +32,7 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			n.Log.Space("err", err.Error())
 		}
 
-		txhash, err = n.Cli.SubmitIdleFile(configs.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
+		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
 			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
 			continue

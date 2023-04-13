@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -21,6 +22,8 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var err error
 	var txhash string
 	var count uint32
+	var spacedir = filepath.Join(n.Cli.Workspace(), configs.SpaceDir)
+
 	for {
 		count, err = n.Cli.QueryReplacements(n.Cfg.GetPublickey())
 		if err != nil {
@@ -28,10 +31,16 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 			time.Sleep(time.Minute)
 			continue
 		}
+
+		if count == 0 {
+			time.Sleep(time.Minute)
+			continue
+		}
+
 		if count > MaxReplaceFiles {
 			count = MaxReplaceFiles
 		}
-		files, err := SelectIdleFiles(filepath.Join(n.Cli.Workspace(), configs.SpaceDir), count)
+		files, err := SelectIdleFiles(spacedir, count)
 		if err != nil {
 			n.Log.Replace("err", err.Error())
 			time.Sleep(time.Minute)
@@ -44,7 +53,11 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 			time.Sleep(configs.BlockInterval)
 			continue
 		}
+
 		n.Log.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
+		for i := 0; i < len(files); i++ {
+			os.Remove(filepath.Join(spacedir, files[i]))
+		}
 	}
 }
 
