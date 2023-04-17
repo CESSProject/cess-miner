@@ -15,37 +15,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var create_cmd = "create"
-var create_cmd_config = "config"
+const init_cmd = "init"
 
 var createCmd = &cobra.Command{
-	Use:   create_cmd,
-	Short: "Create a file",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			cmd.Help()
-			return
-		}
-		if args[0] != create_cmd_config {
-			cmd.Help()
-			return
-		}
-	},
-	DisableFlagsInUseLine: true,
-}
-
-var createCmd_config = &cobra.Command{
-	Use:   create_cmd_config,
-	Short: "config file template",
+	Use:   init_cmd,
+	Short: "Generate configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
 		CreateConfigFile()
 		return
 	},
+	DisableFlagsInUseLine: true,
 }
 
 func init() {
 	rootCmd.AddCommand(createCmd)
-	createCmd.AddCommand(createCmd_config)
 }
 
 // Create a configuration file template
