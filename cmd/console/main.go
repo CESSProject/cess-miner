@@ -37,7 +37,7 @@ func init() {
 		Command_Withdraw(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
-	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
+	rootCmd.PersistentFlags().StringP("rpc", "", "", "rpc endpoint")
 	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
 	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
 	rootCmd.PersistentFlags().StringP("income", "", "", "income account")

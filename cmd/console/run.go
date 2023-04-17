@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -25,10 +24,6 @@ import (
 )
 
 // runCmd is used to start the service
-//
-// Usage:
-//
-//	bucket run
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
 		err      error

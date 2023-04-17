@@ -8,7 +8,6 @@
 package console
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 
@@ -53,25 +52,24 @@ func init() {
 func CreateConfigFile() {
 	f, err := os.Create(confile.DefaultProfile)
 	if err != nil {
-		log.Printf("[err] %v\n", err)
+		logERR(err.Error())
 		return
 	}
 	defer f.Close()
 	_, err = f.WriteString(confile.TempleteProfile)
 	if err != nil {
-		log.Printf("[err] %v\n", err)
+		logERR(err.Error())
 		return
 	}
 	err = f.Sync()
 	if err != nil {
-		log.Printf("[err] %v\n", err)
+		logERR(err.Error())
 		return
 	}
 	pwd, err := os.Getwd()
 	if err != nil {
-		log.Printf("[ok] %v\n", confile.DefaultProfile)
+		logERR(err.Error())
 		return
 	}
-	path := filepath.Join(pwd, confile.DefaultProfile)
-	log.Printf("[ok] %v\n", path)
+	logOK(filepath.Join(pwd, confile.DefaultProfile))
 }
