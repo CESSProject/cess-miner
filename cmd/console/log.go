@@ -10,10 +10,15 @@ package console
 import "log"
 
 const OK = "✅"
+const WARN = "⚠️"
 const ERR = "❌"
 
 func logOK(msg string) {
 	log.Print(OK, " ", msg)
+}
+
+func logWARN(msg string) {
+	log.Print(WARN, " ", msg)
 }
 
 func logERR(msg string) {

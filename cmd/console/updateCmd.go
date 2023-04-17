@@ -9,29 +9,42 @@ package console
 
 import (
 	"os"
-	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/spf13/cobra"
 )
 
+const update_cmd = "update"
+
+var updateCmd = &cobra.Command{
+	Use:                   update_cmd,
+	Short:                 "update income account",
+	Run:                   Command_UpdateIncome_Runfunc,
+	DisableFlagsInUseLine: true,
+}
+
+func init() {
+	rootCmd.AddCommand(updateCmd)
+}
+
 // Increase stakes
-func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
+func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err error
 		n   = node.New()
 	)
 
 	if len(os.Args) < 3 {
-		logERR("Please enter the stakes amount")
+		logERR("Please enter your income account")
 		os.Exit(1)
 	}
 
-	_, err = strconv.ParseUint(os.Args[2], 10, 64)
+	err = utils.VerityAddress(os.Args[2], utils.CESSChainTestPrefix)
 	if err != nil {
-		logERR("Please enter the correct stakes amount")
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
@@ -55,12 +68,14 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		logERR(err.Error())
 		os.Exit(1)
 	}
-	txhash, err := n.Cli.IncreaseStakes(os.Args[2])
+	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[2])
 	if err != nil {
 		if txhash == "" {
 			logERR(err.Error())
 			os.Exit(1)
 		}
+		logWARN(txhash)
+		os.Exit(0)
 	}
 
 	logOK(txhash)

@@ -40,7 +40,6 @@ func init() {
 		Command_State(),
 		Command_Run(),
 		Command_Exit(),
-		Command_Increase(),
 		Command_Withdraw(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
@@ -90,16 +89,6 @@ func Command_Exit() *cobra.Command {
 		Use:                   "exit",
 		Short:                 "Exit the mining platform",
 		Run:                   Command_Exit_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Increase() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "increase <number of tokens>",
-		Short:                 "Increase the deposit of mining miner",
-		Run:                   Command_Increase_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

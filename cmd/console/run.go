@@ -35,7 +35,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
-		log.Println(err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
@@ -49,41 +49,40 @@ func runCmd(cmd *cobra.Command, args []string) {
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		log.Println(err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
 	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
 	if n.Cfg.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
-
 		token += 1
 	}
 	token *= 1000
 
 	_, err = n.Cli.Register(configs.Name, n.Cfg.GetIncomeAcc(), token)
 	if err != nil {
-		log.Println("Register err: ", err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
 	// Build data directory
 	logDir, cacheDir, n.SpaceDir, n.FileDir, n.TmpDir, err = buildDir(n.Cli.Workspace())
 	if err != nil {
-		log.Println(err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
 	// Build cache instance
 	n.Cach, err = buildCache(cacheDir)
 	if err != nil {
-		log.Println(err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
 	//Build log instance
 	n.Log, err = buildLogs(logDir)
 	if err != nil {
-		log.Println(err)
+		logERR(err.Error())
 		os.Exit(1)
 	}
 
