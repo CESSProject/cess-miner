@@ -15,6 +15,7 @@ import (
 const DefaultProfile = "conf.yaml"
 const TempleteProfile = `# The rpc endpoint of the chain node
 Rpc:
+  - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
 # Signature account mnemonic
@@ -132,10 +133,10 @@ func (c *confile) SetUseSpace(useSpace uint64) {
 }
 
 func (c *confile) SetServicePort(port int) error {
-	if c.Port < 1024 {
-		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
+	if port < 1024 {
+		return errors.Errorf("Prohibit the use of system reserved port: %v", port)
 	}
-	if c.Port > 65535 {
+	if port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
 	c.Port = port

@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package console
 
 import (
@@ -32,17 +39,15 @@ func init() {
 		Command_Version(),
 		Command_State(),
 		Command_Run(),
-		Command_Exit(),
-		Command_Increase(),
 		Command_Withdraw(),
 	)
-	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
-	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
+	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom configuration file")
+	rootCmd.PersistentFlags().StringP("rpc", "", "ws://1127.0.0.1:9948/", "rpc endpoint")
 	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
 	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
 	rootCmd.PersistentFlags().StringP("income", "", "", "income account")
-	rootCmd.PersistentFlags().IntP("port", "p", 15000, "listening port")
-	rootCmd.PersistentFlags().Uint64P("space", "s", 1000, "maximum space used (GiB)")
+	rootCmd.PersistentFlags().IntP("port", "", 15000, "listening port")
+	rootCmd.PersistentFlags().Uint64P("space", "", 1000, "maximum space used (GiB)")
 }
 
 func Command_Version() *cobra.Command {
@@ -71,28 +76,8 @@ func Command_State() *cobra.Command {
 func Command_Run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
-		Short:                 "Register and start mining",
+		Short:                 "Automatically register and run",
 		Run:                   runCmd,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Exit() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "exit",
-		Short:                 "Exit the mining platform",
-		Run:                   Command_Exit_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Increase() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "increase <number of tokens>",
-		Short:                 "Increase the deposit of mining miner",
-		Run:                   Command_Increase_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -101,7 +86,7 @@ func Command_Increase() *cobra.Command {
 func Command_Withdraw() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "withdraw",
-		Short:                 "Redemption deposit",
+		Short:                 "withdraw stakes",
 		Run:                   Command_Withdraw_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
