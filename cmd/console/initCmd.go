@@ -17,7 +17,7 @@ import (
 
 const init_cmd = "init"
 
-var createCmd = &cobra.Command{
+var initCmd = &cobra.Command{
 	Use:   init_cmd,
 	Short: "Generate configuration file",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -28,7 +28,7 @@ var createCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(initCmd)
 }
 
 // Create a configuration file template

@@ -19,10 +19,15 @@ import (
 
 const update_cmd = "update"
 
+const update_cmd_use = update_cmd + " <new income account>"
+const update_cmd_short = "Update income account"
+
 var updateCmd = &cobra.Command{
-	Use:                   update_cmd,
-	Short:                 "update income account",
-	Run:                   Command_UpdateIncome_Runfunc,
+	Use:   update_cmd_use,
+	Short: update_cmd_short,
+	Run: func(cmd *cobra.Command, args []string) {
+		updateIncomeAccount(cmd)
+	},
 	DisableFlagsInUseLine: true,
 }
 
@@ -30,8 +35,8 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 }
 
-// Increase stakes
-func Command_UpdateIncome_Runfunc(cmd *cobra.Command, args []string) {
+// updateIncomeAccount
+func updateIncomeAccount(cmd *cobra.Command) {
 	var (
 		err error
 		n   = node.New()

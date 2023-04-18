@@ -39,7 +39,6 @@ func init() {
 		Command_Version(),
 		Command_State(),
 		Command_Run(),
-		Command_Exit(),
 		Command_Withdraw(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
@@ -77,18 +76,8 @@ func Command_State() *cobra.Command {
 func Command_Run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
-		Short:                 "Register and start mining",
+		Short:                 "Automatically register and run",
 		Run:                   runCmd,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Exit() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "exit",
-		Short:                 "Exit the mining platform",
-		Run:                   Command_Exit_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -97,7 +86,7 @@ func Command_Exit() *cobra.Command {
 func Command_Withdraw() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "withdraw",
-		Short:                 "Redemption deposit",
+		Short:                 "withdraw stakes",
 		Run:                   Command_Withdraw_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
