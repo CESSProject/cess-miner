@@ -17,11 +17,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const exit_cmd = "exit"
+const (
+	exit_cmd       = "exit"
+	exit_cmd_use   = "exit"
+	exit_cmd_short = "Unregister the storage miner role"
+)
 
 var exitCmd = &cobra.Command{
-	Use:                   exit_cmd,
-	Short:                 "Unregister the storage miner role",
+	Use:                   exit_cmd_use,
+	Short:                 exit_cmd_short,
 	Run:                   Command_Exit_Runfunc,
 	DisableFlagsInUseLine: true,
 }
@@ -30,7 +34,7 @@ func init() {
 	rootCmd.AddCommand(exitCmd)
 }
 
-// Exit mining
+// Exit
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err error

@@ -11,11 +11,11 @@ import "time"
 
 const (
 	// Name is the name of the program
-	Name = "BUCKET"
+	Name = "bucket"
 	// version
 	Version = "v0.6.0 sprint4 dev"
 	// Description is the description of the program
-	Description = "A mining program provided by cess platform for storage miners."
+	Description = "Mining service based on cess platform"
 	// NameSpace is the cached namespace
 	NameSpace = Name
 )

@@ -18,13 +18,26 @@ import (
 )
 
 const update_cmd = "update"
-
-const update_cmd_use = update_cmd + " <new income account>"
-const update_cmd_short = "Update income account"
+const update_cmd_use = "update"
+const update_cmd_short = "update inforation"
+const update_income_cmd = "income"
+const update_income_cmd_use = update_cmd + update_income_cmd + " <new income account>"
+const update_income_cmd_short = "Update income account"
 
 var updateCmd = &cobra.Command{
-	Use:   update_cmd_use,
+	Use:   update_cmd,
 	Short: update_cmd_short,
+	Run: func(cmd *cobra.Command, args []string) {
+		updateIncomeAccount(cmd)
+		cmd.Help()
+	},
+	DisableSuggestions:    true,
+	DisableFlagsInUseLine: true,
+}
+
+var updateIncomeCmd = &cobra.Command{
+	Use:   update_income_cmd_use,
+	Short: update_income_cmd_short,
 	Run: func(cmd *cobra.Command, args []string) {
 		updateIncomeAccount(cmd)
 	},
@@ -33,6 +46,7 @@ var updateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
+	updateCmd.AddCommand(updateIncomeCmd)
 }
 
 // updateIncomeAccount
