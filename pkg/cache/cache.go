@@ -15,6 +15,10 @@ type Reader interface {
 
 	// Get fetch the given key if it's present in the key-value data store.
 	Get(key []byte) ([]byte, error)
+
+	// QueryPrefixKeyList queries the collection of all keys that start with
+	// prefix but do not contain prefix
+	QueryPrefixKeyList(prefix string) ([]string, error)
 }
 
 type Writer interface {

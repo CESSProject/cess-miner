@@ -1,16 +1,62 @@
 package node
 
-// The task_HandlingChallenges task will automatically help you complete file challenges.
-// Apart from human influence, it ensures that you submit your certificates in a timely manner.
-// It keeps running as a subtask.
-func (node *Node) task_HandlingChallenges(ch chan<- bool) {
+import (
+	"fmt"
+	"time"
+
+	"github.com/CESSProject/cess-bucket/pkg/proof"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/chain"
+	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/CESSProject/sdk-go/core/rule"
+)
+
+// challengeMgr
+func (n *Node) challengeMgr(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			//logger.Pnc("err", utils.RecoverError(err))
+			n.Log.Pnc(utils.RecoverError(err))
 		}
 	}()
 
+	var err error
+	var key *proof.RSAKeyPair
+	var challenge client.ChallengeInfo
+
+	for {
+		pubkey, err := n.Cli.QueryTeePodr2Puk()
+		if err != nil || len(pubkey) == 0 {
+			time.Sleep(rule.BlockInterval)
+			continue
+		}
+		n.Log.Chal("info", fmt.Sprintf("TEEKey: %v", pubkey))
+		key = proof.GetKey(pubkey)
+		break
+	}
+
+	for {
+		challenge, err = n.Cli.QueryChallenge(n.Cfg.GetPublickey())
+		if err != nil {
+			if err.Error() != chain.ERR_Empty {
+				n.Log.Chal("err", err.Error())
+				continue
+			}
+		}
+		if challenge.Start == 0 {
+			continue
+		}
+
+		n.Log.Chal("info", fmt.Sprintf("Challenge start: %v", challenge.Start))
+		n.Log.Chal("info", fmt.Sprintf("Challenge random: %v", challenge.Random))
+
+		//Query all files before start
+
+		//Calc all files proof
+		key = key
+
+		//submit proof
+	}
 	// var (
 	// 	err        error
 	// 	tStart     time.Time

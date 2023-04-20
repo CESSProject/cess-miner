@@ -9,6 +9,7 @@ package cache
 
 import (
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -126,4 +127,16 @@ func (db *LevelDB) Compact(start []byte, limit []byte) error {
 	db.l.RLock()
 	defer db.l.RUnlock()
 	return db.db.CompactRange(util.Range{Start: start, Limit: limit})
+}
+
+func (db *LevelDB) QueryPrefixKeyList(prefix string) ([]string, error) {
+	var result = make([]string, 0)
+	db.l.RLock()
+	defer db.l.RUnlock()
+	iter := db.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+	for iter.Next() {
+		result = append(result, strings.TrimPrefix(string(iter.Key()), prefix))
+	}
+	iter.Release()
+	return result, iter.Error()
 }
