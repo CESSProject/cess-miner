@@ -3,7 +3,7 @@ package node
 // The task_HandlingChallenges task will automatically help you complete file challenges.
 // Apart from human influence, it ensures that you submit your certificates in a timely manner.
 // It keeps running as a subtask.
-func (node *Node) task_HandlingChallenges(ch chan<- bool) {
+func (n *Node) challengeMgr(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
