@@ -43,4 +43,5 @@ var LogFiles = []string{
 	"space",
 	"report",
 	"replace",
+	"challenge",
 }

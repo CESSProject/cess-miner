@@ -2,13 +2,15 @@ package node
 
 func (n *Node) CoroutineMgr() {
 	var (
-		ch_spaceMgr   = make(chan bool, 1)
-		ch_fileMgr    = make(chan bool, 1)
-		ch_replaceMgr = make(chan bool, 1)
+		ch_spaceMgr     = make(chan bool, 1)
+		ch_fileMgr      = make(chan bool, 1)
+		ch_replaceMgr   = make(chan bool, 1)
+		ch_challengeMgr = make(chan bool, 1)
 	)
 	go n.spaceMgr(ch_spaceMgr)
 	go n.fileMgr(ch_fileMgr)
 	go n.replaceMgr(ch_replaceMgr)
+	go n.challengeMgr(ch_challengeMgr)
 
 	for {
 		select {
@@ -18,6 +20,8 @@ func (n *Node) CoroutineMgr() {
 			go n.fileMgr(ch_fileMgr)
 		case <-ch_replaceMgr:
 			go n.replaceMgr(ch_replaceMgr)
+		case <-ch_challengeMgr:
+			go n.challengeMgr(ch_challengeMgr)
 		}
 	}
 }
