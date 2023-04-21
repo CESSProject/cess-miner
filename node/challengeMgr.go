@@ -2,8 +2,10 @@ package node
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/chain"
@@ -51,6 +53,7 @@ func (n *Node) challengeMgr(ch chan<- bool) {
 		n.Log.Chal("info", fmt.Sprintf("Challenge random: %v", challenge.Random))
 
 		//Query all files before start
+		utils.DirFiles(filepath.Join(n.Cli.Workspace(), configs.SpaceDir), 0)
 
 		//Calc all files proof
 		key = key

@@ -25,6 +25,7 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 	var count = 128 * 10
 	var spacePath string
 	var txhash string
+	var blockheight uint32
 
 	for i := 0; i < count; i++ {
 		spacePath, err = generateSpace_8MB(n.SpaceDir)
@@ -34,9 +35,32 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
+			if txhash != "" {
+				err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+				if err != nil {
+					n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+					continue
+				}
+			}
 			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
 			continue
 		}
+
+		blockheight, err = n.Cli.QueryBlockHeight(txhash)
+		if err != nil {
+			err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+			if err != nil {
+				n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+			}
+			continue
+		}
+
+		err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%d", blockheight)))
+		if err != nil {
+			n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+			continue
+		}
+
 		n.Log.Space("info", fmt.Sprintf("Submit idlefile [%s] suc [%s]", filepath.Base(spacePath), txhash))
 	}
 }
