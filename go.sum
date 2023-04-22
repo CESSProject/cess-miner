@@ -59,8 +59,8 @@ github.com/CESSProject/go-merkletree v0.0.3 h1:vqFlSs8gYLkRemXsPVRL3SwGn9EQxPnFO
 github.com/CESSProject/go-merkletree v0.0.3/go.mod h1:G8V6025bEDvPI1OnQ7Got7ggsRg9FJY8thLjthlXMZo=
 github.com/CESSProject/p2p-go v0.0.7 h1:oW2UGYPNz1AVuj5smj6ApT0m/XJsKB5PecRgtQTY6DA=
 github.com/CESSProject/p2p-go v0.0.7/go.mod h1:GnUmdPBYVcyRrjijKDDMPj8OJ3QaZemob+kKaiP9ALQ=
-github.com/CESSProject/sdk-go v0.0.28 h1:eULvdYldZJxGZpJNQniC/ZcBP6X0nyB0UISYwYxA4ro=
-github.com/CESSProject/sdk-go v0.0.28/go.mod h1:/Mnh9oCXJzif6nPzfWRmzGEB4nQBTOiSx37zD3Tfs3M=
+github.com/CESSProject/sdk-go v0.0.29 h1:30KJuqsFF45lgnbnhlB91CtddJKD8cZCiKk7Qc1hiWs=
+github.com/CESSProject/sdk-go v0.0.29/go.mod h1:/Mnh9oCXJzif6nPzfWRmzGEB4nQBTOiSx37zD3Tfs3M=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
@@ -118,8 +118,6 @@ github.com/c-bata/go-prompt v0.2.2/go.mod h1:VzqtzE2ksDBcdln8G7mk2RX9QyGjH+OVqOC
 github.com/cbergoon/merkletree v0.2.0 h1:Bttqr3OuoiZEo4ed1L7fTasHka9II+BF9fhBfbNEEoQ=
 github.com/cbergoon/merkletree v0.2.0/go.mod h1:5c15eckUgiucMGDOCanvalj/yJnD+KAZj1qyJtRW5aM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
-github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible h1:FvPewruOgelqA/DVBdX7/Q6znUGGQ+g0ciG5tA2Fk98=
-github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible/go.mod h1:GBMLH8MQs5g4FcrytcMm9uRgBnTL1LIkNTue6lUPhZU=
 github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12 h1:DCYWIBOalB0mKKfUg2HhtGgIkBbMA1fnlnkZp7fHB18=
 github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12/go.mod h1:5g1oM4Zu3BOaLpsKQ+O8PAv2kNuq+kPcA1VzFbsSqxE=
 github.com/cespare/cp v0.1.0/go.mod h1:SOGHArjBr4JWaSDEVpWpo/hNg6RoKrls6Oh40hiwW+s=
