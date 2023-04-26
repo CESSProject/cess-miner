@@ -8,6 +8,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // spaceMgr task will automatically help you complete file challenges.
@@ -21,17 +22,26 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
-	var err error
 	var count = 128 * 10
 	var spacePath string
 	var txhash string
 	var blockheight uint32
 
+	utils.U64ToBytes(n.PeerIndex)
+
 	for i := 0; i < count; i++ {
-		spacePath, err = generateSpace_8MB(n.SpaceDir)
+		// spacePath, err = generateSpace_8MB(n.SpaceDir)
+		// if err != nil {
+		// 	n.Log.Space("err", err.Error())
+		// }
+
+		_, err := n.GetAvailableTee()
 		if err != nil {
-			n.Log.Space("err", err.Error())
+			time.Sleep(rule.BlockInterval)
+			continue
 		}
+
+		//TODO: Waiting to receive the idle files and tags returned by tee
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
@@ -63,6 +73,32 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 		n.Log.Space("info", fmt.Sprintf("Submit idlefile [%s] suc [%s]", filepath.Base(spacePath), txhash))
 	}
+}
+
+func (n *Node) GetAvailableTee() (peer.ID, error) {
+	var peerid peer.ID
+
+	tees, err := n.Cli.QueryTeeInfoList()
+	if err != nil {
+		return peerid, err
+	}
+
+	sign, err := n.Cli.Sign(utils.U64ToBytes(n.PeerIndex))
+	if err != nil {
+		return peerid, err
+	}
+
+	for _, v := range tees {
+		peerid, err = peer.IDFromBytes([]byte(string(v.Peer_id[:])))
+		if err != nil {
+			continue
+		}
+		err = n.Cli.IdleProtocol.IdleReq(peerid, n.PeerIndex, sign)
+		if err != nil {
+			continue
+		}
+	}
+	return peerid, err
 }
 
 func generateSpace_8MB(dir string) (string, error) {

@@ -14,6 +14,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,7 @@ func init() {
 // updateIncomeAccount
 func updateIncomeAccount(cmd *cobra.Command) {
 	var (
+		ok  bool
 		err error
 		n   = node.New()
 	)
@@ -75,7 +77,7 @@ func updateIncomeAccount(cmd *cobra.Command) {
 	}
 
 	//Build client
-	n.Cli, err = sdkgo.New(
+	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
 		sdkgo.ListenPort(n.Cfg.GetServicePort()),
@@ -87,6 +89,13 @@ func updateIncomeAccount(cmd *cobra.Command) {
 		logERR(err.Error())
 		os.Exit(1)
 	}
+
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		logERR("Invalid client type")
+		os.Exit(1)
+	}
+
 	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[2])
 	if err != nil {
 		if txhash == "" {

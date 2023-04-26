@@ -14,3 +14,5 @@ const (
 	Cach_prefix_report   = "report:"
 	Cach_prefix_idle     = "idle:"
 )
+
+const P2PResponseOK uint32 = 200

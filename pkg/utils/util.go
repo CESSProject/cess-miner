@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -172,4 +173,9 @@ func RandStr(n int) string {
 		remain--
 	}
 	return sb.String()
+}
+
+func GetISOWeek() string {
+	year, week := time.Now().UTC().ISOWeek()
+	return fmt.Sprintf("%d%d", year, week)
 }
