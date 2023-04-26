@@ -19,6 +19,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/spf13/cobra"
 )
@@ -26,6 +27,7 @@ import (
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
+		ok       bool
 		err      error
 		logDir   string
 		cacheDir string
@@ -40,7 +42,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	n.Cli, err = sdkgo.New(
+	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
 		sdkgo.ListenPort(n.Cfg.GetServicePort()),
@@ -53,13 +55,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		logERR("Invalid client type")
+		os.Exit(1)
+	}
+
 	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
 	if n.Cfg.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
 		token += 1
 	}
 	token *= 1000
 
-	_, err = n.Cli.Register(configs.Name, n.Cfg.GetIncomeAcc(), token)
+	_, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
 	if err != nil {
 		logERR(err.Error())
 		os.Exit(1)

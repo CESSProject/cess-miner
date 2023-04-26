@@ -8,12 +8,13 @@
 package console
 
 import (
+	"math/big"
 	"os"
-	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +34,7 @@ func init() {
 // Increase stakes
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	var (
+		ok  bool
 		err error
 		n   = node.New()
 	)
@@ -42,8 +44,8 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	_, err = strconv.ParseUint(os.Args[2], 10, 64)
-	if err != nil {
+	stakes, ok := new(big.Int).SetString(os.Args[2], 10)
+	if !ok {
 		logERR("Please enter the correct stakes amount")
 		os.Exit(1)
 	}
@@ -56,7 +58,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	n.Cli, err = sdkgo.New(
+	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
 		sdkgo.ListenPort(n.Cfg.GetServicePort()),
@@ -68,7 +70,13 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		logERR(err.Error())
 		os.Exit(1)
 	}
-	txhash, err := n.Cli.IncreaseStakes(os.Args[2])
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		logERR("Invalid client type")
+		os.Exit(1)
+	}
+
+	txhash, err := n.Cli.IncreaseStakes(stakes)
 	if err != nil {
 		if txhash == "" {
 			logERR(err.Error())

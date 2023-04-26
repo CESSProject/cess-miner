@@ -28,10 +28,10 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 	var blockheight uint32
 
 	for i := 0; i < count; i++ {
-		spacePath, err = generateSpace_8MB(n.SpaceDir)
-		if err != nil {
-			n.Log.Space("err", err.Error())
-		}
+		// spacePath, err = generateSpace_8MB(n.SpaceDir)
+		// if err != nil {
+		// 	n.Log.Space("err", err.Error())
+		// }
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {

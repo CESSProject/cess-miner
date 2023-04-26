@@ -12,11 +12,10 @@ type Bucket interface {
 }
 
 type Node struct {
-	Cfg  confile.Confile
-	Cli  client.Client
-	Log  logger.Logger
-	Cach cache.Cache
-	//Handle   *gin.Engine
+	Cfg      confile.Confile
+	Log      logger.Logger
+	Cach     cache.Cache
+	Cli      *client.Cli
 	TmpDir   string
 	SpaceDir string
 	FileDir  string

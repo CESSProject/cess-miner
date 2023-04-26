@@ -25,7 +25,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 	var roothash string
 	var failfile bool
 	var storageorder chain.StorageOrder
-	var metadata chain.FileMetaInfo
+	var metadata chain.FileMetadata
 
 	for {
 		roothashs, err := utils.Dirs(filepath.Join(n.Cli.Workspace(), rule.TempDir))
@@ -47,7 +47,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 				}
 				tnow := time.Now().Unix()
 				if tnow > t && (tnow-t) < 180 {
-					metadata, err = n.Cli.QueryFile(roothash)
+					metadata, err = n.Cli.QueryFileMetadata(roothash)
 					if err != nil {
 						if err.Error() != chain.ERR_Empty {
 							n.Log.Report("err", err.Error())
@@ -74,7 +74,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			storageorder, err = n.Cli.QueryStorageOrder(roothash)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
-					metadata, err = n.Cli.QueryFile(roothash)
+					metadata, err = n.Cli.QueryFileMetadata(roothash)
 					if err != nil {
 						if err.Error() == chain.ERR_Empty {
 							os.RemoveAll(v)
@@ -121,8 +121,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 				continue
 			}
 
-
-			txhash, failed, err := n.Cli.ReportFile([]string{roothash})
+			txhash, failed, err := n.Cli.ReportFiles([]string{roothash})
 			if err != nil {
 				n.Log.Report("err", err.Error())
 				continue
@@ -148,7 +147,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 
 		for _, v := range roothashs {
 			roothash = filepath.Base(v)
-			_, err = n.Cli.QueryFile(roothash)
+			_, err = n.Cli.QueryFileMetadata(roothash)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
 					os.RemoveAll(v)
@@ -156,7 +155,6 @@ func (n *Node) fileMgr(ch chan<- bool) {
 				continue
 			}
 		}
-
 		time.Sleep(configs.BlockInterval)
 	}
 }
