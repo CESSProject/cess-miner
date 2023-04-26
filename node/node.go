@@ -12,13 +12,14 @@ type Bucket interface {
 }
 
 type Node struct {
-	Cfg      confile.Confile
-	Log      logger.Logger
-	Cach     cache.Cache
-	Cli      *client.Cli
-	TmpDir   string
-	SpaceDir string
-	FileDir  string
+	Cfg       confile.Confile
+	Log       logger.Logger
+	Cach      cache.Cache
+	Cli       *client.Cli
+	PeerIndex uint64
+	TmpDir    string
+	SpaceDir  string
+	FileDir   string
 }
 
 // New is used to build a node instance
