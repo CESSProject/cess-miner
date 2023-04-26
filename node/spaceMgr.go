@@ -76,7 +76,6 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 }
 
 func (n *Node) GetAvailableTee() (peer.ID, error) {
-	var code uint32
 	var peerid peer.ID
 
 	tees, err := n.Cli.QueryTeeInfoList()
@@ -94,12 +93,9 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 		if err != nil {
 			continue
 		}
-		code, err = n.Cli.TagProtocol.IdleReq(peerid, n.PeerIndex, sign)
+		err = n.Cli.IdleProtocol.IdleReq(peerid, n.PeerIndex, sign)
 		if err != nil {
 			continue
-		}
-		if code == P2PResponseOK {
-			break
 		}
 	}
 	return peerid, err
