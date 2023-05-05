@@ -8,6 +8,7 @@
 package console
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -37,7 +38,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
 
@@ -51,7 +52,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[sdkgo.New] %v", err))
 		os.Exit(1)
 	}
 
@@ -67,30 +68,31 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	token *= 1000
 
-	_, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
+	txhash, err := n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
+	fmt.Println("txhash:", txhash)
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[RegisterRole] %v", err))
 		os.Exit(1)
 	}
 
 	// Build data directory
 	logDir, cacheDir, n.SpaceDir, n.FileDir, n.TmpDir, err = buildDir(n.Cli.Workspace())
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
 
 	// Build cache instance
 	n.Cach, err = buildCache(cacheDir)
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
 
 	//Build log instance
 	n.Log, err = buildLogs(logDir)
 	if err != nil {
-		logERR(err.Error())
+		logERR(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
 
