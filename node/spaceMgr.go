@@ -24,11 +24,13 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 	var count = 128 * 10
 	var spacePath string
+	var tagPath string
 	var txhash string
 	var blockheight uint32
 
 	utils.U64ToBytes(n.PeerIndex)
-
+	timeout := time.NewTicker(time.Duration(time.Minute * 2))
+	defer timeout.Stop()
 	for i := 0; i < count; i++ {
 		// spacePath, err = generateSpace_8MB(n.SpaceDir)
 		// if err != nil {
@@ -40,8 +42,26 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			time.Sleep(rule.BlockInterval)
 			continue
 		}
+		spacePath = ""
+		tagPath = ""
 
-		//TODO: Waiting to receive the idle files and tags returned by tee
+		timeout.Reset(time.Duration(time.Minute * 2))
+		for {
+			select {
+			case <-timeout.C:
+				break
+			case spacePath = <-n.Cli.GetIdleDataEvent():
+			case tagPath = <-n.Cli.GetTagEvent():
+			}
+
+			if tagPath != "" && spacePath != "" {
+				break
+			}
+		}
+
+		if tagPath == "" || spacePath == "" {
+			continue
+		}
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
@@ -77,7 +97,7 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 func (n *Node) GetAvailableTee() (peer.ID, error) {
 	var peerid peer.ID
-
+	var code uint32
 	tees, err := n.Cli.QueryTeeInfoList()
 	if err != nil {
 		return peerid, err
@@ -89,12 +109,12 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 	}
 
 	for _, v := range tees {
-		peerid, err = peer.IDFromBytes([]byte(string(v.Peer_id[:])))
+		peerid, err = peer.IDFromBytes([]byte(string(v.PeerId[:])))
 		if err != nil {
 			continue
 		}
-		err = n.Cli.IdleProtocol.IdleReq(peerid, n.PeerIndex, sign)
-		if err != nil {
+		code, err = n.Cli.IdleDataTagProtocol.IdleReq(peerid, 8*1024*1024, 2, n.PeerIndex, sign)
+		if err != nil || code != 0 {
 			continue
 		}
 	}
