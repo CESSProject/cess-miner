@@ -18,6 +18,8 @@
 *.tmp
 *.backup
 *.bkp
+*.yaml
+*.toml
 
 ## Binaries for programs and plugins
 main

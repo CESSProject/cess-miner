@@ -12,7 +12,6 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
@@ -43,17 +42,6 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		n   = node.New()
 	)
 
-	if len(os.Args) < 3 {
-		logERR("Please enter your income account")
-		os.Exit(1)
-	}
-
-	err = utils.VerityAddress(os.Args[2], utils.CESSChainTestPrefix)
-	if err != nil {
-		logERR(err.Error())
-		os.Exit(1)
-	}
-
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
@@ -79,7 +67,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		logERR("Invalid client type")
 		os.Exit(1)
 	}
-	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[2])
+	txhash, err := n.Cli.Exit(configs.Name)
 	if err != nil {
 		if txhash == "" {
 			logERR(err.Error())

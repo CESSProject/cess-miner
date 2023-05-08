@@ -65,7 +65,7 @@ func Command_Version() *cobra.Command {
 
 func Command_State() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "state",
+		Use:                   "stat",
 		Short:                 "Query storage miner information",
 		Run:                   Command_State_Runfunc,
 		DisableFlagsInUseLine: true,

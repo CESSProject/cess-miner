@@ -3,67 +3,65 @@ package console
 import (
 	"os"
 
+	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/node"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
+	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
-// Withdraw the deposit
+// Withdraw the staking
 func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
-	//Parse command arguments and  configuration file
-	// parseFlags(cmd)
+	var (
+		ok  bool
+		err error
+		n   = node.New()
+	)
 
-	// api, err := chain.NewRpcClient(configs.C.RpcAddr)
-	// if err != nil {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m Connection error: %v\n", 41, err)
-	// 	os.Exit(1)
-	// }
+	err = utils.VerityAddress(os.Args[3], utils.CESSChainTestPrefix)
+	if err != nil {
+		logERR(err.Error())
+		os.Exit(1)
+	}
 
-	// //Query your own information on the chain
-	// _, err = chain.GetMinerInfo(api)
-	// if err != nil {
-	// 	if err.Error() == chain.ERR_Empty {
-	// 		log.Printf("[err] Unregistered miner\n")
-	// 		os.Exit(1)
-	// 	}
-	// 	log.Printf("[err] Query error: %v\n", err)
-	// 	os.Exit(1)
-	// }
+	// Build profile instances
+	n.Cfg, err = buildConfigFile(cmd, "", 0)
+	if err != nil {
+		logERR(err.Error())
+		os.Exit(1)
+	}
 
-	// //Query the block height when the miner exits
-	// number, err := chain.GetBlockHeightExited(api)
-	// if err != nil {
-	// 	if err.Error() == chain.ERR_Empty {
-	// 		fmt.Printf("\x1b[%dm[err]\x1b[0m No exit, can't execute withdraw.\n", 41)
-	// 		os.Exit(1)
-	// 	}
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query exit block: %v\n", 41, err)
-	// 	os.Exit(1)
-	// }
+	//Build client
+	cli, err := sdkgo.New(
+		configs.Name,
+		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
+		sdkgo.ListenPort(n.Cfg.GetServicePort()),
+		sdkgo.Workspace(n.Cfg.GetWorkspace()),
+		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
+		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+	)
+	if err != nil {
+		logERR(err.Error())
+		os.Exit(1)
+	}
 
-	// //Get the current block height
-	// lastnumber, err := chain.GetBlockHeight(api)
-	// if err != nil {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m Failed to query the latest block: %v\n", 41, err)
-	// 	os.Exit(1)
-	// }
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		logERR("Invalid client type")
+		os.Exit(1)
+	}
 
-	// if lastnumber < number {
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m unexpected error\n", 41)
-	// 	os.Exit(1)
-	// }
+	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[3])
+	if err != nil {
+		if txhash == "" {
+			logERR(err.Error())
+			os.Exit(1)
+		}
+		logWARN(txhash)
+		os.Exit(0)
+	}
 
-	// //Determine whether the cooling period is over
-	// if (lastnumber - number) < configs.ExitColling {
-	// 	wait := configs.ExitColling + number - lastnumber
-	// 	fmt.Printf("\x1b[%dm[err]\x1b[0m You are in a cooldown period, time remaining: %v blocks.\n", 41, wait)
-	// 	os.Exit(1)
-	// }
-
-	// // Withdraw deposit function
-	// txhash, err := chain.Withdraw(api, configs.C.SignatureAcc, chain.TX_SMINER_WITHDRAW)
-	// if txhash != "" {
-	// 	fmt.Println("success")
-	// 	os.Exit(0)
-	// }
-	// fmt.Printf("\x1b[%dm[err]\x1b[0m withdraw failed: %v\n", 41, err)
-	os.Exit(1)
+	logOK(txhash)
+	os.Exit(0)
 }
