@@ -103,7 +103,7 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 		return peerid, err
 	}
 
-	sign, err := n.Cli.Sign(utils.U64ToBytes(n.PeerIndex))
+	sign, err := n.Cli.Sign([]byte(n.Cli.Node.ID()))
 	if err != nil {
 		return peerid, err
 	}
@@ -113,7 +113,7 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 		if err != nil {
 			continue
 		}
-		code, err = n.Cli.IdleDataTagProtocol.IdleReq(peerid, 8*1024*1024, 2, n.PeerIndex, sign)
+		code, err = n.Cli.IdleDataTagProtocol.IdleReq(peerid, 8*1024*1024, 2, sign)
 		if err != nil || code != 0 {
 			continue
 		}

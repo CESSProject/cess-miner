@@ -55,10 +55,10 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/CESSProject/go-merkletree v0.0.3 h1:vqFlSs8gYLkRemXsPVRL3SwGn9EQxPnFOfPb2Uuv4pg=
 github.com/CESSProject/go-merkletree v0.0.3/go.mod h1:G8V6025bEDvPI1OnQ7Got7ggsRg9FJY8thLjthlXMZo=
-github.com/CESSProject/p2p-go v0.0.13 h1:Pa1sP0fF45gzjwwDa+/+uxAu3S3VmJxBJITuxuDqPxc=
-github.com/CESSProject/p2p-go v0.0.13/go.mod h1:9EOXR2dZpWM6l7sFz75IPQr5AYEAp3FvCXliINQ0hPw=
-github.com/CESSProject/sdk-go v0.0.36 h1:mzIST4fsCKa9UGQLv19QEiIS2j5J2BiT9DS/TsH/OT8=
-github.com/CESSProject/sdk-go v0.0.36/go.mod h1:ICtE9d+2Yz8q0yOU4wffgHDsPquii4AGrGq/UmkqZzg=
+github.com/CESSProject/p2p-go v0.0.14 h1:20XUTNv6ZPa/GXtiXtJ7Nz2KcsVGNmLPhEJkyW2BPCw=
+github.com/CESSProject/p2p-go v0.0.14/go.mod h1:9EOXR2dZpWM6l7sFz75IPQr5AYEAp3FvCXliINQ0hPw=
+github.com/CESSProject/sdk-go v0.0.38 h1:C2OUE040Eec4X5yerKeUZY8vuBQ/djq4dzo9K+S60LU=
+github.com/CESSProject/sdk-go v0.0.38/go.mod h1:ZKt4lpD0HE2X/S2Es/0WcfsE9RhGVWrD/8s9SialROs=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=

@@ -5,7 +5,6 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
@@ -18,12 +17,6 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		err error
 		n   = node.New()
 	)
-
-	err = utils.VerityAddress(os.Args[3], utils.CESSChainTestPrefix)
-	if err != nil {
-		logERR(err.Error())
-		os.Exit(1)
-	}
 
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
@@ -52,7 +45,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[3])
+	txhash, err := n.Cli.Withdraw()
 	if err != nil {
 		if txhash == "" {
 			logERR(err.Error())
