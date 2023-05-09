@@ -11,12 +11,13 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -27,17 +28,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		err error
 		n   = node.New()
 	)
-
-	if len(os.Args) < 3 {
-		logERR("Please enter the stakes amount")
-		os.Exit(1)
-	}
-
-	_, err = strconv.ParseUint(os.Args[2], 10, 64)
-	if err != nil {
-		logERR("Please enter the correct stakes amount")
-		os.Exit(1)
-	}
 
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
@@ -75,8 +65,20 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	minerInfo.Collaterals.Div(new(big.Int).SetBytes(minerInfo.Collaterals.Bytes()), big.NewInt(1000000000000))
 
-	//print your own details
-	fmt.Printf("PeerId: %v\nState: %v\nFreeSpace: %v \nUsedSpace: %v\nLockedSpace: %v\nStakestakes: %v TCESS\n",
-		string(minerInfo.PeerId[:]), string(minerInfo.State), minerInfo.IdleSpace, minerInfo.ServiceSpace, minerInfo.LockSpace, minerInfo.Collaterals)
+	beneficiaryAcc, _ := utils.EncodeToCESSAddr(minerInfo.BeneficiaryAcc[:])
+
+	var tableRows = []table.Row{
+		{"peer id", string(minerInfo.PeerId[:])},
+		{"state", string(minerInfo.State)},
+		{"staking amount", fmt.Sprintf("%v TCESS", minerInfo.Collaterals)},
+		{"validated space", fmt.Sprintf("%v bytes", minerInfo.IdleSpace)},
+		{"used space", fmt.Sprintf("%v bytes", minerInfo.ServiceSpace)},
+		{"locked space", fmt.Sprintf("%v bytes", minerInfo.LockSpace)},
+		{"staking account", n.Cfg.GetAccount()},
+		{"earnings account", beneficiaryAcc},
+	}
+	tw := table.NewWriter()
+	tw.AppendRows(tableRows)
+	fmt.Println(tw.Render())
 	os.Exit(0)
 }

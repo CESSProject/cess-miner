@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const init_cmd = "init"
+const init_cmd = "config"
 
 var initCmd = &cobra.Command{
 	Use:   init_cmd,

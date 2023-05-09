@@ -63,7 +63,7 @@ func updateIncomeAccount(cmd *cobra.Command) {
 		os.Exit(1)
 	}
 
-	err = utils.VerityAddress(os.Args[2], utils.CESSChainTestPrefix)
+	err = utils.VerityAddress(os.Args[3], utils.CESSChainTestPrefix)
 	if err != nil {
 		logERR(err.Error())
 		os.Exit(1)
@@ -96,7 +96,7 @@ func updateIncomeAccount(cmd *cobra.Command) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[2])
+	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[3])
 	if err != nil {
 		if txhash == "" {
 			logERR(err.Error())
