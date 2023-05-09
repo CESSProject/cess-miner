@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package node
 
 import (
@@ -12,14 +19,10 @@ type Bucket interface {
 }
 
 type Node struct {
-	Cfg       confile.Confile
-	Log       logger.Logger
-	Cach      cache.Cache
-	Cli       *client.Cli
-	PeerIndex uint64
-	TmpDir    string
-	SpaceDir  string
-	FileDir   string
+	Cfg  confile.Confile
+	Log  logger.Logger
+	Cach cache.Cache
+	Cli  *client.Cli
 }
 
 // New is used to build a node instance
