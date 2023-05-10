@@ -36,7 +36,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Build client
+	// Build client
 	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),

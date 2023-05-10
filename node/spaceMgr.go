@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package node
 
 import (
@@ -22,16 +29,15 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
-	var count = 128 * 10
 	var spacePath string
 	var tagPath string
 	var txhash string
 	var blockheight uint32
 
-	utils.U64ToBytes(n.PeerIndex)
 	timeout := time.NewTicker(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
-	for i := 0; i < count; i++ {
+
+	for {
 		// spacePath, err = generateSpace_8MB(n.SpaceDir)
 		// if err != nil {
 		// 	n.Log.Space("err", err.Error())
@@ -39,9 +45,11 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 		_, err := n.GetAvailableTee()
 		if err != nil {
+			n.Log.Space("err", err.Error())
 			time.Sleep(rule.BlockInterval)
 			continue
 		}
+
 		spacePath = ""
 		tagPath = ""
 
@@ -60,6 +68,8 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 
 		if tagPath == "" || spacePath == "" {
+			n.Log.Space("err", spacePath)
+			n.Log.Space("err", tagPath)
 			continue
 		}
 

@@ -19,6 +19,10 @@ type Reader interface {
 	// QueryPrefixKeyList queries the collection of all keys that start with
 	// prefix but do not contain prefix
 	QueryPrefixKeyList(prefix string) ([]string, error)
+
+	// QueryPrefixKeyList queries a collection of all keys that start with a prefix
+	// but do not contain a prefix and have a value before the block height
+	QueryPrefixKeyListByHeigh(prefix string, blockheight uint32) ([]string, error)
 }
 
 type Writer interface {

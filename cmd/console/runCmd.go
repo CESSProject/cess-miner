@@ -68,15 +68,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	token *= 1000
 
-	txhash, err := n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
-	fmt.Println("txhash:", txhash)
+	_, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
 	if err != nil {
 		logERR(fmt.Sprintf("[RegisterRole] %v", err))
 		os.Exit(1)
 	}
 
 	// Build data directory
-	logDir, cacheDir, n.SpaceDir, n.FileDir, n.TmpDir, err = buildDir(n.Cli.Workspace())
+	logDir, cacheDir, err = buildDir(n.Cli.Workspace())
 	if err != nil {
 		logERR(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
@@ -181,34 +180,19 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, string, string, string, error) {
+func buildDir(workspace string) (string, string, error) {
 	logDir := filepath.Join(workspace, configs.LogDir)
 	if err := os.MkdirAll(logDir, configs.DirMode); err != nil {
-		return "", "", "", "", "", err
+		return "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.DbDir)
 	if err := os.MkdirAll(cacheDir, configs.DirMode); err != nil {
-		return "", "", "", "", "", err
-	}
-
-	spaceDir := filepath.Join(workspace, configs.SpaceDir)
-	if err := os.MkdirAll(spaceDir, configs.DirMode); err != nil {
-		return "", "", "", "", "", err
-	}
-
-	fileDir := filepath.Join(workspace, rule.FileDir)
-	if err := os.MkdirAll(fileDir, configs.DirMode); err != nil {
-		return "", "", "", "", "", err
-	}
-
-	tmpDir := filepath.Join(workspace, rule.TempDir)
-	if err := os.MkdirAll(tmpDir, configs.DirMode); err != nil {
-		return "", "", "", "", "", err
+		return "", "", err
 	}
 
 	log.Println(workspace)
-	return logDir, cacheDir, spaceDir, fileDir, tmpDir, nil
+	return logDir, cacheDir, nil
 }
 
 func buildCache(cacheDir string) (cache.Cache, error) {
