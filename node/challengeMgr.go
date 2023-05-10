@@ -62,6 +62,18 @@ func (n *Node) challengeMgr(ch chan<- bool) {
 		//Query all files before start
 		utils.DirFiles(filepath.Join(n.Cli.Workspace(), configs.SpaceDir), 0)
 
+		serviceRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_metadata, challenge.Start)
+		if err != nil {
+			n.Log.Chal("err", err.Error())
+			continue
+		}
+		_ = serviceRoothashs
+		idleRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_idle, challenge.Start)
+		if err != nil {
+			n.Log.Chal("err", err.Error())
+			continue
+		}
+		_ = idleRoothashs
 		//Calc all files proof
 		key = key
 

@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // fileMgr
@@ -35,7 +36,9 @@ func (n *Node) fileMgr(ch chan<- bool) {
 	var metadata chain.FileMetadata
 
 	for {
-		roothashs, err := utils.Dirs(filepath.Join(n.Cli.Workspace(), rule.TempDir))
+		n.calcFileTag()
+
+		roothashs, err := utils.Dirs(filepath.Join(n.Cli.TmpDir))
 		if err != nil {
 			n.Log.Report("err", err.Error())
 			time.Sleep(time.Minute)
@@ -62,13 +65,13 @@ func (n *Node) fileMgr(ch chan<- bool) {
 						}
 					} else {
 						if metadata.State == Active {
-							err = RenameDir(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash), filepath.Join(n.Cli.Workspace(), rule.FileDir, roothash))
+							err = RenameDir(filepath.Join(n.Cli.TmpDir, roothash), filepath.Join(n.Cli.FileDir, roothash))
 							if err != nil {
 								n.Log.Report("err", err.Error())
 								continue
 							}
 							n.Cach.Delete([]byte(Cach_prefix_report + roothash))
-							n.Cach.Put([]byte(Cach_prefix_metadata+roothash), nil)
+							n.Cach.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
 						}
 						continue
 					}
@@ -91,7 +94,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 						continue
 					}
 					if metadata.State == Active {
-						err = RenameDir(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash), filepath.Join(n.Cli.Workspace(), rule.FileDir, roothash))
+						err = RenameDir(filepath.Join(n.Cli.TmpDir, roothash), filepath.Join(n.Cli.FileDir, roothash))
 						if err != nil {
 							n.Log.Report("err", err.Error())
 							continue
@@ -164,6 +167,47 @@ func (n *Node) fileMgr(ch chan<- bool) {
 		}
 		time.Sleep(configs.BlockInterval)
 	}
+}
+
+func (n *Node) calcFileTag() {
+	var roothash string
+	var code uint32
+	tees, err := n.Cli.QueryTeeInfoList()
+	if err != nil {
+		n.Log.Report("err", err.Error())
+		return
+	}
+	roothashs, err := utils.Dirs(filepath.Join(n.Cli.FileDir))
+	if err != nil {
+		n.Log.Report("err", err.Error())
+	}
+
+	for _, v := range roothashs {
+		roothash = filepath.Base(v)
+		files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, roothash), 0)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			//
+			_, err = os.Stat(filepath.Join(n.Cli.TagDir, roothash))
+			if err == nil {
+				continue
+			}
+			for _, t := range tees {
+				code, err = n.Cli.CustomDataTagProtocol.TagReq(peer.ID(t.PeerId[:]), filepath.Base(f), "", 2)
+				if code != 0 {
+					continue
+				}
+				err = n.Cli.FileProtocol.FileReq(peer.ID(t.PeerId[:]), filepath.Base(f), 0, f)
+				if err != nil {
+					continue
+				}
+				break
+			}
+		}
+	}
+
 }
 
 func RenameDir(oldDir, newDir string) error {

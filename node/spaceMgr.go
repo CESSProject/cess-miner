@@ -29,7 +29,6 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
-	var count = 128 * 10
 	var spacePath string
 	var tagPath string
 	var txhash string
@@ -37,7 +36,8 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 	timeout := time.NewTicker(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
-	for i := 0; i < count; i++ {
+
+	for {
 		// spacePath, err = generateSpace_8MB(n.SpaceDir)
 		// if err != nil {
 		// 	n.Log.Space("err", err.Error())
@@ -45,9 +45,11 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 		_, err := n.GetAvailableTee()
 		if err != nil {
+			n.Log.Space("err", err.Error())
 			time.Sleep(rule.BlockInterval)
 			continue
 		}
+
 		spacePath = ""
 		tagPath = ""
 
@@ -66,6 +68,8 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 
 		if tagPath == "" || spacePath == "" {
+			n.Log.Space("err", spacePath)
+			n.Log.Space("err", tagPath)
 			continue
 		}
 

@@ -9,6 +9,7 @@ package cache
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -136,6 +137,26 @@ func (db *LevelDB) QueryPrefixKeyList(prefix string) ([]string, error) {
 	iter := db.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 	for iter.Next() {
 		result = append(result, strings.TrimPrefix(string(iter.Key()), prefix))
+	}
+	iter.Release()
+	return result, iter.Error()
+}
+
+func (db *LevelDB) QueryPrefixKeyListByHeigh(prefix string, blockheight uint32) ([]string, error) {
+	var result = make([]string, 0)
+	var height uint64
+	var err error
+	db.l.RLock()
+	defer db.l.RUnlock()
+	iter := db.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+	for iter.Next() {
+		height, err = strconv.ParseUint(string(iter.Value()), 10, 32)
+		if err != nil {
+			continue
+		}
+		if blockheight >= uint32(height) {
+			result = append(result, strings.TrimPrefix(string(iter.Key()), prefix))
+		}
 	}
 	iter.Release()
 	return result, iter.Error()
