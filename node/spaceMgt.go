@@ -18,10 +18,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-// spaceMgr task will automatically help you complete file challenges.
-// Apart from human influence, it ensures that you submit your certificates in a timely manner.
-// It keeps running as a subtask.
-func (n *Node) spaceMgr(ch chan<- bool) {
+// spaceMgt is a subtask for managing spaces
+func (n *Node) spaceMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -29,21 +27,18 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
+	var err error
 	var spacePath string
 	var tagPath string
 	var txhash string
+	var filehash string
 	var blockheight uint32
 
-	timeout := time.NewTicker(time.Duration(time.Minute * 2))
+	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
 
 	for {
-		// spacePath, err = generateSpace_8MB(n.SpaceDir)
-		// if err != nil {
-		// 	n.Log.Space("err", err.Error())
-		// }
-
-		_, err := n.GetAvailableTee()
+		_, err = n.GetAvailableTee()
 		if err != nil {
 			n.Log.Space("err", err.Error())
 			time.Sleep(rule.BlockInterval)
@@ -72,6 +67,17 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			n.Log.Space("err", tagPath)
 			continue
 		}
+
+		filehash, err = utils.CalcPathSHA256(spacePath)
+		if err != nil {
+			n.Log.Space("err", err.Error())
+			os.Remove(spacePath)
+			os.Remove(tagPath)
+			continue
+		}
+
+		os.Rename(spacePath, filepath.Join(n.Cli.IdleDir, filehash))
+		os.Rename(tagPath, filepath.Join(n.Cli.TagDir, filehash+".tag"))
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {
