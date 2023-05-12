@@ -23,3 +23,12 @@ const (
 )
 
 const P2PResponseOK uint32 = 200
+
+type ProofFileType struct {
+	Name []string `json:"name"`
+	U    []string `json:"u"`
+}
+
+type ProofMuFileType struct {
+	Mu []string `json:"mu"`
+}

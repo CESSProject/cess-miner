@@ -8,20 +8,22 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
 )
 
 // challengeMgr
-func (n *Node) challengeMgr(ch chan<- bool) {
+func (n *Node) challengeMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -32,6 +34,8 @@ func (n *Node) challengeMgr(ch chan<- bool) {
 	var err error
 	var key *proof.RSAKeyPair
 	var challenge client.ChallengeInfo
+	var idleProofFileHash string
+	var serviceProofFileHash string
 
 	for {
 		pubkey, err := n.Cli.QueryTeePodr2Puk()
@@ -59,73 +63,225 @@ func (n *Node) challengeMgr(ch chan<- bool) {
 		n.Log.Chal("info", fmt.Sprintf("Challenge start: %v", challenge.Start))
 		n.Log.Chal("info", fmt.Sprintf("Challenge random: %v", challenge.Random))
 
-		//Query all files before start
-		utils.DirFiles(filepath.Join(n.Cli.Workspace(), configs.SpaceDir), 0)
+		idleProofFileHash, err = n.idleAggrProof(key, challenge.Random, challenge.Start)
+		if err != nil {
+			n.Log.Chal("err", err.Error())
+			continue
+		}
 
-		serviceRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_metadata, challenge.Start)
+		serviceProofFileHash, err = n.serviceAggrProof(key, challenge.Start)
 		if err != nil {
 			n.Log.Chal("err", err.Error())
 			continue
 		}
-		_ = serviceRoothashs
-		idleRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_idle, challenge.Start)
-		if err != nil {
-			n.Log.Chal("err", err.Error())
-			continue
-		}
-		_ = idleRoothashs
+
 		//Calc all files proof
 		key = key
 
 		//submit proof
 	}
-	// var (
-	// 	err        error
-	// 	tStart     time.Time
-	// 	chlng      []chain.ChallengesInfo
-	// 	proveInfos = make([]chain.ProveInfo, 0)
-	// )
+}
 
-	// //Chg.Info(">>>>> Start task_HandlingChallenges <<<<<")
+func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32) (string, error) {
+	idleRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_idle, start)
+	if err != nil {
+		return "", err
+	}
+	var buf []byte
+	var tag pb.Tag
+	var hash string
+	var actualCount int
+	var pf ProofFileType
+	var pf_mu ProofMuFileType
+	var proveResponse proof.GenProofResponse
 
-	// for {
-	// 	// if pattern.GetMinerState() != pattern.M_Positive {
-	// 	// 	if pattern.GetMinerState() == pattern.M_Pending {
-	// 	// 		time.Sleep(time.Second * configs.BlockInterval)
-	// 	// 		continue
-	// 	// 	}
-	// 	// 	time.Sleep(time.Minute * time.Duration(tools.RandomInRange(1, 5)))
-	// 	// 	continue
-	// 	// }
+	pf.Name = make([]string, len(idleRoothashs))
+	pf.U = make([]string, len(idleRoothashs))
+	pf_mu.Mu = make([]string, len(idleRoothashs))
+	var qslice = []proof.QElement{
+		{
+			I: 0,
+			V: string(random),
+		},
+	}
 
-	// 	// chlng, err = chain.GetChallenges()
-	// 	// if err != nil {
-	// 	// 	if err.Error() != chain.ERR_Empty {
-	// 	// 		//Chg.Sugar().Errorf("%v", err)
-	// 	// 	}
-	// 	// 	time.Sleep(time.Minute)
-	// 	// 	continue
-	// 	// }
+	for i := int(0); i < len(idleRoothashs); i++ {
+		buf, err = os.ReadFile(filepath.Join(n.Cli.TagDir, idleRoothashs[i]))
+		if err != nil {
+			continue
+		}
+		err = json.Unmarshal(buf, tag)
+		if err != nil {
+			continue
+		}
 
-	// 	// time.Sleep(time.Second * time.Duration(tools.RandomInRange(30, 60)))
-	// 	// //Chg.Sugar().Infof("--> Number of challenges: %v ", len(chlng))
+		matrix, _, err := proof.SplitByN(filepath.Join(n.Cli.IdleDir, idleRoothashs[i]), int64(len(tag.T.Phi)))
+		if err != nil {
+			continue
+		}
 
-	// 	// for i := 0; i < len(chlng); i++ {
-	// 	// 	if len(proveInfos) >= configs.MaxProofData {
-	// 	// 		submitProofResult(proveInfos)
-	// 	// 		proveInfos = make([]chain.ProveInfo, 0)
-	// 	// 	}
-	// 	// 	tStart = time.Now()
-	// 	// 	prf := calcProof(chlng[i])
-	// 	// 	//Chg.Sugar().Infof("calc challenge time: %v ", time.Since(tStart).Microseconds())
-	// 	// 	proveInfos = append(proveInfos, prf)
-	// 	// }
+		proveResponseCh := key.GenProof(qslice, nil, tag, matrix)
+		timeout := time.NewTimer(time.Duration(time.Minute))
+		defer timeout.Stop()
+		select {
+		case proveResponse = <-proveResponseCh:
+		case <-timeout.C:
+			proveResponse.StatueMsg.StatusCode = 0
+		}
 
-	// 	// // proof up chain
-	// 	// submitProofResult(proveInfos)
-	// 	// proveInfos = make([]chain.ProveInfo, 0)
-	// 	// time.Sleep(configs.BlockInterval)
-	// }
+		if proveResponse.StatueMsg.StatusCode != proof.Success {
+			continue
+		}
+
+		pf.Name[actualCount] = tag.T.Name
+		pf.Name[actualCount] = tag.T.u
+		pf_mu.Mu[actualCount] = proveResponse.MU
+		actualCount++
+	}
+
+	pf.Name = pf.Name[:actualCount]
+	pf.U = pf.U[:actualCount]
+	pf_mu.Mu = pf_mu.Mu[:actualCount]
+
+	//
+	buf, err = json.Marshal(&pf)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(n.Cli.IproofFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if f != nil {
+			f.Close()
+		}
+	}()
+
+	_, err = f.Write(buf)
+	if err != nil {
+		return "", err
+	}
+	err = f.Sync()
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	f = nil
+	//
+	buf, err = json.Marshal(&pf_mu)
+	if err != nil {
+		return "", err
+	}
+	f, err = os.OpenFile(n.Cli.IproofMuFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if f != nil {
+			f.Close()
+		}
+	}()
+
+	_, err = f.Write(buf)
+	if err != nil {
+		return "", err
+	}
+	err = f.Sync()
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	f = nil
+	return utils.CalcPathSHA256(n.Cli.IproofFile)
+}
+
+func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, random []byte, start uint32) (string, error) {
+	serviceRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_metadata, start)
+	if err != nil {
+		return "", err
+	}
+
+	var buf []byte
+	var tag pb.Tag
+	var hash string
+	var actualCount int
+	var pf ProofFileType
+	var pf_mu ProofMuFileType
+	var proveResponse proof.GenProofResponse
+	pf.Name = make([]string, len(serviceRoothashs))
+	pf.U = make([]string, len(serviceRoothashs))
+
+	var qslice = []proof.QElement{
+		{
+			I: 0,
+			V: string(random),
+		},
+	}
+
+	for i := int(0); i < len(serviceRoothashs); i++ {
+		files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, serviceRoothashs[i]), 0)
+		if err != nil {
+			continue
+		}
+		for j := 0; j < len(files); j++ {
+			buf, err = os.ReadFile(files[j])
+			if err != nil {
+				continue
+			}
+			err = json.Unmarshal(buf, tag)
+			if err != nil {
+				continue
+			}
+			matrix, _, err := proof.SplitByN(files[j], int64(len(tag.T.Phi)))
+			if err != nil {
+				continue
+			}
+
+			proveResponseCh := key.GenProof(qslice, nil, tag, matrix)
+			timeout := time.NewTimer(time.Duration(time.Minute))
+			defer timeout.Stop()
+			select {
+			case proveResponse = <-proveResponseCh:
+			case <-timeout.C:
+				proveResponse.StatueMsg.StatusCode = 0
+			}
+
+			if proveResponse.StatueMsg.StatusCode != proof.Success {
+				continue
+			}
+
+			pf.Name[actualCount] = tag.T.Name
+			pf.Name[actualCount] = tag.T.u
+			pf_mu.Mu[actualCount] = proveResponse.MU
+			actualCount++
+		}
+	}
+	buf, err = json.Marshal(&pf)
+	if err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(n.Cli.SproofFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if f != nil {
+			f.Close()
+		}
+	}()
+
+	_, err = f.Write(buf)
+	if err != nil {
+		return "", err
+	}
+	err = f.Sync()
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	f = nil
+	return utils.CalcPathSHA256(n.Cli.SproofFile)
 }
 
 // func submitProofResult(proofs []chain.ProveInfo) {

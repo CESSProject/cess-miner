@@ -9,6 +9,8 @@ package proof
 
 import (
 	"crypto"
+	"fmt"
+	"io"
 	"math/big"
 	"os"
 )
@@ -82,37 +84,6 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Tag Tag, Matri
 	return responseCh
 }
 
-func SplitV2(fpath string, sep int64) (Data [][]byte, N int64, err error) {
-	data, err := os.ReadFile(fpath)
-	if err != nil {
-		return nil, 0, err
-	}
-	file_size := int64(len(data))
-	if sep > file_size {
-		Data = append(Data, data)
-		N = 1
-		return
-	}
-
-	N = file_size / sep
-	if file_size%sep != 0 {
-		N += 1
-	}
-
-	for i := int64(0); i < N; i++ {
-		if i != N-1 {
-			Data = append(Data, data[i*sep:(i+1)*sep])
-			continue
-		}
-		Data = append(Data, data[i*sep:])
-		if l := sep - int64(len(data[i*sep:])); l > 0 {
-			Data[i] = append(Data[i], make([]byte, l, l)...)
-		}
-	}
-
-	return
-}
-
 func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {
 	sigma := new(big.Int).SetInt64(1)
 
@@ -129,4 +100,29 @@ func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {
 		sigma.Mod(sigma, keyPair.Spk.N)
 	}
 	return sigma.String()
+}
+
+func SplitByN(filePath string, N int64) (Data [][]byte, sep int64, err error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
+	sep = int64(len(data)) / N
+	if int64(len(data))%N != 0 {
+		return nil, 0, fmt.Errorf("The file:%v ,size is %v can't divide by %v", filePath, len(data), N)
+	}
+
+	for i := int64(0); i < N; i++ {
+		if i != N-1 {
+			Data = append(Data, data[i*sep:(i+1)*sep])
+			continue
+		}
+		Data = append(Data, data[i*sep:])
+	}
+	return
 }
