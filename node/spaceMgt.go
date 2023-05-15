@@ -66,6 +66,9 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			}
 		}
 
+		fmt.Println("receive tag: ", tagPath)
+		fmt.Println("receive idlefile: ", spacePath)
+
 		if tagPath == "" || spacePath == "" {
 			n.Log.Space("err", spacePath)
 			n.Log.Space("err", tagPath)
@@ -83,18 +86,19 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.Cli.IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.Cli.IdleTagDir, filehash+".tag"))
 
-		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
-		if err != nil {
-			if txhash != "" {
-				err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
-				if err != nil {
-					n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
-					continue
-				}
-			}
-			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
-			continue
-		}
+		continue
+		// txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
+		// if err != nil {
+		// 	if txhash != "" {
+		// 		err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+		// 		if err != nil {
+		// 			n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+		// 			continue
+		// 		}
+		// 	}
+		// 	n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
+		// 	continue
+		// }
 
 		blockheight, err = n.Cli.QueryBlockHeight(txhash)
 		if err != nil {
@@ -149,7 +153,7 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 	if err != nil {
 		return peerid, errors.Wrapf(err, "[Decode]")
 	}
-	code, err := n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 2, n.Cfg.GetPublickey(), sign)
+	code, err := n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 1024, n.Cfg.GetPublickey(), sign)
 	fmt.Println(code, err)
 	// if err != nil || code != 0 {
 	// 	return peerid, err
