@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -68,7 +69,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	beneficiaryAcc, _ := utils.EncodeToCESSAddr(minerInfo.BeneficiaryAcc[:])
 
 	var tableRows = []table.Row{
-		{"peer id", string(minerInfo.PeerId[:])},
+		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v TCESS", minerInfo.Collaterals)},
 		{"validated space", fmt.Sprintf("%v bytes", minerInfo.IdleSpace)},

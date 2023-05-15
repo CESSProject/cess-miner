@@ -83,10 +83,11 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 		n.Cach.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
 
 		//todo: report proof
-		txhash, err = n.Cli.Chain.ReportProof(idleSiama, serviceSigma)
-		if err != nil {
+		// txhash, err = n.Cli.Chain.ReportProof(idleSiama, serviceSigma)
+		// if err != nil {
 
-		}
+		// }
+		_ = txhash
 	}
 }
 

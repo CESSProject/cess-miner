@@ -196,6 +196,7 @@ func (n *Node) calcFileTag() {
 				continue
 			}
 			for _, t := range tees {
+
 				code, err = n.Cli.CustomDataTagProtocol.TagReq(peer.ID(t.PeerId[:]), filepath.Base(f), "", 2)
 				if code != 0 {
 					continue

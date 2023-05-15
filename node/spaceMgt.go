@@ -16,6 +16,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 )
 
 // spaceMgt is a subtask for managing spaces
@@ -34,17 +35,20 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var filehash string
 	var blockheight uint32
 
+	n.Log.Space("info", "Start spaceMgt task")
+
 	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
-
+	fmt.Println("1")
 	for {
+		fmt.Println("2")
 		_, err = n.GetAvailableTee()
 		if err != nil {
 			n.Log.Space("err", err.Error())
 			time.Sleep(rule.BlockInterval)
 			continue
 		}
-
+		fmt.Println("3")
 		spacePath = ""
 		tagPath = ""
 
@@ -113,27 +117,43 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 
 func (n *Node) GetAvailableTee() (peer.ID, error) {
 	var peerid peer.ID
-	var code uint32
-	tees, err := n.Cli.QueryTeeInfoList()
+	// var code uint32
+	// tees, err := n.Cli.QueryTeeInfoList()
+	// if err != nil {
+	// 	return peerid, err
+	// }
+	// fmt.Println(len(tees))
+	// fmt.Println(tees)
+	sign, err := n.Cli.Sign(n.Cli.PeerId)
 	if err != nil {
 		return peerid, err
 	}
-
-	sign, err := n.Cli.Sign([]byte(n.Cli.Node.ID()))
+	fmt.Println(len(sign))
+	fmt.Println(sign)
+	// for _, v := range tees {
+	// 	peerids := base58.Encode([]byte(string(v.PeerId[:])))
+	// 	log.Println("found tee: ", peerids)
+	// 	n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
+	// 	peerids = "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
+	// 	code, err = n.Cli.IdleDataTagProtocol.IdleReq(peer.ID(peerids), 8*1024*1024, 2, sign)
+	// 	if err != nil || code != 0 {
+	// 		continue
+	// 	}
+	// }
+	_, err = n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
 	if err != nil {
-		return peerid, err
+		return peerid, errors.Wrapf(err, "[AddMultiaddrToPearstore]")
 	}
-
-	for _, v := range tees {
-		peerid, err = peer.IDFromBytes([]byte(string(v.PeerId[:])))
-		if err != nil {
-			continue
-		}
-		code, err = n.Cli.IdleDataTagProtocol.IdleReq(peerid, 8*1024*1024, 2, sign)
-		if err != nil || code != 0 {
-			continue
-		}
+	//peerids := "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
+	id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+	if err != nil {
+		return peerid, errors.Wrapf(err, "[Decode]")
 	}
+	code, err := n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 2, n.Cfg.GetPublickey(), sign)
+	fmt.Println(code, err)
+	// if err != nil || code != 0 {
+	// 	return peerid, err
+	// }
 	return peerid, err
 }
 
