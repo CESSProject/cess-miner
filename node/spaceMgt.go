@@ -54,7 +54,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			case <-timeout.C:
 				break
 			case spacePath = <-n.Cli.GetIdleDataEvent():
-			case tagPath = <-n.Cli.GetTagEvent():
+			case tagPath = <-n.Cli.GetIdleTagEvent():
 			}
 
 			if tagPath != "" && spacePath != "" {
@@ -76,8 +76,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			continue
 		}
 
-		os.Rename(spacePath, filepath.Join(n.Cli.IdleDir, filehash))
-		os.Rename(tagPath, filepath.Join(n.Cli.TagDir, filehash+".tag"))
+		os.Rename(spacePath, filepath.Join(n.Cli.IdleDataDir, filehash))
+		os.Rename(tagPath, filepath.Join(n.Cli.IdleTagDir, filehash+".tag"))
 
 		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
 		if err != nil {

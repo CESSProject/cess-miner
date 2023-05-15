@@ -16,6 +16,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -190,7 +191,7 @@ func (n *Node) calcFileTag() {
 		}
 		for _, f := range files {
 			//
-			_, err = os.Stat(filepath.Join(n.Cli.TagDir, roothash))
+			_, err = os.Stat(filepath.Join(n.Cli.ServiceTagDir, roothash))
 			if err == nil {
 				continue
 			}
@@ -199,7 +200,7 @@ func (n *Node) calcFileTag() {
 				if code != 0 {
 					continue
 				}
-				err = n.Cli.FileProtocol.FileReq(peer.ID(t.PeerId[:]), filepath.Base(f), 0, f)
+				code, err = n.Cli.FileProtocol.FileReq(peer.ID(t.PeerId[:]), filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil {
 					continue
 				}

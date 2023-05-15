@@ -3,7 +3,8 @@ module github.com/CESSProject/cess-bucket
 go 1.19
 
 require (
-	github.com/CESSProject/sdk-go v0.0.39
+	github.com/CESSProject/p2p-go v0.0.17
+	github.com/CESSProject/sdk-go v0.0.41
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/jedib0t/go-pretty/v6 v6.4.6
@@ -19,7 +20,6 @@ require (
 )
 
 require (
-	github.com/CESSProject/p2p-go v0.0.14 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
