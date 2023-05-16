@@ -190,18 +190,21 @@ func (n *Node) calcFileTag() {
 			continue
 		}
 		for _, f := range files {
-			//
 			_, err = os.Stat(filepath.Join(n.Cli.ServiceTagDir, roothash))
 			if err == nil {
 				continue
 			}
 			for _, t := range tees {
-
-				code, err = n.Cli.CustomDataTagProtocol.TagReq(peer.ID(t.PeerId[:]), filepath.Base(f), "", 2)
+				_ = t
+				id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+				if err != nil {
+					continue
+				}
+				code, err = n.Cli.CustomDataTagProtocol.TagReq(id, filepath.Base(f), "", 1024)
 				if code != 0 {
 					continue
 				}
-				code, err = n.Cli.FileProtocol.FileReq(peer.ID(t.PeerId[:]), filepath.Base(f), pb.FileType_CustomData, f)
+				code, err = n.Cli.FileProtocol.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil {
 					continue
 				}
@@ -209,7 +212,6 @@ func (n *Node) calcFileTag() {
 			}
 		}
 	}
-
 }
 
 func RenameDir(oldDir, newDir string) error {

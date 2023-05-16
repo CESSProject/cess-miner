@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/decred/base58"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 )
@@ -34,12 +36,22 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var txhash string
 	var filehash string
 	var blockheight uint32
+	var teepuk []byte
 
 	n.Log.Space("info", "Start spaceMgt task")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
-	fmt.Println("1")
+
+	teelist, err := n.Cli.Chain.QueryTeeInfoList()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println(len(teelist))
+	fmt.Println(teelist)
+
 	for {
 		fmt.Println("2")
 		_, err = n.GetAvailableTee()
@@ -86,19 +98,35 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.Cli.IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.Cli.IdleTagDir, filehash+".tag"))
 
-		continue
-		// txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
-		// if err != nil {
-		// 	if txhash != "" {
-		// 		err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
-		// 		if err != nil {
-		// 			n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
-		// 			continue
-		// 		}
-		// 	}
-		// 	n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
-		// 	continue
-		// }
+		for k := 0; k < len(teelist); k++ {
+			pid := base58.Encode([]byte(string(teelist[k].PeerId[:])))
+			if pid == "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo" {
+				teepuk = teelist[k].ControllerAccount[:]
+				fmt.Println("Found tee accpunt id: ", teepuk)
+			}
+		}
+
+		var idlefile client.IdleFileMeta
+		idlefile.BlockNum = 1024
+		idlefile.BlockSize = 0
+		idlefile.Hash = filehash
+		idlefile.ScanSize = 0
+		idlefile.Size = rule.SIZE_1MiB * 8
+		idlefile.MinerAcc = n.Cfg.GetPublickey()
+		txhash, err = n.Cli.SubmitIdleFile(teepuk, []client.IdleFileMeta{idlefile})
+		fmt.Println("txhash:", txhash)
+		fmt.Println("err:", err)
+		if err != nil {
+			if txhash != "" {
+				err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+				if err != nil {
+					n.Log.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+					continue
+				}
+			}
+			n.Log.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
+			continue
+		}
 
 		blockheight, err = n.Cli.QueryBlockHeight(txhash)
 		if err != nil {

@@ -8,6 +8,7 @@
 package node
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -22,6 +23,7 @@ func (n *Node) chainMgt(ch chan bool) {
 	}()
 	var ok bool
 	var err error
+	var customTag string
 	tick := time.NewTicker(time.Minute)
 	for {
 		select {
@@ -31,6 +33,8 @@ func (n *Node) chainMgt(ch chan bool) {
 				n.Cli.Chain.SetChainState(false)
 				n.Cli.Chain.Reconnect()
 			}
+		case customTag = <-n.Cli.GetServiceTagEvent():
+			fmt.Println("Received custom tag: ", customTag)
 		}
 	}
 }
