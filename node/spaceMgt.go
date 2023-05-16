@@ -9,6 +9,7 @@ package node
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -37,30 +38,30 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var filehash string
 	var blockheight uint32
 	var teepuk []byte
+	var idlefile client.IdleFileMeta
 
 	n.Log.Space("info", "Start spaceMgt task")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
 
-	teelist, err := n.Cli.Chain.QueryTeeInfoList()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	fmt.Println(len(teelist))
-	fmt.Println(teelist)
-
 	for {
-		fmt.Println("2")
+		if err != nil {
+			time.Sleep(time.Minute)
+		}
+
+		teelist, err := n.Cli.Chain.QueryTeeInfoList()
+		if err != nil {
+			n.Log.Space("err", err.Error())
+			continue
+		}
+
 		_, err = n.GetAvailableTee()
 		if err != nil {
 			n.Log.Space("err", err.Error())
-			time.Sleep(rule.BlockInterval)
 			continue
 		}
-		fmt.Println("3")
+
 		spacePath = ""
 		tagPath = ""
 
@@ -78,8 +79,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			}
 		}
 
-		fmt.Println("receive tag: ", tagPath)
-		fmt.Println("receive idlefile: ", spacePath)
+		log.Println("receive tag: ", tagPath)
+		log.Println("receive idlefile: ", spacePath)
 
 		if tagPath == "" || spacePath == "" {
 			n.Log.Space("err", spacePath)
@@ -102,20 +103,17 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			pid := base58.Encode([]byte(string(teelist[k].PeerId[:])))
 			if pid == "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo" {
 				teepuk = teelist[k].ControllerAccount[:]
-				fmt.Println("Found tee accpunt id: ", teepuk)
 			}
 		}
 
-		var idlefile client.IdleFileMeta
 		idlefile.BlockNum = 1024
 		idlefile.BlockSize = 0
 		idlefile.Hash = filehash
 		idlefile.ScanSize = 0
-		idlefile.Size = rule.SIZE_1MiB * 8
+		idlefile.Size = rule.FragmentSize
 		idlefile.MinerAcc = n.Cfg.GetPublickey()
 		txhash, err = n.Cli.SubmitIdleFile(teepuk, []client.IdleFileMeta{idlefile})
-		fmt.Println("txhash:", txhash)
-		fmt.Println("err:", err)
+		fmt.Println("txhash: ", txhash, " ", err)
 		if err != nil {
 			if txhash != "" {
 				err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
@@ -160,8 +158,7 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 	if err != nil {
 		return peerid, err
 	}
-	fmt.Println(len(sign))
-	fmt.Println(sign)
+
 	// for _, v := range tees {
 	// 	peerids := base58.Encode([]byte(string(v.PeerId[:])))
 	// 	log.Println("found tee: ", peerids)
@@ -181,8 +178,8 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 	if err != nil {
 		return peerid, errors.Wrapf(err, "[Decode]")
 	}
-	code, err := n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 1024, n.Cfg.GetPublickey(), sign)
-	fmt.Println(code, err)
+	_, err = n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 1024, n.Cfg.GetPublickey(), sign)
+
 	// if err != nil || code != 0 {
 	// 	return peerid, err
 	// }
