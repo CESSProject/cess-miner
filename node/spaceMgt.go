@@ -9,19 +9,21 @@ package node
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/decred/base58"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 )
 
-// spaceMgr task will automatically help you complete file challenges.
-// Apart from human influence, it ensures that you submit your certificates in a timely manner.
-// It keeps running as a subtask.
-func (n *Node) spaceMgr(ch chan<- bool) {
+// spaceMgt is a subtask for managing spaces
+func (n *Node) spaceMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -29,24 +31,34 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 		}
 	}()
 
+	var err error
 	var spacePath string
 	var tagPath string
 	var txhash string
+	var filehash string
 	var blockheight uint32
+	var teepuk []byte
+	var idlefile client.IdleFileMeta
 
-	timeout := time.NewTicker(time.Duration(time.Minute * 2))
+	n.Log.Space("info", "Start spaceMgt task")
+
+	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
 
 	for {
-		// spacePath, err = generateSpace_8MB(n.SpaceDir)
-		// if err != nil {
-		// 	n.Log.Space("err", err.Error())
-		// }
+		if err != nil {
+			time.Sleep(time.Minute)
+		}
 
-		_, err := n.GetAvailableTee()
+		teelist, err := n.Cli.Chain.QueryTeeInfoList()
 		if err != nil {
 			n.Log.Space("err", err.Error())
-			time.Sleep(rule.BlockInterval)
+			continue
+		}
+
+		_, err = n.GetAvailableTee()
+		if err != nil {
+			n.Log.Space("err", err.Error())
 			continue
 		}
 
@@ -59,7 +71,7 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			case <-timeout.C:
 				break
 			case spacePath = <-n.Cli.GetIdleDataEvent():
-			case tagPath = <-n.Cli.GetTagEvent():
+			case tagPath = <-n.Cli.GetIdleTagEvent():
 			}
 
 			if tagPath != "" && spacePath != "" {
@@ -67,13 +79,41 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 			}
 		}
 
+		log.Println("receive tag: ", tagPath)
+		log.Println("receive idlefile: ", spacePath)
+
 		if tagPath == "" || spacePath == "" {
 			n.Log.Space("err", spacePath)
 			n.Log.Space("err", tagPath)
 			continue
 		}
 
-		txhash, err = n.Cli.SubmitIdleFile(rule.SIZE_1MiB*8, 0, 0, 0, n.Cfg.GetPublickey(), filepath.Base(spacePath))
+		filehash, err = utils.CalcPathSHA256(spacePath)
+		if err != nil {
+			n.Log.Space("err", err.Error())
+			os.Remove(spacePath)
+			os.Remove(tagPath)
+			continue
+		}
+
+		os.Rename(spacePath, filepath.Join(n.Cli.IdleDataDir, filehash))
+		os.Rename(tagPath, filepath.Join(n.Cli.IdleTagDir, filehash+".tag"))
+
+		for k := 0; k < len(teelist); k++ {
+			pid := base58.Encode([]byte(string(teelist[k].PeerId[:])))
+			if pid == "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo" {
+				teepuk = teelist[k].ControllerAccount[:]
+			}
+		}
+
+		idlefile.BlockNum = 1024
+		idlefile.BlockSize = 0
+		idlefile.Hash = filehash
+		idlefile.ScanSize = 0
+		idlefile.Size = rule.FragmentSize
+		idlefile.MinerAcc = n.Cfg.GetPublickey()
+		txhash, err = n.Cli.SubmitIdleFile(teepuk, []client.IdleFileMeta{idlefile})
+		fmt.Println("txhash: ", txhash, " ", err)
 		if err != nil {
 			if txhash != "" {
 				err = n.Cach.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
@@ -107,27 +147,42 @@ func (n *Node) spaceMgr(ch chan<- bool) {
 
 func (n *Node) GetAvailableTee() (peer.ID, error) {
 	var peerid peer.ID
-	var code uint32
-	tees, err := n.Cli.QueryTeeInfoList()
+	// var code uint32
+	// tees, err := n.Cli.QueryTeeInfoList()
+	// if err != nil {
+	// 	return peerid, err
+	// }
+	// fmt.Println(len(tees))
+	// fmt.Println(tees)
+	sign, err := n.Cli.Sign(n.Cli.PeerId)
 	if err != nil {
 		return peerid, err
 	}
 
-	sign, err := n.Cli.Sign([]byte(n.Cli.Node.ID()))
+	// for _, v := range tees {
+	// 	peerids := base58.Encode([]byte(string(v.PeerId[:])))
+	// 	log.Println("found tee: ", peerids)
+	// 	n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
+	// 	peerids = "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
+	// 	code, err = n.Cli.IdleDataTagProtocol.IdleReq(peer.ID(peerids), 8*1024*1024, 2, sign)
+	// 	if err != nil || code != 0 {
+	// 		continue
+	// 	}
+	// }
+	_, err = n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
 	if err != nil {
-		return peerid, err
+		return peerid, errors.Wrapf(err, "[AddMultiaddrToPearstore]")
 	}
+	//peerids := "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
+	id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+	if err != nil {
+		return peerid, errors.Wrapf(err, "[Decode]")
+	}
+	_, err = n.Cli.IdleDataTagProtocol.IdleReq(id, 8*1024*1024, 1024, n.Cfg.GetPublickey(), sign)
 
-	for _, v := range tees {
-		peerid, err = peer.IDFromBytes([]byte(string(v.PeerId[:])))
-		if err != nil {
-			continue
-		}
-		code, err = n.Cli.IdleDataTagProtocol.IdleReq(peerid, 8*1024*1024, 2, sign)
-		if err != nil || code != 0 {
-			continue
-		}
-	}
+	// if err != nil || code != 0 {
+	// 	return peerid, err
+	// }
 	return peerid, err
 }
 

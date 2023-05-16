@@ -16,13 +16,15 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 )
 
 // fileMgr
-func (n *Node) fileMgr(ch chan<- bool) {
+func (n *Node) fileMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -34,6 +36,11 @@ func (n *Node) fileMgr(ch chan<- bool) {
 	var failfile bool
 	var storageorder chain.StorageOrder
 	var metadata chain.FileMetadata
+
+	_, err := n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
+	if err != nil {
+		panic(errors.Wrapf(err, "[AddMultiaddrToPearstore]"))
+	}
 
 	for {
 		n.calcFileTag()
@@ -119,10 +126,13 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			}
 
 			n.Log.Report("info", fmt.Sprintf("Query [%s], files: %v", roothash, assignedFragmentHash))
-
+			failfile = false
 			for i := 0; i < len(assignedFragmentHash); i++ {
-				fstat, err := os.Stat(filepath.Join(n.Cli.Workspace(), rule.TempDir, roothash, assignedFragmentHash[i]))
+				fmt.Println("Check: ", filepath.Join(n.Cli.TmpDir, roothash, assignedFragmentHash[i]))
+				fstat, err := os.Stat(filepath.Join(n.Cli.TmpDir, roothash, assignedFragmentHash[i]))
 				if err != nil || fstat.Size() != rule.FragmentSize {
+					fmt.Println(err)
+					fmt.Println(fstat.Size())
 					failfile = true
 					break
 				}
@@ -149,7 +159,7 @@ func (n *Node) fileMgr(ch chan<- bool) {
 			n.Log.Report("err", fmt.Sprintf("Report file [%s] failed: %s", roothash, txhash))
 		}
 
-		roothashs, err = utils.Dirs(filepath.Join(n.Cli.Workspace(), rule.FileDir))
+		roothashs, err = utils.Dirs(filepath.Join(n.Cli.Workspace(), n.Cli.FileDir))
 		if err != nil {
 			n.Log.Report("err", err.Error())
 			continue
@@ -189,17 +199,25 @@ func (n *Node) calcFileTag() {
 			continue
 		}
 		for _, f := range files {
-			//
-			_, err = os.Stat(filepath.Join(n.Cli.TagDir, roothash))
+			_, err = os.Stat(filepath.Join(n.Cli.ServiceTagDir, filepath.Base(f)+".tag"))
 			if err == nil {
+				fmt.Println("Tag exist: ", filepath.Join(n.Cli.ServiceTagDir, filepath.Base(f)+".tag"))
 				continue
 			}
 			for _, t := range tees {
-				code, err = n.Cli.CustomDataTagProtocol.TagReq(peer.ID(t.PeerId[:]), filepath.Base(f), "", 2)
+				_ = t
+				id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+				if err != nil {
+					continue
+				}
+				code, err = n.Cli.CustomDataTagProtocol.TagReq(id, filepath.Base(f), "", 1024)
+				if err != nil {
+					fmt.Println("Tag req err:", err)
+				}
 				if code != 0 {
 					continue
 				}
-				err = n.Cli.FileProtocol.FileReq(peer.ID(t.PeerId[:]), filepath.Base(f), 0, f)
+				code, err = n.Cli.FileProtocol.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil {
 					continue
 				}
@@ -207,7 +225,6 @@ func (n *Node) calcFileTag() {
 			}
 		}
 	}
-
 }
 
 func RenameDir(oldDir, newDir string) error {
