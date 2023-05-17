@@ -37,6 +37,8 @@ func (n *Node) fileMgt(ch chan<- bool) {
 	var storageorder chain.StorageOrder
 	var metadata chain.FileMetadata
 
+	n.Log.Report("info", "Start challengeMgt task")
+
 	_, err := n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
 	if err != nil {
 		panic(errors.Wrapf(err, "[AddMultiaddrToPearstore]"))

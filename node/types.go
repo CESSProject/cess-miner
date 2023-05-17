@@ -22,6 +22,7 @@ const (
 	Cach_prefix_idle         = "idle:"
 	Cach_prefix_idleSiama    = "sigmaidle:"
 	Cach_prefix_serviceSiama = "sigmaservice:"
+	Cach_AggrProof_Report    = "aggrproof"
 )
 
 const P2PResponseOK uint32 = 200

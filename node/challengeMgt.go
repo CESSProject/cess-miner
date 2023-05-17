@@ -10,8 +10,10 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/proof"
@@ -40,22 +42,25 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	var idleSiama string
 	var serviceSigma string
 
+	n.Log.Chal("info", "Start challengeMgt task")
+
 	for {
 		pubkey, err := n.Cli.QueryTeePodr2Puk()
 		if err != nil || len(pubkey) == 0 {
 			time.Sleep(rule.BlockInterval)
 			continue
 		}
-		n.Log.Chal("info", fmt.Sprintf("TEEKey: %v", pubkey))
+		//n.Log.Chal("info", fmt.Sprintf("TEEKey: %v", pubkey))
 		key = proof.GetKey(pubkey)
 		break
 	}
 
 	for {
+
 		challenge, err = n.Cli.QueryChallenge(n.Cfg.GetPublickey())
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				n.Log.Chal("err", err.Error())
+				n.Log.Chal("err", fmt.Sprintf("[QueryChallenge] %v", err))
 				continue
 			}
 		}
@@ -64,38 +69,65 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 		}
 
 		n.Log.Chal("info", fmt.Sprintf("Challenge start: %v", challenge.Start))
-		n.Log.Chal("info", fmt.Sprintf("Challenge random: %v", challenge.Random))
+		n.Log.Chal("info", fmt.Sprintf("Challenge randomindex: %v random length: %v", len(challenge.RandomIndexList), len(challenge.Random)))
 
-		idleSiama, idleProofFileHash, err = n.idleAggrProof(key, challenge.Random, challenge.Start)
+		buf, err := n.Cach.Get([]byte(Cach_AggrProof_Report))
+		if err == nil {
+			block, err := strconv.Atoi(string(buf))
+			if err == nil {
+				if uint32(block) == challenge.Start {
+					n.Log.Chal("info", fmt.Sprintf("Already challenged: %v", challenge.Start))
+					time.Sleep(time.Minute)
+					continue
+				}
+			}
+		}
+
+		idleSiama, idleProofFileHash, err = n.idleAggrProof(key, challenge.RandomIndexList, challenge.Random, challenge.Start)
 		if err != nil {
-			n.Log.Chal("err", err.Error())
+			n.Log.Chal("err", fmt.Sprintf("[idleAggrProof] %v", err))
 			continue
 		}
-		_ = idleProofFileHash
-		serviceSigma, serviceProofFileHash, err = n.serviceAggrProof(key, challenge.Random, challenge.Start)
+		fmt.Println("idleSiama:", idleSiama)
+		fmt.Println("idleProofFileHash:", idleProofFileHash)
+
+		serviceSigma, serviceProofFileHash, err = n.serviceAggrProof(key, challenge.RandomIndexList, challenge.Random, challenge.Start)
 		if err != nil {
-			n.Log.Chal("err", err.Error())
+			n.Log.Chal("err", fmt.Sprintf("[serviceAggrProof] %v", err))
 			continue
 		}
-		_ = serviceProofFileHash
+		fmt.Println("serviceSigma:", serviceSigma)
+		fmt.Println("serviceProofFileHash:", serviceProofFileHash)
 
 		n.Cach.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
 		n.Cach.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
 
 		//todo: report proof
-		// txhash, err = n.Cli.Chain.ReportProof(idleSiama, serviceSigma)
-		// if err != nil {
+		txhash, err = n.Cli.Chain.ReportProof(idleSiama, serviceSigma)
+		if err != nil {
+			n.Log.Chal("err", fmt.Sprintf("[ReportProof] %v", err))
+			continue
+		}
+		fmt.Println("txhash:", txhash)
+		err = n.Cach.Put([]byte(Cach_AggrProof_Report), []byte(fmt.Sprintf("%v", challenge.Start)))
+		if err != nil {
 
-		// }
-		_ = txhash
+		}
+
+		time.Sleep(time.Minute)
 	}
 }
 
-func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32) (string, string, error) {
+func (n *Node) idleAggrProof(key *proof.RSAKeyPair, randomIndexList []uint32, random [][]byte, start uint32) (string, string, error) {
+	if len(randomIndexList) != len(random) {
+		return "", "", fmt.Errorf("invalid random length")
+	}
+
 	idleRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_idle, start)
 	if err != nil {
 		return "", "", err
 	}
+
 	var buf []byte
 	var tag pb.Tag
 	var ptags []proof.Tag = make([]proof.Tag, 0)
@@ -108,25 +140,32 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32)
 	pf.Name = make([]string, len(idleRoothashs))
 	pf.U = make([]string, len(idleRoothashs))
 	pf_mu.Mu = make([]string, len(idleRoothashs))
-	var qslice = []proof.QElement{
-		{
-			I: 0,
-			V: string(random),
-		},
+	var qslice = make([]proof.QElement, len(randomIndexList))
+	for k, v := range randomIndexList {
+		qslice[k].I = int64(v)
+		qslice[k].V = new(big.Int).SetBytes(random[k]).String()
 	}
 
+	timeout := time.NewTicker(time.Duration(time.Minute))
+	defer timeout.Stop()
+
 	for i := int(0); i < len(idleRoothashs); i++ {
-		buf, err = os.ReadFile(filepath.Join(n.Cli.IdleTagDir, idleRoothashs[i]))
+		idleTagPath := filepath.Join(n.Cli.IdleTagDir, idleRoothashs[i]+".tag")
+		fmt.Println("idleTagPath:", idleTagPath)
+		buf, err = os.ReadFile(idleTagPath)
 		if err != nil {
+			fmt.Println("ReadFile", idleTagPath, "err: ", err)
 			continue
 		}
 		err = json.Unmarshal(buf, &tag)
 		if err != nil {
+			fmt.Println("Unmarshal err:", err)
 			continue
 		}
 
 		matrix, _, err := proof.SplitByN(filepath.Join(n.Cli.IdleDataDir, idleRoothashs[i]), int64(len(tag.T.Phi)))
 		if err != nil {
+			fmt.Println("SplitByN err:", err)
 			continue
 		}
 
@@ -137,8 +176,7 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32)
 		ptag.Attest = tag.Attest
 
 		proveResponseCh := key.GenProof(qslice, nil, ptag, matrix)
-		timeout := time.NewTimer(time.Duration(time.Minute))
-		defer timeout.Stop()
+		timeout.Reset(time.Minute)
 		select {
 		case proveResponse = <-proveResponseCh:
 		case <-timeout.C:
@@ -148,9 +186,10 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32)
 		if proveResponse.StatueMsg.StatusCode != proof.Success {
 			continue
 		}
+
 		ptags = append(ptags, ptag)
 		pf.Name[actualCount] = tag.T.Name
-		pf.Name[actualCount] = tag.T.U
+		pf.U[actualCount] = tag.T.U
 		pf_mu.Mu[actualCount] = proveResponse.MU
 		actualCount++
 	}
@@ -193,11 +232,6 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32)
 	if err != nil {
 		return "", "", err
 	}
-	defer func() {
-		if f != nil {
-			f.Close()
-		}
-	}()
 
 	_, err = f.Write(buf)
 	if err != nil {
@@ -217,46 +251,58 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, random []byte, start uint32)
 	return sigma, hash, nil
 }
 
-func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, random []byte, start uint32) (string, string, error) {
+func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, randomIndexList []uint32, random [][]byte, start uint32) (string, string, error) {
+	if len(randomIndexList) != len(random) {
+		return "", "", fmt.Errorf("invalid random length")
+	}
+
+	n.Cach.Put([]byte(Cach_prefix_metadata+"bc1f81f9de240490aae56c322987c83184c53c59c74248675c6016f4a1940d8d"), []byte(fmt.Sprintf("%v", 18589)))
+
 	serviceRoothashs, err := n.Cach.QueryPrefixKeyListByHeigh(Cach_prefix_metadata, start)
 	if err != nil {
 		return "", "", err
 	}
-
+	fmt.Println("serviceRoothashs:", serviceRoothashs)
 	var buf []byte
 	var tag pb.Tag
-	var actualCount int
 	var pf ProofFileType
 	var ptags []proof.Tag = make([]proof.Tag, 0)
 	var ptag proof.Tag
 	var pf_mu ProofMuFileType
 	var proveResponse proof.GenProofResponse
-	pf.Name = make([]string, len(serviceRoothashs))
-	pf.U = make([]string, len(serviceRoothashs))
-
-	var qslice = []proof.QElement{
-		{
-			I: 0,
-			V: string(random),
-		},
+	pf.Name = make([]string, 0)
+	pf.U = make([]string, 0)
+	pf_mu.Mu = make([]string, 0)
+	var qslice = make([]proof.QElement, len(randomIndexList))
+	for k, v := range randomIndexList {
+		qslice[k].I = int64(v)
+		qslice[k].V = new(big.Int).SetBytes(random[k]).String()
 	}
-
+	timeout := time.NewTicker(time.Duration(time.Minute))
+	defer timeout.Stop()
 	for i := int(0); i < len(serviceRoothashs); i++ {
 		files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, serviceRoothashs[i]), 0)
 		if err != nil {
 			continue
 		}
+		fmt.Println("service files:", files)
+		time.Sleep(time.Second * 3)
 		for j := 0; j < len(files); j++ {
-			buf, err = os.ReadFile(files[j])
+			serviceTagPath := filepath.Join(n.Cli.ServiceTagDir, filepath.Base(files[j])+".tag")
+			fmt.Println("serviceTagPath: ", serviceTagPath)
+			buf, err = os.ReadFile(serviceTagPath)
 			if err != nil {
+				fmt.Println("ReadFile", serviceTagPath, "err: ", err)
 				continue
 			}
 			err = json.Unmarshal(buf, &tag)
 			if err != nil {
+				fmt.Println("Unmarshal", serviceTagPath, "err: ", err)
 				continue
 			}
 			matrix, _, err := proof.SplitByN(files[j], int64(len(tag.T.Phi)))
 			if err != nil {
+				fmt.Println("SplitByN", files[j], "err: ", err)
 				continue
 			}
 
@@ -267,8 +313,7 @@ func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, random []byte, start uint
 			ptag.Attest = tag.Attest
 
 			proveResponseCh := key.GenProof(qslice, nil, ptag, matrix)
-			timeout := time.NewTimer(time.Duration(time.Minute))
-			defer timeout.Stop()
+			timeout.Reset(time.Minute)
 			select {
 			case proveResponse = <-proveResponseCh:
 			case <-timeout.C:
@@ -276,15 +321,17 @@ func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, random []byte, start uint
 			}
 
 			if proveResponse.StatueMsg.StatusCode != proof.Success {
+				fmt.Println("GenProof  err: ", proveResponse.StatueMsg.StatusCode)
 				continue
 			}
+
 			ptags = append(ptags, ptag)
-			pf.Name[actualCount] = tag.T.Name
-			pf.Name[actualCount] = tag.T.U
-			pf_mu.Mu[actualCount] = proveResponse.MU
-			actualCount++
+			pf.Name = append(pf.Name, tag.T.Name)
+			pf.U = append(pf.U, tag.T.U)
+			pf_mu.Mu = append(pf_mu.Mu, proveResponse.MU)
 		}
 	}
+
 	buf, err = json.Marshal(&pf)
 	if err != nil {
 		return "", "", err
@@ -298,6 +345,26 @@ func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, random []byte, start uint
 			f.Close()
 		}
 	}()
+
+	_, err = f.Write(buf)
+	if err != nil {
+		return "", "", err
+	}
+	err = f.Sync()
+	if err != nil {
+		return "", "", err
+	}
+	f.Close()
+	f = nil
+	//
+	buf, err = json.Marshal(&pf_mu)
+	if err != nil {
+		return "", "", err
+	}
+	f, err = os.OpenFile(n.Cli.SproofMuFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return "", "", err
+	}
 
 	_, err = f.Write(buf)
 	if err != nil {

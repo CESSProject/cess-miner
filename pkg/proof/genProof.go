@@ -105,11 +105,11 @@ func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {
 func SplitByN(filePath string, N int64) (Data [][]byte, sep int64, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		panic(err)
+		return nil, 0, err
 	}
 	data, err := io.ReadAll(file)
 	if err != nil {
-		panic(err)
+		return nil, 0, err
 	}
 
 	sep = int64(len(data)) / N
