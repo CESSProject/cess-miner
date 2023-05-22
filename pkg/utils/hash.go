@@ -60,3 +60,24 @@ func CalcMD5(data string) ([]byte, error) {
 	m := md5.Sum([]byte(data))
 	return m[:], nil
 }
+
+// CalcPathSHA256 is used to calculate the sha256 value
+// of a file with a given path.
+func CalcPathSHA256Bytes(fpath string) ([]byte, error) {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return CalcFileSHA256Bytes(f)
+}
+
+// CalcFileSHA256 is used to calculate the sha256 value
+// of the file type.
+func CalcFileSHA256Bytes(f *os.File) ([]byte, error) {
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
+}
