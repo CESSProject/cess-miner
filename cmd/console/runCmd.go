@@ -150,7 +150,7 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	istips = false
 	for workspace == "" {
 		if !istips {
-			logTip(fmt.Sprintf("Please enter the workspace, press enter to use %v by default workspace:", configs.DefaultWorkspace))
+			logTip(fmt.Sprintf("Please enter the workspace, press enter to use %s by default workspace:", configs.DefaultWorkspace))
 			istips = true
 		}
 		lines, err = inputReader.ReadString('\n')
@@ -161,12 +161,12 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 			workspace = strings.ReplaceAll(lines, "\n", "")
 		}
 		if workspace != "" {
-			if workspace[0] != configs.DefaultWorkspace {
-				logERR(fmt.Sprintf("Please enter the full path of the workspace starting with %v :", configs.DefaultWorkspace))
+			if workspace[0] != configs.DefaultWorkspace[0] {
+				logERR(fmt.Sprintf("Please enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
 				continue
 			}
 		} else {
-			workspace = string(configs.DefaultWorkspace)
+			workspace = configs.DefaultWorkspace
 		}
 		err = cfg.SetWorkspace(workspace)
 		if err != nil {

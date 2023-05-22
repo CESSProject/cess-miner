@@ -15,41 +15,12 @@ If you find out any vulnerability, Please send an email to tech@cess.one, we are
 
 ## System dependencies
 
-**Step 1:** Install common libraries
-
 Take the ubuntu distribution as an example:
 
 ```shell
 sudo apt update && sudo apt upgrade
-sudo apt install m4 g++ flex bison make gcc git curl wget lzip vim util-linux -y
+sudo apt install g++ make gcc git curl wget vim screen util-linux -y
 ```
-
-**Step 2:** Install the necessary pbc library
-
-```shell
-sudo wget https://gmplib.org/download/gmp/gmp-6.2.1.tar.lz
-sudo lzip -d gmp-6.2.1.tar.lz
-sudo tar -xvf gmp-6.2.1.tar
-cd gmp-6.2.1/
-sudo chmod +x ./configure
-sudo ./configure --enable-cxx
-sudo make
-sudo make check
-sudo make install
-cd ..
-
-sudo wget https://crypto.stanford.edu/pbc/files/pbc-0.5.14.tar.gz
-sudo tar -zxvf pbc-0.5.14.tar.gz
-cd pbc-0.5.14/
-sudo chmod +x ./configure
-sudo ./configure
-sudo make
-sudo make install
-sudo touch /etc/ld.so.conf.d/libpbc.conf
-sudo echo "/usr/local/lib" >> /etc/ld.so.conf.d/libpbc.conf
-sudo ldconfig
-```
-
 
 ## System configuration
 
@@ -75,163 +46,156 @@ sysctl -w net.ipv4.tcp_timestsmps = 0
 sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 ```
 
-
 ## Build from source
 
 **Step 1:** Install go locale
 
 CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher.
 
-> See the [official Golang installation instructions](https://golang.org/doc/install) If you get stuck in the following process.
-
-- Download go1.19 compress the package and extract it to the /use/local directory:
-
-```shell
-sudo wget -c https://golang.org/dl/go1.19.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
-```
-
-- You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
-
-```shell
-echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
-```
-
-- View your go version:
-
-```shell
-go version
-```
+See the [official Golang installation instructions](https://golang.org/doc/install).
 
 **Step 2:** Build a bucket
 
 ```shell
 git clone https://github.com/CESSProject/cess-bucket.git
 cd cess-bucket/
-go build -o bucket cmd/main/main.go
+go build -o bucket cmd/main.go
+chmod +x bucket
 ```
 
 If all goes well, you will get a mining program called `bucket`.
 
+## Configure Wallet
 
-## Get started with bucket
+**Step 1:** Register two cess wallet
 
-**Step 1:** Register two polka wallet
+For wallet one, it is called an  `earnings account`, which is used to receive rewards from mining, and you should keep the private key carefully.
 
-For wallet one, it is called an  `income account`, which is used to receive rewards from mining, and you should keep the private key carefully.
+For wallet two, it is called a `staking account` and is used to staking some tokens and sign blockchain transactions.
 
-For wallet two, it is called a `signature account`, which is used to sign on-chain transactions. You need to recharge the account with a small tokens and provide the private key to the miner's configuration file. The cess system will not record and destroy the account.
-
-Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), [Add two accounts](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG) in two steps.
+Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Create-a-CESS-Wallet) to create your cess wallet.
 
 **Step 2:** Recharge your signature account
 
 If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
-**Step 3:** Prepare configuration file
-
-Use `bucket` to generate configuration file templates directly in the current directory:
-
-```shell
-sudo chmod +x bucket
-./bucket default
-```
-
-The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `bucket` uses `conf.toml` in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
-```
-# The rpc address of the chain node
-RpcAddr      = ""
-# Path to the mounted disk where the data is saved
-MountedPath  = ""
-# Total space used to store files, the unit is GB
-StorageSpace = 0
-# The IP of the machine running the mining service
-ServiceIP    = ""
-# Port number monitored by the mining service
-ServicePort  = 0
-# The address of income account
-IncomeAcc    = ""
-# phrase of the signature account
-SignatureAcc = ""
-# If 'ServiceIP' is not public IP, You can set up a domain name
-DomainName   = ""
-```
-*Our testnet rpc address is as follows:*<br>
-`wss://testnet-rpc0.cess.cloud/ws/`<br>
-`wss://testnet-rpc1.cess.cloud/ws/`
-
-
-**Step 4:** View bucket features
+## View bucket features
 
 The `bucket` has many functions, you can use `-h` or `--help` to view, as follows:
 
-- flag
+- Flags
 
-| Flag        | Description                             |
-| ----------- | --------------------------------------- |
-| -c,--config | Custom profile |
-| -h,--help   | Print help information                  |
+| Flag        | Description                                        |
+| ----------- | -------------------------------------------------- |
+| -c,--config | custom configuration file (default "conf.yaml")    |
+| -h,--help   | help for bucket                                    |
+| --earnings  | earnings account                                   |
+| --port      | listening port                                     |
+| --rpc       | rpc endpoint list                                  |
+| --space     | maximum space used(GiB)                            |
+| --ws        | workspace                                          |
 
-- command
+- Available Commands
 
 | Command  | Description                                    |
 | -------- | ---------------------------------------------- |
 | version  | Print version number                           |
-| default  | Generate configuration file template           |
+| config   | Generate configuration file                    |
 | register | Register mining miner information to the chain |
-| state    | Query mining miner information                 |
-| run      | Register and run the mining program            |
-| exit     | Exit the mining platform                       |
-| increase | Increase the deposit of mining miner           |
-| withdraw | Redemption deposit of mining miner             |
-| update_address | Update the miner's access address             |
-| update_income  | Update the miner's income account             |
+| stat     | Query storage miner information                |
+| run      | Automatically register and run                 |
+| exit     | Unregister the storage miner role              |
+| increase | Increase the stakes of storage miner           |
+| withdraw | Withdraw stakes                                |
+| update   | Update inforation                              |
 
-**Step 5:** Use bucket
+## Start mining
+The bucket program has two running modes: foreground and background.
 
-*All `bucket` commands (except default and version) need to be registered before they can be used.*
-
-```shell
-sudo ./bucket register
+**Foreground operation mode**
+The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the bucket and ensure that the window always exists. 
+Create and enter the bucket window command:
 ```
+screen -S bucket
+```
+Press `ctrl + A + D` to exit the bucket window without closing it.
+
+View window list command:
+```
+screen -ls
+```
+Re-enter the bucket window command:
+```
+screen -r bucket
+```
+
+
+**method one**
+Enter the `bucket run` command to run directly, and enter the information according to the prompt to complete the startup:
+```
+# ./bucket run
+2023/05/22 23:21:47 👉 Please enter the rpc address of the chain, multiple addresses are separated by spaces:
+wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/
+2023/05/22 23:21:55 👉 Please enter the workspace, press enter to use / by default workspace:
+/
+2023/05/22 23:21:57 👉 Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
+cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
+2023/05/22 23:22:06 👉 Please enter your service port:
+15001
+2023/05/22 23:22:09 👉 Please enter the maximum space used by the storage node in GiB:
+2000
+2023/05/22 23:22:12 👉 Please enter the mnemonic of the staking account:
+
+```
+
+**method two**
+
+```
+# ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/,wss://testnet-rpc1.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 15001 --space 2000
+2023/05/22 23:29:44 👉 Please enter the mnemonic of the staking account:
+```
+
+**Background operation mode**
+Generate configuration file:
+```
+./bucket config
+2023/05/22 23:42:00 ✅ /root/bucket/conf.yaml
+```
+Edit the configuration file and fill in the correct information, then run:
+```
+nohup ./bucket run -c /root/bucket/conf.yaml &
+```
+If the configuration file is named conf.yaml and is located in the same directory as the bucket program, you can specify without -c:
+```
+nohup ./bucket run &
+```
+
+## Other commands
 
 - Query miner status
 
 ```shell
-sudo ./bucket state
+./bucket stat
++------------------+------------------------------------------------------+
+| peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
+| state            | positive                                             |
+| staking amount   | 2400 TCESS                                           |
+| validated space  | 1023410176 bytes                                     |
+| used space       | 25165824 bytes                                       |
+| locked space     | 0 bytes                                              |
+| staking account  | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
+| earnings account | cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y    |
++------------------+------------------------------------------------------+
 ```
 
 - Increase the miner's deposit by 1000
-
 ```shell
-sudo ./bucket increase 1000
+./bucket increase 1000
 ```
 
-- Exit the mining platform
-
+- Update the miner's earnings account
 ```shell
-sudo ./bucket exit
-```
-
-- Redeem the miner's deposit
-
-```shell
-sudo ./bucket withdraw
-```
-
-- Update the miner's access address
-```shell
-sudo ./bucket update_address <ipv4>:<port>
-```
-
-- Update the miner's income account
-```shell
-sudo ./bucket update_income cXic3Whct......vV5Sbq4f
-```
-
-- Start mining
-
-```shell
-sudo nohup ./bucket run 2>&1 &
+./bucket update earnings <earnings account>
 ```
 
 ## License

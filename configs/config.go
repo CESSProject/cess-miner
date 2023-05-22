@@ -15,7 +15,7 @@ const (
 	// Default config file
 	DefaultConfigFile = "./conf.yaml"
 	//
-	DefaultWorkspace = '/'
+	DefaultWorkspace = "/"
 )
 
 const (
