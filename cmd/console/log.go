@@ -12,6 +12,7 @@ import "log"
 const OK = "✅"
 const WARN = "⚠️"
 const ERR = "❌"
+const Tip = "👉"
 
 func logOK(msg string) {
 	log.Print(OK, " ", msg)
@@ -23,4 +24,8 @@ func logWARN(msg string) {
 
 func logERR(msg string) {
 	log.Print(ERR, " ", msg)
+}
+
+func logTip(msg string) {
+	log.Print(Tip, " ", msg)
 }

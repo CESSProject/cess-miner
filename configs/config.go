@@ -14,6 +14,8 @@ const (
 	TimeToWaitEvent = time.Duration(time.Second * 12)
 	// Default config file
 	DefaultConfigFile = "./conf.yaml"
+	//
+	DefaultWorkspace = '/'
 )
 
 const (

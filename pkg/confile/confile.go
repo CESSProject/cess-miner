@@ -31,8 +31,6 @@ Mnemonic: "xxx xxx ... xxx"
 IncomeAcc: cXxxx...xxx
 # Service workspace
 Workspace: /
-# Service running address
-Address: "127.0.0.1"
 # Service listening port
 Port: 15000
 # Maximum space used, the unit is GIB
@@ -41,7 +39,6 @@ UseSpace: 2000`
 type Confile interface {
 	Parse(fpath string, ip string, port int) error
 	GetRpcAddr() []string
-	GetServiceAddr() string
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
@@ -56,7 +53,6 @@ type confile struct {
 	Mnemonic  string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
 	IncomeAcc string   `toml:"IncomeAcc" toml:"IncomeAcc" yaml:"IncomeAcc"`
 	Workspace string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
-	Address   string   `name:"Address" toml:"Address" yaml:"Address"`
 	Port      int      `name:"Port" toml:"Port" yaml:"Port"`
 	UseSpace  uint64   `toml:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
 }
@@ -91,12 +87,8 @@ func (c *confile) Parse(fpath string, ip string, port int) error {
 		return errors.Errorf("Secret: %v", err)
 	}
 
-	if ip != "" {
-		c.Address = ip
-	}
-	if len(c.Rpc) == 0 ||
-		c.Address == "" {
-		return errors.New("The configuration file cannot have empty entries")
+	if len(c.Rpc) == 0 {
+		return errors.New("Rpc endpoint is empty")
 	}
 
 	if port != 0 {
@@ -130,16 +122,15 @@ func (c *confile) SetRpcAddr(rpc []string) {
 	c.Rpc = rpc
 }
 
-func (c *confile) SetServiceAddr(address string) error {
-	c.Address = address
-	return nil
-}
-
 func (c *confile) SetUseSpace(useSpace uint64) {
 	c.UseSpace = useSpace
 }
 
 func (c *confile) SetServicePort(port int) error {
+	if utils.OpenedPort(port) {
+		return errors.New("This port is in use")
+	}
+
 	if port < 1024 {
 		return errors.Errorf("Prohibit the use of system reserved port: %v", port)
 	}
@@ -153,20 +144,31 @@ func (c *confile) SetServicePort(port int) error {
 func (c *confile) SetWorkspace(workspace string) error {
 	fstat, err := os.Stat(workspace)
 	if err != nil {
+		fmt.Println(">>1")
 		err = os.MkdirAll(workspace, configs.DirMode)
 		if err != nil {
+			fmt.Println(">>2")
 			return err
 		}
-	}
-	if !fstat.IsDir() {
-		return fmt.Errorf("%s is not a directory", workspace)
+	} else {
+		if !fstat.IsDir() {
+			return fmt.Errorf("%s is not a directory", workspace)
+		}
 	}
 	c.Workspace = workspace
 	return nil
 }
 
-func (c *confile) SetIncomeAcc(incomde string) {
+func (c *confile) SetIncomeAcc(incomde string) error {
+	var err error
+	if incomde != "" {
+		err = utils.VerityAddress(incomde, utils.CESSChainTestPrefix)
+		if err != nil {
+			return err
+		}
+	}
 	c.IncomeAcc = incomde
+	return nil
 }
 
 func (c *confile) SetMnemonic(mnemonic string) error {
@@ -180,10 +182,6 @@ func (c *confile) SetMnemonic(mnemonic string) error {
 
 func (c *confile) GetRpcAddr() []string {
 	return c.Rpc
-}
-
-func (c *confile) GetServiceAddr() string {
-	return c.Address
 }
 
 func (c *confile) GetServicePort() int {

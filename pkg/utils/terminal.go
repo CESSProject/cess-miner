@@ -22,9 +22,6 @@ func PasswdWithMask(hint string, defaultVal string, mask string) (string, error)
 
 func passwd(hint string, defaultVal string, mask string) (string, error) {
 	var ioBuf []rune
-	if hint != "" {
-		fmt.Print(hint)
-	}
 	if strings.Index(hint, "\n") >= 0 {
 		hint = strings.TrimSpace(hint[strings.LastIndex(hint, "\n"):])
 	}
@@ -60,8 +57,5 @@ func passwd(hint string, defaultVal string, mask string) (string, error) {
 			ioBuf = append(ioBuf, b)
 		}
 		fmt.Print("\r")
-		if hint != "" {
-			fmt.Print(hint)
-		}
 	}
 }
