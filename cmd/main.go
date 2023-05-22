@@ -7,9 +7,27 @@
 
 package main
 
-import "github.com/CESSProject/cess-bucket/cmd/console"
+import (
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/CESSProject/cess-bucket/cmd/console"
+)
 
 // program entry
 func main() {
+	exitCh := make(chan os.Signal)
+	signal.Notify(exitCh, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go exitHandle(exitCh)
 	console.Execute()
+}
+
+func exitHandle(exitCh chan os.Signal) {
+	for {
+		select {
+		case <-exitCh:
+			os.Exit(0)
+		}
+	}
 }

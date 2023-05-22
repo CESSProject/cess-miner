@@ -8,10 +8,13 @@
 package console
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -117,32 +120,119 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 		return cfg, err
 	}
 
-	rpc, err := cmd.Flags().GetString("rpc")
+	var istips bool
+	var inputReader = bufio.NewReader(os.Stdin)
+	var lines string
+	var rpc []string
+	rpc, err = cmd.Flags().GetStringSlice("rpc")
 	if err != nil {
 		return cfg, err
 	}
+	for len(rpc) == 0 {
+		if !istips {
+			logTip("Please enter the rpc address of the chain, multiple addresses are separated by spaces:")
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			logERR(err.Error())
+			continue
+		} else {
+			rpc = strings.Split(strings.ReplaceAll(lines, "\n", ""), " ")
+		}
+	}
+	cfg.SetRpcAddr(rpc)
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
 		return cfg, err
 	}
+	istips = false
+	for workspace == "" {
+		if !istips {
+			logTip(fmt.Sprintf("Please enter the workspace, press enter to use %s by default workspace:", configs.DefaultWorkspace))
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			logERR(err.Error())
+			continue
+		} else {
+			workspace = strings.ReplaceAll(lines, "\n", "")
+		}
+		if workspace != "" {
+			if workspace[0] != configs.DefaultWorkspace[0] {
+				logERR(fmt.Sprintf("Please enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
+				continue
+			}
+		} else {
+			workspace = configs.DefaultWorkspace
+		}
+		err = cfg.SetWorkspace(workspace)
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		break
+	}
 
-	ip, err := cmd.Flags().GetString("ip")
+	var income string
+	income, err = cmd.Flags().GetString("earnings")
 	if err != nil {
 		return cfg, err
 	}
-
-	income, err := cmd.Flags().GetString("income")
-	if err != nil {
-		return cfg, err
+	istips = false
+	for income == "" {
+		if !istips {
+			logTip("Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:")
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		income = strings.ReplaceAll(lines, "\n", "")
+		err = cfg.SetIncomeAcc(income)
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		break
 	}
 
-	port, err = cmd.Flags().GetInt("port")
+	var listenPort int
+	listenPort, err = cmd.Flags().GetInt("port")
 	if err != nil {
-		port, err = cmd.Flags().GetInt("p")
+		listenPort, err = cmd.Flags().GetInt("p")
 		if err != nil {
 			return cfg, err
 		}
+	}
+	istips = false
+	for listenPort == 0 {
+		if !istips {
+			logTip("Please enter your service port:")
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		listenPort, err = strconv.Atoi(strings.ReplaceAll(lines, "\n", ""))
+		if err != nil {
+			logERR("Please enter a number between 1024~65535:")
+			continue
+		}
+		if listenPort != 0 {
+			err = cfg.SetServicePort(listenPort)
+			if err != nil {
+				logERR(err.Error())
+				continue
+			}
+		}
+		break
 	}
 
 	useSpace, err := cmd.Flags().GetUint64("space")
@@ -152,30 +242,48 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 			return cfg, err
 		}
 	}
+	istips = false
+	for useSpace == 0 {
+		if !istips {
+			logTip("Please enter the maximum space used by the storage node in GiB:")
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		useSpace, err = strconv.ParseUint(strings.ReplaceAll(lines, "\n", ""), 10, 64)
+		if err != nil {
+			logERR("Please enter an integer greater than 0:")
+			continue
+		}
+		cfg.SetUseSpace(useSpace)
+		break
+	}
 
-	cfg.SetRpcAddr([]string{rpc})
-	err = cfg.SetWorkspace(workspace)
-	if err != nil {
-		return cfg, err
-	}
-	err = cfg.SetServiceAddr(ip)
-	if err != nil {
-		return cfg, err
-	}
-	err = cfg.SetServicePort(port)
-	if err != nil {
-		return cfg, err
-	}
-	cfg.SetIncomeAcc(income)
-	cfg.SetUseSpace(useSpace)
-
-	mnemonic, err := utils.PasswdWithMask("Please enter your mnemonic and press Enter to end:", "", "")
-	if err != nil {
-		return cfg, err
-	}
-	err = cfg.SetMnemonic(mnemonic)
-	if err != nil {
-		return cfg, err
+	var mnemonic string
+	istips = false
+	for {
+		if !istips {
+			logTip("Please enter the mnemonic of the staking account:")
+			istips = true
+		}
+		mnemonic, err = utils.PasswdWithMask("", "", "")
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		if mnemonic == "" {
+			logERR("The mnemonic you entered is empty, please re-enter:")
+			continue
+		}
+		err = cfg.SetMnemonic(mnemonic)
+		if err != nil {
+			logERR(err.Error())
+			continue
+		}
+		break
 	}
 	return cfg, nil
 }

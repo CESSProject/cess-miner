@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -185,4 +186,13 @@ func RandStr(n int) string {
 func GetISOWeek() string {
 	year, week := time.Now().UTC().ISOWeek()
 	return fmt.Sprintf("%d%d", year, week)
+}
+
+func OpenedPort(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 3*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }

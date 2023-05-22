@@ -42,12 +42,11 @@ func init() {
 		Command_Withdraw(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom configuration file")
-	rootCmd.PersistentFlags().StringP("rpc", "", "ws://1127.0.0.1:9948/", "rpc endpoint")
-	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
-	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
-	rootCmd.PersistentFlags().StringP("income", "", "", "income account")
-	rootCmd.PersistentFlags().IntP("port", "", 15000, "listening port")
-	rootCmd.PersistentFlags().Uint64P("space", "", 1000, "maximum space used (GiB)")
+	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint list")
+	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
+	rootCmd.PersistentFlags().StringP("earnings", "", "", "earnings account")
+	rootCmd.PersistentFlags().IntP("port", "", 0, "listening port")
+	rootCmd.PersistentFlags().Uint64P("space", "", 0, "maximum space used (GiB)")
 }
 
 func Command_Version() *cobra.Command {
