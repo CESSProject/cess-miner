@@ -131,7 +131,9 @@ screen -r bucket
 
 
 **method one**
+
 Enter the `bucket run` command to run directly, and enter the information according to the prompt to complete the startup:
+
 ```
 # ./bucket run
 2023/05/22 23:21:47 👉 Please enter the rpc address of the chain, multiple addresses are separated by spaces:
