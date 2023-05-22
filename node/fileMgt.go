@@ -37,7 +37,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 	var storageorder chain.StorageOrder
 	var metadata chain.FileMetadata
 
-	n.Log.Report("info", "Start challengeMgt task")
+	n.Log.Report("info", "Start fileMgt task")
 
 	_, err := n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
 	if err != nil {
@@ -189,43 +189,73 @@ func (n *Node) calcFileTag() {
 		n.Log.Report("err", err.Error())
 		return
 	}
-	roothashs, err := utils.Dirs(filepath.Join(n.Cli.FileDir))
+	roothashs, err := utils.DirFiles(filepath.Join(n.Cli.IdleDataDir), 0)
 	if err != nil {
 		n.Log.Report("err", err.Error())
 	}
 
-	for _, v := range roothashs {
-		roothash = filepath.Base(v)
-		files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, roothash), 0)
+	for _, f := range roothashs {
+		roothash = filepath.Base(f)
+		// files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, roothash), 0)
+		// if err != nil {
+		// 	continue
+		// }
+		//for _, f := range files {
+		_, err = os.Stat(filepath.Join(n.Cli.IdleTagDir, roothash+".tag"))
+		if err == nil {
+			fmt.Println("Tag exist: ", filepath.Join(n.Cli.IdleTagDir, roothash+".tag"))
+			continue
+		}
+
+		finfo, err := os.Stat(f)
 		if err != nil {
 			continue
 		}
-		for _, f := range files {
-			_, err = os.Stat(filepath.Join(n.Cli.ServiceTagDir, filepath.Base(f)+".tag"))
-			if err == nil {
-				fmt.Println("Tag exist: ", filepath.Join(n.Cli.ServiceTagDir, filepath.Base(f)+".tag"))
+		if finfo.Size() > rule.FragmentSize {
+			var buf = make([]byte, rule.FragmentSize)
+			fs, err := os.Open(f)
+			if err != nil {
 				continue
 			}
-			for _, t := range tees {
-				_ = t
-				id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
-				if err != nil {
-					continue
-				}
-				code, err = n.Cli.CustomDataTagProtocol.TagReq(id, filepath.Base(f), "", 1024)
-				if err != nil {
-					fmt.Println("Tag req err:", err)
-				}
-				if code != 0 {
-					continue
-				}
-				code, err = n.Cli.FileProtocol.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
-				if err != nil {
-					continue
-				}
-				break
+			fs.Read(buf)
+			fs.Close()
+			fs, err = os.OpenFile(f, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+			if err != nil {
+				continue
+			}
+			fs.Write(buf)
+			fs.Sync()
+			fs.Close()
+			hash, err := utils.CalcFileHash(f)
+			if err != nil {
+				continue
+			}
+			if hash != filepath.Base(f) {
+				os.Remove(f)
+				continue
 			}
 		}
+
+		for _, t := range tees {
+			_ = t
+			id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+			if err != nil {
+				continue
+			}
+			code, err = n.Cli.CustomDataTagProtocol.TagReq(id, filepath.Base(f), "", 1024)
+			if err != nil {
+				fmt.Println("Tag req err:", err)
+			}
+			if code != 0 {
+				continue
+			}
+			code, err = n.Cli.FileProtocol.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
+			if err != nil {
+				continue
+			}
+			break
+		}
+		//}
 	}
 }
 
