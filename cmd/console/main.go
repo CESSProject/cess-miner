@@ -85,7 +85,7 @@ func Command_Run() *cobra.Command {
 func Command_Withdraw() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "withdraw",
-		Short:                 "withdraw stakes",
+		Short:                 "withdraw staking",
 		Run:                   Command_Withdraw_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
