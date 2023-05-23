@@ -8,6 +8,7 @@
 package node
 
 import (
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
@@ -32,5 +33,6 @@ func New() *Node {
 
 func (n *Node) Run() {
 	go n.TaskMgt()
+	configs.Ok("Start successfully")
 	select {}
 }

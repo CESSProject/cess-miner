@@ -196,3 +196,10 @@ func OpenedPort(port int) bool {
 	conn.Close()
 	return true
 }
+
+func Ternary(a, b int64) int64 {
+	if a > b {
+		return b
+	}
+	return a
+}

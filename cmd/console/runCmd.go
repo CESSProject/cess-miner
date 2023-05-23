@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -63,6 +64,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if !ok {
 		configs.Err("Invalid client type")
 		os.Exit(1)
+	}
+
+	for {
+		syncSt, err := n.Cli.Chain.SyncState()
+		if err != nil {
+			configs.Err(err.Error())
+			os.Exit(1)
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			configs.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d", syncSt.CurrentBlock))
+		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
 	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
