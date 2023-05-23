@@ -35,6 +35,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		err      error
 		logDir   string
 		cacheDir string
+		earnings string
 		n        = node.New()
 	)
 
@@ -71,11 +72,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	token *= 1000
 
-	_, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetIncomeAcc(), token)
+	_, earnings, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetEarningsAcc(), token)
 	if err != nil {
 		logERR(fmt.Sprintf("[RegisterRole] %v", err))
 		os.Exit(1)
 	}
+	n.Cfg.SetEarningsAcc(earnings)
 
 	// Build data directory
 	logDir, cacheDir, err = buildDir(n.Cli.Workspace())
@@ -176,13 +178,13 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 		break
 	}
 
-	var income string
-	income, err = cmd.Flags().GetString("earnings")
+	var earnings string
+	earnings, err = cmd.Flags().GetString("earnings")
 	if err != nil {
 		return cfg, err
 	}
 	istips = false
-	for income == "" {
+	for earnings == "" {
 		if !istips {
 			logTip("Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:")
 			istips = true
@@ -192,8 +194,8 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 			logERR(err.Error())
 			continue
 		}
-		income = strings.ReplaceAll(lines, "\n", "")
-		err = cfg.SetIncomeAcc(income)
+		earnings = strings.ReplaceAll(lines, "\n", "")
+		err = cfg.SetEarningsAcc(earnings)
 		if err != nil {
 			logERR(err.Error())
 			continue
