@@ -127,6 +127,8 @@ The `bucket` has many functions, you can use `-h` or `--help` to view, as follow
 | increase |            | Increase the stakes of storage miner           |
 | withdraw |            | Withdraw stakes                                |
 | update   | earnings   | Update earnings account                        |
+| reward   |            | Query reward information                       |
+| claim    |            | Claim reward                                   |
 
 ## Start mining
 The bucket program has two running modes: foreground and background.
@@ -243,6 +245,22 @@ OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 ```shell
 ./bucket withdraw
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
+```
+
+- claim
+```shell
+./bucket claim
+OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
+```
+
+- reward
+```shell
+./bucket reward
++------------------+---------------------------+
+| total reward     | 2_613_109_650_924_024_640 |
+| claimed reward   | 534_235_750_855_578_370   |
+| available reward | 0                         |
++------------------+---------------------------+
 ```
 
 ## License
