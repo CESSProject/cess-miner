@@ -26,9 +26,9 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildConfigFile(cmd, "", 0)
+	n.Cfg, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -36,32 +36,30 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
-		sdkgo.ListenPort(n.Cfg.GetServicePort()),
-		sdkgo.Workspace(n.Cfg.GetWorkspace()),
 		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	n.Cli, ok = cli.(*client.Cli)
 	if !ok {
-		logERR("Invalid client type")
+		configs.Err("Invalid client type")
 		os.Exit(1)
 	}
 
 	txhash, err := n.Cli.Withdraw()
 	if err != nil {
 		if txhash == "" {
-			logERR(err.Error())
+			configs.Err(err.Error())
 			os.Exit(1)
 		}
-		logWARN(txhash)
+		configs.Warn(txhash)
 		os.Exit(0)
 	}
 
-	logOK(txhash)
+	configs.Ok(txhash)
 	os.Exit(0)
 }

@@ -18,24 +18,24 @@ import (
 )
 
 const (
-	exit_cmd       = "exit"
-	exit_cmd_use   = "exit"
-	exit_cmd_short = "Unregister the storage miner role"
+	claim_cmd       = "claim"
+	claim_cmd_use   = "claim"
+	claim_cmd_short = "claim reward"
 )
 
-var exitCmd = &cobra.Command{
-	Use:                   exit_cmd_use,
-	Short:                 exit_cmd_short,
-	Run:                   Command_Exit_Runfunc,
+var claimCmd = &cobra.Command{
+	Use:                   claim_cmd_use,
+	Short:                 claim_cmd_short,
+	Run:                   Command_Claim_Runfunc,
 	DisableFlagsInUseLine: true,
 }
 
 func init() {
-	rootCmd.AddCommand(exitCmd)
+	rootCmd.AddCommand(claimCmd)
 }
 
 // Exit
-func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
+func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		ok  bool
 		err error
@@ -65,7 +65,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		configs.Err("Invalid client type")
 		os.Exit(1)
 	}
-	txhash, err := n.Cli.Exit(configs.Name)
+	txhash, err := n.Cli.Chain.ClaimRewards()
 	if err != nil {
 		if txhash == "" {
 			configs.Err(err.Error())

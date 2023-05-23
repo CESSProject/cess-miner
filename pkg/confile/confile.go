@@ -25,43 +25,44 @@ Rpc:
   - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
-# Signature account mnemonic
+# Staking account mnemonic
 Mnemonic: "xxx xxx ... xxx"
-# Income account
-IncomeAcc: cXxxx...xxx
+# earnings account
+EarningsAcc: cXxxx...xxx
 # Service workspace
 Workspace: /
 # Service listening port
 Port: 15001
-# Maximum space used, the unit is GIB
+# Maximum space used, the unit is GiB
 UseSpace: 2000`
 
 type Confile interface {
-	Parse(fpath string, ip string, port int) error
+	Parse(fpath string, port int) error
 	GetRpcAddr() []string
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
-	GetIncomeAcc() string
+	GetEarningsAcc() string
 	GetUseSpace() uint64
 	GetPublickey() []byte
 	GetAccount() string
+	SetEarningsAcc(earnings string) error
 }
 
 type confile struct {
-	Rpc       []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
-	Mnemonic  string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
-	IncomeAcc string   `toml:"IncomeAcc" toml:"IncomeAcc" yaml:"IncomeAcc"`
-	Workspace string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
-	Port      int      `name:"Port" toml:"Port" yaml:"Port"`
-	UseSpace  uint64   `toml:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
+	Rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
+	Mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
+	EarningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
+	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
+	Port        int      `name:"Port" toml:"Port" yaml:"Port"`
+	UseSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
 }
 
 func NewConfigfile() *confile {
 	return &confile{}
 }
 
-func (c *confile) Parse(fpath string, ip string, port int) error {
+func (c *confile) Parse(fpath string, port int) error {
 	fstat, err := os.Stat(fpath)
 	if err != nil {
 		return errors.Errorf("Parse: %v", err)
@@ -101,7 +102,7 @@ func (c *confile) Parse(fpath string, ip string, port int) error {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
-	utils.VerityAddress(c.IncomeAcc, utils.CESSChainTestPrefix)
+	utils.VerityAddress(c.EarningsAcc, utils.CESSChainTestPrefix)
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
@@ -159,15 +160,15 @@ func (c *confile) SetWorkspace(workspace string) error {
 	return nil
 }
 
-func (c *confile) SetIncomeAcc(incomde string) error {
+func (c *confile) SetEarningsAcc(earnings string) error {
 	var err error
-	if incomde != "" {
-		err = utils.VerityAddress(incomde, utils.CESSChainTestPrefix)
+	if earnings != "" {
+		err = utils.VerityAddress(earnings, utils.CESSChainTestPrefix)
 		if err != nil {
 			return err
 		}
 	}
-	c.IncomeAcc = incomde
+	c.EarningsAcc = earnings
 	return nil
 }
 
@@ -196,8 +197,8 @@ func (c *confile) GetMnemonic() string {
 	return c.Mnemonic
 }
 
-func (c *confile) GetIncomeAcc() string {
-	return c.IncomeAcc
+func (c *confile) GetEarningsAcc() string {
+	return c.EarningsAcc
 }
 
 func (c *confile) GetPublickey() []byte {

@@ -48,18 +48,36 @@ sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 
 ## Build from source
 
-**Step 1:** Install go locale
+**Step 1:** Install go
 
-CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher.
+CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
-See the [official Golang installation instructions](https://golang.org/doc/install).
+Open gomod mode:
+```
+go env -w GO111MODULE="on"
+```
 
-**Step 2:** Build a bucket
+Users in China can add go proxy to speed up the download:
+```
+go env -w GOPROXY="https://goproxy.cn,direct"
+```
+
+**Step 2:** Clone code
 
 ```shell
 git clone https://github.com/CESSProject/cess-bucket.git
+```
+
+**Step 3:** Build a bucket
+
+```shell
 cd cess-bucket/
 go build -o bucket cmd/main.go
+```
+
+**Step 4:** Grant execute permission
+
+```shell
 chmod +x bucket
 ```
 
@@ -75,7 +93,9 @@ For wallet two, it is called a `staking account` and is used to staking some tok
 
 Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Create-a-CESS-Wallet) to create your cess wallet.
 
-**Step 2:** Recharge your signature account
+**Step 2:** Recharge your staking account
+
+The staking amount is calculated based on the space you configure. The minimum staking amount is 2000CESS, and an additional 2000CESS staking is required for each additional 1TiB of space.
 
 If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
@@ -97,22 +117,24 @@ The `bucket` has many functions, you can use `-h` or `--help` to view, as follow
 
 - Available Commands
 
-| Command  | Description                                    |
-| -------- | ---------------------------------------------- |
-| version  | Print version number                           |
-| config   | Generate configuration file                    |
-| register | Register mining miner information to the chain |
-| stat     | Query storage miner information                |
-| run      | Automatically register and run                 |
-| exit     | Unregister the storage miner role              |
-| increase | Increase the stakes of storage miner           |
-| withdraw | Withdraw stakes                                |
-| update   | Update inforation                              |
+| Command  | Subcommand | Description                                    |
+| -------- | ---------- | ---------------------------------------------- |
+| version  |            | Print version number                           |
+| config   |            | Generate configuration file                    |
+| stat     |            | Query storage miner information                |
+| run      |            | Automatically register and run                 |
+| exit     |            | Unregister the storage miner role              |
+| increase |            | Increase the stakes of storage miner           |
+| withdraw |            | Withdraw stakes                                |
+| update   | earnings   | Update earnings account                        |
+| reward   |            | Query reward information                       |
+| claim    |            | Claim reward                                   |
 
 ## Start mining
 The bucket program has two running modes: foreground and background.
 
 **Foreground operation mode**
+
 The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the bucket and ensure that the window always exists. 
 Create and enter the bucket window command:
 ```
@@ -136,32 +158,36 @@ Enter the `bucket run` command to run directly, and enter the information accord
 
 ```
 # ./bucket run
-2023/05/22 23:21:47 👉 Please enter the rpc address of the chain, multiple addresses are separated by spaces:
+>> Please enter the rpc address of the chain, multiple addresses are separated by spaces:
 wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/
-2023/05/22 23:21:55 👉 Please enter the workspace, press enter to use / by default workspace:
+>> Please enter the workspace, press enter to use / by default workspace:
 /
-2023/05/22 23:21:57 👉 Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
+>> Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
 cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
-2023/05/22 23:22:06 👉 Please enter your service port:
+>> Please enter your service port:
 15001
-2023/05/22 23:22:09 👉 Please enter the maximum space used by the storage node in GiB:
+>> Please enter the maximum space used by the storage node in GiB:
 2000
-2023/05/22 23:22:12 👉 Please enter the mnemonic of the staking account:
+>> Please enter the mnemonic of the staking account:
 
+OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
 **method two**
 
 ```
 # ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/,wss://testnet-rpc1.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 15001 --space 2000
-2023/05/22 23:29:44 👉 Please enter the mnemonic of the staking account:
+>> Please enter the mnemonic of the staking account:
+
+OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
 **Background operation mode**
+
 Generate configuration file:
 ```
 ./bucket config
-2023/05/22 23:42:00 ✅ /root/bucket/conf.yaml
+OK /root/bucket/conf.yaml
 ```
 Edit the configuration file and fill in the correct information, then run:
 ```
@@ -174,10 +200,11 @@ nohup ./bucket run &
 
 ## Other commands
 
-- Query miner status
-
+- stat
 ```shell
-./bucket stat
+./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 +------------------+------------------------------------------------------+
 | peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
 | state            | positive                                             |
@@ -190,14 +217,62 @@ nohup ./bucket run &
 +------------------+------------------------------------------------------+
 ```
 
-- Increase the miner's deposit by 1000
+- increase
 ```shell
-./bucket increase 1000
+./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
+OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```
 
-- Update the miner's earnings account
+- update earnings
 ```shell
-./bucket update earnings <earnings account>
+./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
+OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
+```
+
+- version
+```shell
+./bucket version
+bucket v0.6.0
+```
+
+- exit
+```shell
+./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
+OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
+```
+
+- withdraw
+```shell
+./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
+OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
+```
+
+- claim
+```shell
+./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
+OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
+```
+
+- reward
+```shell
+./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
++------------------+---------------------------+
+| total reward     | 2_613_109_650_924_024_640 |
+| claimed reward   | 534_235_750_855_578_370   |
+| available reward | 0                         |
++------------------+---------------------------+
 ```
 
 ## License
