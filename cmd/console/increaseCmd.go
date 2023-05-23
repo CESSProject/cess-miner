@@ -41,20 +41,20 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	if len(os.Args) < 3 {
-		logERR("Please enter the stakes amount")
+		configs.Err("Please enter the stakes amount")
 		os.Exit(1)
 	}
 
 	stakes, ok := new(big.Int).SetString(os.Args[2]+rule.CESSTokenDecimals, 10)
 	if !ok {
-		logERR("Please enter the correct stakes amount")
+		configs.Err("Please enter the correct stakes amount")
 		os.Exit(1)
 	}
 
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -68,25 +68,25 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 	n.Cli, ok = cli.(*client.Cli)
 	if !ok {
-		logERR("Invalid client type")
+		configs.Err("Invalid client type")
 		os.Exit(1)
 	}
 
 	txhash, err := n.Cli.IncreaseStakes(stakes)
 	if err != nil {
 		if txhash == "" {
-			logERR(err.Error())
+			configs.Err(err.Error())
 			os.Exit(1)
 		}
-		logWARN(txhash)
+		configs.Warn(txhash)
 		os.Exit(0)
 	}
 
-	logOK(txhash)
+	configs.Ok(txhash)
 	os.Exit(0)
 }

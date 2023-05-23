@@ -25,15 +25,15 @@ Rpc:
   - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
-# Signature account mnemonic
+# Staking account mnemonic
 Mnemonic: "xxx xxx ... xxx"
-# Income account
-IncomeAcc: cXxxx...xxx
+# earnings account
+EarningsAcc: cXxxx...xxx
 # Service workspace
 Workspace: /
 # Service listening port
 Port: 15001
-# Maximum space used, the unit is GIB
+# Maximum space used, the unit is GiB
 UseSpace: 2000`
 
 type Confile interface {
@@ -52,10 +52,10 @@ type Confile interface {
 type confile struct {
 	Rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
 	Mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
-	EarningsAcc string   `toml:"IncomeAcc" toml:"IncomeAcc" yaml:"IncomeAcc"`
+	EarningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
 	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
 	Port        int      `name:"Port" toml:"Port" yaml:"Port"`
-	UseSpace    uint64   `toml:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
+	UseSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
 }
 
 func NewConfigfile() *confile {

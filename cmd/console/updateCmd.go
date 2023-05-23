@@ -59,20 +59,20 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	)
 
 	if len(os.Args) < 3 {
-		logERR("Please enter your earnings account")
+		configs.Err("Please enter your earnings account")
 		os.Exit(1)
 	}
 
 	err = utils.VerityAddress(os.Args[3], utils.CESSChainTestPrefix)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -86,26 +86,26 @@ func updateEarningsAccount(cmd *cobra.Command) {
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	n.Cli, ok = cli.(*client.Cli)
 	if !ok {
-		logERR("Invalid client type")
+		configs.Err("Invalid client type")
 		os.Exit(1)
 	}
 
 	txhash, err := n.Cli.UpdateIncomeAccount(os.Args[3])
 	if err != nil {
 		if txhash == "" {
-			logERR(err.Error())
+			configs.Err(err.Error())
 			os.Exit(1)
 		}
-		logWARN(txhash)
+		configs.Warn(txhash)
 		os.Exit(0)
 	}
 
-	logOK(txhash)
+	configs.Ok(txhash)
 	os.Exit(0)
 }

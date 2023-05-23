@@ -33,7 +33,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Cfg, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -47,20 +47,20 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	n.Cli, ok = cli.(*client.Cli)
 	if !ok {
-		logERR("Invalid client type")
+		configs.Err("Invalid client type")
 		os.Exit(1)
 	}
 
 	//Query your own information on the chain
 	minerInfo, err := n.Cli.QueryStorageMiner(n.Cfg.GetPublickey())
 	if err != nil {
-		logERR(err.Error())
+		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
