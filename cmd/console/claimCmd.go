@@ -43,7 +43,7 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildConfigFile(cmd, "", 0)
+	n.Cfg, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
@@ -53,8 +53,6 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
-		sdkgo.ListenPort(n.Cfg.GetServicePort()),
-		sdkgo.Workspace(n.Cfg.GetWorkspace()),
 		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)

@@ -40,7 +40,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildConfigFile(cmd, "", 0)
+	n.Cfg, err = buildConfigFile(cmd, 0)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
@@ -119,7 +119,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	n.Run()
 }
 
-func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile, error) {
+func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -132,7 +132,7 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	}
 
 	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath, ip4, port)
+	err := cfg.Parse(conFilePath, port)
 	if err == nil {
 		return cfg, err
 	}
@@ -278,6 +278,73 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 		cfg.SetUseSpace(useSpace)
 		break
 	}
+
+	var mnemonic string
+	istips = false
+	for {
+		if !istips {
+			configs.Input("Please enter the mnemonic of the staking account:")
+			istips = true
+		}
+		mnemonic, err = utils.PasswdWithMask("", "", "")
+		if err != nil {
+			configs.Err(err.Error())
+			continue
+		}
+		if mnemonic == "" {
+			configs.Err("The mnemonic you entered is empty, please re-enter:")
+			continue
+		}
+		err = cfg.SetMnemonic(mnemonic)
+		if err != nil {
+			configs.Err(err.Error())
+			continue
+		}
+		break
+	}
+	return cfg, nil
+}
+
+func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
+	var conFilePath string
+	configpath1, _ := cmd.Flags().GetString("config")
+	configpath2, _ := cmd.Flags().GetString("c")
+	if configpath1 != "" {
+		conFilePath = configpath1
+	} else if configpath2 != "" {
+		conFilePath = configpath2
+	} else {
+		conFilePath = configs.DefaultConfigFile
+	}
+
+	cfg := confile.NewConfigfile()
+	err := cfg.Parse(conFilePath, 0)
+	if err == nil {
+		return cfg, err
+	}
+
+	var istips bool
+	var inputReader = bufio.NewReader(os.Stdin)
+	var lines string
+	var rpc []string
+	rpc, err = cmd.Flags().GetStringSlice("rpc")
+	if err != nil {
+		return cfg, err
+	}
+	for len(rpc) == 0 {
+		if !istips {
+			configs.Input("Please enter the rpc address of the chain, multiple addresses are separated by spaces:")
+			istips = true
+		}
+		lines, err = inputReader.ReadString('\n')
+		if err != nil {
+			configs.Err(err.Error())
+			continue
+		} else {
+			rpc = strings.Split(strings.ReplaceAll(lines, "\n", ""), " ")
+		}
+	}
+	cfg.SetRpcAddr(rpc)
 
 	var mnemonic string
 	istips = false

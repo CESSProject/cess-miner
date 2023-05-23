@@ -37,7 +37,7 @@ Port: 15001
 UseSpace: 2000`
 
 type Confile interface {
-	Parse(fpath string, ip string, port int) error
+	Parse(fpath string, port int) error
 	GetRpcAddr() []string
 	GetServicePort() int
 	GetWorkspace() string
@@ -62,7 +62,7 @@ func NewConfigfile() *confile {
 	return &confile{}
 }
 
-func (c *confile) Parse(fpath string, ip string, port int) error {
+func (c *confile) Parse(fpath string, port int) error {
 	fstat, err := os.Stat(fpath)
 	if err != nil {
 		return errors.Errorf("Parse: %v", err)
