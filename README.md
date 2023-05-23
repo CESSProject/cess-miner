@@ -200,11 +200,11 @@ nohup ./bucket run &
 
 ## Other commands
 
-The examples in this chapter use the conf.yaml configuration file in the current directory by default.
-
 - stat
 ```shell
-./bucket stat
+./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 +------------------+------------------------------------------------------+
 | peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
 | state            | positive                                             |
@@ -219,13 +219,17 @@ The examples in this chapter use the conf.yaml configuration file in the current
 
 - increase
 ```shell
-./bucket increase 1000
+./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```
 
 - update earnings
 ```shell
-./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw
+./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
 ```
 
@@ -237,25 +241,33 @@ bucket v0.6.0
 
 - exit
 ```shell
-./bucket exit
+./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 ```
 
 - withdraw
 ```shell
-./bucket withdraw
+./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 ```
 
 - claim
 ```shell
-./bucket claim
+./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 ```
 
 - reward
 ```shell
-./bucket reward
+./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+
 +------------------+---------------------------+
 | total reward     | 2_613_109_650_924_024_640 |
 | claimed reward   | 534_235_750_855_578_370   |
