@@ -25,6 +25,7 @@ import (
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/spf13/cobra"
 )
 
@@ -76,7 +77,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			configs.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
 			break
 		}
-		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d", syncSt.CurrentBlock))
+		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
@@ -112,6 +113,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
+	}
+
+	configs.Tip(fmt.Sprintf("Local peer: %s", n.Cli.Multiaddr()))
+
+	boot, _ := cmd.Flags().GetString("boot")
+	if boot == "" {
+		configs.Warn("Empty boot node")
+	} else {
+		peerid, err := n.Cli.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
+		if err != nil {
+			configs.Err(fmt.Sprintf("Failed to connect to the boot node: %s", boot))
+		} else {
+			configs.BootPeerId = peerid.String()
+			configs.Ok(fmt.Sprintf("Successfully connected to the boot node: %s", peerid.String()))
+		}
 	}
 
 	// run

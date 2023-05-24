@@ -17,10 +17,10 @@ func (n *Node) TaskMgt() {
 	)
 
 	go n.chainMgt(ch_chainMgt)
-	//go n.spaceMgt(ch_spaceMgt)
+	go n.spaceMgt(ch_spaceMgt)
 	//go n.fileMgt(ch_fileMgt)
-	go n.replaceMgr(ch_replaceMgr)
-	go n.challengeMgt(ch_challengeMgt)
+	//go n.replaceMgr(ch_replaceMgr)
+	//go n.challengeMgt(ch_challengeMgt)
 
 	for {
 		select {
