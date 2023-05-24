@@ -16,6 +16,11 @@ const (
 	DefaultConfigFile = "./conf.yaml"
 	//
 	DefaultWorkspace = "/"
+	//
+	DefaultServicePort = 15001
+	//
+	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
+	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
 )
 
 const (
