@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
@@ -34,7 +35,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 		}
 	}()
 
-	var err error
+	//var err error
 	var txhash string
 	var key *proof.RSAKeyPair
 	//var challenge client.ChallengeInfo
@@ -62,11 +63,6 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 		break
 	}
 
-	_, err = n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	if err != nil {
-		panic(err)
-	}
-
 	var rd RandomList
 	for {
 		chal, err := n.Cli.QueryChallengeSt()
@@ -75,8 +71,6 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			continue
 		}
 
-		fmt.Println(chal.NetSnapshot.Random_index_list)
-		fmt.Println(chal.NetSnapshot.Random)
 		rd.Index = chal.NetSnapshot.Random_index_list
 		rd.Random = chal.NetSnapshot.Random
 		buff, err := json.Marshal(&rd)
@@ -176,7 +170,7 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 			}
 		}
 	}
-	fmt.Println(peerid)
+	_ = peerid
 	if teeAsigned == nil {
 		fmt.Println("proof not assigned:")
 		return fmt.Errorf("proof not assigned")
@@ -193,10 +187,8 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		fmt.Println("err2:", err)
 		return err
 	}
-	pid, _ := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+	pid, _ := peer.Decode(configs.BootPeerId)
 	code, err := n.Cli.AggrProofProtocol.AggrProofReq(pid, ihash, shash, qslice, n.Cfg.GetPublickey(), sign)
-	fmt.Println(">>1 Code:", code)
-	fmt.Println(">>1 err:", err)
 	if err != nil || code != 0 {
 		return errors.New("AggrProofReq failed")
 	}
@@ -207,8 +199,6 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 	err = errors.New("123")
 	for err != nil {
 		code, err = n.Cli.FileProtocol.FileReq(pid, idleProofFileHashs, pb.FileType_IdleMu, n.Cli.IproofFile)
-		fmt.Println(">>2 Code:", code)
-		fmt.Println(">>2 err:", err)
 		// if err != nil || code != 0 {
 		// 	return errors.New("Idle FileReq failed")
 		// }
@@ -216,8 +206,6 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 	}
 
 	code, err = n.Cli.FileProtocol.FileReq(pid, serviceProofFileHashs, pb.FileType_CustomMu, n.Cli.SproofFile)
-	fmt.Println(">>3 Code:", code)
-	fmt.Println(">>3 err:", err)
 	if err != nil || code != 0 {
 		return errors.New("Idle FileReq failed")
 	}
@@ -256,10 +244,10 @@ func (n *Node) idleAggrProof(key *proof.RSAKeyPair, randomIndexList []uint32, ra
 
 	for i := int(0); i < len(idleRoothashs); i++ {
 		idleTagPath := filepath.Join(n.Cli.IdleTagDir, idleRoothashs[i]+".tag")
-		fmt.Println("idleTagPath:", idleTagPath)
+		//fmt.Println("idleTagPath:", idleTagPath)
 		buf, err = os.ReadFile(idleTagPath)
 		if err != nil {
-			fmt.Println("ReadFile", idleTagPath, "err: ", err)
+			//fmt.Println("ReadFile", idleTagPath, "err: ", err)
 			continue
 		}
 
@@ -370,14 +358,14 @@ func (n *Node) serviceAggrProof(key *proof.RSAKeyPair, qslice []proof.QElement, 
 		if err != nil {
 			continue
 		}
-		fmt.Println("service files:", files)
+		//fmt.Println("service files:", files)
 		time.Sleep(time.Second * 3)
 		for j := 0; j < len(files); j++ {
 			serviceTagPath := filepath.Join(n.Cli.ServiceTagDir, filepath.Base(files[j])+".tag")
-			fmt.Println("serviceTagPath: ", serviceTagPath)
+			//fmt.Println("serviceTagPath: ", serviceTagPath)
 			buf, err = os.ReadFile(serviceTagPath)
 			if err != nil {
-				fmt.Println("ReadFile", serviceTagPath, "err: ", err)
+				//fmt.Println("ReadFile", serviceTagPath, "err: ", err)
 				continue
 			}
 			var tag pb.Tag

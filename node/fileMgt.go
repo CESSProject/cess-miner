@@ -20,7 +20,6 @@ import (
 	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
 )
 
 // fileMgr
@@ -38,11 +37,6 @@ func (n *Node) fileMgt(ch chan<- bool) {
 	var metadata chain.FileMetadata
 
 	n.Log.Report("info", "Start fileMgt task")
-
-	_, err := n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	if err != nil {
-		panic(errors.Wrapf(err, "[AddMultiaddrToPearstore]"))
-	}
 
 	for {
 		n.calcFileTag()
@@ -238,7 +232,7 @@ func (n *Node) calcFileTag() {
 
 		for _, t := range tees {
 			_ = t
-			id, err := peer.Decode("12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo")
+			id, err := peer.Decode(configs.BootPeerId)
 			if err != nil {
 				continue
 			}
