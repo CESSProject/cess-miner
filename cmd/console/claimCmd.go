@@ -13,7 +13,6 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
@@ -37,35 +36,30 @@ func init() {
 // Exit
 func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 	var (
-		ok  bool
 		err error
 		n   = node.New()
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildAuthenticationConfig(cmd)
+	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	//Build client
-	cli, err := sdkgo.New(
+	n.SDK, err = sdkgo.New(
 		configs.Name,
-		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
-		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
+		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
+		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
 	}
-	n.Cli, ok = cli.(*client.Cli)
-	if !ok {
-		configs.Err("Invalid client type")
-		os.Exit(1)
-	}
-	txhash, err := n.Cli.Chain.ClaimRewards()
+
+	txhash, err := n.ClaimRewards()
 	if err != nil {
 		if txhash == "" {
 			configs.Err(err.Error())

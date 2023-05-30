@@ -16,7 +16,6 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -25,23 +24,22 @@ import (
 // Query miner state
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	var (
-		ok  bool
 		err error
 		n   = node.New()
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildAuthenticationConfig(cmd)
+	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
 	}
 
 	// Build client
-	cli, err := sdkgo.New(
+	n.SDK, err = sdkgo.New(
 		configs.Name,
-		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
-		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
+		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
+		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
@@ -49,14 +47,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.Cli, ok = cli.(*client.Cli)
-	if !ok {
-		configs.Err("Invalid client type")
-		os.Exit(1)
-	}
-
 	//Query your own information on the chain
-	minerInfo, err := n.Cli.QueryStorageMiner(n.Cfg.GetPublickey())
+	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
@@ -73,7 +65,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"validated space", fmt.Sprintf("%v bytes", minerInfo.IdleSpace)},
 		{"used space", fmt.Sprintf("%v bytes", minerInfo.ServiceSpace)},
 		{"locked space", fmt.Sprintf("%v bytes", minerInfo.LockSpace)},
-		{"staking account", n.Cfg.GetAccount()},
+		{"staking account", n.GetStakingAcc()},
 		{"earnings account", beneficiaryAcc},
 	}
 	tw := table.NewWriter()

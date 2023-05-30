@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/chain"
+	"github.com/CESSProject/sdk-go/core/event"
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
@@ -21,15 +21,15 @@ func (n *Node) SubscribeNewHeads(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			n.Log.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
 	for {
 
-		if n.Cli.GetChainState() {
+		if n.GetChainState() {
 
-			sub, err := n.Cli.GetSubstrateAPI().RPC.Chain.SubscribeNewHeads()
+			sub, err := n.GetSubstrateAPI().RPC.Chain.SubscribeNewHeads()
 			if err != nil {
 				time.Sleep(rule.BlockInterval)
 				continue
@@ -39,16 +39,16 @@ func (n *Node) SubscribeNewHeads(ch chan<- bool) {
 			for {
 				head := <-sub.Chan()
 				fmt.Printf("Chain is at block: #%v\n", head.Number)
-				blockhash, err := n.Cli.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(head.Number))
+				blockhash, err := n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(head.Number))
 				if err != nil {
 					continue
 				}
-				h, err := n.Cli.GetSubstrateAPI().RPC.State.GetStorageRaw(n.Cli.GetKeyEvents(), blockhash)
+				h, err := n.GetSubstrateAPI().RPC.State.GetStorageRaw(n.GetKeyEvents(), blockhash)
 				if err != nil {
 					continue
 				}
-				var events = chain.EventRecords{}
-				types.EventRecordsRaw(*h).DecodeEventRecords(n.Cli.GetMetadata(), &events)
+				var events = event.EventRecords{}
+				types.EventRecordsRaw(*h).DecodeEventRecords(n.GetMetadata(), &events)
 
 				//TODO: Corresponding processing according to different events
 			}

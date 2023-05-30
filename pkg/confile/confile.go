@@ -44,8 +44,8 @@ type Confile interface {
 	GetMnemonic() string
 	GetEarningsAcc() string
 	GetUseSpace() uint64
-	GetPublickey() []byte
-	GetAccount() string
+	GetStakingPublickey() []byte
+	GetStakingAcc() string
 	SetEarningsAcc(earnings string) error
 }
 
@@ -201,13 +201,13 @@ func (c *confile) GetEarningsAcc() string {
 	return c.EarningsAcc
 }
 
-func (c *confile) GetPublickey() []byte {
-	key, _ := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
+func (c *confile) GetStakingPublickey() []byte {
+	key, _ := signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	return key.PublicKey
 }
 
-func (c *confile) GetAccount() string {
-	acc, _ := utils.EncodeToCESSAddr(c.GetPublickey())
+func (c *confile) GetStakingAcc() string {
+	acc, _ := utils.EncodeToCESSAddr(c.GetStakingPublickey())
 	return acc
 }
 

@@ -17,7 +17,7 @@ func (n *Node) chainMgt(ch chan bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			n.Log.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 	var ok bool
@@ -26,12 +26,12 @@ func (n *Node) chainMgt(ch chan bool) {
 	for {
 		select {
 		case <-tick.C:
-			ok, err = n.Cli.Chain.NetListening()
+			ok, err = n.NetListening()
 			if !ok || err != nil {
-				n.Cli.Chain.SetChainState(false)
-				n.Cli.Chain.Reconnect()
+				n.SetChainState(false)
+				n.Reconnect()
 			}
-		case <-n.Cli.GetServiceTagEvent():
+		case <-n.GetServiceTagCh():
 		}
 	}
 }
