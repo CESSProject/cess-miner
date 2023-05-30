@@ -9,6 +9,7 @@ package console
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,17 +23,15 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/CESSProject/sdk-go/core/rule"
-	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/spf13/cobra"
 )
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
-		ok       bool
 		err      error
 		logDir   string
 		cacheDir string
@@ -41,19 +40,17 @@ func runCmd(cmd *cobra.Command, args []string) {
 	)
 
 	// Build profile instances
-	n.Cfg, err = buildConfigFile(cmd, 0)
+	n.Confile, err = buildConfigFile(cmd, 0)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
 
 	//Build client
-	cli, err := sdkgo.New(
+	n.SDK, err = sdkgo.New(
 		configs.Name,
-		sdkgo.ConnectRpcAddrs(n.Cfg.GetRpcAddr()),
-		sdkgo.ListenPort(n.Cfg.GetServicePort()),
-		sdkgo.Workspace(n.Cfg.GetWorkspace()),
-		sdkgo.Mnemonic(n.Cfg.GetMnemonic()),
+		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
+		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
@@ -61,14 +58,30 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.Cli, ok = cli.(*client.Cli)
-	if !ok {
-		configs.Err("Invalid client type")
-		os.Exit(1)
+	boot, _ := cmd.Flags().GetString("boot")
+	if boot == "" {
+		configs.Warn("Empty boot node")
 	}
+	//  else {
+	// 	peerid, err := n.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
+	// 	if err != nil {
+	// 		configs.Err(fmt.Sprintf("Failed to connect to the boot node: %s", boot))
+	// 	} else {
+	// 		configs.BootPeerId = peerid.String()
+	// 		configs.Ok(fmt.Sprintf("Successfully connected to the boot node: %s", peerid.String()))
+	// 	}
+	// }
+
+	n.P2P, err = p2pgo.New(
+		context.Background(),
+		"",
+		p2pgo.ListenPort(n.GetServicePort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), configs.Name)),
+		p2pgo.BootPeers([]string{boot}),
+	)
 
 	for {
-		syncSt, err := n.Cli.Chain.SyncState()
+		syncSt, err := n.SyncState()
 		if err != nil {
 			configs.Err(err.Error())
 			os.Exit(1)
@@ -81,54 +94,41 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.Cfg.GetUseSpace() / (rule.SIZE_1GiB * 1024)
-	if n.Cfg.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
+	token := n.GetUseSpace() / (rule.SIZE_1GiB * 1024)
+	if n.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
 		token += 1
 	}
 	token *= 1000
 
-	_, earnings, err = n.Cli.RegisterRole(configs.Name, n.Cfg.GetEarningsAcc(), token)
+	_, earnings, err = n.Register(configs.Name, n.GetOwnPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[RegisterRole] %v", err))
 		os.Exit(1)
 	}
-	n.Cfg.SetEarningsAcc(earnings)
+	n.SetEarningsAcc(earnings)
 
 	// Build data directory
-	logDir, cacheDir, err = buildDir(n.Cli.Workspace())
+	logDir, cacheDir, err = buildDir(n.Workspace())
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
 
 	// Build cache instance
-	n.Cach, err = buildCache(cacheDir)
+	n.Cache, err = buildCache(cacheDir)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
 
 	//Build log instance
-	n.Log, err = buildLogs(logDir)
+	n.Logger, err = buildLogs(logDir)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
 
-	configs.Tip(fmt.Sprintf("Local peer: %s", n.Cli.Multiaddr()))
-
-	boot, _ := cmd.Flags().GetString("boot")
-	if boot == "" {
-		configs.Warn("Empty boot node")
-	} else {
-		peerid, err := n.Cli.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
-		if err != nil {
-			configs.Err(fmt.Sprintf("Failed to connect to the boot node: %s", boot))
-		} else {
-			configs.BootPeerId = peerid.String()
-			configs.Ok(fmt.Sprintf("Successfully connected to the boot node: %s", peerid.String()))
-		}
-	}
+	configs.Tip(fmt.Sprintf("Local peer: %s", n.Multiaddr()))
 
 	// run
 	n.Run()

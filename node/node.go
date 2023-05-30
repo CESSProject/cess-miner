@@ -12,7 +12,8 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/sdk-go/core/sdk"
 )
 
 type Bucket interface {
@@ -20,10 +21,11 @@ type Bucket interface {
 }
 
 type Node struct {
-	Cfg  confile.Confile
-	Log  logger.Logger
-	Cach cache.Cache
-	Cli  *client.Cli
+	confile.Confile
+	logger.Logger
+	cache.Cache
+	sdk.SDK
+	core.P2P
 }
 
 // New is used to build a node instance
