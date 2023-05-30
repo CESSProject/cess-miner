@@ -22,19 +22,19 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			n.Log.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
 	var err error
 	var txhash string
 	var count uint32
-	var spacedir = filepath.Join(n.Cli.Workspace(), configs.SpaceDir)
+	var spacedir = filepath.Join(n.Workspace(), configs.SpaceDir)
 
 	for {
-		count, err = n.Cli.QueryPendingReplacements(n.Cfg.GetPublickey())
+		count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
 		if err != nil {
-			n.Log.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 			time.Sleep(time.Minute)
 			continue
 		}
@@ -49,19 +49,19 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 		}
 		files, err := SelectIdleFiles(spacedir, count)
 		if err != nil {
-			n.Log.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 			time.Sleep(time.Minute)
 			continue
 		}
 
-		txhash, _, err = n.Cli.ReplaceFile(files)
+		txhash, _, err = n.ReplaceFile(files)
 		if err != nil {
-			n.Log.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 			time.Sleep(configs.BlockInterval)
 			continue
 		}
 
-		n.Log.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
+		n.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
 		for i := 0; i < len(files); i++ {
 			os.Remove(filepath.Join(spacedir, files[i]))
 		}
