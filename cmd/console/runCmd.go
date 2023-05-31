@@ -62,6 +62,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if boot == "" {
 		configs.Warn("Empty boot node")
 	}
+
 	//  else {
 	// 	peerid, err := n.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
 	// 	if err != nil {
@@ -100,7 +101,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	token *= 1000
 
-	_, earnings, err = n.Register(configs.Name, n.GetOwnPublickey(), n.GetEarningsAcc(), token)
+	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[RegisterRole] %v", err))
 		os.Exit(1)

@@ -183,13 +183,13 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		qslice[k].I = uint64(v)
 		qslice[k].V = random[k]
 	}
-	sign, err := n.Sign(n.GetOwnPublickey())
+	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		fmt.Println("err2:", err)
 		return err
 	}
 	pid, _ := peer.Decode(configs.BootPeerId)
-	code, err := n.P2P.AggrProofReq(pid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
+	code, err := n.AggrProofReq(pid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
 	if err != nil || code != 0 {
 		return errors.New("AggrProofReq failed")
 	}

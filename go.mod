@@ -3,8 +3,8 @@ module github.com/CESSProject/cess-bucket
 go 1.19
 
 require (
-	github.com/CESSProject/p2p-go v0.0.24
-	github.com/CESSProject/sdk-go v0.0.58
+	github.com/CESSProject/p2p-go v0.0.26
+	github.com/CESSProject/sdk-go v0.0.59
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/decred/base58 v1.0.4
@@ -46,7 +46,6 @@ require (
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
-	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect

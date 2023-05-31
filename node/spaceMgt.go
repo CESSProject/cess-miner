@@ -157,7 +157,7 @@ func (n *Node) GetAvailableTee() (peer.ID, error) {
 	// }
 	// fmt.Println(len(tees))
 	// fmt.Println(tees)
-	sign, err := n.Sign(n.GetOwnPublickey())
+	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		return peerid, err
 	}
