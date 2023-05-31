@@ -16,10 +16,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/rule"
-	"github.com/decred/base58"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
 )
 
 // spaceMgt is a subtask for managing spaces
@@ -32,7 +29,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}()
 
 	var err error
-	var teelist []pattern.TeeWorkerInfo
 	var spacePath string
 	var tagPath string
 	var txhash string
@@ -41,25 +37,18 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var teepuk []byte
 	var idlefile pattern.IdleFileMeta
 
-	n.Space("info", "Start spaceMgt task")
+	n.Space("info", ">>>>> Start spaceMgt task")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()
 
 	for {
-		if err != nil {
+		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
 			time.Sleep(time.Minute)
 		}
 
-		teelist, err = n.QueryTeeInfoList()
+		teepuk, err = n.requsetIdlefile()
 		if err != nil {
-			n.Space("err", err.Error())
-			continue
-		}
-
-		_, err = n.GetAvailableTee()
-		if err != nil {
-			configs.Err(fmt.Sprintf("Idlefile req err: %s", err))
 			n.Space("err", err.Error())
 			continue
 		}
@@ -101,18 +90,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
 
-		for k := 0; k < len(teelist); k++ {
-			pid := base58.Encode([]byte(string(teelist[k].PeerId[:])))
-			if pid == configs.BootPeerId {
-				teepuk = teelist[k].ControllerAccount[:]
-			}
-		}
-
-		idlefile.BlockNum = 1024
-		idlefile.BlockSize = 0
+		idlefile.BlockNum = pattern.BlockNumber
 		idlefile.Hash = filehash
-		idlefile.ScanSize = 0
-		idlefile.Size = rule.FragmentSize
 		idlefile.MinerAcc = n.GetStakingPublickey()
 		txhash, err = n.SubmitIdleFile(teepuk, []pattern.IdleFileMeta{idlefile})
 		if err != nil {
@@ -148,74 +127,69 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) GetAvailableTee() (peer.ID, error) {
-	var peerid peer.ID
-	// var code uint32
-	// tees, err := n.Cli.QueryTeeInfoList()
-	// if err != nil {
-	// 	return peerid, err
-	// }
-	// fmt.Println(len(tees))
-	// fmt.Println(tees)
-	sign, err := n.Sign(n.GetOwnPublickey())
+func (n *Node) requsetIdlefile() ([]byte, error) {
+	var err error
+	var teePeerId string
+	var id peer.ID
+
+	teelist, err := n.QueryTeeInfoList()
 	if err != nil {
-		return peerid, err
+		return nil, err
 	}
 
-	// for _, v := range tees {
-	// 	peerids := base58.Encode([]byte(string(v.PeerId[:])))
-	// 	log.Println("found tee: ", peerids)
-	// 	n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	// 	peerids = "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
-	// 	code, err = n.Cli.IdleDataTagProtocol.IdleReq(peer.ID(peerids), 8*1024*1024, 2, sign)
-	// 	if err != nil || code != 0 {
-	// 		continue
-	// 	}
-	// }
-	// _, err = n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	// if err != nil {
-	// 	return peerid, errors.Wrapf(err, "[AddMultiaddrToPearstore]")
-	// }
-	//peerids := "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
-	id, err := peer.Decode(configs.BootPeerId)
+	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
-		return peerid, errors.Wrapf(err, "[Decode]")
+		return nil, err
 	}
-	_, err = n.IdleReq(id, rule.FragmentSize, 1024, n.GetStakingPublickey(), sign)
 
-	// if err != nil || code != 0 {
-	// 	return peerid, err
-	// }
-	return id, err
+	for _, tee := range teelist {
+		teePeerId, err = n.GetPeerIdFromPubkey([]byte(string(tee.PeerId[:])))
+		if err != nil {
+			continue
+		}
+		if n.Has(teePeerId) {
+			id, err = peer.Decode(teePeerId)
+			if err != nil {
+				continue
+			}
+			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
+			if err != nil {
+				continue
+			}
+			return tee.ControllerAccount[:], nil
+		}
+	}
+
+	return nil, err
 }
 
-func generateSpace_8MB(dir string) (string, error) {
-	fpath := filepath.Join(dir, fmt.Sprintf("%v", time.Now().UnixNano()))
-	defer os.Remove(fpath)
-	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0)
-	if err != nil {
-		return "", err
-	}
+// func generateSpace_8MB(dir string) (string, error) {
+// 	fpath := filepath.Join(dir, fmt.Sprintf("%v", time.Now().UnixNano()))
+// 	defer os.Remove(fpath)
+// 	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	for i := uint64(0); i < 2048; i++ {
-		f.WriteString(utils.RandStr(4095) + "\n")
-	}
-	err = f.Sync()
-	if err != nil {
-		os.Remove(fpath)
-		return "", err
-	}
-	f.Close()
+// 	for i := uint64(0); i < 2048; i++ {
+// 		f.WriteString(utils.RandStr(4095) + "\n")
+// 	}
+// 	err = f.Sync()
+// 	if err != nil {
+// 		os.Remove(fpath)
+// 		return "", err
+// 	}
+// 	f.Close()
 
-	hash, err := utils.CalcFileHash(fpath)
-	if err != nil {
-		return "", err
-	}
+// 	hash, err := utils.CalcFileHash(fpath)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	hashpath := filepath.Join(dir, hash)
-	err = os.Rename(fpath, hashpath)
-	if err != nil {
-		return "", err
-	}
-	return hashpath, nil
-}
+// 	hashpath := filepath.Join(dir, hash)
+// 	err = os.Rename(fpath, hashpath)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return hashpath, nil
+// }

@@ -25,18 +25,20 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
-		err      error
-		logDir   string
-		cacheDir string
-		earnings string
-		n        = node.New()
+		err       error
+		logDir    string
+		cacheDir  string
+		earnings  string
+		bootstrap []string
+		n         = node.New()
 	)
 
 	// Build profile instances
@@ -58,10 +60,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	pubkey, err := n.QueryTeePodr2Puk()
+	if err == nil {
+		n.Key.SetKeyN(pubkey)
+	}
+
 	boot, _ := cmd.Flags().GetString("boot")
 	if boot == "" {
 		configs.Warn("Empty boot node")
+	} else {
+		bootstrap, _ = utils.ParseMultiaddrs(boot)
+		if len(bootstrap) > 0 {
+			configs.Tip(fmt.Sprintf("Bootstrap node: %v", bootstrap))
+		}
 	}
+
 	//  else {
 	// 	peerid, err := n.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
 	// 	if err != nil {
@@ -77,8 +90,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		"",
 		p2pgo.ListenPort(n.GetServicePort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), configs.Name)),
-		p2pgo.BootPeers([]string{boot}),
+		p2pgo.BootPeers(bootstrap),
 	)
+	if err != nil {
+		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+		os.Exit(1)
+	}
 
 	for {
 		syncSt, err := n.SyncState()
@@ -94,15 +111,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.GetUseSpace() / (rule.SIZE_1GiB * 1024)
-	if n.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
+	token := n.GetUseSpace() / (pattern.SIZE_1GiB * 1024)
+	if n.GetUseSpace()%(pattern.SIZE_1GiB*1024) != 0 {
 		token += 1
 	}
 	token *= 1000
 
-	_, earnings, err = n.Register(configs.Name, n.GetOwnPublickey(), n.GetEarningsAcc(), token)
+	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[RegisterRole] %v", err))
+		configs.Err(fmt.Sprintf("[Register] %v", err))
 		os.Exit(1)
 	}
 	n.SetEarningsAcc(earnings)
@@ -161,67 +178,83 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		return cfg, err
 	}
 	var rpcValus = make([]string, 0)
-	for len(rpcValus) == 0 {
-		if !istips {
-			configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
-			istips = true
-		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		} else {
-			lines = strings.ReplaceAll(lines, "\n", "")
-		}
+	if len(rpc) == 0 {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			} else {
+				lines = strings.ReplaceAll(lines, "\n", "")
+			}
 
-		if lines != "" {
-			rpc = strings.Split(lines, " ")
-			for i := 0; i < len(rpc); i++ {
-				rpc[i] = strings.ReplaceAll(rpc[i], " ", "")
-				if rpc[i] != "" {
-					rpcValus = append(rpcValus, rpc[i])
+			if lines != "" {
+				inputrpc := strings.Split(lines, " ")
+				for i := 0; i < len(inputrpc); i++ {
+					temp := strings.ReplaceAll(inputrpc[i], " ", "")
+					if temp != "" {
+						rpcValus = append(rpcValus, temp)
+					}
 				}
 			}
+			if len(rpcValus) == 0 {
+				rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
+			}
+			cfg.SetRpcAddr(rpcValus)
+			break
 		}
-		if len(rpcValus) == 0 {
-			rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
-		}
-		cfg.SetRpcAddr(rpcValus)
+	} else {
+		cfg.SetRpcAddr(rpc)
 	}
+
+	configs.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
 		return cfg, err
 	}
 	istips = false
-	for workspace == "" {
-		if !istips {
-			configs.Input(fmt.Sprintf("Enter the workspace path, press Enter to skip to use %s as default workspace:", configs.DefaultWorkspace))
-			istips = true
-		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		} else {
-			workspace = strings.ReplaceAll(lines, "\n", "")
-		}
-		if workspace != "" {
-			if workspace[0] != configs.DefaultWorkspace[0] {
-				workspace = ""
-				configs.Err(fmt.Sprintf("Enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
+	if workspace == "" {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the workspace path, press Enter to skip to use %s as default workspace:", configs.DefaultWorkspace))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			} else {
+				workspace = strings.ReplaceAll(lines, "\n", "")
+			}
+			if workspace != "" {
+				if workspace[0] != configs.DefaultWorkspace[0] {
+					workspace = ""
+					configs.Err(fmt.Sprintf("Enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
+					continue
+				}
+			} else {
+				workspace = configs.DefaultWorkspace
+			}
+			err = cfg.SetWorkspace(workspace)
+			if err != nil {
+				configs.Err(err.Error())
 				continue
 			}
-		} else {
-			workspace = configs.DefaultWorkspace
+			break
 		}
+	} else {
 		err = cfg.SetWorkspace(workspace)
 		if err != nil {
-			configs.Err(err.Error())
-			continue
+			return cfg, err
 		}
-		break
 	}
+
+	configs.Ok(fmt.Sprintf("%v", cfg.GetWorkspace()))
 
 	var earnings string
 	earnings, err = cmd.Flags().GetString("earnings")
@@ -229,25 +262,34 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		return cfg, err
 	}
 	istips = false
-	for earnings == "" {
-		if !istips {
-			configs.Input("Enter the earnings account, if you have already registered and don't want to update, press Enter to skip:")
-			istips = true
+	if earnings == "" {
+		for {
+			if !istips {
+				configs.Input("Enter the earnings account, if you have already registered and don't want to update, press Enter to skip:")
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			}
+			earnings = strings.ReplaceAll(lines, "\n", "")
+			err = cfg.SetEarningsAcc(earnings)
+			if err != nil {
+				earnings = ""
+				configs.Err("Invalid account, please check and re-enter:")
+				continue
+			}
+			break
 		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		}
-		earnings = strings.ReplaceAll(lines, "\n", "")
+	} else {
 		err = cfg.SetEarningsAcc(earnings)
 		if err != nil {
-			earnings = ""
-			configs.Err("Invalid account, please check and re-enter:")
-			continue
+			return cfg, err
 		}
-		break
 	}
+
+	configs.Ok(fmt.Sprintf("%v", cfg.GetEarningsAcc()))
 
 	var listenPort int
 	listenPort, err = cmd.Flags().GetInt("port")
@@ -288,6 +330,8 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
+	configs.Ok(fmt.Sprintf("%v", cfg.GetServicePort()))
+
 	useSpace, err := cmd.Flags().GetUint64("space")
 	if err != nil {
 		useSpace, err = cmd.Flags().GetUint64("s")
@@ -321,23 +365,28 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		break
 	}
 
-	var mnemonic string
+	configs.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
+
+	//var mnemonic string
 	istips = false
 	for {
 		if !istips {
 			configs.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
-		mnemonic, err = utils.PasswdWithMask("", "", "")
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
-			configs.Err(err.Error())
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
-		if mnemonic == "" {
+		if len(pwd) == 0 {
 			configs.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
-		err = cfg.SetMnemonic(mnemonic)
+		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
 			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
@@ -374,51 +423,58 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 		return cfg, err
 	}
 	var rpcValus = make([]string, 0)
-	for len(rpcValus) == 0 {
-		if !istips {
-			configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
-			istips = true
-		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		} else {
-			lines = strings.ReplaceAll(lines, "\n", "")
-		}
+	if len(rpc) == 0 {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			} else {
+				lines = strings.ReplaceAll(lines, "\n", "")
+			}
 
-		if lines != "" {
-			rpc = strings.Split(lines, " ")
-			for i := 0; i < len(rpc); i++ {
-				rpc[i] = strings.ReplaceAll(rpc[i], " ", "")
-				if rpc[i] != "" {
-					rpcValus = append(rpcValus, rpc[i])
+			if lines != "" {
+				inputrpc := strings.Split(lines, " ")
+				for i := 0; i < len(inputrpc); i++ {
+					temp := strings.ReplaceAll(inputrpc[i], " ", "")
+					if temp != "" {
+						rpcValus = append(rpcValus, temp)
+					}
 				}
 			}
+			if len(rpcValus) == 0 {
+				rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
+			}
+			cfg.SetRpcAddr(rpcValus)
+			break
 		}
-		if len(rpcValus) == 0 {
-			rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
-		}
-		cfg.SetRpcAddr(rpcValus)
+	} else {
+		cfg.SetRpcAddr(rpc)
 	}
 
-	var mnemonic string
 	istips = false
 	for {
 		if !istips {
 			configs.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
-		mnemonic, err = utils.PasswdWithMask("", "", "")
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
-			configs.Err(err.Error())
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
-		if mnemonic == "" {
+		if len(pwd) == 0 {
 			configs.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
-		err = cfg.SetMnemonic(mnemonic)
+		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
 			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
@@ -430,12 +486,12 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 
 func buildDir(workspace string) (string, string, error) {
 	logDir := filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(logDir, configs.DirMode); err != nil {
+	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
 		return "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(cacheDir, configs.DirMode); err != nil {
+	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
 		return "", "", err
 	}
 

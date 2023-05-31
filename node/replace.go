@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/pattern"
 )
 
 // replaceMgr
@@ -31,7 +32,13 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var count uint32
 	var spacedir = filepath.Join(n.Workspace(), configs.SpaceDir)
 
+	n.Replace("info", ">>>>> Start replaceMgr task")
+
 	for {
+		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
+			time.Sleep(time.Minute)
+		}
+
 		count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
 		if err != nil {
 			n.Replace("err", err.Error())
@@ -57,7 +64,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 		txhash, _, err = n.ReplaceFile(files)
 		if err != nil {
 			n.Replace("err", err.Error())
-			time.Sleep(configs.BlockInterval)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 

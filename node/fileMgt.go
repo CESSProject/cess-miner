@@ -14,11 +14,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -126,7 +124,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 			for i := 0; i < len(assignedFragmentHash); i++ {
 				fmt.Println("Check: ", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
 				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
-				if err != nil || fstat.Size() != rule.FragmentSize {
+				if err != nil || fstat.Size() != pattern.FragmentSize {
 					fmt.Println(err)
 					fmt.Println(fstat.Size())
 					failfile = true
@@ -171,7 +169,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 				continue
 			}
 		}
-		time.Sleep(configs.BlockInterval)
+		time.Sleep(pattern.BlockInterval)
 	}
 }
 
@@ -183,73 +181,83 @@ func (n *Node) calcFileTag() {
 		n.Report("err", err.Error())
 		return
 	}
-	roothashs, err := utils.DirFiles(filepath.Join(n.GetDirs().IdleDataDir), 0)
+	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
 		n.Report("err", err.Error())
+		return
 	}
 
 	for _, f := range roothashs {
 		roothash = filepath.Base(f)
-		// files, err := utils.DirFiles(filepath.Join(n.Cli.FileDir, roothash), 0)
-		// if err != nil {
-		// 	continue
-		// }
-		//for _, f := range files {
-		_, err = os.Stat(filepath.Join(n.GetDirs().IdleTagDir, roothash+".tag"))
-		if err == nil {
-			fmt.Println("Tag exist: ", filepath.Join(n.GetDirs().IdleTagDir, roothash+".tag"))
-			continue
-		}
-
-		finfo, err := os.Stat(f)
+		files, err := utils.DirFiles(filepath.Join(n.GetDirs().FileDir, roothash), 0)
 		if err != nil {
 			continue
 		}
-		if finfo.Size() > rule.FragmentSize {
-			var buf = make([]byte, rule.FragmentSize)
-			fs, err := os.Open(f)
-			if err != nil {
+		for _, f := range files {
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, roothash+".tag")
+			_, err = os.Stat(serviceTagPath)
+			if err == nil {
+				n.Report("err", fmt.Sprintf("Service tag not found: %s", serviceTagPath))
 				continue
 			}
-			fs.Read(buf)
-			fs.Close()
-			fs, err = os.OpenFile(f, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-			if err != nil {
-				continue
-			}
-			fs.Write(buf)
-			fs.Sync()
-			fs.Close()
-			hash, err := utils.CalcFileHash(f)
-			if err != nil {
-				continue
-			}
-			if hash != filepath.Base(f) {
-				os.Remove(f)
-				continue
-			}
-		}
 
-		for _, t := range tees {
-			_ = t
-			id, err := peer.Decode(configs.BootPeerId)
+			finfo, err := os.Stat(f)
 			if err != nil {
+				n.Report("err", fmt.Sprintf("Service file not found: %s", f))
 				continue
 			}
-			code, err = n.TagReq(id, filepath.Base(f), "", 1024)
-			if err != nil {
-				fmt.Println("Tag req err:", err)
+			if finfo.Size() > pattern.FragmentSize {
+				var buf = make([]byte, pattern.FragmentSize)
+				fs, err := os.Open(f)
+				if err != nil {
+					continue
+				}
+				fs.Read(buf)
+				fs.Close()
+				fs, err = os.OpenFile(f, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+				if err != nil {
+					continue
+				}
+				fs.Write(buf)
+				fs.Sync()
+				fs.Close()
+				hash, err := utils.CalcFileHash(f)
+				if err != nil {
+					continue
+				}
+				if hash != filepath.Base(f) {
+					os.Remove(f)
+					continue
+				}
 			}
-			if code != 0 {
-				continue
+
+			var id peer.ID
+			for _, t := range tees {
+				teePeerId, err := n.GetPeerIdFromPubkey([]byte(string(t.PeerId[:])))
+				if err != nil {
+					continue
+				}
+				if n.Has(teePeerId) {
+					id, err = peer.Decode(teePeerId)
+					if err != nil {
+						continue
+					}
+				}
+
+				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
+				if err != nil {
+					fmt.Println("Tag req err:", err)
+				}
+				if code != 0 {
+					continue
+				}
+				code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
+				if err != nil {
+					continue
+				}
+				break
 			}
-			code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
-			if err != nil {
-				continue
-			}
-			break
 		}
-		//}
 	}
 }
 
@@ -260,7 +268,7 @@ func RenameDir(oldDir, newDir string) error {
 	}
 	fstat, err := os.Stat(newDir)
 	if err != nil {
-		err = os.MkdirAll(newDir, configs.DirMode)
+		err = os.MkdirAll(newDir, pattern.DirMode)
 		if err != nil {
 			return err
 		}
