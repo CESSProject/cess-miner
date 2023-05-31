@@ -13,7 +13,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/event"
-	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
@@ -31,7 +31,7 @@ func (n *Node) SubscribeNewHeads(ch chan<- bool) {
 
 			sub, err := n.GetSubstrateAPI().RPC.Chain.SubscribeNewHeads()
 			if err != nil {
-				time.Sleep(rule.BlockInterval)
+				time.Sleep(pattern.BlockInterval)
 				continue
 			}
 			defer sub.Unsubscribe()

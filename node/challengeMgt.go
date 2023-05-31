@@ -21,7 +21,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/rule"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
@@ -55,7 +54,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	for n.Key.Spk.N == nil {
 		pubkey, err := n.QueryTeePodr2Puk()
 		if err != nil || len(pubkey) == 0 {
-			time.Sleep(rule.BlockInterval)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 		// key = proof.GetKey(nil)

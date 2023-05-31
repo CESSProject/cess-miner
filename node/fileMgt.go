@@ -18,7 +18,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -126,7 +125,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 			for i := 0; i < len(assignedFragmentHash); i++ {
 				fmt.Println("Check: ", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
 				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
-				if err != nil || fstat.Size() != rule.FragmentSize {
+				if err != nil || fstat.Size() != pattern.FragmentSize {
 					fmt.Println(err)
 					fmt.Println(fstat.Size())
 					failfile = true
@@ -205,8 +204,8 @@ func (n *Node) calcFileTag() {
 		if err != nil {
 			continue
 		}
-		if finfo.Size() > rule.FragmentSize {
-			var buf = make([]byte, rule.FragmentSize)
+		if finfo.Size() > pattern.FragmentSize {
+			var buf = make([]byte, pattern.FragmentSize)
 			fs, err := os.Open(f)
 			if err != nil {
 				continue

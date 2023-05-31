@@ -16,8 +16,6 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/rule"
-	"github.com/decred/base58"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -31,7 +29,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}()
 
 	var err error
-	var teelist []pattern.TeeWorkerInfo
 	var spacePath string
 	var tagPath string
 	var txhash string
@@ -50,7 +47,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			time.Sleep(time.Minute)
 		}
 
-		err = n.requsetIdlefile()
+		teepuk, err = n.requsetIdlefile()
 		if err != nil {
 			n.Space("err", err.Error())
 			continue
@@ -93,18 +90,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
 
-		for k := 0; k < len(teelist); k++ {
-			pid := base58.Encode([]byte(string(teelist[k].PeerId[:])))
-			if pid == configs.BootPeerId {
-				teepuk = teelist[k].ControllerAccount[:]
-			}
-		}
-
-		idlefile.BlockNum = 1024
-		idlefile.BlockSize = 0
+		idlefile.BlockNum = pattern.BlockNumber
 		idlefile.Hash = filehash
-		idlefile.ScanSize = 0
-		idlefile.Size = rule.FragmentSize
 		idlefile.MinerAcc = n.GetStakingPublickey()
 		txhash, err = n.SubmitIdleFile(teepuk, []pattern.IdleFileMeta{idlefile})
 		if err != nil {
@@ -140,19 +127,19 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) requsetIdlefile() error {
+func (n *Node) requsetIdlefile() ([]byte, error) {
 	var err error
 	var teePeerId string
 	var id peer.ID
 
 	teelist, err := n.QueryTeeInfoList()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, tee := range teelist {
@@ -165,15 +152,15 @@ func (n *Node) requsetIdlefile() error {
 			if err != nil {
 				continue
 			}
-			_, err = n.IdleReq(id, rule.FragmentSize, 1024, n.GetStakingPublickey(), sign)
+			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
 			if err != nil {
 				continue
 			}
-			return nil
+			return tee.ControllerAccount[:], nil
 		}
 	}
 
-	return err
+	return nil, err
 }
 
 // func generateSpace_8MB(dir string) (string, error) {

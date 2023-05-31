@@ -25,7 +25,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/spf13/cobra"
 )
 
@@ -106,8 +106,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.GetUseSpace() / (rule.SIZE_1GiB * 1024)
-	if n.GetUseSpace()%(rule.SIZE_1GiB*1024) != 0 {
+	token := n.GetUseSpace() / (pattern.SIZE_1GiB * 1024)
+	if n.GetUseSpace()%(pattern.SIZE_1GiB*1024) != 0 {
 		token += 1
 	}
 	token *= 1000

@@ -14,7 +14,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/rule"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +43,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	stakes, ok := new(big.Int).SetString(os.Args[2]+rule.CESSTokenDecimals, 10)
+	stakes, ok := new(big.Int).SetString(os.Args[2]+pattern.TokenPrecision_CESS, 10)
 	if !ok {
 		configs.Err("Please enter the correct stakes amount")
 		os.Exit(1)
