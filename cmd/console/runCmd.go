@@ -32,11 +32,12 @@ import (
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
-		err      error
-		logDir   string
-		cacheDir string
-		earnings string
-		n        = node.New()
+		err       error
+		logDir    string
+		cacheDir  string
+		earnings  string
+		bootstrap []string
+		n         = node.New()
 	)
 
 	// Build profile instances
@@ -61,6 +62,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 	boot, _ := cmd.Flags().GetString("boot")
 	if boot == "" {
 		configs.Warn("Empty boot node")
+	} else {
+		bootstrap, _ = utils.ParseMultiaddrs(boot)
+		if len(bootstrap) > 0 {
+			configs.Tip(fmt.Sprintf("Bootstrap node: %v", bootstrap))
+		}
 	}
 
 	//  else {
@@ -78,7 +84,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		"",
 		p2pgo.ListenPort(n.GetServicePort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), configs.Name)),
-		p2pgo.BootPeers([]string{boot}),
+		p2pgo.BootPeers(bootstrap),
 	)
 
 	for {

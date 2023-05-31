@@ -8,8 +8,10 @@
 package node
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 )
 
@@ -22,7 +24,7 @@ func (n *Node) chainMgt(ch chan bool) {
 	}()
 	var ok bool
 	var err error
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(time.Second * 30)
 	for {
 		select {
 		case <-tick.C:
@@ -32,6 +34,8 @@ func (n *Node) chainMgt(ch chan bool) {
 				n.Reconnect()
 			}
 		case <-n.GetServiceTagCh():
+		case discoverPeer := <-n.DiscoveredPeer():
+			configs.Tip(fmt.Sprintf("Found a peer: %s/p2p/%s", discoverPeer.Addr.String(), discoverPeer.PeerID.Pretty()))
 		}
 	}
 }

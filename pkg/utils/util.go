@@ -203,3 +203,50 @@ func Ternary(a, b int64) int64 {
 	}
 	return a
 }
+
+func ParseMultiaddrs(domain string) ([]string, error) {
+	var result = make([]string, 0)
+	var realDns = make([]string, 0)
+	var multiaddr string
+	var trims []string
+	dnsnames, err := net.LookupTXT(domain)
+	if err != nil {
+		return result, err
+	}
+
+	for _, v := range dnsnames {
+		if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") {
+			result = append(result, strings.TrimPrefix(v, "dnsaddr="))
+		}
+	}
+
+	trims = strings.Split(domain, ".")
+	domainname := fmt.Sprintf("%s.%s", trims[len(trims)-2], trims[len(trims)-1])
+
+	for _, v := range dnsnames {
+		trims = strings.Split(v, "/")
+		for _, vv := range trims {
+			if strings.ContainsAny(vv, domainname) {
+				realDns = append(realDns, vv)
+				break
+			}
+		}
+	}
+
+	for _, v := range realDns {
+		trims, err = net.LookupTXT("_dnsaddr." + v)
+		if err != nil {
+			continue
+		}
+
+		for _, v := range trims {
+			if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") {
+				multiaddr = strings.TrimPrefix(v, "dnsaddr=")
+				result = append(result, multiaddr)
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
