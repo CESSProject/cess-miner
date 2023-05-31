@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/pattern"
 )
 
 // replaceMgr
@@ -63,7 +64,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 		txhash, _, err = n.ReplaceFile(files)
 		if err != nil {
 			n.Replace("err", err.Error())
-			time.Sleep(configs.BlockInterval)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 

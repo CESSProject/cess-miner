@@ -52,7 +52,3 @@ var LogFiles = []string{
 	"replace",
 	"challenge",
 }
-
-var (
-	BootPeerId string
-)

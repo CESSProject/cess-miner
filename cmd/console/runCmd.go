@@ -411,32 +411,37 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 		return cfg, err
 	}
 	var rpcValus = make([]string, 0)
-	for len(rpcValus) == 0 {
-		if !istips {
-			configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
-			istips = true
-		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		} else {
-			lines = strings.ReplaceAll(lines, "\n", "")
-		}
+	if len(rpc) == 0 {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			} else {
+				lines = strings.ReplaceAll(lines, "\n", "")
+			}
 
-		if lines != "" {
-			rpc = strings.Split(lines, " ")
-			for i := 0; i < len(rpc); i++ {
-				rpc[i] = strings.ReplaceAll(rpc[i], " ", "")
-				if rpc[i] != "" {
-					rpcValus = append(rpcValus, rpc[i])
+			if lines != "" {
+				inputrpc := strings.Split(lines, " ")
+				for i := 0; i < len(inputrpc); i++ {
+					rpc[i] = strings.ReplaceAll(inputrpc[i], " ", "")
+					if rpc[i] != "" {
+						rpcValus = append(rpcValus, rpc[i])
+					}
 				}
 			}
+			if len(rpcValus) == 0 {
+				rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
+			}
+			cfg.SetRpcAddr(rpcValus)
+			break
 		}
-		if len(rpcValus) == 0 {
-			rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
-		}
-		cfg.SetRpcAddr(rpcValus)
+	} else {
+		cfg.SetRpcAddr(rpc)
 	}
 
 	var mnemonic string
@@ -467,12 +472,12 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 
 func buildDir(workspace string) (string, string, error) {
 	logDir := filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(logDir, configs.DirMode); err != nil {
+	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
 		return "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(cacheDir, configs.DirMode); err != nil {
+	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
 		return "", "", err
 	}
 
