@@ -235,7 +235,7 @@ func (n *Node) calcFileTag() {
 			if err != nil {
 				continue
 			}
-			code, err = n.TagReq(id, filepath.Base(f), "", 1024)
+			code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
 			if err != nil {
 				fmt.Println("Tag req err:", err)
 			}

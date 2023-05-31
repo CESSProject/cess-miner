@@ -226,7 +226,7 @@ func ParseMultiaddrs(domain string) ([]string, error) {
 	for _, v := range dnsnames {
 		trims = strings.Split(v, "/")
 		for _, vv := range trims {
-			if strings.ContainsAny(vv, domainname) {
+			if strings.Contains(vv, domainname) {
 				realDns = append(realDns, vv)
 				break
 			}
