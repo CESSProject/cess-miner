@@ -19,6 +19,9 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type MountPathInfo struct {
@@ -207,6 +210,16 @@ func Ternary(a, b int64) int64 {
 func ParseMultiaddrs(domain string) ([]string, error) {
 	var result = make([]string, 0)
 	var realDns = make([]string, 0)
+
+	addr, err := ma.NewMultiaddr(domain)
+	if err == nil {
+		_, err = peer.AddrInfoFromP2pAddr(addr)
+		if err == nil {
+			result = append(result, domain)
+			return result, nil
+		}
+	}
+
 	dnsnames, err := net.LookupTXT(domain)
 	if err != nil {
 		return result, err

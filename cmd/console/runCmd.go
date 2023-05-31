@@ -92,6 +92,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), configs.Name)),
 		p2pgo.BootPeers(bootstrap),
 	)
+	if err != nil {
+		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+		os.Exit(1)
+	}
 
 	for {
 		syncSt, err := n.SyncState()
