@@ -26,6 +26,7 @@ import (
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )
 
@@ -190,9 +191,9 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 			if lines != "" {
 				inputrpc := strings.Split(lines, " ")
 				for i := 0; i < len(inputrpc); i++ {
-					rpc[i] = strings.ReplaceAll(inputrpc[i], " ", "")
-					if rpc[i] != "" {
-						rpcValus = append(rpcValus, rpc[i])
+					temp := strings.ReplaceAll(inputrpc[i], " ", "")
+					if temp != "" {
+						rpcValus = append(rpcValus, temp)
 					}
 				}
 			}
@@ -206,7 +207,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetRpcAddr(rpc)
 	}
 
-	fmt.Println("rpc: ", cfg.GetRpcAddr())
+	configs.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
@@ -249,7 +250,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	fmt.Println("workspace: ", cfg.GetWorkspace())
+	configs.Ok(fmt.Sprintf("%v", cfg.GetWorkspace()))
 
 	var earnings string
 	earnings, err = cmd.Flags().GetString("earnings")
@@ -284,7 +285,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	fmt.Println("earnings: ", cfg.GetEarningsAcc())
+	configs.Ok(fmt.Sprintf("%v", cfg.GetEarningsAcc()))
 
 	var listenPort int
 	listenPort, err = cmd.Flags().GetInt("port")
@@ -325,6 +326,8 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
+	configs.Ok(fmt.Sprintf("%v", cfg.GetServicePort()))
+
 	useSpace, err := cmd.Flags().GetUint64("space")
 	if err != nil {
 		useSpace, err = cmd.Flags().GetUint64("s")
@@ -358,23 +361,28 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		break
 	}
 
-	var mnemonic string
+	configs.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
+
+	//var mnemonic string
 	istips = false
 	for {
 		if !istips {
 			configs.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
-		mnemonic, err = utils.PasswdWithMask("", "", "")
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
-			configs.Err(err.Error())
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
-		if mnemonic == "" {
+		if len(pwd) == 0 {
 			configs.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
-		err = cfg.SetMnemonic(mnemonic)
+		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
 			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
@@ -428,9 +436,9 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 			if lines != "" {
 				inputrpc := strings.Split(lines, " ")
 				for i := 0; i < len(inputrpc); i++ {
-					rpc[i] = strings.ReplaceAll(inputrpc[i], " ", "")
-					if rpc[i] != "" {
-						rpcValus = append(rpcValus, rpc[i])
+					temp := strings.ReplaceAll(inputrpc[i], " ", "")
+					if temp != "" {
+						rpcValus = append(rpcValus, temp)
 					}
 				}
 			}
@@ -444,23 +452,25 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 		cfg.SetRpcAddr(rpc)
 	}
 
-	var mnemonic string
 	istips = false
 	for {
 		if !istips {
 			configs.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
-		mnemonic, err = utils.PasswdWithMask("", "", "")
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
-			configs.Err(err.Error())
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
-		if mnemonic == "" {
+		if len(pwd) == 0 {
 			configs.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
-		err = cfg.SetMnemonic(mnemonic)
+		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
 			configs.Err("Invalid mnemonic, please check and re-enter:")
 			continue

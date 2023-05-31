@@ -7,6 +7,7 @@ require (
 	github.com/CESSProject/sdk-go v0.0.60
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
+	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/libp2p/go-libp2p v0.26.3
 	github.com/mr-tron/base58 v1.2.0
