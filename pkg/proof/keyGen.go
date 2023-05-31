@@ -21,5 +21,7 @@ func NewKey() *RSAKeyPair {
 }
 
 func (k *RSAKeyPair) SetKeyN(n []byte) {
-	k.Spk.N = new(big.Int).SetBytes(n)
+	if k != nil && k.Spk != nil && len(n) > 0 {
+		k.Spk.N = new(big.Int).SetBytes(n)
+	}
 }

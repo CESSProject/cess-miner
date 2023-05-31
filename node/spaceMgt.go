@@ -19,7 +19,6 @@ import (
 	"github.com/CESSProject/sdk-go/core/rule"
 	"github.com/decred/base58"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
 )
 
 // spaceMgt is a subtask for managing spaces
@@ -51,15 +50,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			time.Sleep(time.Minute)
 		}
 
-		teelist, err = n.QueryTeeInfoList()
+		err = n.requsetIdlefile()
 		if err != nil {
-			n.Space("err", err.Error())
-			continue
-		}
-
-		_, err = n.GetAvailableTee()
-		if err != nil {
-			configs.Err(fmt.Sprintf("Idlefile req err: %s", err))
 			n.Space("err", err.Error())
 			continue
 		}
@@ -148,74 +140,69 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) GetAvailableTee() (peer.ID, error) {
-	var peerid peer.ID
-	// var code uint32
-	// tees, err := n.Cli.QueryTeeInfoList()
-	// if err != nil {
-	// 	return peerid, err
-	// }
-	// fmt.Println(len(tees))
-	// fmt.Println(tees)
+func (n *Node) requsetIdlefile() error {
+	var err error
+	var teePeerId string
+	var id peer.ID
+
+	teelist, err := n.QueryTeeInfoList()
+	if err != nil {
+		return err
+	}
+
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
-		return peerid, err
+		return err
 	}
 
-	// for _, v := range tees {
-	// 	peerids := base58.Encode([]byte(string(v.PeerId[:])))
-	// 	log.Println("found tee: ", peerids)
-	// 	n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	// 	peerids = "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
-	// 	code, err = n.Cli.IdleDataTagProtocol.IdleReq(peer.ID(peerids), 8*1024*1024, 2, sign)
-	// 	if err != nil || code != 0 {
-	// 		continue
-	// 	}
-	// }
-	// _, err = n.Cli.AddMultiaddrToPearstore("/ip4/221.122.79.3/tcp/10010/p2p/12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo", time.Hour*999)
-	// if err != nil {
-	// 	return peerid, errors.Wrapf(err, "[AddMultiaddrToPearstore]")
-	// }
-	//peerids := "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo"
-	id, err := peer.Decode(configs.BootPeerId)
-	if err != nil {
-		return peerid, errors.Wrapf(err, "[Decode]")
+	for _, tee := range teelist {
+		teePeerId, err = n.GetPeerIdFromPubkey([]byte(string(tee.PeerId[:])))
+		if err != nil {
+			continue
+		}
+		if n.Has(teePeerId) {
+			id, err = peer.Decode(teePeerId)
+			if err != nil {
+				continue
+			}
+			_, err = n.IdleReq(id, rule.FragmentSize, 1024, n.GetStakingPublickey(), sign)
+			if err != nil {
+				continue
+			}
+			return nil
+		}
 	}
-	_, err = n.IdleReq(id, rule.FragmentSize, 1024, n.GetStakingPublickey(), sign)
 
-	// if err != nil || code != 0 {
-	// 	return peerid, err
-	// }
-	return id, err
+	return err
 }
 
-func generateSpace_8MB(dir string) (string, error) {
-	fpath := filepath.Join(dir, fmt.Sprintf("%v", time.Now().UnixNano()))
-	defer os.Remove(fpath)
-	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0)
-	if err != nil {
-		return "", err
-	}
+// func generateSpace_8MB(dir string) (string, error) {
+// 	fpath := filepath.Join(dir, fmt.Sprintf("%v", time.Now().UnixNano()))
+// 	defer os.Remove(fpath)
+// 	f, err := os.OpenFile(fpath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	for i := uint64(0); i < 2048; i++ {
-		f.WriteString(utils.RandStr(4095) + "\n")
-	}
-	err = f.Sync()
-	if err != nil {
-		os.Remove(fpath)
-		return "", err
-	}
-	f.Close()
+// 	for i := uint64(0); i < 2048; i++ {
+// 		f.WriteString(utils.RandStr(4095) + "\n")
+// 	}
+// 	err = f.Sync()
+// 	if err != nil {
+// 		os.Remove(fpath)
+// 		return "", err
+// 	}
+// 	f.Close()
 
-	hash, err := utils.CalcFileHash(fpath)
-	if err != nil {
-		return "", err
-	}
+// 	hash, err := utils.CalcFileHash(fpath)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	hashpath := filepath.Join(dir, hash)
-	err = os.Rename(fpath, hashpath)
-	if err != nil {
-		return "", err
-	}
-	return hashpath, nil
-}
+// 	hashpath := filepath.Join(dir, hash)
+// 	err = os.Rename(fpath, hashpath)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return hashpath, nil
+// }
