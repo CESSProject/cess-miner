@@ -31,7 +31,13 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var count uint32
 	var spacedir = filepath.Join(n.Workspace(), configs.SpaceDir)
 
+	n.Replace("info", ">>>>> Start replaceMgr task")
+
 	for {
+		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
+			time.Sleep(time.Minute)
+		}
+
 		count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
 		if err != nil {
 			n.Replace("err", err.Error())

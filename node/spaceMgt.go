@@ -43,7 +43,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	defer timeout.Stop()
 
 	for {
-		if err != nil {
+		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
 			time.Sleep(time.Minute)
 		}
 

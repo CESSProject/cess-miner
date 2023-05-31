@@ -207,20 +207,18 @@ func Ternary(a, b int64) int64 {
 func ParseMultiaddrs(domain string) ([]string, error) {
 	var result = make([]string, 0)
 	var realDns = make([]string, 0)
-	var multiaddr string
-	var trims []string
 	dnsnames, err := net.LookupTXT(domain)
 	if err != nil {
 		return result, err
 	}
 
 	for _, v := range dnsnames {
-		if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") {
+		if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") && strings.Count(v, "=") == 1 {
 			result = append(result, strings.TrimPrefix(v, "dnsaddr="))
 		}
 	}
 
-	trims = strings.Split(domain, ".")
+	trims := strings.Split(domain, ".")
 	domainname := fmt.Sprintf("%s.%s", trims[len(trims)-2], trims[len(trims)-1])
 
 	for _, v := range dnsnames {
@@ -234,16 +232,14 @@ func ParseMultiaddrs(domain string) ([]string, error) {
 	}
 
 	for _, v := range realDns {
-		trims, err = net.LookupTXT("_dnsaddr." + v)
+		dnses, err := net.LookupTXT("_dnsaddr." + v)
 		if err != nil {
 			continue
 		}
-
-		for _, v := range trims {
-			if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") {
-				multiaddr = strings.TrimPrefix(v, "dnsaddr=")
+		for i := 0; i < len(dnses); i++ {
+			if strings.Contains(dnses[i], "ip4") && strings.Contains(dnses[i], "tcp") && strings.Count(dnses[i], "=") == 1 {
+				var multiaddr = strings.TrimPrefix(dnses[i], "dnsaddr=")
 				result = append(result, multiaddr)
-				break
 			}
 		}
 	}
