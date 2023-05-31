@@ -24,6 +24,7 @@ func (n *Node) chainMgt(ch chan bool) {
 	}()
 	var ok bool
 	var err error
+	var multiaddr string
 	tick := time.NewTicker(time.Second * 30)
 	for {
 		select {
@@ -33,9 +34,18 @@ func (n *Node) chainMgt(ch chan bool) {
 				n.SetChainState(false)
 				n.Reconnect()
 			}
-		case <-n.GetServiceTagCh():
+		case filetag := <-n.GetServiceTagCh():
+			configs.Tip(fmt.Sprintf("Received a service file tag: %s", filetag))
 		case discoverPeer := <-n.DiscoveredPeer():
-			configs.Tip(fmt.Sprintf("Found a peer: %s/p2p/%s", discoverPeer.Addr.String(), discoverPeer.PeerID.Pretty()))
+			multiaddr = fmt.Sprintf("%s/p2p/%s", discoverPeer.Addr.String(), discoverPeer.PeerID.Pretty())
+			configs.Tip(fmt.Sprintf("Found a peer: %s", multiaddr))
+			_, err = n.AddMultiaddrToPearstore(multiaddr, time.Hour)
+			if err != nil {
+				configs.Warn(fmt.Sprintf("Add %s to pearstore err: %v", multiaddr, err))
+			} else {
+				configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
+				n.PutPeer(discoverPeer.PeerID.Pretty(), discoverPeer.Addr.String())
+			}
 		}
 	}
 }

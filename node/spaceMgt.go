@@ -41,7 +41,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var teepuk []byte
 	var idlefile pattern.IdleFileMeta
 
-	n.Space("info", "Start spaceMgt task")
+	n.Space("info", ">>>>> Start spaceMgt task")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 2))
 	defer timeout.Stop()

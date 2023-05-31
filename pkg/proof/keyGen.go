@@ -14,10 +14,12 @@ import (
 
 var key RSAKeyPair
 
-func GetKey(n []byte) *RSAKeyPair {
-	if key.Spk == nil {
-		key.Spk = new(rsa.PublicKey)
-		key.Spk.N = new(big.Int).SetBytes(n)
+func NewKey() *RSAKeyPair {
+	return &RSAKeyPair{
+		Spk: new(rsa.PublicKey),
 	}
-	return &key
+}
+
+func (k *RSAKeyPair) SetKeyN(n []byte) {
+	k.Spk.N = new(big.Int).SetBytes(n)
 }

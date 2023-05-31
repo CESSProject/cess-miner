@@ -15,7 +15,7 @@ const (
 	// version
 	Version = "v0.6.0 sprint4 dev"
 	// Description is the description of the program
-	Description = "Mining service based on cess platform"
+	Description = "Storage node implementation in CESS networks"
 	// NameSpace is the cached namespace
 	NameSpace = Name
 )

@@ -14,6 +14,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
+	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/sdk-go/core/sdk"
 )
@@ -28,6 +29,7 @@ type Node struct {
 	cache.Cache
 	sdk.SDK
 	core.P2P
+	Key   *proof.RSAKeyPair
 	Lock  *sync.RWMutex
 	Peers map[string]string
 }
@@ -35,6 +37,7 @@ type Node struct {
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
+		Key:   proof.NewKey(),
 		Lock:  new(sync.RWMutex),
 		Peers: make(map[string]string, 10),
 	}

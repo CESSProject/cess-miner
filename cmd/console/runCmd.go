@@ -59,6 +59,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	pubkey, err := n.QueryTeePodr2Puk()
+	if err == nil {
+		n.Key.SetKeyN(pubkey)
+	}
+
 	boot, _ := cmd.Flags().GetString("boot")
 	if boot == "" {
 		configs.Warn("Empty boot node")
