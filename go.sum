@@ -53,8 +53,8 @@ github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0/go.mod h1:tPaiy8S5bQ
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/CESSProject/p2p-go v0.0.26 h1:Zmn5OEdjZAn+34s5+tn3GHH/az4XcFx9kG1D1xkNOok=
-github.com/CESSProject/p2p-go v0.0.26/go.mod h1:k0mygEH4biVB7SJLf/RWpHqmyC45YBF4iW4b3n2S2fo=
+github.com/CESSProject/p2p-go v0.0.27 h1:MbK4aDRjHnvqbKKduVpg/KfCVJ3bCfsC1ISXM4SdDGk=
+github.com/CESSProject/p2p-go v0.0.27/go.mod h1:k0mygEH4biVB7SJLf/RWpHqmyC45YBF4iW4b3n2S2fo=
 github.com/CESSProject/sdk-go v0.0.60 h1:J/J6tiWWLtPdKwWf+2uBTXdgGaMw3kzvrCjVaORQCmM=
 github.com/CESSProject/sdk-go v0.0.60/go.mod h1:7kMCr/G0/ZVwcTuhShR9mRZaO3OCknuXyVzjgIWpLZc=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=

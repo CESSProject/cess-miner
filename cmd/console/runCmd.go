@@ -27,6 +27,8 @@ import (
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/howeyc/gopass"
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
@@ -70,20 +72,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		configs.Warn("Empty boot node")
 	} else {
 		bootstrap, _ = utils.ParseMultiaddrs(boot)
-		if len(bootstrap) > 0 {
-			configs.Tip(fmt.Sprintf("Bootstrap node: %v", bootstrap))
+		for _, v := range bootstrap {
+			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
+			addr, err := ma.NewMultiaddr(v)
+			if err != nil {
+				continue
+			}
+			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+			if err != nil {
+				continue
+			}
+			n.PutPeer(addrInfo.ID.Pretty(), addrInfo.Addrs[0].String())
 		}
 	}
-
-	//  else {
-	// 	peerid, err := n.AddMultiaddrToPearstore(boot, peerstore.PermanentAddrTTL)
-	// 	if err != nil {
-	// 		configs.Err(fmt.Sprintf("Failed to connect to the boot node: %s", boot))
-	// 	} else {
-	// 		configs.BootPeerId = peerid.String()
-	// 		configs.Ok(fmt.Sprintf("Successfully connected to the boot node: %s", peerid.String()))
-	// 	}
-	// }
 
 	n.P2P, err = p2pgo.New(
 		context.Background(),
@@ -146,6 +147,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	configs.Tip(fmt.Sprintf("Local peer: %s", n.Multiaddr()))
+	if n.GetDiscoverSt() {
+		configs.Tip("Start node discovery service")
+	}
 
 	// run
 	n.Run()
