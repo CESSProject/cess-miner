@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
@@ -41,12 +42,14 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 
 	n.Chal("info", ">>>>> Start challengeMgt task")
 
-	for n.Key.Spk.N == nil {
+	for {
 		pubkey, err := n.QueryTeePodr2Puk()
-		if err != nil || len(pubkey) == 0 {
+		if err != nil {
+			configs.Err(fmt.Sprintf("[QueryTeePodr2Puk] %v", err))
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
+		configs.Ok("Initialize key successfully")
 		n.Key.SetKeyN(pubkey)
 		break
 	}

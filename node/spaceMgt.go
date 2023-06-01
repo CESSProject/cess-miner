@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 )
 
 // spaceMgt is a subtask for managing spaces
@@ -143,10 +144,8 @@ func (n *Node) requsetIdlefile() ([]byte, error) {
 	}
 
 	for _, tee := range teelist {
-		teePeerId, err = n.GetPeerIdFromPubkey([]byte(string(tee.PeerId[:])))
-		if err != nil {
-			continue
-		}
+		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
+		configs.Tip(fmt.Sprintf("Query a tee: %s", teePeerId))
 		if n.Has(teePeerId) {
 			id, err = peer.Decode(teePeerId)
 			if err != nil {
