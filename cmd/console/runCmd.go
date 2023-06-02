@@ -64,7 +64,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	pubkey, err := n.QueryTeePodr2Puk()
 	if err == nil {
-		n.Key.SetKeyN(pubkey)
+		n.Key.SetPublickey(pubkey)
 	}
 
 	boot, _ := cmd.Flags().GetString("boot")

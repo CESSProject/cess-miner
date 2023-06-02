@@ -9,7 +9,7 @@ package proof
 
 import (
 	"crypto/rsa"
-	"math/big"
+	"crypto/x509"
 )
 
 var key RSAKeyPair
@@ -20,8 +20,14 @@ func NewKey() *RSAKeyPair {
 	}
 }
 
-func (k *RSAKeyPair) SetKeyN(n []byte) {
-	if k != nil && k.Spk != nil && len(n) > 0 {
-		k.Spk.N = new(big.Int).SetBytes(n)
+func (k *RSAKeyPair) SetPublickey(n []byte) error {
+	pubkey, err := x509.ParsePKCS1PublicKey(n)
+	if err != nil {
+		return err
 	}
+	if k == nil {
+		k = NewKey()
+	}
+	k.Spk = pubkey
+	return nil
 }
