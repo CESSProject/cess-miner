@@ -50,13 +50,48 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			continue
 		}
 		configs.Ok("Initialize key successfully")
-		n.Key.SetKeyN(pubkey)
+		n.Key.SetPublickey(pubkey)
 		break
 	}
+
+	//var rd RandomList
+	// for {
+	// 	_, err := n.Get([]byte(Cach_AggrProof_Transfered))
+	// 	if err != nil {
+	// 		buf, err := os.ReadFile(filepath.Join(n.GetDirs().ProofDir, "random.42196"))
+	// 		if err != nil {
+	// 			n.Chal("err", fmt.Sprintf("ReadFile: %v", err))
+	// 			continue
+	// 		}
+	// 		err = json.Unmarshal(buf, &rd)
+	// 		if err != nil {
+	// 			n.Chal("err", fmt.Sprintf("Unmarshal: %v", err))
+	// 			continue
+	// 		}
+	// 		idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+	// 		serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+	// 		err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, rd.Index, rd.Random)
+	// 		if err != nil {
+	// 			n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
+	// 			continue
+	// 		}
+	// 		err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", uint32(42196))))
+	// 		if err != nil {
+	// 			n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", uint32(42196), err))
+	// 		}
+	// 	}
+	// 	time.Sleep(time.Second * 5)
+	// 	break
+	// }
 
 	for {
 		chal, err := n.QueryChallenge(n.GetStakingPublickey())
 		if err != nil {
+			time.Sleep(time.Minute)
+			continue
+		}
+
+		if chal.Start == uint32(0) {
 			time.Sleep(time.Minute)
 			continue
 		}
@@ -70,6 +105,21 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			if err == nil {
 				if uint32(block) == chal.Start {
 					n.Chal("info", fmt.Sprintf("Already challenged: %v", chal.Start))
+					buf, err = n.Get([]byte(Cach_AggrProof_Transfered))
+					if err != nil {
+						idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+						serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+						err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
+						if err != nil {
+							n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
+							continue
+						}
+						err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
+						if err != nil {
+							n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
+						}
+					}
+					n.Chal("info", fmt.Sprintf("Already transfered: %v", chal.Start))
 					time.Sleep(time.Minute)
 					continue
 				}
@@ -152,6 +202,7 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 				if err != nil {
 					return err
 				}
+				n.Chal("info", fmt.Sprintf("proof assigned tee: %s", peerid.Pretty()))
 				break
 			}
 		}
@@ -218,7 +269,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 	if err != nil {
 		return "", nil, err
 	}
-
+	fmt.Println("> > > idleRoothash:", idleRoothashs)
 	var buf []byte
 	var ptags []proof.Tag = make([]proof.Tag, 0)
 	var ptag proof.Tag
@@ -241,6 +292,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 
 	for i := int(0); i < len(idleRoothashs); i++ {
 		idleTagPath := filepath.Join(n.GetDirs().IdleTagDir, idleRoothashs[i]+".tag")
+		fmt.Println("> > > idleTagPath:", idleTagPath)
 		buf, err = os.ReadFile(idleTagPath)
 		if err != nil {
 			n.Chal("err", fmt.Sprintf("Idletag not found: %v", idleTagPath))
