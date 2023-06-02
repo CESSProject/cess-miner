@@ -31,7 +31,7 @@ type Node struct {
 	core.P2P
 	Key   *proof.RSAKeyPair
 	Lock  *sync.RWMutex
-	Peers map[string]string
+	Peers map[string]struct{}
 }
 
 // New is used to build a node instance
@@ -39,7 +39,7 @@ func New() *Node {
 	return &Node{
 		Key:   proof.NewKey(),
 		Lock:  new(sync.RWMutex),
-		Peers: make(map[string]string, 10),
+		Peers: make(map[string]struct{}, 10),
 	}
 }
 
@@ -49,9 +49,11 @@ func (n *Node) Run() {
 	select {}
 }
 
-func (n *Node) PutPeer(peerid, addr string) {
+func (n *Node) PutPeer(peerid string) {
 	n.Lock.Lock()
-	n.Peers[peerid] = addr
+	if _, ok := n.Peers[peerid]; !ok {
+		n.Peers[peerid] = struct{}{}
+	}
 	n.Lock.Unlock()
 }
 
@@ -60,14 +62,4 @@ func (n *Node) Has(peerid string) bool {
 	_, ok := n.Peers[peerid]
 	n.Lock.RUnlock()
 	return ok
-}
-
-func (n *Node) GetPeerAddr(peerid string) string {
-	n.Lock.RLock()
-	defer n.Lock.RUnlock()
-	addr, ok := n.Peers[peerid]
-	if ok {
-		return addr
-	}
-	return ""
 }

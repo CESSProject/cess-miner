@@ -82,7 +82,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				continue
 			}
-			n.PutPeer(addrInfo.ID.Pretty(), addrInfo.Addrs[0].String())
+			n.PutPeer(addrInfo.ID.Pretty())
 		}
 	}
 
@@ -146,10 +146,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	configs.Tip(fmt.Sprintf("Local peer: %s", n.Multiaddr()))
+	for _, v := range n.Addrs() {
+		configs.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
+	}
+
 	if n.GetDiscoverSt() {
 		configs.Tip("Start node discovery service")
 	}
+
+	configs.Tip("p2p protocol version: " + n.GetProtocolVersion())
+	configs.Tip("dht protocol version: " + n.GetDhtProtocolVersion())
 
 	// run
 	n.Run()

@@ -21,8 +21,8 @@ const update_cmd = "update"
 const update_cmd_use = "update"
 const update_cmd_short = "update inforation"
 const update_earnings_cmd = "earnings"
-const update_earnings_cmd_use = update_cmd + update_earnings_cmd + " <new earnings account>"
-const update_earnings_cmd_short = "Update earnings account"
+const update_earnings_cmd_use = update_earnings_cmd
+const update_earnings_cmd_short = "update earnings account"
 
 var updateCmd = &cobra.Command{
 	Use:   update_cmd,
@@ -31,7 +31,6 @@ var updateCmd = &cobra.Command{
 		updateEarningsAccount(cmd)
 		cmd.Help()
 	},
-	DisableSuggestions:    true,
 	DisableFlagsInUseLine: true,
 }
 
@@ -41,7 +40,7 @@ var updateEarningsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		updateEarningsAccount(cmd)
 	},
-	DisableFlagsInUseLine: true,
+	DisableSuggestions: true,
 }
 
 func init() {
