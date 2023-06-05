@@ -16,6 +16,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -37,7 +38,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	// Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),

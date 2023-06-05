@@ -2,6 +2,9 @@
 Rpc:
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+# Bootstrap Nodes
+Boot:
+  - "_dnsaddr.bootstrap-kldr.cess.cloud" 
 # Signature account mnemonic
 Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
 # Income account

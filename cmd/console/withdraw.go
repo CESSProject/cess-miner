@@ -13,6 +13,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),

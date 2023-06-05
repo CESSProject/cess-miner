@@ -14,6 +14,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +59,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
@@ -68,7 +69,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.IncreaseStakes(stakes)
+	txhash, err := n.IncreaseStakingAmount(stakes)
 	if err != nil {
 		if txhash == "" {
 			configs.Err(err.Error())

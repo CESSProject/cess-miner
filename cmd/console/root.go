@@ -47,7 +47,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("earnings", "", "", "earnings account")
 	rootCmd.PersistentFlags().IntP("port", "", 0, "listening port")
 	rootCmd.PersistentFlags().Uint64P("space", "", 0, "maximum space used (GiB)")
-	rootCmd.PersistentFlags().StringP("boot", "", "", "bootstap node")
+	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap node list")
 }
 
 func Command_Version() *cobra.Command {

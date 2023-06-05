@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 )
@@ -30,7 +29,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var err error
 	var txhash string
 	var count uint32
-	var spacedir = filepath.Join(n.Workspace(), configs.SpaceDir)
+	var spacedir = n.GetDirs().IdleDataDir
 
 	n.Replace("info", ">>>>> Start replaceMgr task")
 
