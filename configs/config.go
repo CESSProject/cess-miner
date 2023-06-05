@@ -21,6 +21,8 @@ const (
 	//
 	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
 	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
+	//
+	DefaultBootNodeAddr = "_dnsaddr.bootstrap-kldr.cess.cloud"
 )
 
 const (
@@ -39,9 +41,8 @@ const (
 )
 
 const (
-	DbDir    = "db"
-	LogDir   = "log"
-	SpaceDir = "space"
+	DbDir  = "db"
+	LogDir = "log"
 )
 
 var LogFiles = []string{

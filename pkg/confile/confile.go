@@ -25,20 +25,24 @@ Rpc:
   - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+# Bootstrap Nodes
+Boot:
+  - "_dnsaddr.bootstrap-kldr.cess.cloud"
 # Staking account mnemonic
 Mnemonic: "xxx xxx ... xxx"
 # earnings account
 EarningsAcc: cXxxx...xxx
 # Service workspace
 Workspace: /
-# Service listening port
-Port: 15001
+# P2P communication port
+Port: 4001
 # Maximum space used, the unit is GiB
 UseSpace: 2000`
 
 type Confile interface {
 	Parse(fpath string, port int) error
 	GetRpcAddr() []string
+	GetBootNodes() []string
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
@@ -51,6 +55,7 @@ type Confile interface {
 
 type confile struct {
 	Rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
+	Boot        []string `name:"Boot" toml:"Boot" yaml:"Boot"`
 	Mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
 	EarningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
 	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
@@ -123,6 +128,10 @@ func (c *confile) SetRpcAddr(rpc []string) {
 	c.Rpc = rpc
 }
 
+func (c *confile) SetBootNodes(boot []string) {
+	c.Boot = boot
+}
+
 func (c *confile) SetUseSpace(useSpace uint64) {
 	c.UseSpace = useSpace
 }
@@ -181,6 +190,10 @@ func (c *confile) SetMnemonic(mnemonic string) error {
 
 func (c *confile) GetRpcAddr() []string {
 	return c.Rpc
+}
+
+func (c *confile) GetBootNodes() []string {
+	return c.Boot
 }
 
 func (c *confile) GetServicePort() int {

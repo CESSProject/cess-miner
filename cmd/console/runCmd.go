@@ -224,6 +224,48 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 
 	configs.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
 
+	var boots []string
+	boots, err = cmd.Flags().GetStringSlice("boot")
+	if err != nil {
+		return cfg, err
+	}
+	var bootValus = make([]string, 0)
+	istips = false
+	if len(boots) == 0 {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the boot node address, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default boot node address:", configs.DefaultBootNodeAddr))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			} else {
+				lines = strings.ReplaceAll(lines, "\n", "")
+			}
+
+			if lines != "" {
+				inputrpc := strings.Split(lines, " ")
+				for i := 0; i < len(inputrpc); i++ {
+					temp := strings.ReplaceAll(inputrpc[i], " ", "")
+					if temp != "" {
+						bootValus = append(bootValus, temp)
+					}
+				}
+			}
+			if len(bootValus) == 0 {
+				bootValus = []string{configs.DefaultBootNodeAddr}
+			}
+			cfg.SetBootNodes(bootValus)
+			break
+		}
+	} else {
+		cfg.SetBootNodes(boots)
+	}
+
+	configs.Ok(fmt.Sprintf("%v", cfg.GetBootNodes()))
+
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
 		return cfg, err
@@ -511,7 +553,7 @@ func buildDir(workspace string) (string, string, error) {
 }
 
 func buildCache(cacheDir string) (cache.Cache, error) {
-	return cache.NewCache(cacheDir, 0, 0, configs.NameSpace)
+	return cache.NewCache(cacheDir, 0, 0, configs.NameSpaces)
 }
 
 func buildLogs(logDir string) (logger.Logger, error) {

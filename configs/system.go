@@ -15,5 +15,5 @@ const (
 	// Description is the description of the program
 	Description = "Storage node implementation in CESS networks"
 	// NameSpace is the cached namespace
-	NameSpace = Name
+	NameSpaces = Name
 )
