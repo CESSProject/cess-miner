@@ -25,6 +25,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -52,7 +53,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
@@ -90,7 +91,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		context.Background(),
 		"",
 		p2pgo.ListenPort(n.GetServicePort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), configs.Name)),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), n.GetCharacterName())),
 		p2pgo.BootPeers(bootstrap),
 	)
 	if err != nil {

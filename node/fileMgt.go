@@ -34,7 +34,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 	var storageorder pattern.StorageOrder
 	var metadata pattern.FileMetadata
 
-	n.Report("info", "Start fileMgt task")
+	n.Report("info", ">>>>> Start fileMgt task")
 
 	for {
 		n.calcFileTag()
@@ -122,7 +122,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 			n.Report("info", fmt.Sprintf("Query [%s], files: %v", roothash, assignedFragmentHash))
 			failfile = false
 			for i := 0; i < len(assignedFragmentHash); i++ {
-				fmt.Println("Check: ", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
+				n.Report("info", fmt.Sprintf("Check: %s", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i])))
 				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
 				if err != nil || fstat.Size() != pattern.FragmentSize {
 					fmt.Println(err)
@@ -130,6 +130,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 					failfile = true
 					break
 				}
+				n.Report("info", "Check success")
 			}
 			if failfile {
 				continue
@@ -153,22 +154,22 @@ func (n *Node) fileMgt(ch chan<- bool) {
 			n.Report("err", fmt.Sprintf("Report file [%s] failed: %s", roothash, txhash))
 		}
 
-		roothashs, err = utils.Dirs(filepath.Join(n.Workspace(), n.GetDirs().FileDir))
-		if err != nil {
-			n.Report("err", err.Error())
-			continue
-		}
+		// roothashs, err = utils.Dirs(filepath.Join(n.Workspace(), n.GetDirs().FileDir))
+		// if err != nil {
+		// 	n.Report("err", err.Error())
+		// 	continue
+		// }
 
-		for _, v := range roothashs {
-			roothash = filepath.Base(v)
-			_, err = n.QueryFileMetadata(roothash)
-			if err != nil {
-				if err.Error() == pattern.ERR_Empty {
-					os.RemoveAll(v)
-				}
-				continue
-			}
-		}
+		// for _, v := range roothashs {
+		// 	roothash = filepath.Base(v)
+		// 	_, err = n.QueryFileMetadata(roothash)
+		// 	if err != nil {
+		// 		if err.Error() == pattern.ERR_Empty {
+		// 			os.RemoveAll(v)
+		// 		}
+		// 		continue
+		// 	}
+		// }
 		time.Sleep(pattern.BlockInterval)
 	}
 }

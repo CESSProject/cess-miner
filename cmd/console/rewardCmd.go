@@ -15,6 +15,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -52,7 +53,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
@@ -62,7 +63,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	rewardInfo, err := n.QuaryRewards(n.GetStakingPublickey())
+	rewardInfo, err := n.QuaryStorageNodeRewardInfo(n.GetStakingPublickey())
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)

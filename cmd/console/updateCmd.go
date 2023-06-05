@@ -14,6 +14,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/config"
 	"github.com/spf13/cobra"
 )
 
@@ -75,7 +76,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		config.CharacterName_Bucket,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
@@ -85,7 +86,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.UpdateIncomeAccount(os.Args[3])
+	txhash, err := n.UpdateEarningsAccount(os.Args[3])
 	if err != nil {
 		if txhash == "" {
 			configs.Err(err.Error())
