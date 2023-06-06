@@ -68,22 +68,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.Key.SetPublickey(pubkey)
 	}
 
-	boot, _ := cmd.Flags().GetString("boot")
-	if boot == "" {
+	boot, _ := cmd.Flags().GetStringSlice("boot")
+	if len(boot) == 0 {
 		configs.Warn("Empty boot node")
 	} else {
-		bootstrap, _ = utils.ParseMultiaddrs(boot)
-		for _, v := range bootstrap {
-			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
-			addr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
+		for _, b := range boot {
+			bootstrap, _ = utils.ParseMultiaddrs(b)
+			for _, v := range bootstrap {
+				configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
+				addr, err := ma.NewMultiaddr(v)
+				if err != nil {
+					continue
+				}
+				addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+				if err != nil {
+					continue
+				}
+				n.PutPeer(addrInfo.ID.Pretty())
 			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
-			if err != nil {
-				continue
-			}
-			n.PutPeer(addrInfo.ID.Pretty())
 		}
 	}
 

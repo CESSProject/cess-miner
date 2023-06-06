@@ -63,3 +63,15 @@ func (n *Node) Has(peerid string) bool {
 	n.Lock.RUnlock()
 	return ok
 }
+
+func (n *Node) GetAllPeer() []string {
+	n.Lock.RLock()
+	defer n.Lock.RUnlock()
+	var result = make([]string, len(n.Peers))
+	var i int
+	for k, _ := range n.Peers {
+		result[i] = k
+		i++
+	}
+	return result
+}
