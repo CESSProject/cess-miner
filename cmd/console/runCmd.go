@@ -68,22 +68,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.Key.SetPublickey(pubkey)
 	}
 
-	boot, _ := cmd.Flags().GetString("boot")
-	if boot == "" {
+	boot, _ := cmd.Flags().GetStringSlice("boot")
+	if len(boot) == 0 {
 		configs.Warn("Empty boot node")
 	} else {
-		bootstrap, _ = utils.ParseMultiaddrs(boot)
-		for _, v := range bootstrap {
-			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
-			addr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
+		for _, b := range boot {
+			bootstrap, _ = utils.ParseMultiaddrs(b)
+			for _, v := range bootstrap {
+				configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
+				addr, err := ma.NewMultiaddr(v)
+				if err != nil {
+					continue
+				}
+				addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+				if err != nil {
+					continue
+				}
+				n.PutPeer(addrInfo.ID.Pretty())
 			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
-			if err != nil {
-				continue
-			}
-			n.PutPeer(addrInfo.ID.Pretty())
 		}
 	}
 
@@ -352,33 +354,41 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 	istips = false
-	for listenPort < 1024 {
-		if !istips {
-			configs.Input(fmt.Sprintf("Enter the service port, press Enter to skip to use %d as default port:", configs.DefaultServicePort))
-			istips = true
-		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		}
-		lines = strings.ReplaceAll(lines, "\n", "")
-		if lines == "" {
-			listenPort = configs.DefaultServicePort
-		} else {
-			listenPort, err = strconv.Atoi(lines)
-			if err != nil || listenPort < 1024 {
+	if listenPort == 0 {
+		for {
+			if !istips {
+				configs.Input(fmt.Sprintf("Enter the service port, press Enter to skip to use %d as default port:", configs.DefaultServicePort))
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			}
+			lines = strings.ReplaceAll(lines, "\n", "")
+			if lines == "" {
+				listenPort = configs.DefaultServicePort
+			} else {
+				listenPort, err = strconv.Atoi(lines)
+				if err != nil || listenPort < 1024 {
+					listenPort = 0
+					configs.Err("Please enter a number between 1024~65535:")
+					continue
+				}
+			}
+
+			err = cfg.SetServicePort(listenPort)
+			if err != nil {
 				listenPort = 0
 				configs.Err("Please enter a number between 1024~65535:")
 				continue
 			}
+			break
 		}
-
+	} else {
 		err = cfg.SetServicePort(listenPort)
 		if err != nil {
-			listenPort = 0
-			configs.Err("Please enter a number between 1024~65535:")
-			continue
+			return cfg, err
 		}
 	}
 
@@ -392,29 +402,33 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 	istips = false
-	for useSpace == 0 {
-		if !istips {
-			configs.Input("Please enter the maximum space used by the storage node in GiB:")
-			istips = true
+	if useSpace == 0 {
+		for {
+			if !istips {
+				configs.Input("Please enter the maximum space used by the storage node in GiB:")
+				istips = true
+			}
+			lines, err = inputReader.ReadString('\n')
+			if err != nil {
+				configs.Err(err.Error())
+				continue
+			}
+			lines = strings.ReplaceAll(lines, "\n", "")
+			if lines == "" {
+				configs.Err("Please enter an integer greater than or equal to 0:")
+				continue
+			}
+			useSpace, err = strconv.ParseUint(lines, 10, 64)
+			if err != nil {
+				useSpace = 0
+				configs.Err("Please enter an integer greater than or equal to 0:")
+				continue
+			}
+			cfg.SetUseSpace(useSpace)
+			break
 		}
-		lines, err = inputReader.ReadString('\n')
-		if err != nil {
-			configs.Err(err.Error())
-			continue
-		}
-		lines = strings.ReplaceAll(lines, "\n", "")
-		if lines == "" {
-			configs.Err("Please enter an integer greater than or equal to 0:")
-			continue
-		}
-		useSpace, err = strconv.ParseUint(lines, 10, 64)
-		if err != nil {
-			useSpace = 0
-			configs.Err("Please enter an integer greater than or equal to 0:")
-			continue
-		}
+	} else {
 		cfg.SetUseSpace(useSpace)
-		break
 	}
 
 	configs.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
