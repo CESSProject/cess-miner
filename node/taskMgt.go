@@ -14,6 +14,7 @@ func (n *Node) TaskMgt() {
 		ch_fileMgt      = make(chan bool, 1)
 		ch_replaceMgr   = make(chan bool, 1)
 		ch_challengeMgt = make(chan bool, 1)
+		ch_restoreMgt   = make(chan bool, 1)
 	)
 
 	go n.chainMgt(ch_chainMgt)
@@ -21,6 +22,7 @@ func (n *Node) TaskMgt() {
 	go n.fileMgt(ch_fileMgt)
 	go n.replaceMgr(ch_replaceMgr)
 	go n.challengeMgt(ch_challengeMgt)
+	// go n.restoreMgt(ch_restoreMgt)
 
 	for {
 		select {
@@ -34,6 +36,8 @@ func (n *Node) TaskMgt() {
 			go n.replaceMgr(ch_replaceMgr)
 		case <-ch_challengeMgt:
 			go n.challengeMgt(ch_challengeMgt)
+		case <-ch_restoreMgt:
+			go n.restoreMgt(ch_restoreMgt)
 		}
 	}
 }
