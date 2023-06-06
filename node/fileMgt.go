@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 )
 
 // fileMgr
@@ -37,6 +38,8 @@ func (n *Node) fileMgt(ch chan<- bool) {
 	n.Report("info", ">>>>> Start fileMgt task")
 
 	for {
+		time.Sleep(pattern.BlockInterval)
+
 		n.calcFileTag()
 
 		roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().TmpDir))
@@ -57,7 +60,7 @@ func (n *Node) fileMgt(ch chan<- bool) {
 					continue
 				}
 				tnow := time.Now().Unix()
-				if tnow > t && (tnow-t) < 180 {
+				if tnow > t && (tnow-t) < int64(180) {
 					metadata, err = n.QueryFileMetadata(roothash)
 					if err != nil {
 						if err.Error() != pattern.ERR_Empty {
@@ -125,8 +128,6 @@ func (n *Node) fileMgt(ch chan<- bool) {
 				n.Report("info", fmt.Sprintf("Check: %s", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i])))
 				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
 				if err != nil || fstat.Size() != pattern.FragmentSize {
-					fmt.Println(err)
-					fmt.Println(fstat.Size())
 					failfile = true
 					break
 				}
@@ -170,7 +171,6 @@ func (n *Node) fileMgt(ch chan<- bool) {
 		// 		continue
 		// 	}
 		// }
-		time.Sleep(pattern.BlockInterval)
 	}
 }
 
@@ -234,10 +234,7 @@ func (n *Node) calcFileTag() {
 
 			var id peer.ID
 			for _, t := range tees {
-				teePeerId, err := n.GetPeerIdFromPubkey([]byte(string(t.PeerId[:])))
-				if err != nil {
-					continue
-				}
+				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
 				if n.Has(teePeerId) {
 					id, err = peer.Decode(teePeerId)
 					if err != nil {

@@ -68,7 +68,7 @@ func (n *Node) chainMgt(ch chan bool) {
 					continue
 				}
 
-				_, _ = n.AddMultiaddrToPearstore(fmt.Sprintf("%s/p2p/%s", addr, peerid), time.Hour)
+				_, _ = n.AddMultiaddrToPeerstore(fmt.Sprintf("%s/p2p/%s", addr, peerid), time.Hour)
 				// if err != nil {
 				// 	configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
 				// } else {

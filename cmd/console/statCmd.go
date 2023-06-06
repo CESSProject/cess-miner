@@ -60,9 +60,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	beneficiaryAcc, _ := utils.EncodeToCESSAddr(minerInfo.BeneficiaryAcc[:])
 
 	var tableRows = []table.Row{
+		{"role", n.GetRoleName()},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
-		{"staking amount", fmt.Sprintf("%v TCESS", minerInfo.Collaterals)},
+		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
 		{"validated space", fmt.Sprintf("%v bytes", minerInfo.IdleSpace)},
 		{"used space", fmt.Sprintf("%v bytes", minerInfo.ServiceSpace)},
 		{"locked space", fmt.Sprintf("%v bytes", minerInfo.LockSpace)},
