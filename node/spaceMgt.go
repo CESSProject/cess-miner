@@ -8,6 +8,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
@@ -34,8 +36,10 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var tagPath string
 	var txhash string
 	var filehash string
+	var peerid string
 	var blockheight uint32
 	var teepuk []byte
+	var tSatrt int64
 	var idlefile pattern.IdleFileMeta
 
 	n.Space("info", ">>>>> Start spaceMgt task")
@@ -44,24 +48,30 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	defer timeout.Stop()
 
 	for {
-		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
-			time.Sleep(time.Minute)
+		if n.Key == nil || n.Key.Spk.N == nil {
+			n.Space("err", "Not found key")
+			time.Sleep(pattern.BlockInterval * 5)
 		}
 
-		teepuk, err = n.requsetIdlefile()
+		teepuk, peerid, err = n.requsetIdlefile()
 		if err != nil {
 			n.Space("err", err.Error())
 			continue
 		}
 
+		tSatrt = time.Now().Unix()
+
+		n.Space("info", fmt.Sprintf("Requset a idle file to: %s", peerid))
+
 		spacePath = ""
 		tagPath = ""
 
 		timeout.Reset(time.Duration(time.Minute * 2))
-		for {
+		for err == nil {
 			select {
 			case <-timeout.C:
-				break
+				n.Space("err", fmt.Sprintf("Requset timeout: %s", peerid))
+				err = errors.New("timeout")
 			case spacePath = <-n.GetIdleDataCh():
 			case tagPath = <-n.GetIdleTagCh():
 			}
@@ -71,14 +81,14 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			}
 		}
 
-		configs.Tip(fmt.Sprintf("Receive a tag: %s", tagPath))
-		configs.Tip(fmt.Sprintf("Receive a idlefile: %s", spacePath))
-
 		if tagPath == "" || spacePath == "" {
-			n.Space("err", spacePath)
-			n.Space("err", tagPath)
 			continue
 		}
+
+		n.SaveAndUpdateTeePeer(peerid, time.Now().Unix()-tSatrt)
+
+		n.Space("info", fmt.Sprintf("Receive a idle file tag: %s", tagPath))
+		n.Space("info", fmt.Sprintf("Receive a idle file: %s", spacePath))
 
 		filehash, err = utils.CalcPathSHA256(spacePath)
 		if err != nil {
@@ -91,75 +101,110 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
 
+		n.Space("info", fmt.Sprintf("Idle file %s hash: %s", spacePath, filehash))
+
 		idlefile.BlockNum = pattern.BlockNumber
 		idlefile.Hash = filehash
 		idlefile.MinerAcc = n.GetStakingPublickey()
 		txhash, err = n.SubmitIdleFile(teepuk, []pattern.IdleFileMeta{idlefile})
 		if err != nil {
-			configs.Err(fmt.Sprintf("Submit idlefile metadata err: %v", err))
+			n.Space("err", fmt.Sprintf("Submit idlefile metadata err: %v", err.Error()))
 			if txhash != "" {
-				err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+				err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filehash)), []byte(fmt.Sprintf("%s", txhash)))
 				if err != nil {
-					n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+					n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 					continue
 				}
 			}
-			n.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
+			n.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filehash, txhash, err))
 			continue
 		}
-		configs.Ok(fmt.Sprintf("Submit idlefile metadata suc: %s", txhash))
+
+		n.Space("info", fmt.Sprintf("Submit idle file %s suc: %s", filehash, txhash))
 
 		blockheight, err = n.QueryBlockHeight(txhash)
 		if err != nil {
-			err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+			err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filehash)), []byte(fmt.Sprintf("%s", txhash)))
 			if err != nil {
-				n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+				n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 			}
 			continue
 		}
 
 		err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%d", blockheight)))
 		if err != nil {
-			n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+			n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 			continue
 		}
 
-		n.Space("info", fmt.Sprintf("Submit idlefile [%s] suc [%s]", filepath.Base(spacePath), txhash))
+		n.Space("info", fmt.Sprintf("Record idle file %s suc: %d", filehash, blockheight))
 	}
 }
 
-func (n *Node) requsetIdlefile() ([]byte, error) {
+func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	var err error
 	var teePeerId string
 	var id peer.ID
 
 	teelist, err := n.QueryTeeInfoList()
 	if err != nil {
-		return nil, err
+		return nil, teePeerId, err
 	}
-
+	utils.RandSlice(teelist)
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
-		return nil, err
+		return nil, teePeerId, err
 	}
 
 	for _, tee := range teelist {
 		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
 		configs.Tip(fmt.Sprintf("Query a tee: %s", teePeerId))
-		if n.Has(teePeerId) {
+		if n.HasTeePeer(teePeerId) {
 			id, err = peer.Decode(teePeerId)
 			if err != nil {
 				continue
 			}
+			n.Space("info", fmt.Sprintf("Will req tee: %s", teePeerId))
 			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
 			if err != nil {
 				continue
 			}
-			return tee.ControllerAccount[:], nil
+			return tee.ControllerAccount[:], teePeerId, nil
 		}
 	}
 
-	return nil, err
+	return nil, teePeerId, err
+}
+
+func (n *Node) getTeeSortedByTime() ([]pattern.TeeWorkerInfo, error) {
+	teelist, err := n.QueryTeeInfoList()
+	if err != nil {
+		return nil, err
+	}
+	var result = make([]pattern.TeeWorkerInfo, 0)
+	var newTee = make(map[string]int64, 0)
+	err = n.deepCopyPeers(&newTee, &n.TeePeer)
+	if err != nil {
+		return teelist, nil
+	}
+	var minTee string
+	var minTime int64 = math.MaxInt64
+	for len(newTee) > 1 {
+		for k, v := range newTee {
+			if minTime > v {
+				minTime = v
+				minTee = k
+			}
+		}
+		for _, v := range teelist {
+			if minTee == base58.Encode([]byte(string(v.PeerId[:]))) {
+				result = append(result, v)
+				break
+			}
+		}
+		delete(newTee, minTee)
+	}
+	return result, nil
 }
 
 // func generateSpace_8MB(dir string) (string, error) {

@@ -7,7 +7,7 @@
 
 package node
 
-const MaxReplaceFiles = 30
+const MaxReplaceFiles = 5
 
 const (
 	Active = iota

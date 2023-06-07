@@ -49,7 +49,7 @@ func Ok(msg string) {
 }
 
 func textTip() string {
-	return fmt.Sprintf("\x1b[0;%dm%s\x1b[0m", HiPurple, TipPrompt)
+	return fmt.Sprintf("\x1b[0;%dm%s\x1b[0m", HiGreen, TipPrompt)
 }
 
 func textInput() string {

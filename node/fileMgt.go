@@ -52,64 +52,47 @@ func (n *Node) fileMgt(ch chan<- bool) {
 		for _, v := range roothashs {
 			failfile = false
 			roothash = filepath.Base(v)
-			b, err := n.Get([]byte(Cach_prefix_report + roothash))
-			if err == nil {
-				t, err := strconv.ParseInt(string(b), 10, 64)
-				if err != nil {
-					n.Delete([]byte(Cach_prefix_report + roothash))
+			metadata, err = n.QueryFileMetadata(roothash)
+			if err != nil {
+				n.Report("err", err.Error())
+				if err.Error() != pattern.ERR_Empty {
 					continue
 				}
-				tnow := time.Now().Unix()
-				if tnow > t && (tnow-t) < int64(180) {
-					metadata, err = n.QueryFileMetadata(roothash)
+			} else {
+				if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
+					err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
 					if err != nil {
-						if err.Error() != pattern.ERR_Empty {
-							n.Report("err", err.Error())
-							continue
-						}
-					} else {
-						if metadata.State == Active {
-							err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-							if err != nil {
-								n.Report("err", err.Error())
-								continue
-							}
-							n.Delete([]byte(Cach_prefix_report + roothash))
-							n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
-						}
+						n.Report("err", err.Error())
 						continue
 					}
-					continue
+					n.Delete([]byte(Cach_prefix_report + roothash))
+					n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
 				}
+				continue
 			}
 
 			n.Report("info", fmt.Sprintf("Will report %s", roothash))
 
 			storageorder, err = n.QueryStorageOrder(roothash)
 			if err != nil {
+				n.Report("err", err.Error())
 				if err.Error() == pattern.ERR_Empty {
-					metadata, err = n.QueryFileMetadata(roothash)
-					if err != nil {
-						if err.Error() == pattern.ERR_Empty {
-							os.RemoveAll(v)
-							continue
-						}
-						n.Report("err", err.Error())
-						continue
-					}
-					if metadata.State == Active {
-						err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-						if err != nil {
-							n.Report("err", err.Error())
-							continue
-						}
-						n.Delete([]byte(Cach_prefix_report + roothash))
-						n.Put([]byte(Cach_prefix_metadata+roothash), nil)
+					// delete
+				}
+				continue
+			}
+
+			b, err := n.Get([]byte(Cach_prefix_report + roothash))
+			if err == nil {
+				count, err := strconv.ParseInt(string(b), 10, 64)
+				if err != nil {
+					n.Report("err", err.Error())
+				} else {
+					if count == int64(storageorder.Count) {
+						n.Report("info", fmt.Sprintf("Alreaey report: %s", roothash))
 						continue
 					}
 				}
-				n.Report("err", err.Error())
-				continue
 			}
 
 			var assignedFragmentHash = make([]string, 0)
@@ -137,22 +120,18 @@ func (n *Node) fileMgt(ch chan<- bool) {
 				continue
 			}
 
-			txhash, failed, err := n.ReportFiles([]string{roothash})
+			txhash, _, err := n.ReportFiles([]string{roothash})
 			if err != nil {
 				n.Report("err", err.Error())
 				continue
 			}
 
-			if failed == nil {
-				n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
-				err = n.Put([]byte(Cach_prefix_report+roothash), []byte(fmt.Sprintf("%v", time.Now().Unix())))
-				if err != nil {
-					n.Report("info", fmt.Sprintf("Report file [%s] suc, record failed: %v", roothash, err))
-				}
-				n.Report("info", fmt.Sprintf("Report file [%s] suc, record suc", roothash))
-				continue
+			n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
+			err = n.Put([]byte(Cach_prefix_report+roothash), []byte(fmt.Sprintf("%v", storageorder.Count)))
+			if err != nil {
+				n.Report("info", fmt.Sprintf("Report file [%s] suc, record failed: %v", roothash, err))
 			}
-			n.Report("err", fmt.Sprintf("Report file [%s] failed: %s", roothash, txhash))
+			n.Report("info", fmt.Sprintf("Report file [%s] suc, record suc", roothash))
 		}
 
 		// roothashs, err = utils.Dirs(filepath.Join(n.Workspace(), n.GetDirs().FileDir))
@@ -235,7 +214,7 @@ func (n *Node) calcFileTag() {
 			var id peer.ID
 			for _, t := range tees {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
-				if n.Has(teePeerId) {
+				if n.HasTeePeer(teePeerId) {
 					id, err = peer.Decode(teePeerId)
 					if err != nil {
 						continue
