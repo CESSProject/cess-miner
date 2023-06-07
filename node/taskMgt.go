@@ -23,7 +23,7 @@ func (n *Node) TaskMgt() {
 	go n.fileMgt(ch_fileMgt)
 	go n.replaceMgr(ch_replaceMgr)
 	go n.challengeMgt(ch_challengeMgt)
-	go n.subscribeMgt(ch_subscribeMgt)
+	// go n.subscribeMgt(ch_subscribeMgt)
 	// go n.restoreMgt(ch_restoreMgt)
 
 	for {

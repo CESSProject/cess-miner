@@ -61,7 +61,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 		txhash, _, err = n.ReplaceFile(files)
 		if err != nil {
 			n.Replace("err", err.Error())
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(time.Minute)
 			continue
 		}
 

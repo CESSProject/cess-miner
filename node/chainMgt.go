@@ -9,6 +9,8 @@ package node
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -36,8 +38,18 @@ func (n *Node) chainMgt(ch chan bool) {
 	tickListening := time.NewTicker(time.Second * 30)
 	defer tickListening.Stop()
 
+	memSt := &runtime.MemStats{}
+	tikProgram := time.NewTicker(time.Second * 3)
+	defer tikProgram.Stop()
+
 	for {
 		select {
+		case <-tikProgram.C:
+			runtime.ReadMemStats(memSt)
+			if memSt.HeapSys >= pattern.SIZE_1GiB*5 {
+				n.Log("err", fmt.Sprintf("%d", memSt.HeapSys))
+				os.Exit(1)
+			}
 		case <-tickListening.C:
 			ok, err = n.NetListening()
 			if !ok || err != nil {
@@ -48,13 +60,14 @@ func (n *Node) chainMgt(ch chan bool) {
 			configs.Tip(fmt.Sprintf("Received a service file tag: %s", filetag))
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
-			configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
+			//configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
+			configs.Tip(fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
-				configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
+				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
 				continue
 			} else {
-				configs.Ok(fmt.Sprintf("Connect to %s", peerid))
+				configs.Ok(fmt.Sprintf("Connected to %s", peerid))
 			}
 
 			for _, v := range discoverPeer.Addrs {
@@ -67,11 +80,11 @@ func (n *Node) chainMgt(ch chan bool) {
 						}
 						multiaddr = fmt.Sprintf("%s/p2p/%s", addr, peerid)
 						_, err = n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
-						if err != nil {
-							configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
-						} else {
-							configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
-						}
+						// if err != nil {
+						// 	configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
+						// } else {
+						// 	configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
+						// }
 						break
 					}
 				}

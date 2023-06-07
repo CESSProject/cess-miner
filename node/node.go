@@ -104,8 +104,8 @@ func (n *Node) HasStoragePeer(peerid string) bool {
 }
 
 func (n *Node) deepCopyPeers(dst, src interface{}) error {
-	n.TeePeerLock.RLock()
-	defer n.TeePeerLock.RUnlock()
+	n.TeePeerLock.Lock()
+	defer n.TeePeerLock.Unlock()
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
 		return err

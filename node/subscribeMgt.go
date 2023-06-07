@@ -105,6 +105,8 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 	var blockheight uint32
 	var startBlock uint32 = block
 	var storageNode pattern.MinerInfo
+	var blockhash types.Hash
+	var h *types.StorageDataRaw
 	var events = event.EventRecords{}
 	for {
 		blockheight, err = n.QueryBlockHeight("")
@@ -115,12 +117,12 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 			return startBlock, nil
 		}
 		for i := startBlock; i <= blockheight; i++ {
-			blockhash, err := n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(i))
+			blockhash, err = n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(i))
 			if err != nil {
 				return startBlock, errors.Wrapf(err, "[GetBlockHash]")
 			}
 
-			h, err := n.GetSubstrateAPI().RPC.State.GetStorageRaw(n.GetKeyEvents(), blockhash)
+			h, err = n.GetSubstrateAPI().RPC.State.GetStorageRaw(n.GetKeyEvents(), blockhash)
 			if err != nil {
 				return startBlock, errors.Wrapf(err, "[GetStorageRaw]")
 			}

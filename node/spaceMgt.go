@@ -8,6 +8,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,8 +48,9 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	defer timeout.Stop()
 
 	for {
-		if n.Key != nil && n.Key.Spk.N != nil {
-			time.Sleep(pattern.BlockInterval)
+		if n.Key == nil || n.Key.Spk.N == nil {
+			n.Space("err", "Not found key")
+			time.Sleep(pattern.BlockInterval * 5)
 		}
 
 		teepuk, peerid, err = n.requsetIdlefile()
@@ -56,6 +58,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			n.Space("err", err.Error())
 			continue
 		}
+
 		tSatrt = time.Now().Unix()
 
 		n.Space("info", fmt.Sprintf("Requset a idle file to: %s", peerid))
@@ -64,11 +67,11 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		tagPath = ""
 
 		timeout.Reset(time.Duration(time.Minute * 2))
-		for {
+		for err == nil {
 			select {
 			case <-timeout.C:
 				n.Space("err", fmt.Sprintf("Requset timeout: %s", peerid))
-				break
+				err = errors.New("timeout")
 			case spacePath = <-n.GetIdleDataCh():
 			case tagPath = <-n.GetIdleTagCh():
 			}
@@ -143,11 +146,11 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	var teePeerId string
 	var id peer.ID
 
-	teelist, err := n.getTeeSortedByTime()
+	teelist, err := n.QueryTeeInfoList()
 	if err != nil {
 		return nil, teePeerId, err
 	}
-
+	utils.RandSlice(teelist)
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		return nil, teePeerId, err
@@ -161,6 +164,7 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 			if err != nil {
 				continue
 			}
+			n.Space("info", fmt.Sprintf("Will req tee: %s", teePeerId))
 			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
 			if err != nil {
 				continue
