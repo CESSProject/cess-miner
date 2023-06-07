@@ -28,6 +28,7 @@ type Logger interface {
 	Report(level string, msg string)
 	Replace(level string, msg string)
 	Chal(level string, msg string)
+	Subscribe(level string, msg string)
 }
 
 type logs struct {
@@ -126,6 +127,19 @@ func (l *logs) Replace(level string, msg string) {
 func (l *logs) Chal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["challenge"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+		}
+	}
+}
+
+func (l *logs) Subscribe(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["subscribe"]
 	if ok {
 		switch level {
 		case "info":

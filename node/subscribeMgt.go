@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58/base58"
+	"github.com/pkg/errors"
 )
 
 func (n *Node) subscribeMgt(ch chan<- bool) {
@@ -26,6 +27,8 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	n.Subscribe("info", ">>>>> Start subscribeMgt task")
 
 	var err error
 	var startBlock uint32
@@ -39,31 +42,35 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 		if err == nil {
 			break
 		}
+		n.Subscribe("err", err.Error())
 		time.Sleep(pattern.BlockInterval)
 	}
 	for {
 		if n.GetChainState() {
 			sub, err := n.GetSubstrateAPI().RPC.Chain.SubscribeNewHeads()
 			if err != nil {
+				n.Subscribe("err", fmt.Sprintf("[SubscribeNewHeads] %v", err.Error()))
 				time.Sleep(pattern.BlockInterval)
 				continue
 			}
 			defer sub.Unsubscribe()
 			for {
 				head := <-sub.Chan()
-				fmt.Printf("Chain is at block: #%v\n", head.Number)
 				blockhash, err := n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(head.Number))
 				if err != nil {
+					n.Subscribe("err", fmt.Sprintf("[GetBlockHash] %v", err.Error()))
 					continue
 				}
 
 				h, err := n.GetSubstrateAPI().RPC.State.GetStorageRaw(n.GetKeyEvents(), blockhash)
 				if err != nil {
+					n.Subscribe("err", fmt.Sprintf("[GetStorageRaw] %v", err.Error()))
 					continue
 				}
 
 				err = types.EventRecordsRaw(*h).DecodeEventRecords(n.GetMetadata(), &events)
 				if err != nil {
+					n.Subscribe("err", fmt.Sprintf("[DecodeEventRecords] %v", err.Error()))
 					continue
 				}
 
@@ -71,12 +78,14 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 				for _, v := range events.Sminer_Registered {
 					storageNode, err = n.QueryStorageMiner(v.Acc[:])
 					if err != nil {
+						n.Subscribe("err", fmt.Sprintf("[QueryStorageMiner] %v", err.Error()))
 						continue
 					}
 					stakingAcc, _ = utils.EncodeToCESSAddr(v.Acc[:])
 					peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
 					n.SaveStoragePeer(peerid, stakingAcc)
 					configs.Tip(fmt.Sprintf("Record a storage node: %s", peerid))
+					n.Subscribe("info", fmt.Sprintf("Record a storage node: %s", peerid))
 				}
 
 				// for _, v := range events.TeeWorker_RegistrationTeeWorker {
@@ -100,7 +109,7 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 	for {
 		blockheight, err = n.QueryBlockHeight("")
 		if err != nil {
-			return startBlock, err
+			return startBlock, errors.Wrapf(err, "[QueryBlockHeight]")
 		}
 		if startBlock >= blockheight {
 			return startBlock, nil
@@ -108,23 +117,23 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 		for i := startBlock; i <= blockheight; i++ {
 			blockhash, err := n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(i))
 			if err != nil {
-				return startBlock, err
+				return startBlock, errors.Wrapf(err, "[GetBlockHash]")
 			}
 
 			h, err := n.GetSubstrateAPI().RPC.State.GetStorageRaw(n.GetKeyEvents(), blockhash)
 			if err != nil {
-				return startBlock, err
+				return startBlock, errors.Wrapf(err, "[GetStorageRaw]")
 			}
 
 			err = types.EventRecordsRaw(*h).DecodeEventRecords(n.GetMetadata(), &events)
 			if err != nil {
-				return startBlock, err
+				return startBlock, errors.Wrapf(err, "[DecodeEventRecords]")
 			}
 
 			for _, v := range events.Sminer_Registered {
 				storageNode, err = n.QueryStorageMiner(v.Acc[:])
 				if err != nil {
-					return startBlock, err
+					return startBlock, errors.Wrapf(err, "[QueryStorageMiner]")
 				}
 				stakingAcc, _ = utils.EncodeToCESSAddr(v.Acc[:])
 				peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
@@ -132,11 +141,11 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 				configs.Tip(fmt.Sprintf("Record a storage node: %s", peerid))
 			}
 
-			for _, v := range events.TeeWorker_RegistrationScheduler {
-				peerid = base58.Encode([]byte(string(v.Ip[:])))
-				n.SaveTeePeer(peerid, 0)
-				configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
-			}
+			// for _, v := range events.TeeWorker_RegistrationScheduler {
+			// 	peerid = base58.Encode([]byte(string(v.Ip[:])))
+			// 	n.SaveTeePeer(peerid, 0)
+			// 	configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
+			// }
 			startBlock = i
 		}
 		startBlock = blockheight
