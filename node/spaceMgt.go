@@ -47,8 +47,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	defer timeout.Stop()
 
 	for {
-		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
-			time.Sleep(time.Minute)
+		if n.Key != nil && n.Key.Spk.N != nil {
+			time.Sleep(pattern.BlockInterval)
 		}
 
 		teepuk, peerid, err = n.requsetIdlefile()
@@ -58,6 +58,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		}
 		tSatrt = time.Now().Unix()
 
+		n.Space("info", fmt.Sprintf("Requset a idle file to: %s", peerid))
+
 		spacePath = ""
 		tagPath = ""
 
@@ -65,6 +67,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		for {
 			select {
 			case <-timeout.C:
+				n.Space("err", fmt.Sprintf("Requset timeout: %s", peerid))
 				break
 			case spacePath = <-n.GetIdleDataCh():
 			case tagPath = <-n.GetIdleTagCh():
@@ -76,15 +79,13 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		}
 
 		if tagPath == "" || spacePath == "" {
-			n.Space("err", spacePath)
-			n.Space("err", tagPath)
 			continue
 		}
 
 		n.SaveAndUpdateTeePeer(peerid, time.Now().Unix()-tSatrt)
 
-		configs.Tip(fmt.Sprintf("Receive a tag: %s", tagPath))
-		configs.Tip(fmt.Sprintf("Receive a idlefile: %s", spacePath))
+		n.Space("info", fmt.Sprintf("Receive a idle file tag: %s", tagPath))
+		n.Space("info", fmt.Sprintf("Receive a idle file: %s", spacePath))
 
 		filehash, err = utils.CalcPathSHA256(spacePath)
 		if err != nil {
@@ -97,40 +98,43 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
 		os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
 
+		n.Space("info", fmt.Sprintf("Idle file %s hash: %s", spacePath, filehash))
+
 		idlefile.BlockNum = pattern.BlockNumber
 		idlefile.Hash = filehash
 		idlefile.MinerAcc = n.GetStakingPublickey()
 		txhash, err = n.SubmitIdleFile(teepuk, []pattern.IdleFileMeta{idlefile})
 		if err != nil {
-			configs.Err(fmt.Sprintf("Submit idlefile metadata err: %v", err))
+			n.Space("err", fmt.Sprintf("Submit idlefile metadata err: %v", err.Error()))
 			if txhash != "" {
-				err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+				err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filehash)), []byte(fmt.Sprintf("%s", txhash)))
 				if err != nil {
-					n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+					n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 					continue
 				}
 			}
-			n.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filepath.Base(spacePath), txhash, err))
+			n.Space("err", fmt.Sprintf("Submit idlefile [%s] err [%s] %v", filehash, txhash, err))
 			continue
 		}
-		configs.Ok(fmt.Sprintf("Submit idlefile metadata suc: %s", txhash))
+
+		n.Space("info", fmt.Sprintf("Submit idle file %s suc: %s", filehash, txhash))
 
 		blockheight, err = n.QueryBlockHeight(txhash)
 		if err != nil {
-			err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%s", txhash)))
+			err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filehash)), []byte(fmt.Sprintf("%s", txhash)))
 			if err != nil {
-				n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+				n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 			}
 			continue
 		}
 
 		err = n.Put([]byte(fmt.Sprintf("%s%s", Cach_prefix_idle, filepath.Base(spacePath))), []byte(fmt.Sprintf("%d", blockheight)))
 		if err != nil {
-			n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filepath.Base(spacePath), err))
+			n.Space("err", fmt.Sprintf("Record idlefile [%s] failed [%v]", filehash, err))
 			continue
 		}
 
-		n.Space("info", fmt.Sprintf("Submit idlefile [%s] suc [%s]", filepath.Base(spacePath), txhash))
+		n.Space("info", fmt.Sprintf("Record idle file %s suc: %d", filehash, blockheight))
 	}
 }
 

@@ -34,13 +34,11 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	n.Replace("info", ">>>>> Start replaceMgr task")
 
 	for {
-		if err != nil && n.Key != nil && n.Key.Spk.N != nil {
-			time.Sleep(time.Minute)
-		}
-
 		count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
 		if err != nil {
-			n.Replace("err", err.Error())
+			if err.Error() != pattern.ERR_Empty {
+				n.Replace("err", err.Error())
+			}
 			time.Sleep(time.Minute)
 			continue
 		}
