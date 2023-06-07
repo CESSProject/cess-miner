@@ -235,7 +235,7 @@ func (n *Node) calcFileTag() {
 			var id peer.ID
 			for _, t := range tees {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
-				if n.Has(teePeerId) {
+				if n.HasTeePeer(teePeerId) {
 					id, err = peer.Decode(teePeerId)
 					if err != nil {
 						continue

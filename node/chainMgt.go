@@ -14,7 +14,9 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/mr-tron/base58"
 )
 
 func (n *Node) chainMgt(ch chan bool) {
@@ -25,14 +27,18 @@ func (n *Node) chainMgt(ch chan bool) {
 		}
 	}()
 	var ok bool
-	var loopback bool
 	var err error
 	var peerid string
 	var addr string
-	tick := time.NewTicker(time.Second * 30)
+	var multiaddr string
+	var teeList []pattern.TeeWorkerInfo
+
+	tickListening := time.NewTicker(time.Second * 30)
+	defer tickListening.Stop()
+
 	for {
 		select {
-		case <-tick.C:
+		case <-tickListening.C:
 			ok, err = n.NetListening()
 			if !ok || err != nil {
 				n.SetChainState(false)
@@ -45,35 +51,52 @@ func (n *Node) chainMgt(ch chan bool) {
 			configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
-				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
+				configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
 				continue
 			} else {
 				configs.Ok(fmt.Sprintf("Connect to %s", peerid))
 			}
-			n.PutPeer(peerid)
+
 			for _, v := range discoverPeer.Addrs {
-				loopback = false
 				addr = v.String()
 				temp := strings.Split(addr, "/")
 				for _, vv := range temp {
 					if sutils.IsIPv4(vv) {
 						if vv[len(vv)-1] == byte(49) && vv[len(vv)-3] == byte(48) {
-							loopback = true
-							break
+							continue
 						}
+						multiaddr = fmt.Sprintf("%s/p2p/%s", addr, peerid)
+						_, err = n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
+						if err != nil {
+							configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
+						} else {
+							configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
+						}
+						break
 					}
 				}
+			}
 
-				if loopback {
-					continue
+			if n.HasStoragePeer(peerid) {
+				continue
+			}
+			if n.HasTeePeer(peerid) {
+				continue
+			}
+			teeList, err = n.QueryTeeInfoList()
+			if err != nil {
+				continue
+			}
+			for _, v := range teeList {
+				if peerid == base58.Encode([]byte(string(v.PeerId[:]))) {
+					n.SaveTeePeer(peerid, 0)
+					configs.Tip(fmt.Sprintf("Save a tee peer: %s", peerid))
+					break
 				}
-
-				_, _ = n.AddMultiaddrToPeerstore(fmt.Sprintf("%s/p2p/%s", addr, peerid), time.Hour)
-				// if err != nil {
-				// 	configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
-				// } else {
-				// 	configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
-				// }
+			}
+			if !n.HasTeePeer(peerid) {
+				n.SaveStoragePeer(peerid, "")
+				configs.Tip(fmt.Sprintf("Save a storage peer: %s", peerid))
 			}
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
@@ -34,8 +35,10 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var tagPath string
 	var txhash string
 	var filehash string
+	var peerid string
 	var blockheight uint32
 	var teepuk []byte
+	var tSatrt int64
 	var idlefile pattern.IdleFileMeta
 
 	n.Space("info", ">>>>> Start spaceMgt task")
@@ -48,11 +51,12 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			time.Sleep(time.Minute)
 		}
 
-		teepuk, err = n.requsetIdlefile()
+		teepuk, peerid, err = n.requsetIdlefile()
 		if err != nil {
 			n.Space("err", err.Error())
 			continue
 		}
+		tSatrt = time.Now().Unix()
 
 		spacePath = ""
 		tagPath = ""
@@ -71,14 +75,16 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			}
 		}
 
-		configs.Tip(fmt.Sprintf("Receive a tag: %s", tagPath))
-		configs.Tip(fmt.Sprintf("Receive a idlefile: %s", spacePath))
-
 		if tagPath == "" || spacePath == "" {
 			n.Space("err", spacePath)
 			n.Space("err", tagPath)
 			continue
 		}
+
+		n.SaveAndUpdateTeePeer(peerid, time.Now().Unix()-tSatrt)
+
+		configs.Tip(fmt.Sprintf("Receive a tag: %s", tagPath))
+		configs.Tip(fmt.Sprintf("Receive a idlefile: %s", spacePath))
 
 		filehash, err = utils.CalcPathSHA256(spacePath)
 		if err != nil {
@@ -128,25 +134,25 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) requsetIdlefile() ([]byte, error) {
+func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	var err error
 	var teePeerId string
 	var id peer.ID
 
-	teelist, err := n.QueryTeeInfoList()
+	teelist, err := n.getTeeSortedByTime()
 	if err != nil {
-		return nil, err
+		return nil, teePeerId, err
 	}
 
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
-		return nil, err
+		return nil, teePeerId, err
 	}
 
 	for _, tee := range teelist {
 		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
 		configs.Tip(fmt.Sprintf("Query a tee: %s", teePeerId))
-		if n.Has(teePeerId) {
+		if n.HasTeePeer(teePeerId) {
 			id, err = peer.Decode(teePeerId)
 			if err != nil {
 				continue
@@ -155,11 +161,42 @@ func (n *Node) requsetIdlefile() ([]byte, error) {
 			if err != nil {
 				continue
 			}
-			return tee.ControllerAccount[:], nil
+			return tee.ControllerAccount[:], teePeerId, nil
 		}
 	}
 
-	return nil, err
+	return nil, teePeerId, err
+}
+
+func (n *Node) getTeeSortedByTime() ([]pattern.TeeWorkerInfo, error) {
+	teelist, err := n.QueryTeeInfoList()
+	if err != nil {
+		return nil, err
+	}
+	var result = make([]pattern.TeeWorkerInfo, 0)
+	var newTee = make(map[string]int64, 0)
+	err = n.deepCopyPeers(&newTee, &n.TeePeer)
+	if err != nil {
+		return teelist, nil
+	}
+	var minTee string
+	var minTime int64 = math.MaxInt64
+	for len(newTee) > 1 {
+		for k, v := range newTee {
+			if minTime > v {
+				minTime = v
+				minTee = k
+			}
+		}
+		for _, v := range teelist {
+			if minTee == base58.Encode([]byte(string(v.PeerId[:]))) {
+				result = append(result, v)
+				break
+			}
+		}
+		delete(newTee, minTee)
+	}
+	return result, nil
 }
 
 // func generateSpace_8MB(dir string) (string, error) {

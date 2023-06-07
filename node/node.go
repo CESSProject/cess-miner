@@ -8,6 +8,8 @@
 package node
 
 import (
+	"bytes"
+	"encoding/gob"
 	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -29,17 +31,21 @@ type Node struct {
 	cache.Cache
 	sdk.SDK
 	core.P2P
-	Key   *proof.RSAKeyPair
-	Lock  *sync.RWMutex
-	Peers map[string]struct{}
+	Key             *proof.RSAKeyPair
+	TeePeerLock     *sync.RWMutex
+	StoragePeerLock *sync.RWMutex
+	TeePeer         map[string]int64
+	StoragePeer     map[string]string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		Key:   proof.NewKey(),
-		Lock:  new(sync.RWMutex),
-		Peers: make(map[string]struct{}, 10),
+		Key:             proof.NewKey(),
+		TeePeerLock:     new(sync.RWMutex),
+		StoragePeerLock: new(sync.RWMutex),
+		TeePeer:         make(map[string]int64, 10),
+		StoragePeer:     make(map[string]string, 10),
 	}
 }
 
@@ -49,29 +55,60 @@ func (n *Node) Run() {
 	select {}
 }
 
-func (n *Node) PutPeer(peerid string) {
-	n.Lock.Lock()
-	if _, ok := n.Peers[peerid]; !ok {
-		n.Peers[peerid] = struct{}{}
+func (n *Node) SaveTeePeer(peerid string, value int64) {
+	n.TeePeerLock.Lock()
+	defer n.TeePeerLock.Unlock()
+	if _, ok := n.TeePeer[peerid]; !ok {
+		n.TeePeer[peerid] = value
 	}
-	n.Lock.Unlock()
 }
 
-func (n *Node) Has(peerid string) bool {
-	n.Lock.RLock()
-	_, ok := n.Peers[peerid]
-	n.Lock.RUnlock()
+func (n *Node) SaveAndUpdateTeePeer(peerid string, value int64) {
+	n.TeePeerLock.Lock()
+	defer n.TeePeerLock.Unlock()
+	n.TeePeer[peerid] = value
+}
+
+func (n *Node) HasTeePeer(peerid string) bool {
+	n.TeePeerLock.RLock()
+	defer n.TeePeerLock.RUnlock()
+	_, ok := n.TeePeer[peerid]
 	return ok
 }
 
-func (n *Node) GetAllPeer() []string {
-	n.Lock.RLock()
-	defer n.Lock.RUnlock()
-	var result = make([]string, len(n.Peers))
+func (n *Node) GetAllTeePeerId() []string {
+	n.TeePeerLock.RLock()
+	defer n.TeePeerLock.RUnlock()
+	var result = make([]string, len(n.TeePeer))
 	var i int
-	for k, _ := range n.Peers {
+	for k, _ := range n.TeePeer {
 		result[i] = k
 		i++
 	}
 	return result
+}
+
+func (n *Node) SaveStoragePeer(peerid string, stakingAcc string) {
+	n.StoragePeerLock.Lock()
+	defer n.StoragePeerLock.Unlock()
+	if _, ok := n.StoragePeer[peerid]; !ok {
+		n.StoragePeer[peerid] = stakingAcc
+	}
+}
+
+func (n *Node) HasStoragePeer(peerid string) bool {
+	n.StoragePeerLock.RLock()
+	defer n.StoragePeerLock.RUnlock()
+	_, ok := n.StoragePeer[peerid]
+	return ok
+}
+
+func (n *Node) deepCopyPeers(dst, src interface{}) error {
+	n.TeePeerLock.RLock()
+	defer n.TeePeerLock.RUnlock()
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
+		return err
+	}
+	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }

@@ -84,7 +84,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				if err != nil {
 					continue
 				}
-				n.PutPeer(addrInfo.ID.Pretty())
+				n.SaveTeePeer(addrInfo.ID.Pretty(), 0)
 			}
 		}
 	}
