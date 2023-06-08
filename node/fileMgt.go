@@ -166,18 +166,22 @@ func (n *Node) calcFileTag() {
 		n.Report("err", err.Error())
 		return
 	}
-
+	n.Report("info", fmt.Sprintf("Service files: %s", roothashs))
 	for _, f := range roothashs {
 		roothash = filepath.Base(f)
+		n.Report("info", fmt.Sprintf("Service file: %s", roothash))
 		files, err := utils.DirFiles(filepath.Join(n.GetDirs().FileDir, roothash), 0)
 		if err != nil {
+			n.Report("err", fmt.Sprintf("[DirFiles] %v", err))
 			continue
 		}
+
 		for _, f := range files {
-			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, roothash+".tag")
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")
+			n.Report("info", fmt.Sprintf("Service file tag: %s", serviceTagPath))
 			_, err = os.Stat(serviceTagPath)
 			if err == nil {
-				n.Report("err", fmt.Sprintf("Service tag not found: %s", serviceTagPath))
+				n.Report("err", fmt.Sprintf("Found a service tag: %s", serviceTagPath))
 				continue
 			}
 
@@ -211,6 +215,7 @@ func (n *Node) calcFileTag() {
 				}
 			}
 
+			utils.RandSlice(tees)
 			var id peer.ID
 			for _, t := range tees {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
@@ -220,16 +225,16 @@ func (n *Node) calcFileTag() {
 						continue
 					}
 				}
-
+				n.Report("info", fmt.Sprintf("Send file tag request to tee: %s", teePeerId))
 				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
-				if err != nil {
-					fmt.Println("Tag req err:", err)
-				}
-				if code != 0 {
+				if err != nil || code != 0 {
+					n.Report("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue
 				}
+				n.Report("info", fmt.Sprintf("Send file tag file request to tee: %s", teePeerId))
 				code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
-				if err != nil {
+				if err != nil || code != 0 {
+					n.Report("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
 					continue
 				}
 				break
