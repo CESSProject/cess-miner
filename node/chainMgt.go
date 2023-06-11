@@ -59,8 +59,6 @@ func (n *Node) chainMgt(ch chan bool) {
 					configs.Err(pattern.ERR_RPC_CONNECTION.Error())
 				}
 			}
-		case filetag := <-n.GetServiceTagCh():
-			configs.Tip(fmt.Sprintf("Received a service file tag: %s", filetag))
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
 			//configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))

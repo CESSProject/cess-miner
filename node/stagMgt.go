@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
@@ -29,6 +30,7 @@ func (n *Node) stagMgt(ch chan bool) {
 
 	for {
 		n.calcFileTag()
+		time.Sleep(pattern.BlockInterval)
 	}
 
 }
@@ -38,36 +40,39 @@ func (n *Node) calcFileTag() {
 	var code uint32
 	tees, err := n.QueryTeeInfoList()
 	if err != nil {
-		n.Report("err", err.Error())
+		n.Stag("err", err.Error())
 		return
 	}
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
-		n.Report("err", err.Error())
+		n.Stag("err", err.Error())
 		return
 	}
-	n.Report("info", fmt.Sprintf("Service files: %s", roothashs))
+	timeout := time.NewTicker(time.Minute * 2)
+	defer timeout.Stop()
+
+	n.Stag("info", fmt.Sprintf("Service files: %s", roothashs))
 	for _, f := range roothashs {
 		roothash = filepath.Base(f)
-		n.Report("info", fmt.Sprintf("Service file: %s", roothash))
+		n.Stag("info", fmt.Sprintf("Service file: %s", roothash))
 		files, err := utils.DirFiles(filepath.Join(n.GetDirs().FileDir, roothash), 0)
 		if err != nil {
-			n.Report("err", fmt.Sprintf("[DirFiles] %v", err))
+			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
 			continue
 		}
 
 		for _, f := range files {
 			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")
-			n.Report("info", fmt.Sprintf("Service file tag: %s", serviceTagPath))
+			n.Stag("info", fmt.Sprintf("Service file tag: %s", serviceTagPath))
 			_, err = os.Stat(serviceTagPath)
 			if err == nil {
-				n.Report("err", fmt.Sprintf("Found a service tag: %s", serviceTagPath))
+				n.Stag("err", fmt.Sprintf("Found a service tag: %s", serviceTagPath))
 				continue
 			}
 
 			finfo, err := os.Stat(f)
 			if err != nil {
-				n.Report("err", fmt.Sprintf("Service file not found: %s", f))
+				n.Stag("err", fmt.Sprintf("Service file not found: %s", f))
 				continue
 			}
 			if finfo.Size() > pattern.FragmentSize {
@@ -105,17 +110,24 @@ func (n *Node) calcFileTag() {
 						continue
 					}
 				}
-				n.Report("info", fmt.Sprintf("Send file tag request to tee: %s", teePeerId))
+				n.Stag("info", fmt.Sprintf("Send file tag request to tee: %s", teePeerId))
 				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
 				if err != nil || code != 0 {
-					n.Report("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
+					n.Stag("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue
 				}
-				n.Report("info", fmt.Sprintf("Send file tag file request to tee: %s", teePeerId))
+				n.Stag("info", fmt.Sprintf("Send file tag file request to tee: %s", teePeerId))
 				code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil || code != 0 {
-					n.Report("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
+					n.Stag("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
 					continue
+				}
+				timeout.Reset(time.Minute * 2)
+				select {
+				case <-timeout.C:
+					n.Stag("err", fmt.Sprintf("Waiting for service file tag timeout: %s", f))
+				case filetag := <-n.GetServiceTagCh():
+					n.Stag("info", fmt.Sprintf("Received a service file tag: %s", filetag))
 				}
 				break
 			}
