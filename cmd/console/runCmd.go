@@ -109,11 +109,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.GetUseSpace() / (pattern.SIZE_1GiB * 1024)
-	if n.GetUseSpace()%(pattern.SIZE_1GiB*1024) != 0 {
+	token := n.GetUseSpace() / 1024
+	if n.GetUseSpace()%1024 != 0 {
 		token += 1
 	}
-	token *= 1000
+	token *= 2000
 
 	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
