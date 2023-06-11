@@ -12,8 +12,6 @@ import (
 	"crypto/x509"
 )
 
-var key RSAKeyPair
-
 func NewKey() *RSAKeyPair {
 	return &RSAKeyPair{
 		Spk: new(rsa.PublicKey),

@@ -52,5 +52,6 @@ var LogFiles = []string{
 	"report",
 	"replace",
 	"challenge",
+	"stag",
 	"subscribe",
 }

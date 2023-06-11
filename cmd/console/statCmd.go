@@ -17,7 +17,9 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/config"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -63,10 +65,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"role", n.GetRoleName()},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
-		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
-		{"validated space", fmt.Sprintf("%v bytes", minerInfo.IdleSpace)},
-		{"used space", fmt.Sprintf("%v bytes", minerInfo.ServiceSpace)},
-		{"locked space", fmt.Sprintf("%v bytes", minerInfo.LockSpace)},
+		{"staking amount", fmt.Sprintf("%v TCESS", minerInfo.Collaterals)},
+		{"validated space", fmt.Sprintf("%s", unitConversion(minerInfo.IdleSpace))},
+		{"used space", fmt.Sprintf("%s", unitConversion(minerInfo.ServiceSpace))},
+		{"locked space", fmt.Sprintf("%s", unitConversion(minerInfo.LockSpace))},
 		{"staking account", n.GetStakingAcc()},
 		{"earnings account", beneficiaryAcc},
 	}
@@ -74,4 +76,41 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	tw.AppendRows(tableRows)
 	fmt.Println(tw.Render())
 	os.Exit(0)
+}
+
+func unitConversion(value types.U128) string {
+	var result string
+	if value.IsUint64() {
+		v := value.Uint64()
+		if v >= (pattern.SIZE_1GiB * 1024 * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f EiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024*1024*1024)))
+			return result
+		}
+		if v >= (pattern.SIZE_1GiB * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f PiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024*1024)))
+			return result
+		}
+		if v >= (pattern.SIZE_1GiB * 1024) {
+			result = fmt.Sprintf("%.2f TiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024)))
+			return result
+		}
+		if v >= (pattern.SIZE_1GiB) {
+			result = fmt.Sprintf("%.2f GiB", float64(float64(v)/float64(pattern.SIZE_1GiB)))
+			return result
+		}
+		if v >= (pattern.SIZE_1MiB) {
+			result = fmt.Sprintf("%.2f MiB", float64(float64(v)/float64(pattern.SIZE_1MiB)))
+			return result
+		}
+		if v >= (pattern.SIZE_1KiB) {
+			result = fmt.Sprintf("%.2f KiB", float64(float64(v)/float64(pattern.SIZE_1KiB)))
+			return result
+		}
+		result = fmt.Sprintf("%v Bytes", v)
+		return result
+	}
+	v := new(big.Int).SetBytes(value.Bytes())
+	v.Quo(v, new(big.Int).SetUint64((pattern.SIZE_1GiB * 1024 * 1024 * 1024)))
+	result = fmt.Sprintf("%v EiB", v)
+	return result
 }
