@@ -47,7 +47,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	defer timeout.Stop()
 
 	for {
-		for n.GetChainState() && n.key != nil {
+		for n.GetChainState() {
 
 			teepuk, peerid, err = n.requsetIdlefile()
 			if err != nil {
