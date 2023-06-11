@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -24,6 +23,7 @@ import (
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 // challengeMgr
@@ -49,126 +49,151 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
+
+		err = n.key.SetPublickey(pubkey)
+		if err != nil {
+			configs.Err(fmt.Sprintf("[SetPublickey] %v", err))
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
 		configs.Ok("Initialize key successfully")
-		n.Key.SetPublickey(pubkey)
+		n.Chal("info", "Initialize key successfully")
 		break
 	}
 
 	for {
-		time.Sleep(pattern.BlockInterval)
-		chal, err := n.QueryChallenge(n.GetStakingPublickey())
-		if err != nil {
-			_, err = n.Get([]byte(Cach_AggrProof_Transfered))
-			if err != nil {
-				chalshort, err := n.QueryChallengeSt()
+		for n.GetChainState() {
+			time.Sleep(pattern.BlockInterval * 5)
+			chal, err := n.QueryChallenge(n.GetStakingPublickey())
+			if err != nil || chal.Start == uint32(0) {
+				n.Chal("info", fmt.Sprintf("Did not find your own challenge information: %v", err))
+				_, err = n.Get([]byte(Cach_AggrProof_Transfered))
 				if err != nil {
-					n.Chal("err", fmt.Sprintf("[QueryChallengeSt] %v", err))
-					time.Sleep(pattern.BlockInterval)
-					continue
-				}
-				idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
-				serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
-				err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
-				if err != nil {
-					n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
-					continue
-				}
-				err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
-				if err != nil {
-					n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
-				}
-			}
-			time.Sleep(time.Minute)
-			continue
-		}
-
-		if chal.Start == uint32(0) {
-			time.Sleep(time.Minute)
-			continue
-		}
-
-		n.Chal("info", fmt.Sprintf("Challenge start: %v", chal.Start))
-		n.Chal("info", fmt.Sprintf("Challenge randomindex: %v random length: %v", len(chal.RandomIndexList), len(chal.Random)))
-
-		buf, err := n.Get([]byte(Cach_AggrProof_Reported))
-		if err == nil {
-			block, err := strconv.Atoi(string(buf))
-			if err == nil {
-				if uint32(block) == chal.Start {
-					n.Chal("info", fmt.Sprintf("Already submited proof: %v", chal.Start))
-					buf, err = n.Get([]byte(Cach_AggrProof_Transfered))
+					err = n.reportProof()
 					if err != nil {
-						idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
-						serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
-						err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
-						if err != nil {
-							n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
-							continue
-						}
-						err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
-						if err != nil {
-							n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
-						}
+						n.Chal("err", err.Error())
 					}
-					n.Chal("info", fmt.Sprintf("Already transfered proof: %v", chal.Start))
-					time.Sleep(time.Minute)
 					continue
 				}
-			}
-		}
-
-		err = n.saveRandom(chal)
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("saveRandom [%d] err: %v", chal.Start, err))
-		}
-
-		idleSiama, qslice, err = n.idleAggrProof(chal.RandomIndexList, chal.Random, chal.Start)
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("[idleAggrProof] %v", err))
-			continue
-		}
-
-		serviceSigma, err = n.serviceAggrProof(qslice, chal.Start)
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("[serviceAggrProof] %v", err))
-			continue
-		}
-
-		n.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
-		n.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
-
-		// report proof
-		txhash, err = n.ReportProof(idleSiama, serviceSigma)
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("[ReportProof] %v", err))
-			continue
-		}
-
-		n.Chal("info", fmt.Sprintf("Submit proof suc: %v", txhash))
-
-		err = n.Put([]byte(Cach_AggrProof_Reported), []byte(fmt.Sprintf("%v", chal.Start)))
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
-		}
-
-		time.Sleep(pattern.BlockInterval)
-
-		for {
-			idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
-			serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
-			err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
-			if err != nil {
-				n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
-				time.Sleep(time.Second * 30)
+				n.Chal("info", "Proof was transmitted")
+				time.Sleep(time.Minute)
 				continue
 			}
-			break
+
+			n.Chal("info", fmt.Sprintf("Challenge start: %v", chal.Start))
+
+			// buf, err := n.Get([]byte(Cach_AggrProof_Reported))
+			// if err == nil {
+			// 	block, err := strconv.Atoi(string(buf))
+			// 	if err == nil {
+			// 		if uint32(block) == chal.Start {
+			// 			n.Chal("info", fmt.Sprintf("Already submited proof: %v", chal.Start))
+			// 			buf, err = n.Get([]byte(Cach_AggrProof_Transfered))
+			// 			if err != nil {
+			// 				idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+			// 				serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+			// 				err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
+			// 				if err != nil {
+			// 					n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
+			// 					continue
+			// 				}
+			// 				err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
+			// 				if err != nil {
+			// 					n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
+			// 				}
+			// 			}
+			// 			n.Chal("info", fmt.Sprintf("Already transfered proof: %v", chal.Start))
+			// 			time.Sleep(time.Minute)
+			// 			continue
+			// 		}
+			// 	}
+			// }
+
+			err = n.saveRandom(chal)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("saveRandom [%d] err: %v", chal.Start, err))
+			}
+
+			n.Chal("info", fmt.Sprintf("saveRandom suc: %v", chal.Start))
+
+			idleSiama, qslice, err = n.idleAggrProof(chal.RandomIndexList, chal.Random, chal.Start)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("[idleAggrProof] %v", err))
+				continue
+			}
+			n.Chal("info", fmt.Sprintf("idleAggrProof suc: %v", idleSiama))
+
+			serviceSigma, err = n.serviceAggrProof(qslice, chal.Start)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("[serviceAggrProof] %v", err))
+				continue
+			}
+			n.Chal("info", fmt.Sprintf("serviceAggrProof suc: %v", serviceSigma))
+
+			n.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
+			n.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
+
+			// report proof
+			txhash, err = n.ReportProof(idleSiama, serviceSigma)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("[ReportProof] %v", err))
+				continue
+			}
+
+			n.Chal("info", fmt.Sprintf("Submit proof suc: %v", txhash))
+
+			err = n.Put([]byte(Cach_AggrProof_Reported), []byte(fmt.Sprintf("%v", chal.Start)))
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
+			}
+
+			time.Sleep(pattern.BlockInterval)
+
+			for {
+				idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+				serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+				err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
+				if err != nil {
+					n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
+					time.Sleep(time.Second * 30)
+					continue
+				}
+				break
+			}
+			err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
+			}
 		}
-		err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
-		if err != nil {
-			n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
-		}
+		time.Sleep(pattern.BlockInterval)
 	}
+}
+
+func (n *Node) reportProof() error {
+	chalshort, err := n.QueryChallengeSt()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryChallengeSt]")
+	}
+
+	n.Chal("info", fmt.Sprintf("[QueryChallengeSt] %d", chalshort.NetSnapshot.Start))
+	idleProofFileHash, err := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+	if err != nil {
+		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
+	}
+	serviceProofFileHash, err := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+	if err != nil {
+		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
+	}
+	err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
+	if err != nil {
+		return errors.Wrapf(err, "[proofAsigmentInfo]")
+	}
+	n.Chal("info", fmt.Sprintf("proofAsigmentInfo suc: %d", chalshort.NetSnapshot.Start))
+	err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chalshort.NetSnapshot.Start)))
+	if err != nil {
+		return errors.Wrapf(err, "[PutCache]")
+	}
+	return nil
 }
 
 func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) error {
