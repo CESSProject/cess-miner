@@ -7,7 +7,6 @@ require (
 	github.com/CESSProject/sdk-go v0.0.64
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
-	github.com/ethereum/go-ethereum v1.10.17
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/libp2p/go-libp2p v0.26.3
@@ -40,6 +39,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/ethereum/go-ethereum v1.10.17 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

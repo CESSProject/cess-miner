@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -35,9 +36,14 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 		}
 	}()
 
+	var err error
 	var txhash string
 	var idleSiama string
 	var serviceSigma string
+	var b []byte
+	var chalStart int
+	var chal pattern.ChallengeInfo
+	var netinfo pattern.ChallengeSnapShot
 	var qslice []proof.QElement
 
 	n.Chal("info", ">>>>> Start challengeMgt task")
@@ -64,12 +70,34 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	for {
 		for n.GetChainState() {
 			time.Sleep(pattern.BlockInterval * 5)
-			chal, err := n.QueryChallenge(n.GetStakingPublickey())
+			chal, err = n.QueryChallenge(n.GetStakingPublickey())
 			if err != nil || chal.Start == uint32(0) {
 				n.Chal("info", fmt.Sprintf("Did not find your own challenge information: %v", err))
-				_, err = n.Get([]byte(Cach_AggrProof_Transfered))
+				b, err = n.Get([]byte(Cach_AggrProof_Transfered))
 				if err != nil {
-					err = n.reportProof()
+					err = n.transferProof()
+					if err != nil {
+						n.Chal("err", err.Error())
+					}
+					continue
+				}
+				netinfo, err = n.QueryChallengeSnapshot()
+				if err != nil {
+					n.Chal("err", err.Error())
+					continue
+				}
+				chalStart, err = strconv.Atoi(string(b))
+				if err != nil {
+					n.Delete([]byte(Cach_AggrProof_Transfered))
+					err = n.transferProof()
+					if err != nil {
+						n.Chal("err", err.Error())
+					}
+					continue
+				}
+
+				if chalStart != int(netinfo.NetSnapshot.Start) {
+					err = n.transferProof()
 					if err != nil {
 						n.Chal("err", err.Error())
 					}
@@ -81,33 +109,6 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			}
 
 			n.Chal("info", fmt.Sprintf("Challenge start: %v", chal.Start))
-
-			// buf, err := n.Get([]byte(Cach_AggrProof_Reported))
-			// if err == nil {
-			// 	block, err := strconv.Atoi(string(buf))
-			// 	if err == nil {
-			// 		if uint32(block) == chal.Start {
-			// 			n.Chal("info", fmt.Sprintf("Already submited proof: %v", chal.Start))
-			// 			buf, err = n.Get([]byte(Cach_AggrProof_Transfered))
-			// 			if err != nil {
-			// 				idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
-			// 				serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
-			// 				err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
-			// 				if err != nil {
-			// 					n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
-			// 					continue
-			// 				}
-			// 				err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
-			// 				if err != nil {
-			// 					n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
-			// 				}
-			// 			}
-			// 			n.Chal("info", fmt.Sprintf("Already transfered proof: %v", chal.Start))
-			// 			time.Sleep(time.Minute)
-			// 			continue
-			// 		}
-			// 	}
-			// }
 
 			err = n.saveRandom(chal)
 			if err != nil {
@@ -149,16 +150,10 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 
 			time.Sleep(pattern.BlockInterval)
 
-			for {
-				idleProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
-				serviceProofFileHash, _ := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
-				err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chal.RandomIndexList, chal.Random)
-				if err != nil {
-					n.Chal("err", fmt.Sprintf("proofAsigmentInfo: %v", err))
-					time.Sleep(time.Second * 30)
-					continue
-				}
-				break
+			err = n.transferProof()
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
+				continue
 			}
 			err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
 			if err != nil {
@@ -169,7 +164,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) reportProof() error {
+func (n *Node) transferProof() error {
 	chalshort, err := n.QueryChallengeSt()
 	if err != nil {
 		return errors.Wrapf(err, "[QueryChallengeSt]")
@@ -341,7 +336,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 		ptag.PhiHash = tag.PhiHash
 		ptag.Attest = tag.Attest
 
-		proveResponseCh := n.Key.GenProof(qslice, nil, ptag, matrix)
+		proveResponseCh := n.key.GenProof(qslice, nil, ptag, matrix)
 		timeout.Reset(time.Minute)
 		select {
 		case proveResponse = <-proveResponseCh:
@@ -360,7 +355,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 		actualCount++
 	}
 
-	sigma := n.Key.AggrGenProof(qslice, ptags)
+	sigma := n.key.AggrGenProof(qslice, ptags)
 
 	pf.Names = pf.Names[:actualCount]
 	pf.Us = pf.Us[:actualCount]
@@ -448,7 +443,7 @@ func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, 
 			ptag.PhiHash = tag.PhiHash
 			ptag.Attest = tag.Attest
 
-			proveResponseCh := n.Key.GenProof(qslice, nil, ptag, matrix)
+			proveResponseCh := n.key.GenProof(qslice, nil, ptag, matrix)
 			timeout.Reset(time.Minute)
 			select {
 			case proveResponse = <-proveResponseCh:
@@ -468,7 +463,7 @@ func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, 
 		}
 	}
 
-	sigma := n.Key.AggrGenProof(qslice, ptags)
+	sigma := n.key.AggrGenProof(qslice, ptags)
 	pf.Sigma = sigma
 
 	buf, err = json.Marshal(&pf)
