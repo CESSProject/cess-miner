@@ -55,7 +55,6 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-
 		err = n.key.SetPublickey(pubkey)
 		if err != nil {
 			configs.Err(fmt.Sprintf("[SetPublickey] %v", err))
