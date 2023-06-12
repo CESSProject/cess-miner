@@ -47,7 +47,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 
 	for {
 		for n.GetChainState() {
-
+			time.Sleep(pattern.BlockInterval)
 			teepuk, peerid, err = n.requsetIdlefile()
 			if err != nil {
 				n.Space("err", err.Error())
