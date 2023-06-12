@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -156,7 +155,6 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 
 	for _, tee := range teelist {
 		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
-		configs.Tip(fmt.Sprintf("Query a tee: %s", teePeerId))
 		if n.HasTeePeer(teePeerId) {
 			id, err = peer.Decode(teePeerId)
 			if err != nil {

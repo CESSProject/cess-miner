@@ -193,7 +193,7 @@ func (n *Node) transferProof() error {
 	if err != nil {
 		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
 	}
-	peerid, code, err := n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
+	peerid, code, err := n.proofAssignedInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
 	if err != nil || code != 0 {
 		return errors.Wrapf(err, "[proofAsigmentInfo]")
 	}
@@ -205,7 +205,7 @@ func (n *Node) transferProof() error {
 	return nil
 }
 
-func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) (string, uint32, error) {
+func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) (string, uint32, error) {
 	var err error
 	var count uint8
 	var code uint32
@@ -247,6 +247,11 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		break
 	}
 
+	if count >= 5 {
+		n.Chal("err", fmt.Sprintf("AggrProofReq err: %v", err))
+		return "", code, err
+	}
+
 	idleProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().IproofFile)
 	serviceProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().SproofFile)
 
@@ -262,6 +267,10 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
 		break
+	}
+	if count >= 5 {
+		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v", err))
+		return "", code, err
 	}
 
 	count = 0
@@ -547,7 +556,7 @@ func (n *Node) queryProofAssignedTee() (peer.ID, []byte, error) {
 				}
 				teeAsigned = v.ControllerAccount[:]
 				n.Chal("info", fmt.Sprintf("proof assigned tee: %s", peerid.Pretty()))
-				break
+				return peerid, teeAsigned, nil
 			}
 		}
 	}
