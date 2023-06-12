@@ -93,8 +93,9 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.Errorf("Secret: %v", err)
 	}
 
-	if len(c.Rpc) == 0 {
-		return errors.New("Rpc endpoint is empty")
+	if len(c.Rpc) == 0 ||
+		len(c.Boot) == 0 {
+		return errors.New("Cannot have empty configurations")
 	}
 
 	if port != 0 {
