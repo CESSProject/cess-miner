@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -40,6 +41,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	var txhash string
 	var idleSiama string
 	var serviceSigma string
+	var peerid peer.ID
 	var b []byte
 	var chalStart int
 	var chal pattern.ChallengeInfo
@@ -85,7 +87,24 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 					n.Chal("err", err.Error())
 					continue
 				}
-				chalStart, err = strconv.Atoi(string(b))
+
+				temp := strings.Split(string(b), "_")
+				if len(temp) <= 1 {
+					n.Delete([]byte(Cach_AggrProof_Transfered))
+					err = n.transferProof()
+					if err != nil {
+						n.Chal("err", err.Error())
+					}
+					continue
+				}
+
+				peerid, _, err = n.queryProofAssignedTee()
+				if err != nil {
+					n.Chal("err", fmt.Sprintf("[queryProofAssignedTee] %v", err))
+					continue
+				}
+
+				chalStart, err = strconv.Atoi(temp[1])
 				if err != nil {
 					n.Delete([]byte(Cach_AggrProof_Transfered))
 					err = n.transferProof()
@@ -95,7 +114,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 					continue
 				}
 
-				if chalStart != int(netinfo.NetSnapshot.Start) {
+				if chalStart != int(netinfo.NetSnapshot.Start) || peerid.Pretty() != temp[0] {
 					err = n.transferProof()
 					if err != nil {
 						n.Chal("err", err.Error())
@@ -154,10 +173,6 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 				n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
 				continue
 			}
-			err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chal.Start)))
-			if err != nil {
-				n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Transfered [%d] err: %v", chal.Start, err))
-			}
 		}
 		time.Sleep(pattern.BlockInterval)
 	}
@@ -178,50 +193,33 @@ func (n *Node) transferProof() error {
 	if err != nil {
 		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
 	}
-	err = n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
-	if err != nil {
+	peerid, code, err := n.proofAsigmentInfo(idleProofFileHash, serviceProofFileHash, chalshort.NetSnapshot.Random_index_list, chalshort.NetSnapshot.Random)
+	if err != nil || code != 0 {
 		return errors.Wrapf(err, "[proofAsigmentInfo]")
 	}
 	n.Chal("info", fmt.Sprintf("proofAsigmentInfo suc: %d", chalshort.NetSnapshot.Start))
-	err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%v", chalshort.NetSnapshot.Start)))
+	err = n.Put([]byte(Cach_AggrProof_Transfered), []byte(fmt.Sprintf("%s_%v", peerid, chalshort.NetSnapshot.Start)))
 	if err != nil {
 		return errors.Wrapf(err, "[PutCache]")
 	}
 	return nil
 }
 
-func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) error {
+func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) (string, uint32, error) {
 	var err error
-	var proof []pattern.ProofAssignmentInfo
+	var count uint8
+	var code uint32
 	var teeAsigned []byte
 	var peerid peer.ID
-	teelist, err := n.QueryTeeInfoList()
+	peerid, teeAsigned, err = n.queryProofAssignedTee()
 	if err != nil {
-		return err
-	}
-
-	for _, v := range teelist {
-		proof, err = n.QueryTeeAssignedProof(v.ControllerAccount[:])
-		if err != nil {
-			continue
-		}
-
-		for i := 0; i < len(proof); i++ {
-			if sutils.CompareSlice(proof[i].SnapShot.Miner[:], n.GetStakingPublickey()) {
-				teeAsigned = v.ControllerAccount[:]
-				peerid, err = peer.Decode(base58.Encode([]byte(string(v.PeerId[:]))))
-				if err != nil {
-					return err
-				}
-				n.Chal("info", fmt.Sprintf("proof assigned tee: %s", peerid.Pretty()))
-				break
-			}
-		}
+		n.Chal("err", fmt.Sprintf("[queryProofAssignedTee] %v", err))
+		return "", code, fmt.Errorf("proof not assigned")
 	}
 
 	if teeAsigned == nil {
 		n.Chal("err", "proof not assigned")
-		return fmt.Errorf("proof not assigned")
+		return "", code, fmt.Errorf("proof not assigned")
 	}
 
 	var qslice = make([]*pb.Qslice, len(randomIndexList))
@@ -233,13 +231,14 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		n.Chal("err", fmt.Sprintf("Sign err: %v", err))
-		return err
+		return "", code, err
 	}
-
+	count = 0
 	n.Chal("info", fmt.Sprintf("Send aggr proof request to: %s", peerid.Pretty()))
-	for {
-		code, err := n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
+	for count < 5 {
+		code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
 		if err != nil || code != 0 {
+			count++
 			n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
 			time.Sleep(pattern.BlockInterval * 5)
 			continue
@@ -251,10 +250,12 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 	idleProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().IproofFile)
 	serviceProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().SproofFile)
 
+	count = 0
 	n.Chal("info", fmt.Sprintf("Send aggr proof idle file request to: %s", peerid.Pretty()))
-	for {
-		code, err := n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
+	for count < 5 {
+		code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
 		if err != nil || code != 0 {
+			count++
 			n.Chal("err", fmt.Sprintf("FileType_IdleMu FileReq err: %v, code: %d", err, code))
 			time.Sleep(pattern.BlockInterval * 5)
 			continue
@@ -263,10 +264,12 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		break
 	}
 
+	count = 0
 	n.Chal("info", fmt.Sprintf("Send aggr proof service file request to: %s", peerid.Pretty()))
-	for {
-		code, err := n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
+	for count < 5 {
+		code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
 		if err != nil || code != 0 {
+			count++
 			n.Chal("err", fmt.Sprintf("FileType_CustomMu FileReq err: %v, code: %d", err, code))
 			time.Sleep(pattern.BlockInterval * 5)
 			continue
@@ -274,7 +277,7 @@ func (n *Node) proofAsigmentInfo(ihash, shash []byte, randomIndexList []uint32, 
 		n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))
 		break
 	}
-	return nil
+	return peerid.Pretty(), code, err
 }
 
 func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start uint32) (string, []proof.QElement, error) {
@@ -517,4 +520,36 @@ func (n *Node) saveRandom(chal pattern.ChallengeInfo) error {
 		return err
 	}
 	return f.Sync()
+}
+
+func (n *Node) queryProofAssignedTee() (peer.ID, []byte, error) {
+	var err error
+	var teelist []pattern.TeeWorkerInfo
+	var proof []pattern.ProofAssignmentInfo
+	var teeAsigned []byte
+	var peerid peer.ID
+	teelist, err = n.QueryTeeInfoList()
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "[QueryTeeInfoList]")
+	}
+
+	for _, v := range teelist {
+		proof, err = n.QueryTeeAssignedProof(v.ControllerAccount[:])
+		if err != nil {
+			continue
+		}
+
+		for i := 0; i < len(proof); i++ {
+			if sutils.CompareSlice(proof[i].SnapShot.Miner[:], n.GetStakingPublickey()) {
+				peerid, err = peer.Decode(base58.Encode([]byte(string(v.PeerId[:]))))
+				if err != nil {
+					return "", nil, errors.Wrapf(err, "[peer.Decode]")
+				}
+				teeAsigned = v.ControllerAccount[:]
+				n.Chal("info", fmt.Sprintf("proof assigned tee: %s", peerid.Pretty()))
+				break
+			}
+		}
+	}
+	return peerid, teeAsigned, err
 }

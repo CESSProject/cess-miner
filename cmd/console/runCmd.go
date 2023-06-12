@@ -51,6 +51,23 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	boots := n.GetBootNodes()
+	for _, b := range boots {
+		bootstrap, _ = utils.ParseMultiaddrs(b)
+		for _, v := range bootstrap {
+			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
+			addr, err := ma.NewMultiaddr(v)
+			if err != nil {
+				continue
+			}
+			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+			if err != nil {
+				continue
+			}
+			n.SaveTeePeer(addrInfo.ID.Pretty(), 0)
+		}
+	}
+
 	//Build client
 	n.SDK, err = sdkgo.New(
 		config.CharacterName_Bucket,
@@ -61,27 +78,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		configs.Err(fmt.Sprintf("[sdkgo.New] %v", err))
 		os.Exit(1)
-	}
-
-	boot, _ := cmd.Flags().GetStringSlice("boot")
-	if len(boot) == 0 {
-		configs.Warn("Empty boot node")
-	} else {
-		for _, b := range boot {
-			bootstrap, _ = utils.ParseMultiaddrs(b)
-			for _, v := range bootstrap {
-				configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
-				addr, err := ma.NewMultiaddr(v)
-				if err != nil {
-					continue
-				}
-				addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
-				if err != nil {
-					continue
-				}
-				n.SaveTeePeer(addrInfo.ID.Pretty(), 0)
-			}
-		}
 	}
 
 	n.P2P, err = p2pgo.New(
@@ -184,6 +180,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if err != nil {
 		return cfg, err
 	}
+
 	var rpcValus = make([]string, 0)
 	if len(rpc) == 0 {
 		for {

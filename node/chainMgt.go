@@ -18,7 +18,9 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (n *Node) chainMgt(ch chan bool) {
@@ -33,6 +35,7 @@ func (n *Node) chainMgt(ch chan bool) {
 	var peerid string
 	var addr string
 	var multiaddr string
+	var boots []string
 	var teeList []pattern.TeeWorkerInfo
 
 	tickListening := time.NewTicker(time.Second * 30)
@@ -57,6 +60,21 @@ func (n *Node) chainMgt(ch chan bool) {
 				err = n.Reconnect()
 				if err != nil {
 					configs.Err(pattern.ERR_RPC_CONNECTION.Error())
+				}
+			}
+			boots = n.GetBootNodes()
+			for _, b := range boots {
+				bootstrap, _ := utils.ParseMultiaddrs(b)
+				for _, v := range bootstrap {
+					addr, err := ma.NewMultiaddr(v)
+					if err != nil {
+						continue
+					}
+					addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+					if err != nil {
+						continue
+					}
+					n.SaveAndUpdateTeePeer(addrInfo.ID.Pretty(), 0)
 				}
 			}
 		case discoverPeer := <-n.DiscoveredPeer():

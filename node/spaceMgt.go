@@ -43,7 +43,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 
 	n.Space("info", ">>>>> Start spaceMgt task")
 
-	timeout := time.NewTimer(time.Duration(time.Minute * 2))
+	timeout := time.NewTimer(time.Duration(time.Minute * 5))
 	defer timeout.Stop()
 
 	for {
@@ -62,7 +62,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			spacePath = ""
 			tagPath = ""
 
-			timeout.Reset(time.Duration(time.Minute * 2))
+			timeout.Reset(time.Duration(time.Minute * 5))
 			for err == nil {
 				select {
 				case <-timeout.C:
