@@ -84,7 +84,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		context.Background(),
 		p2pgo.ListenPort(n.GetServicePort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), n.GetRoleName())),
-		p2pgo.BootPeers(bootstrap),
+		p2pgo.BootPeers(boots),
 	)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
