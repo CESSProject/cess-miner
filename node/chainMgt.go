@@ -45,6 +45,8 @@ func (n *Node) chainMgt(ch chan bool) {
 	tikProgram := time.NewTicker(time.Second * 3)
 	defer tikProgram.Stop()
 
+	n.Log("info", ">>>>> Start log")
+
 	for {
 		select {
 		case <-tikProgram.C:
@@ -77,16 +79,22 @@ func (n *Node) chainMgt(ch chan bool) {
 					n.SaveAndUpdateTeePeer(addrInfo.ID.Pretty(), 0)
 				}
 			}
+			if !n.GetDiscoverSt() {
+				n.StartDiscover()
+			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
 			//configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
 			//configs.Tip(fmt.Sprintf("Found a peer: %s", peerid))
+			n.Log("info", fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
-				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
+				//configs.Err(fmt.Sprintf("Connect to %s failed: %v", peerid, err))
+				n.Log("err", fmt.Sprintf("Connect to %s failed: %v", peerid, err))
 				continue
 			} else {
 				//configs.Ok(fmt.Sprintf("Connected to %s", peerid))
+				n.Log("info", fmt.Sprintf("Connected to %s", peerid))
 			}
 
 			for _, v := range discoverPeer.Addrs {

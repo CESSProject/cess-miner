@@ -40,7 +40,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		logDir    string
 		cacheDir  string
 		earnings  string
-		bootstrap []string
+		bootstrap = make([]string, 0)
 		n         = node.New()
 	)
 
@@ -53,8 +53,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	boots := n.GetBootNodes()
 	for _, b := range boots {
-		bootstrap, _ = utils.ParseMultiaddrs(b)
-		for _, v := range bootstrap {
+		bootnodes, err := utils.ParseMultiaddrs(b)
+		if err != nil {
+			continue
+		}
+		bootstrap = append(bootstrap, bootnodes...)
+		for _, v := range bootnodes {
 			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
 			addr, err := ma.NewMultiaddr(v)
 			if err != nil {
