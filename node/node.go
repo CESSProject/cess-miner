@@ -8,6 +8,7 @@
 package node
 
 import (
+	"crypto/x509"
 	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -50,6 +51,18 @@ func (n *Node) Run() {
 	go n.TaskMgt()
 	configs.Ok("Start successfully")
 	select {}
+}
+
+func (n *Node) SetPublickey(pubkey []byte) error {
+	rsaPubkey, err := x509.ParsePKCS1PublicKey(pubkey)
+	if err != nil {
+		return err
+	}
+	if n.key == nil {
+		n.key = proof.NewKey()
+	}
+	n.key.Spk = rsaPubkey
+	return nil
 }
 
 func (n *Node) SaveTeePeer(peerid string, value int64) {

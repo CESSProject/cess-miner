@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -52,8 +51,8 @@ func (n *Node) chainMgt(ch chan bool) {
 		case <-tikProgram.C:
 			runtime.ReadMemStats(memSt)
 			if memSt.HeapSys >= pattern.SIZE_1GiB*5 {
-				n.Log("err", fmt.Sprintf("%d", memSt.HeapSys))
-				os.Exit(1)
+				n.Log("err", fmt.Sprintf("Memory too high: %d", memSt.HeapSys))
+				//os.Exit(1)
 			}
 		case <-tickListening.C:
 			ok, err = n.NetListening()

@@ -57,13 +57,12 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		err = n.key.SetPublickey(pubkey)
+		err = n.SetPublickey(pubkey)
 		if err != nil {
 			configs.Err(fmt.Sprintf("[SetPublickey] %v", err))
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		configs.Ok("Initialize key successfully")
 		n.Chal("info", "Initialize key successfully")
 		break
 	}
@@ -298,7 +297,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 	if err != nil {
 		return "", nil, err
 	}
-	fmt.Println("> > > idleRoothash:", idleRoothashs)
+
 	var buf []byte
 	var ptags []proof.Tag = make([]proof.Tag, 0)
 	var ptag proof.Tag
@@ -321,7 +320,6 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 
 	for i := int(0); i < len(idleRoothashs); i++ {
 		idleTagPath := filepath.Join(n.GetDirs().IdleTagDir, idleRoothashs[i]+".tag")
-		fmt.Println("> > > idleTagPath:", idleTagPath)
 		buf, err = os.ReadFile(idleTagPath)
 		if err != nil {
 			n.Chal("err", fmt.Sprintf("Idletag not found: %v", idleTagPath))
@@ -337,6 +335,8 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 
 		matrix, _, err := proof.SplitByN(filepath.Join(n.GetDirs().IdleDataDir, idleRoothashs[i]), int64(len(tag.T.Phi)))
 		if err != nil {
+			n.Delete([]byte(Cach_prefix_idle + idleRoothashs[i]))
+			os.Remove(idleTagPath)
 			n.Chal("err", fmt.Sprintf("SplitByN err: %v", err))
 			continue
 		}

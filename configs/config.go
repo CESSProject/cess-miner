@@ -54,4 +54,5 @@ var LogFiles = []string{
 	"challenge",
 	"stag",
 	"subscribe",
+	"restore",
 }
