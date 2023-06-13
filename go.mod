@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/p2p-go v0.0.33
-	github.com/CESSProject/sdk-go v0.0.64
+	github.com/CESSProject/sdk-go v0.0.65
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef

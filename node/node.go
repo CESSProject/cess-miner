@@ -33,8 +33,10 @@ type Node struct {
 	key             *proof.RSAKeyPair
 	TeePeerLock     *sync.RWMutex
 	StoragePeerLock *sync.RWMutex
+	deossPeerLock   *sync.RWMutex
 	teePeer         map[string]int64
 	storagePeer     map[string]string
+	deossPeer       map[string]struct{}
 }
 
 // New is used to build a node instance
@@ -42,8 +44,10 @@ func New() *Node {
 	return &Node{
 		TeePeerLock:     new(sync.RWMutex),
 		StoragePeerLock: new(sync.RWMutex),
+		deossPeerLock:   new(sync.RWMutex),
 		teePeer:         make(map[string]int64, 10),
 		storagePeer:     make(map[string]string, 10),
+		deossPeer:       make(map[string]struct{}, 10),
 	}
 }
 
@@ -110,6 +114,21 @@ func (n *Node) HasStoragePeer(peerid string) bool {
 	n.StoragePeerLock.RLock()
 	defer n.StoragePeerLock.RUnlock()
 	_, ok := n.storagePeer[peerid]
+	return ok
+}
+
+func (n *Node) SaveDeossPeer(peerid string) {
+	n.deossPeerLock.Lock()
+	defer n.deossPeerLock.Unlock()
+	if _, ok := n.deossPeer[peerid]; !ok {
+		n.deossPeer[peerid] = struct{}{}
+	}
+}
+
+func (n *Node) HasDeossPeer(peerid string) bool {
+	n.deossPeerLock.RLock()
+	defer n.deossPeerLock.RUnlock()
+	_, ok := n.deossPeer[peerid]
 	return ok
 }
 
