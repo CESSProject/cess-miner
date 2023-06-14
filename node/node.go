@@ -9,6 +9,8 @@ package node
 
 import (
 	"crypto/x509"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -16,8 +18,9 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/sdk-go/core/sdk"
 )
 
 type Bucket interface {
@@ -132,12 +135,19 @@ func (n *Node) HasDeossPeer(peerid string) bool {
 	return ok
 }
 
-// func (n *Node) deepCopyPeers(dst, src interface{}) error {
-// 	n.TeePeerLock.Lock()
-// 	defer n.TeePeerLock.Unlock()
-// 	var buf bytes.Buffer
-// 	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
-// 		return err
-// 	}
-// 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
-// }
+func (n *Node) RebuildDirs() {
+	os.RemoveAll(n.GetDirs().FileDir)
+	os.RemoveAll(n.GetDirs().IdleDataDir)
+	os.RemoveAll(n.GetDirs().IdleTagDir)
+	os.RemoveAll(n.GetDirs().ProofDir)
+	os.RemoveAll(n.GetDirs().ServiceTagDir)
+	os.RemoveAll(n.GetDirs().TmpDir)
+	os.RemoveAll(filepath.Join(n.Workspace(), configs.DbDir))
+	os.RemoveAll(filepath.Join(n.Workspace(), configs.LogDir))
+	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().IdleDataDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().IdleTagDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().ProofDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().ServiceTagDir, pattern.DirMode)
+}

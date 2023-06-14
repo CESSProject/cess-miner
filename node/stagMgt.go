@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
@@ -90,7 +91,7 @@ func (n *Node) calcFileTag() {
 				fs.Write(buf)
 				fs.Sync()
 				fs.Close()
-				hash, err := utils.CalcFileHash(f)
+				hash, err := sutils.CalcPathSHA256(f)
 				if err != nil {
 					continue
 				}

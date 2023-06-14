@@ -13,7 +13,8 @@ import (
 	"path"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -108,7 +109,7 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
-	utils.VerityAddress(c.EarningsAcc, utils.CESSChainTestPrefix)
+	sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
@@ -171,7 +172,7 @@ func (c *confile) SetWorkspace(workspace string) error {
 func (c *confile) SetEarningsAcc(earnings string) error {
 	var err error
 	if earnings != "" {
-		err = utils.VerityAddress(earnings, utils.CESSChainTestPrefix)
+		err = sutils.VerityAddress(earnings, sutils.CessPrefix)
 		if err != nil {
 			return err
 		}
@@ -219,7 +220,7 @@ func (c *confile) GetStakingPublickey() []byte {
 }
 
 func (c *confile) GetStakingAcc() string {
-	acc, _ := utils.EncodeToCESSAddr(c.GetStakingPublickey())
+	acc, _ := sutils.EncodePublicKeyAsCessAccount(c.GetStakingPublickey())
 	return acc
 }
 

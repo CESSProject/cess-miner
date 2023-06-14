@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/pkg/errors"
 )
 
@@ -110,7 +111,7 @@ func (n *Node) reportFiles() error {
 
 		var assignedFragmentHash = make([]string, 0)
 		for i := 0; i < len(storageorder.AssignedMiner); i++ {
-			assignedAddr, _ := utils.EncodeToCESSAddr(storageorder.AssignedMiner[i].Account[:])
+			assignedAddr, _ := sutils.EncodePublicKeyAsCessAccount(storageorder.AssignedMiner[i].Account[:])
 			if n.GetStakingAcc() == assignedAddr {
 				for j := 0; j < len(storageorder.AssignedMiner[i].Hash); j++ {
 					assignedFragmentHash = append(assignedFragmentHash, string(storageorder.AssignedMiner[i].Hash[j][:]))

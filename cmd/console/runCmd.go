@@ -23,10 +23,11 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	cess "github.com/CESSProject/cess-go-sdk"
+	"github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
-	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/config"
-	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -40,6 +41,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		logDir    string
 		cacheDir  string
 		earnings  string
+		token     uint64
+		syncSt    pattern.SysSyncState
 		bootstrap = make([]string, 0)
 		n         = node.New()
 	)
@@ -53,7 +56,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	boots := n.GetBootNodes()
 	for _, b := range boots {
-		bootnodes, err := utils.ParseMultiaddrs(b)
+		bootnodes, err := sutils.ParseMultiaddrs(b)
 		if err != nil {
 			continue
 		}
@@ -73,15 +76,29 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	n.SDK, err = sdkgo.New(
+	n.SDK, err = cess.New(
 		config.CharacterName_Bucket,
-		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
-		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+		cess.ConnectRpcAddrs(n.GetRpcAddr()),
+		cess.Mnemonic(n.GetMnemonic()),
+		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[sdkgo.New] %v", err))
+		configs.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
+	}
+
+	for {
+		syncSt, err = n.SyncState()
+		if err != nil {
+			configs.Err(err.Error())
+			os.Exit(1)
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			configs.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
 	n.P2P, err = p2pgo.New(
@@ -95,29 +112,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	for {
-		syncSt, err := n.SyncState()
-		if err != nil {
-			configs.Err(err.Error())
+	_, err = n.QueryStorageMiner(n.GetStakingPublickey())
+	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			n.RebuildDirs()
+			token = n.GetUseSpace() / 1024
+			if n.GetUseSpace()%1024 != 0 {
+				token += 1
+			}
+			token *= 2000
+		} else {
+			configs.Err("Weak network signal or rpc service failure")
 			os.Exit(1)
 		}
-		if syncSt.CurrentBlock == syncSt.HighestBlock {
-			configs.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
-			break
-		}
-		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
-		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.GetUseSpace() / 1024
-	if n.GetUseSpace()%1024 != 0 {
-		token += 1
-	}
-	token *= 2000
-
-	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+	_, _, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[Register] %v", err))
+		configs.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
 	}
 	n.SetEarningsAcc(earnings)
@@ -150,9 +162,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if n.GetDiscoverSt() {
 		configs.Tip("Start node discovery service")
 	}
-
-	configs.Tip("p2p protocol version: " + n.GetProtocolVersion())
-	configs.Tip("dht protocol version: " + n.GetDhtProtocolVersion())
 
 	// run
 	n.Run()

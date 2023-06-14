@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
 // replaceMgr
