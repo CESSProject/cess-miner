@@ -41,6 +41,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		logDir    string
 		cacheDir  string
 		earnings  string
+		token     uint64
+		syncSt    pattern.SysSyncState
 		bootstrap = make([]string, 0)
 		n         = node.New()
 	)
@@ -85,19 +87,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.P2P, err = p2pgo.New(
-		context.Background(),
-		p2pgo.ListenPort(n.GetServicePort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), n.GetRoleName())),
-		p2pgo.BootPeers(bootstrap),
-	)
-	if err != nil {
-		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
-		os.Exit(1)
-	}
-
 	for {
-		syncSt, err := n.SyncState()
+		syncSt, err = n.SyncState()
 		if err != nil {
 			configs.Err(err.Error())
 			os.Exit(1)
@@ -110,15 +101,35 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	token := n.GetUseSpace() / 1024
-	if n.GetUseSpace()%1024 != 0 {
-		token += 1
-	}
-	token *= 2000
-
-	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+	n.P2P, err = p2pgo.New(
+		context.Background(),
+		p2pgo.ListenPort(n.GetServicePort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), n.GetRoleName())),
+		p2pgo.BootPeers(bootstrap),
+	)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[Register] %v", err))
+		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+		os.Exit(1)
+	}
+
+	_, err = n.QueryStorageMiner(n.GetStakingPublickey())
+	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			n.RebuildDirs()
+			token = n.GetUseSpace() / 1024
+			if n.GetUseSpace()%1024 != 0 {
+				token += 1
+			}
+			token *= 2000
+		} else {
+			configs.Err("Weak network signal or rpc service failure")
+			os.Exit(1)
+		}
+	}
+
+	_, _, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+	if err != nil {
+		configs.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
 	}
 	n.SetEarningsAcc(earnings)
@@ -151,9 +162,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if n.GetDiscoverSt() {
 		configs.Tip("Start node discovery service")
 	}
-
-	configs.Tip("p2p protocol version: " + n.GetProtocolVersion())
-	configs.Tip("dht protocol version: " + n.GetDhtProtocolVersion())
 
 	// run
 	n.Run()
