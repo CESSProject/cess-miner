@@ -10,6 +10,7 @@ import (
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
 
@@ -81,8 +82,48 @@ func (n *Node) inspector() error {
 	return nil
 }
 
-func (n *Node) restoreFragment(roothash string, segement pattern.SegmentInfo) {
+func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string, segement pattern.SegmentInfo) error {
+	var err error
+	var id peer.ID
+	var miner pattern.MinerInfo
+	for _, v := range roothashes {
+		_, err = os.Stat(filepath.Join(v, framentHash))
+		if err == nil {
+			err = utils.CopyFile(filepath.Join(n.GetDirs().FileDir, roothash, framentHash), filepath.Join(v, framentHash))
+			if err == nil {
+				return nil
+			}
+		}
+	}
+	var canRestore int
+	for _, v := range segement.FragmentList {
+		if string(v.Hash[:]) == framentHash {
+			continue
+		}
+		miner, err = n.QueryStorageMiner(v.Miner[:])
+		if err != nil {
+			continue
+		}
+		id, err = peer.Decode(base58.Encode([]byte(string(miner.PeerId[:]))))
+		if err != nil {
+			continue
+		}
+		err = n.ReadFileAction(id, roothash, framentHash, filepath.Join(n.GetDirs().FileDir, roothash, framentHash), pattern.FragmentSize)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[ReadFileAction] %v", err))
+			continue
+		}
+		canRestore++
+		if canRestore >= int(len(segement.FragmentList)*2/3) {
+			break
+		}
+	}
 
+	if canRestore >= int(len(segement.FragmentList)*2/3) {
+
+	}
+
+	return nil
 }
 
 func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
