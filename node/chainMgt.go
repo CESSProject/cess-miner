@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -37,7 +36,8 @@ func (n *Node) chainMgt(ch chan bool) {
 	var multiaddr string
 	var boots []string
 	var teeList []pattern.TeeWorkerInfo
-
+	var deossList []string
+	var lastMem uint64
 	tickListening := time.NewTicker(time.Second * 30)
 	defer tickListening.Stop()
 
@@ -51,10 +51,13 @@ func (n *Node) chainMgt(ch chan bool) {
 		select {
 		case <-tikProgram.C:
 			runtime.ReadMemStats(memSt)
-			if memSt.HeapSys >= pattern.SIZE_1GiB*5 {
-				n.Log("err", fmt.Sprintf("%d", memSt.HeapSys))
-				os.Exit(1)
+			if memSt.HeapSys >= pattern.SIZE_1GiB*4 {
+				if memSt.HeapAlloc != lastMem {
+					n.Log("err", fmt.Sprintf("memory usage: %d bytes", memSt.HeapAlloc))
+				}
+				//os.Exit(1)
 			}
+			lastMem = memSt.HeapAlloc
 		case <-tickListening.C:
 			ok, err = n.NetListening()
 			if !ok || err != nil {
@@ -84,17 +87,9 @@ func (n *Node) chainMgt(ch chan bool) {
 			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
-			//configs.Tip(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
-			//configs.Tip(fmt.Sprintf("Found a peer: %s", peerid))
-			n.Log("info", fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
-			if err != nil {
-				//configs.Err(fmt.Sprintf("Connect to %s failed: %v", peerid, err))
-				n.Log("err", fmt.Sprintf("Connect to %s failed: %v", peerid, err))
-				continue
-			} else {
-				//configs.Ok(fmt.Sprintf("Connected to %s", peerid))
-				n.Log("info", fmt.Sprintf("Connected to %s", peerid))
+			if err == nil {
+				n.Log("info", fmt.Sprintf("discover and connect to %s", peerid))
 			}
 
 			for _, v := range discoverPeer.Addrs {
@@ -106,18 +101,16 @@ func (n *Node) chainMgt(ch chan bool) {
 							continue
 						}
 						multiaddr = fmt.Sprintf("%s/p2p/%s", addr, peerid)
-						_, err = n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
-						// if err != nil {
-						// 	configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
-						// } else {
-						// 	configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
-						// }
+						n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
 						break
 					}
 				}
 			}
 
 			if n.HasStoragePeer(peerid) {
+				continue
+			}
+			if n.HasDeossPeer(peerid) {
 				continue
 			}
 			if n.HasTeePeer(peerid) {
@@ -130,14 +123,33 @@ func (n *Node) chainMgt(ch chan bool) {
 			for _, v := range teeList {
 				if peerid == base58.Encode([]byte(string(v.PeerId[:]))) {
 					n.SaveTeePeer(peerid, 0)
-					configs.Tip(fmt.Sprintf("Save a tee peer: %s", peerid))
+					configs.Tip(fmt.Sprintf("discovered a tee node: %s", peerid))
 					break
 				}
 			}
-			if !n.HasTeePeer(peerid) {
-				n.SaveStoragePeer(peerid, "")
-				configs.Tip(fmt.Sprintf("Save a storage peer: %s", peerid))
+			if n.HasTeePeer(peerid) {
+				continue
 			}
+
+			deossList, err = n.QueryDeossPeerIdList()
+			if err != nil {
+				continue
+			}
+
+			for _, v := range deossList {
+				if peerid == v {
+					n.SaveDeossPeer(peerid)
+					configs.Tip(fmt.Sprintf("discovered a deoss node: %s", peerid))
+					break
+				}
+			}
+
+			if n.HasDeossPeer(peerid) {
+				continue
+			}
+
+			n.SaveStoragePeer(peerid, "")
+			configs.Tip(fmt.Sprintf("discovered a storage node: %s", peerid))
 		}
 	}
 }

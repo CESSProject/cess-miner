@@ -9,23 +9,10 @@ package proof
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
 )
 
 func NewKey() *RSAKeyPair {
 	return &RSAKeyPair{
 		Spk: new(rsa.PublicKey),
 	}
-}
-
-func (k *RSAKeyPair) SetPublickey(n []byte) error {
-	pubkey, err := x509.ParsePKCS1PublicKey(n)
-	if err != nil {
-		return err
-	}
-	if k == nil {
-		k = NewKey()
-	}
-	k.Spk = pubkey
-	return nil
 }

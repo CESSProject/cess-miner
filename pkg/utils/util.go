@@ -259,3 +259,20 @@ func ParseMultiaddrs(domain string) ([]string, error) {
 
 	return result, nil
 }
+
+func CopyFile(dst, src string) error {
+	fsrc, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer fsrc.Close()
+
+	fdst, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer fsrc.Close()
+
+	_, err = io.Copy(fdst, fsrc)
+	return err
+}
