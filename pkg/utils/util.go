@@ -8,8 +8,7 @@
 package utils
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -17,11 +16,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
-
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 )
 
 type MountPathInfo struct {
@@ -89,21 +86,6 @@ func DirFiles(path string, count uint32) ([]string, error) {
 func RandomInRange(min, max int) int {
 	rand.Seed(time.Now().Unix())
 	return rand.Intn(max-min) + min
-}
-
-// Calculate the file hash value
-func CalcFileHash(fpath string) (string, error) {
-	f, err := os.Open(fpath)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // func GetMountPathInfo(mountpath string) (MountPathInfo, error) {
@@ -207,59 +189,6 @@ func Ternary(a, b int64) int64 {
 	return a
 }
 
-func ParseMultiaddrs(domain string) ([]string, error) {
-	var result = make([]string, 0)
-	var realDns = make([]string, 0)
-
-	addr, err := ma.NewMultiaddr(domain)
-	if err == nil {
-		_, err = peer.AddrInfoFromP2pAddr(addr)
-		if err == nil {
-			result = append(result, domain)
-			return result, nil
-		}
-	}
-
-	dnsnames, err := net.LookupTXT(domain)
-	if err != nil {
-		return result, err
-	}
-
-	for _, v := range dnsnames {
-		if strings.Contains(v, "ip4") && strings.Contains(v, "tcp") && strings.Count(v, "=") == 1 {
-			result = append(result, strings.TrimPrefix(v, "dnsaddr="))
-		}
-	}
-
-	trims := strings.Split(domain, ".")
-	domainname := fmt.Sprintf("%s.%s", trims[len(trims)-2], trims[len(trims)-1])
-
-	for _, v := range dnsnames {
-		trims = strings.Split(v, "/")
-		for _, vv := range trims {
-			if strings.Contains(vv, domainname) {
-				realDns = append(realDns, vv)
-				break
-			}
-		}
-	}
-
-	for _, v := range realDns {
-		dnses, err := net.LookupTXT("_dnsaddr." + v)
-		if err != nil {
-			continue
-		}
-		for i := 0; i < len(dnses); i++ {
-			if strings.Contains(dnses[i], "ip4") && strings.Contains(dnses[i], "tcp") && strings.Count(dnses[i], "=") == 1 {
-				var multiaddr = strings.TrimPrefix(dnses[i], "dnsaddr=")
-				result = append(result, multiaddr)
-			}
-		}
-	}
-
-	return result, nil
-}
-
 func CopyFile(dst, src string) error {
 	fsrc, err := os.Open(src)
 	if err != nil {
@@ -275,4 +204,12 @@ func CopyFile(dst, src string) error {
 
 	_, err = io.Copy(fdst, fsrc)
 	return err
+}
+
+func RecoverError(err interface{}) string {
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "%v\n", "--------------------panic--------------------")
+	fmt.Fprintf(buf, "%v\n", err)
+	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
+	return buf.String()
 }

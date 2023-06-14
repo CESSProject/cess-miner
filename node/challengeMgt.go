@@ -20,9 +20,9 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -184,11 +184,11 @@ func (n *Node) transferProof() error {
 	}
 
 	n.Chal("info", fmt.Sprintf("[QueryChallengeSt] %d", chalshort.NetSnapshot.Start))
-	idleProofFileHash, err := utils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
+	idleProofFileHash, err := sutils.CalcPathSHA256Bytes(n.GetDirs().IproofFile)
 	if err != nil {
 		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
 	}
-	serviceProofFileHash, err := utils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
+	serviceProofFileHash, err := sutils.CalcPathSHA256Bytes(n.GetDirs().SproofFile)
 	if err != nil {
 		return errors.Wrapf(err, "[CalcPathSHA256Bytes]")
 	}
@@ -251,8 +251,8 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		return "", code, err
 	}
 
-	idleProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().IproofFile)
-	serviceProofFileHashs, _ := utils.CalcPathSHA256(n.GetDirs().SproofFile)
+	idleProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().IproofFile)
+	serviceProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().SproofFile)
 
 	count = 0
 	n.Chal("info", fmt.Sprintf("Send aggr proof idle file request to: %s", peerid.Pretty()))

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"

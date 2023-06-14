@@ -12,9 +12,9 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
-	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/config"
+	cess "github.com/CESSProject/cess-go-sdk"
+	"github.com/CESSProject/cess-go-sdk/config"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +61,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 		os.Exit(1)
 	}
 
-	err = utils.VerityAddress(os.Args[3], utils.CESSChainTestPrefix)
+	err = sutils.VerityAddress(os.Args[3], sutils.CessPrefix)
 	if err != nil {
 		configs.Err(err.Error())
 		os.Exit(1)
@@ -75,11 +75,11 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	}
 
 	//Build client
-	n.SDK, err = sdkgo.New(
+	n.SDK, err = cess.New(
 		config.CharacterName_Bucket,
-		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
-		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+		cess.ConnectRpcAddrs(n.GetRpcAddr()),
+		cess.Mnemonic(n.GetMnemonic()),
+		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		configs.Err(err.Error())

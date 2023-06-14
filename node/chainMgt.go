@@ -15,8 +15,8 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	ma "github.com/multiformats/go-multiaddr"
@@ -69,7 +69,7 @@ func (n *Node) chainMgt(ch chan bool) {
 			}
 			boots = n.GetBootNodes()
 			for _, b := range boots {
-				bootstrap, _ := utils.ParseMultiaddrs(b)
+				bootstrap, _ := sutils.ParseMultiaddrs(b)
 				for _, v := range bootstrap {
 					addr, err := ma.NewMultiaddr(v)
 					if err != nil {

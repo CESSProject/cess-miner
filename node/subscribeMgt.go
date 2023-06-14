@@ -13,8 +13,9 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/event"
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/event"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58/base58"
 	"github.com/pkg/errors"
@@ -81,7 +82,7 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 						n.Subscribe("err", fmt.Sprintf("[QueryStorageMiner] %v", err.Error()))
 						continue
 					}
-					stakingAcc, _ = utils.EncodeToCESSAddr(v.Acc[:])
+					stakingAcc, _ = sutils.EncodePublicKeyAsCessAccount(v.Acc[:])
 					peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
 					n.SaveStoragePeer(peerid, stakingAcc)
 					configs.Tip(fmt.Sprintf("Record a storage node: %s", peerid))
@@ -137,7 +138,7 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 				if err != nil {
 					return startBlock, errors.Wrapf(err, "[QueryStorageMiner]")
 				}
-				stakingAcc, _ = utils.EncodeToCESSAddr(v.Acc[:])
+				stakingAcc, _ = sutils.EncodePublicKeyAsCessAccount(v.Acc[:])
 				peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
 				n.SaveStoragePeer(peerid, stakingAcc)
 				configs.Tip(fmt.Sprintf("Record a storage node: %s", peerid))

@@ -15,7 +15,8 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
@@ -85,7 +86,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			n.Space("info", fmt.Sprintf("Receive a idle file tag: %s", tagPath))
 			n.Space("info", fmt.Sprintf("Receive a idle file: %s", spacePath))
 
-			filehash, err = utils.CalcPathSHA256(spacePath)
+			filehash, err = sutils.CalcPathSHA256(spacePath)
 			if err != nil {
 				n.Space("err", err.Error())
 				os.Remove(spacePath)

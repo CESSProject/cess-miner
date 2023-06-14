@@ -16,8 +16,8 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/sdk-go/core/sdk"
 )
 
 type Bucket interface {

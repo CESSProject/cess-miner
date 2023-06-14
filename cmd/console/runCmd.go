@@ -23,10 +23,11 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	cess "github.com/CESSProject/cess-go-sdk"
+	"github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
-	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/config"
-	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -53,7 +54,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	boots := n.GetBootNodes()
 	for _, b := range boots {
-		bootnodes, err := utils.ParseMultiaddrs(b)
+		bootnodes, err := sutils.ParseMultiaddrs(b)
 		if err != nil {
 			continue
 		}
@@ -73,14 +74,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	n.SDK, err = sdkgo.New(
+	n.SDK, err = cess.New(
 		config.CharacterName_Bucket,
-		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
-		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+		cess.ConnectRpcAddrs(n.GetRpcAddr()),
+		cess.Mnemonic(n.GetMnemonic()),
+		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[sdkgo.New] %v", err))
+		configs.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
 	}
 
