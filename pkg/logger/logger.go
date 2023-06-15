@@ -38,6 +38,18 @@ type logs struct {
 	log     map[string]*zap.Logger
 }
 
+var LogFiles = []string{
+	"log",
+	"panic",
+	"space",
+	"report",
+	"replace",
+	"challenge",
+	"stag",
+	"subscribe",
+	"restore",
+}
+
 func NewLogs(logfiles map[string]string) (Logger, error) {
 	var (
 		logpath = make(map[string]string, 0)
@@ -167,7 +179,7 @@ func (l *logs) Subscribe(level string, msg string) {
 
 func (l *logs) Restore(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["retore"]
+	v, ok := l.log["restore"]
 	if ok {
 		switch level {
 		case "info":

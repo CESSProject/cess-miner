@@ -127,7 +127,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	_, _, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
 		configs.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
@@ -576,7 +576,7 @@ func buildCache(cacheDir string) (cache.Cache, error) {
 
 func buildLogs(logDir string) (logger.Logger, error) {
 	var logs_info = make(map[string]string)
-	for _, v := range configs.LogFiles {
+	for _, v := range logger.LogFiles {
 		logs_info[v] = filepath.Join(logDir, v+".log")
 	}
 	return logger.NewLogs(logs_info)

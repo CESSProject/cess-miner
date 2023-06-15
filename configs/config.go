@@ -44,15 +44,3 @@ const (
 	DbDir  = "db"
 	LogDir = "log"
 )
-
-var LogFiles = []string{
-	"log",
-	"panic",
-	"space",
-	"report",
-	"replace",
-	"challenge",
-	"stag",
-	"subscribe",
-	"restore",
-}
