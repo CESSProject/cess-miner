@@ -38,11 +38,11 @@ func (n *Node) chainMgt(ch chan bool) {
 	var deossList []string
 	var bootstrap []string
 	var lastMem uint64
-	tickListening := time.NewTicker(time.Second * 30)
+	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
 
 	memSt := &runtime.MemStats{}
-	tikProgram := time.NewTicker(time.Second * 5)
+	tikProgram := time.NewTicker(pattern.BlockInterval)
 	defer tikProgram.Stop()
 
 	n.Log("info", ">>>>> Start chainMgt")
@@ -58,16 +58,18 @@ func (n *Node) chainMgt(ch chan bool) {
 				//os.Exit(1)
 			}
 			lastMem = memSt.HeapAlloc
-		case <-tickListening.C:
 			if !n.GetChainState() {
 				err = n.Reconnect()
 				if err != nil {
 					n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 					configs.Err(pattern.ERR_RPC_CONNECTION.Error())
 				} else {
+					n.Log("info", "rpc reconnection successful")
+					configs.Tip("rpc reconnection successful")
 					n.SetChainState(true)
 				}
 			}
+		case <-tickListening.C:
 			boots = n.GetBootNodes()
 			for _, b := range boots {
 				bootstrap, err = sutils.ParseMultiaddrs(b)
