@@ -29,7 +29,6 @@ func (n *Node) chainMgt(ch chan bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-	var ok bool
 	var err error
 	var peerid string
 	var maAddr ma.Multiaddr
@@ -60,13 +59,13 @@ func (n *Node) chainMgt(ch chan bool) {
 			}
 			lastMem = memSt.HeapAlloc
 		case <-tickListening.C:
-			ok, err = n.NetListening()
-			if !ok || err != nil {
-				n.SetChainState(false)
+			if !n.GetChainState() {
 				err = n.Reconnect()
 				if err != nil {
 					n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 					configs.Err(pattern.ERR_RPC_CONNECTION.Error())
+				} else {
+					n.SetChainState(true)
 				}
 			}
 			boots = n.GetBootNodes()
