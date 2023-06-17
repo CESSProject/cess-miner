@@ -1,4 +1,4 @@
-# <h1 align="center">CESS-BUCKET &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md)</h1>
+# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md) [![build](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
