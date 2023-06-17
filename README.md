@@ -2,38 +2,60 @@
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
-
 ## Reporting a Vulnerability
-
-If you find out any vulnerability, Please send an email to tech@cess.one, we are happy to communicate with you.
-
+If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## System Requirements
+- Linux 64-bit Intel/AMD
 
-- Linux-amd64
-
-
-## System dependencies
-
-Take the ubuntu distribution as an example:
-
-```shell
-sudo apt update && sudo apt upgrade
-sudo apt install g++ make gcc git curl wget vim screen util-linux -y
-```
+> :warning: The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
 ## System configuration
+### Install application tools
 
-- Firewall
-
-If the firewall is turned on, you need to open the running port, the default port is 15001.
-
-Take the ubuntu distribution as an example:
+For the Debian and  ubuntu families of linux systems:
 
 ```shell
-sudo ufw allow 15001/tcp
+apt install git curl wget vim util-linux -y
 ```
-- Network optimization (optional)
+
+For the Fedora, RedHat and CentOS families of linux systems:
+
+```
+yum install git curl wget vim util-linux -y
+```
+
+### Firewall configuration
+By default, cess-bucket uses port `4001` to listen for incoming connections, if your platform blocks these two ports by default, you may need to enable access to these port.
+
+#### ufw
+For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
+```
+ufw allow 4001
+```
+
+#### firewall-cmd
+For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd command to allow traffic on specific ports. Use the following command to allow access to a port:
+```
+firewall-cmd --get-active-zones
+```
+This command gets the active zone(s). Now, apply port rules to the relevant zones returned above. For example if the zone is public, use
+```
+firewall-cmd --zone=public --add-port=4001/tcp --permanent
+```
+Note that permanent makes sure the rules are persistent across firewall start, restart or reload. Finally reload the firewall for changes to take effect.
+```
+firewall-cmd --reload
+```
+
+#### iptables
+For hosts with iptables enabled (RHEL, CentOS, etc.), you can use the iptables command to enable all traffic to a specific port. Use the following command to allow access to a port:
+```
+iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
+service iptables restart
+```
+
+### Network optimization (optional)
 
 ```shell
 sysctl -w net.ipv4.tcp_syncookies = 1
@@ -206,11 +228,12 @@ nohup ./bucket run &
 >> Please enter the mnemonic of the staking account:
 
 +------------------+------------------------------------------------------+
+| role             | bucket                                               |
 | peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
 | state            | positive                                             |
 | staking amount   | 2400 TCESS                                           |
-| validated space  | 1023410176 bytes                                     |
-| used space       | 25165824 bytes                                       |
+| validated space  | 1.00 GiB                                             |
+| used space       | 25.00 MiB                                            |
 | locked space     | 0 bytes                                              |
 | staking account  | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
 | earnings account | cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y    |
