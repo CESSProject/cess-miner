@@ -26,7 +26,7 @@ func (n *Node) TaskMgt() {
 	go n.challengeMgt(ch_challengeMgt)
 	go n.stagMgt(ch_stagMgt)
 	// go n.subscribeMgt(ch_subscribeMgt)
-	// go n.restoreMgt(ch_restoreMgt)
+	go n.restoreMgt(ch_restoreMgt)
 
 	for {
 		select {

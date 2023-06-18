@@ -152,6 +152,10 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 	return nil
 }
 
+func (n *Node) claimRestoreOrder() error {
+	return nil
+}
+
 func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
 	var err error
 	var ok bool
