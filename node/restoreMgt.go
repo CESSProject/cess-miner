@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -69,9 +70,18 @@ func (n *Node) inspector() error {
 				if sutils.CompareSlice(fragment.Miner[:], n.GetStakingPublickey()) {
 					_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash, string(fragment.Hash[:])))
 					if err != nil {
-						ok := n.fetchFile(v, string(fragment.Hash[:]), filepath.Join(n.GetDirs().FileDir, v, string(fragment.Hash[:])))
-						if !ok {
-							// report miss
+						// ok := n.fetchFile(v, string(fragment.Hash[:]), filepath.Join(n.GetDirs().FileDir, v, string(fragment.Hash[:])))
+						// if !ok {
+						// 	// report miss
+						// }
+						err = n.restoreFragment(roothashes, roothash, string(fragment.Hash[:]), segment)
+						if err != nil {
+							n.Restore("err", fmt.Sprintf("[restoreFragment %v] %v", roothash, err))
+							_, err = n.GenerateRestoralOrder(roothash, string(fragment.Hash[:]))
+							if err != nil {
+								n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder %v] %v", roothash, err))
+							}
+							continue
 						}
 					}
 				}
@@ -96,6 +106,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 		}
 	}
 	var canRestore int
+	var recoverList []string
 	for _, v := range segement.FragmentList {
 		if string(v.Hash[:]) == framentHash {
 			continue
@@ -113,16 +124,35 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 			n.Restore("err", fmt.Sprintf("[ReadFileAction] %v", err))
 			continue
 		}
+		recoverList = append(recoverList, filepath.Join(n.GetDirs().FileDir, roothash, framentHash))
 		canRestore++
 		if canRestore >= int(len(segement.FragmentList)*2/3) {
 			break
 		}
 	}
-
+	segmentpath := filepath.Join(n.GetDirs().TmpDir, roothash, string(segement.Hash[:]))
 	if canRestore >= int(len(segement.FragmentList)*2/3) {
-
+		err = n.RedundancyRecovery(segmentpath, recoverList)
+		if err != nil {
+			os.Remove(segmentpath)
+			return err
+		}
+		_, err = erasure.ReedSolomon(segmentpath)
+		if err != nil {
+			return err
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash, framentHash))
+		if err != nil {
+			return errors.New("recpvery failed")
+		}
+	} else {
+		return errors.New("recpvery failed")
 	}
 
+	return nil
+}
+
+func (n *Node) claimRestoreOrder() error {
 	return nil
 }
 
