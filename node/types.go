@@ -7,7 +7,7 @@
 
 package node
 
-const MaxReplaceFiles = 5
+const MaxReplaceFiles = 30
 
 const (
 	Active = iota
@@ -24,6 +24,7 @@ const (
 	Cach_prefix_serviceSiama  = "sigmaservice:"
 	Cach_AggrProof_Reported   = "AggrProof_Reported"
 	Cach_AggrProof_Transfered = "AggrProof_Transfered"
+	Cach_prefix_recovery      = "recovery:"
 )
 
 const P2PResponseOK uint32 = 200

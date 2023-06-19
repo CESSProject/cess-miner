@@ -78,6 +78,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			}
 
 			if tagPath == "" || spacePath == "" {
+				os.Remove(tagPath)
+				os.Remove(spacePath)
 				continue
 			}
 

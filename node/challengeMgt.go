@@ -336,6 +336,7 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 		matrix, _, err := proof.SplitByN(filepath.Join(n.GetDirs().IdleDataDir, idleRoothashs[i]), int64(len(tag.T.Phi)))
 		if err != nil {
 			n.Delete([]byte(Cach_prefix_idle + idleRoothashs[i]))
+
 			os.Remove(idleTagPath)
 			n.Chal("err", fmt.Sprintf("SplitByN err: %v", err))
 			continue

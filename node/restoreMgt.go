@@ -30,8 +30,11 @@ func (n *Node) restoreMgt(ch chan bool) {
 			if err != nil {
 				n.Restore("err", err.Error())
 				time.Sleep(pattern.BlockInterval)
-			} else {
-				time.Sleep(time.Minute)
+			}
+			err = n.claimRestoreOrder()
+			if err != nil {
+				n.Restore("err", err.Error())
+				time.Sleep(pattern.BlockInterval)
 			}
 		}
 		time.Sleep(pattern.BlockInterval)
@@ -70,10 +73,6 @@ func (n *Node) inspector() error {
 				if sutils.CompareSlice(fragment.Miner[:], n.GetStakingPublickey()) {
 					_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash, string(fragment.Hash[:])))
 					if err != nil {
-						// ok := n.fetchFile(v, string(fragment.Hash[:]), filepath.Join(n.GetDirs().FileDir, v, string(fragment.Hash[:])))
-						// if !ok {
-						// 	// report miss
-						// }
 						err = n.restoreFragment(roothashes, roothash, string(fragment.Hash[:]), segment)
 						if err != nil {
 							n.Restore("err", fmt.Sprintf("[restoreFragment %v] %v", roothash, err))
@@ -153,6 +152,129 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 }
 
 func (n *Node) claimRestoreOrder() error {
+	val, _ := n.QueryPrefixKeyList(Cach_prefix_recovery)
+	for _, v := range val {
+		b, err := n.Get([]byte(Cach_prefix_recovery + v))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[Get %s] %v", v, err))
+			n.Delete([]byte(Cach_prefix_recovery + v))
+			continue
+		}
+		err = n.restoreAFragment(string(b), v, filepath.Join(n.GetDirs().FileDir, string(b), v))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[restoreAFragment %s-%s] %v", string(b), v, err))
+			continue
+		}
+		txhash, err := n.RestoralComplete(v)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(b), v, err))
+			continue
+		}
+		n.Restore("info", fmt.Sprintf("[RestoralComplete %s-%s] %s", string(b), v, txhash))
+	}
+
+	restoreOrderList, err := n.QueryRestoralOrderList()
+	if err != nil {
+		n.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
+		return err
+	}
+	blockHeight, err := n.QueryBlockHeight("")
+	if err != nil {
+		n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+		return err
+	}
+	for _, v := range restoreOrderList {
+		if blockHeight <= uint32(v.Deadline) {
+			continue
+		}
+		_, err = n.ClaimRestoralOrder(string(v.FragmentHash[:]))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
+			continue
+		}
+		n.Put([]byte(Cach_prefix_recovery+string(v.FragmentHash[:])), []byte(string(v.FileHash[:])))
+		break
+	}
+
+	return nil
+}
+
+func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) error {
+	var err error
+	var id peer.ID
+	var miner pattern.MinerInfo
+	roothashes, err := utils.Dirs(n.GetDirs().FileDir)
+	for _, v := range roothashes {
+		_, err = os.Stat(filepath.Join(v, framentHash))
+		if err == nil {
+			err = utils.CopyFile(recoveryPath, filepath.Join(v, framentHash))
+			if err == nil {
+				return nil
+			}
+		}
+	}
+	var canRestore int
+	var recoverList []string
+	var dstSegement pattern.SegmentInfo
+	fmeta, err := n.QueryFileMetadata(roothash)
+	if err != nil {
+		return err
+	}
+	for _, segement := range fmeta.SegmentList {
+		for _, v := range segement.FragmentList {
+			if string(v.Hash[:]) == framentHash {
+				dstSegement = segement
+				break
+			}
+		}
+		if dstSegement.FragmentList != nil {
+			break
+		}
+	}
+
+	for _, v := range dstSegement.FragmentList {
+		if string(v.Hash[:]) == framentHash {
+			continue
+		}
+		miner, err = n.QueryStorageMiner(v.Miner[:])
+		if err != nil {
+			continue
+		}
+		id, err = peer.Decode(base58.Encode([]byte(string(miner.PeerId[:]))))
+		if err != nil {
+			continue
+		}
+		err = n.ReadFileAction(id, roothash, framentHash, filepath.Join(n.GetDirs().FileDir, roothash, framentHash), pattern.FragmentSize)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[ReadFileAction] %v", err))
+			continue
+		}
+		recoverList = append(recoverList, filepath.Join(n.GetDirs().FileDir, roothash, framentHash))
+		canRestore++
+		if canRestore >= int(len(dstSegement.FragmentList)*2/3) {
+			break
+		}
+	}
+
+	segmentpath := filepath.Join(n.GetDirs().TmpDir, roothash, string(dstSegement.Hash[:]))
+	if canRestore >= int(len(dstSegement.FragmentList)*2/3) {
+		err = n.RedundancyRecovery(segmentpath, recoverList)
+		if err != nil {
+			os.Remove(segmentpath)
+			return err
+		}
+		_, err = erasure.ReedSolomon(segmentpath)
+		if err != nil {
+			return err
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash, framentHash))
+		if err != nil {
+			return errors.New("recpvery failed")
+		}
+	} else {
+		return errors.New("recpvery failed")
+	}
+
 	return nil
 }
 
