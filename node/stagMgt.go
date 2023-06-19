@@ -39,6 +39,8 @@ func (n *Node) stagMgt(ch chan bool) {
 func (n *Node) calcFileTag() {
 	var roothash string
 	var code uint32
+	var id peer.ID
+
 	tees, err := n.QueryTeeInfoList()
 	if err != nil {
 		n.Stag("err", err.Error())
@@ -100,15 +102,18 @@ func (n *Node) calcFileTag() {
 			}
 
 			utils.RandSlice(tees)
-			var id peer.ID
 			for _, t := range tees {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
-				if n.HasTeePeer(teePeerId) {
-					id, err = peer.Decode(teePeerId)
-					if err != nil {
-						continue
-					}
+				if !n.HasTeePeer(teePeerId) {
+					continue
 				}
+
+				id, err = peer.Decode(teePeerId)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[peer.Decode:%s] err: %v", teePeerId, err))
+					continue
+				}
+
 				n.Stag("info", fmt.Sprintf("Send file tag request to tee: %s", teePeerId))
 				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
 				if err != nil || code != 0 {
