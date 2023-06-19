@@ -96,11 +96,14 @@ func (n *Node) resizeSpace() error {
 		return err
 	}
 	for _, v := range allSpace {
+		n.Replace("info", fmt.Sprintf("check: %s", v))
 		_, err = n.QueryFillerMap(v)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
 				os.Remove(filepath.Join(n.GetDirs().IdleDataDir, v))
 				os.Remove(filepath.Join(n.GetDirs().IdleTagDir, v+".tag"))
+				n.Delete([]byte(Cach_prefix_idle + v))
+				continue
 			}
 			n.Replace("err", err.Error())
 			continue
@@ -115,6 +118,7 @@ func (n *Node) resizeSpace() error {
 				n.Replace("info", fmt.Sprintf("delete %v suc: %v", v, txhash))
 				n.Delete([]byte(Cach_prefix_idle + v))
 			}
+			continue
 		}
 		_, err = os.Stat(filepath.Join(n.GetDirs().IdleTagDir, v+".tag"))
 		if err != nil {
@@ -126,6 +130,7 @@ func (n *Node) resizeSpace() error {
 				n.Replace("info", fmt.Sprintf("delete %v suc: %v", v, txhash))
 				n.Delete([]byte(Cach_prefix_idle + v))
 			}
+			continue
 		}
 	}
 	return nil

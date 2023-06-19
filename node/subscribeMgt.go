@@ -96,6 +96,7 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 				// }
 			}
 		}
+		time.Sleep(time.Millisecond * 20)
 	}
 }
 
