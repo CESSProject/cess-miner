@@ -27,7 +27,7 @@ func exitHandle(exitCh chan os.Signal) {
 	for {
 		select {
 		case <-exitCh:
-			os.Exit(0)
+			panic(nil)
 		}
 	}
 }

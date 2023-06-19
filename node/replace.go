@@ -31,45 +31,104 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var count uint32
 	var spacedir = n.GetDirs().IdleDataDir
 
-	n.Replace("info", ">>>>> Start replaceMgr task")
+	n.Replace("info", ">>>>> Start replaceMgt")
+
+	tickReplace := time.NewTicker(time.Second * 30)
+	defer tickReplace.Stop()
+
+	tikSpace := time.NewTicker(time.Minute)
+	defer tikSpace.Stop()
 
 	for {
-		count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
-		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
+		select {
+		case <-tikSpace.C:
+			err = n.resizeSpace()
+			if err != nil {
 				n.Replace("err", err.Error())
 			}
-			time.Sleep(time.Minute)
-			continue
-		}
+		case <-tickReplace.C:
+			count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					n.Replace("err", err.Error())
+				}
+				time.Sleep(time.Minute)
+				break
+			}
 
-		if count == 0 {
-			time.Sleep(time.Minute)
-			continue
-		}
+			if count == 0 {
+				time.Sleep(time.Minute)
+				break
+			}
 
-		if count > MaxReplaceFiles {
-			count = MaxReplaceFiles
-		}
-		files, err := SelectIdleFiles(spacedir, count)
-		if err != nil {
-			n.Replace("err", err.Error())
-			time.Sleep(time.Minute)
-			continue
-		}
+			if count > MaxReplaceFiles {
+				count = MaxReplaceFiles
+			}
+			files, err := SelectIdleFiles(spacedir, count)
+			if err != nil {
+				n.Replace("err", err.Error())
+				time.Sleep(time.Minute)
+				break
+			}
 
-		txhash, _, err = n.ReplaceFile(files)
-		if err != nil {
-			n.Replace("err", err.Error())
-			time.Sleep(time.Minute)
-			continue
-		}
+			txhash, _, err = n.ReplaceFile(files)
+			if err != nil {
+				n.Replace("err", err.Error())
+				time.Sleep(time.Minute)
+				break
+			}
 
-		n.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
-		for i := 0; i < len(files); i++ {
-			os.Remove(filepath.Join(spacedir, files[i]))
+			n.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
+			for i := 0; i < len(files); i++ {
+				os.Remove(filepath.Join(spacedir, files[i]))
+				os.Remove(filepath.Join(n.GetDirs().IdleTagDir, files[i]+".tag"))
+			}
 		}
 	}
+}
+
+func (n *Node) resizeSpace() error {
+	var err error
+	var txhash string
+	var allSpace = make([]string, 0)
+	allSpace, err = n.Cache.QueryPrefixKeyList(Cach_prefix_idle)
+	if err != nil {
+		return err
+	}
+	for _, v := range allSpace {
+		_, err = n.QueryFillerMap(v)
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				os.Remove(filepath.Join(n.GetDirs().IdleDataDir, v))
+				os.Remove(filepath.Join(n.GetDirs().IdleTagDir, v+".tag"))
+			}
+			n.Replace("err", err.Error())
+			continue
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().IdleDataDir, v))
+		if err != nil {
+			os.Remove(filepath.Join(n.GetDirs().IdleTagDir, v+".tag"))
+			txhash, err = n.DeleteFiller(v)
+			if err != nil {
+				n.Replace("err", err.Error())
+			} else {
+				n.Replace("info", fmt.Sprintf("delete %v suc: %v", v, txhash))
+				n.Delete([]byte(Cach_prefix_idle + v))
+			}
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().IdleTagDir, v+".tag"))
+		if err != nil {
+			os.Remove(filepath.Join(n.GetDirs().IdleDataDir, v))
+			txhash, err = n.DeleteFiller(v)
+			if err != nil {
+				n.Replace("err", err.Error())
+			} else {
+				n.Replace("info", fmt.Sprintf("delete %v suc: %v", v, txhash))
+				n.Delete([]byte(Cach_prefix_idle + v))
+			}
+		}
+	}
+	return nil
 }
 
 func SelectIdleFiles(dir string, count uint32) ([]string, error) {
