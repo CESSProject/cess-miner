@@ -52,30 +52,28 @@ func (n *Node) calcFileTag() {
 	timeout := time.NewTicker(time.Minute * 2)
 	defer timeout.Stop()
 
-	n.Stag("info", fmt.Sprintf("Service files: %s", roothashs))
-	for _, f := range roothashs {
-		roothash = filepath.Base(f)
-		n.Stag("info", fmt.Sprintf("Service file: %s", roothash))
-		files, err := utils.DirFiles(filepath.Join(n.GetDirs().FileDir, roothash), 0)
+	for _, fileDir := range roothashs {
+		roothash = filepath.Base(fileDir)
+		n.Stag("info", fmt.Sprintf("Check file: %s", fileDir))
+		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
+			n.Stag("err", fmt.Sprintf("[DirFiles:%s] %v", fileDir, err))
 			continue
 		}
 
 		for _, f := range files {
-			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")
-			n.Stag("info", fmt.Sprintf("Service file tag: %s", serviceTagPath))
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, roothash+".tag")
 			_, err = os.Stat(serviceTagPath)
 			if err == nil {
-				n.Stag("err", fmt.Sprintf("Found a service tag: %s", serviceTagPath))
 				continue
 			}
 
 			finfo, err := os.Stat(f)
 			if err != nil {
-				n.Stag("err", fmt.Sprintf("Service file not found: %s", f))
+				n.Stag("err", fmt.Sprintf("Service fragment not found: %s", f))
 				continue
 			}
+
 			if finfo.Size() > pattern.FragmentSize {
 				var buf = make([]byte, pattern.FragmentSize)
 				fs, err := os.Open(f)
@@ -123,7 +121,7 @@ func (n *Node) calcFileTag() {
 					n.Stag("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
 					continue
 				}
-				timeout.Reset(time.Minute * 2)
+				timeout.Reset(time.Minute * 3)
 				select {
 				case <-timeout.C:
 					n.Stag("err", fmt.Sprintf("Waiting for service file tag timeout: %s", f))
