@@ -26,6 +26,7 @@ const (
 	Cach_AggrProof_Transfered = "AggrProof_Transfered"
 	Cach_prefix_MyLost        = "mylost:"
 	Cach_prefix_recovery      = "recovery:"
+	Cach_prefix_TargetMiner   = "targetminer:"
 )
 
 const P2PResponseOK uint32 = 200
