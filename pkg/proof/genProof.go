@@ -21,7 +21,7 @@ type HashSelf interface {
 	CHash() ([]byte, crypto.Hash)
 }
 
-func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Tag Tag, Matrix [][]byte) <-chan GenProofResponse {
+func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Phi []string, Matrix [][]byte) <-chan GenProofResponse {
 	responseCh := make(chan GenProofResponse, 1)
 	var res GenProofResponse
 
@@ -70,7 +70,7 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Tag Tag, Matri
 		vi, _ := new(big.Int).SetString(QSlice[i].V, 10)
 		mu.Add(new(big.Int).Mul(mi, vi), mu)
 		//σ =∏ σ^vi ∈ G (i ∈ [1, n])
-		sigma_i, _ := new(big.Int).SetString(Tag.T.Phi[QSlice[i].I], 10)
+		sigma_i, _ := new(big.Int).SetString(Phi[QSlice[i].I], 10)
 		sigma.Mul(new(big.Int).Exp(sigma_i, vi, keyPair.Spk.N), sigma)
 	}
 	sigma.Mod(sigma, keyPair.Spk.N)
@@ -100,6 +100,36 @@ func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {
 		sigma.Mod(sigma, keyPair.Spk.N)
 	}
 	return sigma.String()
+}
+
+func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, QSlice []QElement, Phi []string) (string, bool) {
+	if AggrSigma == "" {
+		AggrSigma = "1"
+	}
+
+	sigma, ok := new(big.Int).SetString(AggrSigma, 10)
+	if !ok {
+		return "", false
+	}
+
+	for _, q := range QSlice {
+		vi, ok := new(big.Int).SetString(q.V, 10)
+		if !ok {
+			return "", false
+		}
+
+		//σ =∏ σi^vi ∈ G (i ∈ [1, n])
+		sigma_i, ok := new(big.Int).SetString(Phi[q.I], 10)
+		if !ok {
+			return "", false
+		}
+
+		sigma_i.Exp(sigma_i, vi, keyPair.Spk.N)
+		sigma.Mul(sigma, sigma_i)
+	}
+	sigma.Mod(sigma, keyPair.Spk.N)
+
+	return sigma.String(), true
 }
 
 func SplitByN(filePath string, N int64) (Data [][]byte, sep int64, err error) {
