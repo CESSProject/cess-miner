@@ -299,11 +299,11 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 	}
 
 	var buf []byte
-	var ptags []proof.Tag = make([]proof.Tag, 0)
-	var ptag proof.Tag
 	var actualCount int
 	var pf ProofFileType
 	var proveResponse proof.GenProofResponse
+	var sigma string
+	var tag pb.Tag
 
 	pf.Names = make([]string, len(idleRoothashs))
 	pf.Us = make([]string, len(idleRoothashs))
@@ -326,7 +326,6 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 			continue
 		}
 
-		var tag pb.Tag
 		err = json.Unmarshal(buf, &tag)
 		if err != nil {
 			n.Chal("err", fmt.Sprintf("Unmarshal err: %v", err))
@@ -336,19 +335,12 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 		matrix, _, err := proof.SplitByN(filepath.Join(n.GetDirs().IdleDataDir, idleRoothashs[i]), int64(len(tag.T.Phi)))
 		if err != nil {
 			n.Delete([]byte(Cach_prefix_idle + idleRoothashs[i]))
-
 			os.Remove(idleTagPath)
 			n.Chal("err", fmt.Sprintf("SplitByN err: %v", err))
 			continue
 		}
 
-		ptag.T.Name = tag.T.Name
-		ptag.T.Phi = tag.T.Phi
-		ptag.T.U = tag.T.U
-		ptag.PhiHash = tag.PhiHash
-		ptag.Attest = tag.Attest
-
-		proveResponseCh := n.key.GenProof(qslice, nil, ptag, matrix)
+		proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
 		timeout.Reset(time.Minute)
 		select {
 		case proveResponse = <-proveResponseCh:
@@ -360,14 +352,16 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 			continue
 		}
 
-		ptags = append(ptags, ptag)
+		sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
+		if !ok {
+			continue
+		}
+		sigma = sigmaTemp
 		pf.Names[actualCount] = tag.T.Name
 		pf.Us[actualCount] = tag.T.U
 		pf.Mus[actualCount] = proveResponse.MU
 		actualCount++
 	}
-
-	sigma := n.key.AggrGenProof(qslice, ptags)
 
 	pf.Names = pf.Names[:actualCount]
 	pf.Us = pf.Us[:actualCount]
@@ -412,11 +406,9 @@ func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, 
 	}
 
 	var buf []byte
+	var sigma string
 	var pf ProofFileType
-	var ptags []proof.Tag = make([]proof.Tag, 0)
-	var ptag proof.Tag
 	var proveResponse proof.GenProofResponse
-
 	pf.Names = make([]string, 0)
 	pf.Us = make([]string, 0)
 	pf.Mus = make([]string, 0)
@@ -449,13 +441,7 @@ func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, 
 				continue
 			}
 
-			ptag.T.Name = tag.T.Name
-			ptag.T.Phi = tag.T.Phi
-			ptag.T.U = tag.T.U
-			ptag.PhiHash = tag.PhiHash
-			ptag.Attest = tag.Attest
-
-			proveResponseCh := n.key.GenProof(qslice, nil, ptag, matrix)
+			proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
 			timeout.Reset(time.Minute)
 			select {
 			case proveResponse = <-proveResponseCh:
@@ -468,16 +454,17 @@ func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, 
 				continue
 			}
 
-			ptags = append(ptags, ptag)
+			sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
+			if !ok {
+				continue
+			}
+			sigma = sigmaTemp
 			pf.Names = append(pf.Names, tag.T.Name)
 			pf.Us = append(pf.Us, tag.T.U)
 			pf.Mus = append(pf.Mus, proveResponse.MU)
 		}
 	}
-
-	sigma := n.key.AggrGenProof(qslice, ptags)
 	pf.Sigma = sigma
-
 	buf, err = json.Marshal(&pf)
 	if err != nil {
 		return "", err
