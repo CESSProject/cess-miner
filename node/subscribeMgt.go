@@ -44,7 +44,7 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 			break
 		}
 		n.Subscribe("err", err.Error())
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(time.Minute)
 	}
 	for {
 		if n.GetChainState() {

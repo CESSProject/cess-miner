@@ -31,6 +31,13 @@ func (n *Node) restoreMgt(ch chan bool) {
 				n.Restore("err", err.Error())
 				time.Sleep(pattern.BlockInterval)
 			}
+
+			err = n.claimNoExitOrder()
+			if err != nil {
+				n.Restore("err", err.Error())
+				time.Sleep(pattern.BlockInterval)
+			}
+
 			err = n.claimRestoreOrder()
 			if err != nil {
 				n.Restore("err", err.Error())
@@ -105,6 +112,12 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 	var id peer.ID
 	var miner pattern.MinerInfo
 	n.Restore("info", fmt.Sprintf("[%s] To restore the fragment: %s", roothash, framentHash))
+
+	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
+	if err != nil {
+		os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+	}
+
 	for _, v := range roothashes {
 		_, err = os.Stat(filepath.Join(v, framentHash))
 		if err == nil {
@@ -234,6 +247,10 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	var miner pattern.MinerInfo
 	n.Restore("info", fmt.Sprintf("[%s] To restore the fragment: %s", roothash, framentHash))
 	n.Restore("info", fmt.Sprintf("[%s] Restore path: %s", roothash, recoveryPath))
+	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
+	if err != nil {
+		os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+	}
 	roothashes, err := utils.Dirs(n.GetDirs().FileDir)
 	for _, v := range roothashes {
 		_, err = os.Stat(filepath.Join(v, framentHash))
@@ -332,6 +349,90 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		return errors.New("recpvery failed")
 	}
 
+	return nil
+}
+
+func (n *Node) claimNoExitOrder() error {
+	var ok bool
+	var roothash string
+	var fmeta pattern.FileMetadata
+	var miner string
+	var txhash string
+	var restoralOrder pattern.RestoralOrderInfo
+	var blockHeight uint32
+	targetMiner, err := n.QueryPrefixKeyList(Cach_prefix_TargetMiner)
+	if err == nil && len(targetMiner) > 0 {
+		roothashList, err := utils.Dirs(n.GetDirs().FileDir)
+		if err != nil {
+			return errors.Wrapf(err, "[Dirs]")
+		}
+		for _, v := range roothashList {
+			roothash = filepath.Base(v)
+			fmeta, err = n.QueryFileMetadata(roothash)
+			if err != nil {
+				n.Restore("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
+				continue
+			}
+			for _, segment := range fmeta.SegmentList {
+				for _, fragment := range segment.FragmentList {
+					miner, err = sutils.EncodePublicKeyAsCessAccount(fragment.Miner[:])
+					if err != nil {
+						n.Restore("err", fmt.Sprintf("[EncodePublicKeyAsCessAccount] %v", err))
+						continue
+					}
+					if miner == targetMiner[0] {
+						if ok, err = n.Has([]byte(Cach_prefix_recovery + string(fragment.Hash[:]))); ok {
+							continue
+						}
+
+						restoralOrder, err = n.QueryRestoralOrder(string(fragment.Hash[:]))
+						if err != nil {
+							if err.Error() != pattern.ERR_Empty {
+								n.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
+								continue
+							}
+						} else {
+							blockHeight, err = n.QueryBlockHeight("")
+							if err != nil {
+								continue
+							}
+							if uint32(restoralOrder.Deadline) <= blockHeight {
+								continue
+							}
+						}
+						txhash, err = n.ClaimRestoralNoExistOrder(fragment.Miner[:], roothash, string(fragment.Hash[:]))
+						if err != nil {
+							n.Restore("err", fmt.Sprintf("[ClaimRestoralNoExistOrder] %v", err))
+							continue
+						}
+						n.Restore("info", fmt.Sprintf("Claim exit miner [%s] restoral fragment [%s] order: %s", miner, string(fragment.Hash[:]), txhash))
+						n.Put([]byte(Cach_prefix_recovery+string(fragment.Hash[:])), []byte(roothash))
+						return nil
+					}
+				}
+			}
+		}
+		n.Delete([]byte(Cach_prefix_TargetMiner + targetMiner[0]))
+	}
+
+	restoreTargetList, err := n.QueryRestoralTargetList()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryRestoralTargetList]")
+	}
+	for _, v := range restoreTargetList {
+		minerAcc, err := sutils.EncodePublicKeyAsCessAccount(v.Miner[:])
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[EncodePublicKeyAsCessAccount] %v", err))
+			continue
+		}
+		if v.ServiceSpace.CmpAbs(v.RestoredSpace.Int) < 1 {
+			n.Delete([]byte(Cach_prefix_TargetMiner + minerAcc))
+			continue
+		}
+		n.Restore("info", fmt.Sprintf("Found a exit miner: %s", minerAcc))
+		n.Put([]byte(Cach_prefix_TargetMiner+minerAcc), nil)
+		break
+	}
 	return nil
 }
 
