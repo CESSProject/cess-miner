@@ -9,14 +9,14 @@ package node
 
 func (n *Node) TaskMgt() {
 	var (
-		ch_chainMgt     = make(chan bool, 1)
-		ch_spaceMgt     = make(chan bool, 1)
-		ch_fileMgt      = make(chan bool, 1)
-		ch_replaceMgr   = make(chan bool, 1)
-		ch_challengeMgt = make(chan bool, 1)
-		ch_stagMgt      = make(chan bool, 1)
-		ch_restoreMgt   = make(chan bool, 1)
-		ch_subscribeMgt = make(chan bool, 1)
+		ch_chainMgt      = make(chan bool, 1)
+		ch_spaceMgt      = make(chan bool, 1)
+		ch_fileMgt       = make(chan bool, 1)
+		ch_replaceMgr    = make(chan bool, 1)
+		ch_challengeMgt  = make(chan bool, 1)
+		ch_stagMgt       = make(chan bool, 1)
+		ch_restoreMgt    = make(chan bool, 1)
+		ch_parseBlockMgt = make(chan bool, 1)
 	)
 
 	go n.chainMgt(ch_chainMgt)
@@ -26,7 +26,7 @@ func (n *Node) TaskMgt() {
 	go n.challengeMgt(ch_challengeMgt)
 	go n.stagMgt(ch_stagMgt)
 	go n.restoreMgt(ch_restoreMgt)
-	go n.subscribeMgt(ch_subscribeMgt)
+	go n.parseBlockMgt(ch_parseBlockMgt)
 
 	for {
 		select {
@@ -42,10 +42,10 @@ func (n *Node) TaskMgt() {
 			go n.challengeMgt(ch_challengeMgt)
 		case <-ch_stagMgt:
 			go n.stagMgt(ch_stagMgt)
-		case <-ch_subscribeMgt:
-			go n.subscribeMgt(ch_subscribeMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
+		case <-ch_parseBlockMgt:
+			go n.parseBlockMgt(ch_parseBlockMgt)
 		}
 	}
 }

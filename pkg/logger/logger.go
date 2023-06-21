@@ -29,8 +29,8 @@ type Logger interface {
 	Replace(level string, msg string)
 	Chal(level string, msg string)
 	Stag(level string, msg string)
-	Subscribe(level string, msg string)
 	Restore(level string, msg string)
+	Parseblock(level string, msg string)
 }
 
 type logs struct {
@@ -46,8 +46,8 @@ var LogFiles = []string{
 	"replace",
 	"challenge",
 	"stag",
-	"subscribe",
 	"restore",
+	"parseblock",
 }
 
 func NewLogs(logfiles map[string]string) (Logger, error) {
@@ -164,9 +164,9 @@ func (l *logs) Stag(level string, msg string) {
 	}
 }
 
-func (l *logs) Subscribe(level string, msg string) {
+func (l *logs) Restore(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["subscribe"]
+	v, ok := l.log["restore"]
 	if ok {
 		switch level {
 		case "info":
@@ -177,9 +177,9 @@ func (l *logs) Subscribe(level string, msg string) {
 	}
 }
 
-func (l *logs) Restore(level string, msg string) {
+func (l *logs) Parseblock(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["restore"]
+	v, ok := l.log["parseblock"]
 	if ok {
 		switch level {
 		case "info":
