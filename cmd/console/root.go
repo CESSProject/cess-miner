@@ -35,6 +35,7 @@ func Execute() {
 
 // init
 func init() {
+	configs.SysInit()
 	rootCmd.AddCommand(
 		Command_Version(),
 		Command_State(),
