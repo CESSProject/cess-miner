@@ -176,6 +176,7 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 				n.SaveTeePeer(peerid, 0)
 				configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
 			}
+
 			n.Put([]byte(Cach_prefix_ParseBlock), []byte(fmt.Sprintf("%d", i)))
 			n.Subscribe("info", fmt.Sprintf("Parse block: %d", i))
 			startBlock = i
