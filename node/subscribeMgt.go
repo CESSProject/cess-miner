@@ -9,6 +9,7 @@ package node
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -35,8 +36,18 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 	var startBlock uint32
 	var peerid string
 	var stakingAcc string
+	var b []byte
+	var head types.Header
 	var storageNode pattern.MinerInfo
 	var events = event.EventRecords{}
+
+	b, err = n.Get([]byte(Cach_prefix_ParseBlock))
+	if err == nil {
+		block, err := strconv.Atoi(string(b))
+		if err == nil {
+			startBlock = uint32(block)
+		}
+	}
 
 	for {
 		startBlock, err = n.parsingOldBlocks(startBlock)
@@ -56,7 +67,7 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 			}
 			defer sub.Unsubscribe()
 			for {
-				head := <-sub.Chan()
+				head = <-sub.Chan()
 				blockhash, err := n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(head.Number))
 				if err != nil {
 					n.Subscribe("err", fmt.Sprintf("[GetBlockHash] %v", err.Error()))
@@ -89,11 +100,18 @@ func (n *Node) subscribeMgt(ch chan<- bool) {
 					n.Subscribe("info", fmt.Sprintf("Record a storage node: %s", peerid))
 				}
 
-				// for _, v := range events.TeeWorker_RegistrationTeeWorker {
-				// 	peerid = base58.Encode([]byte(string(v.Ip[:])))
-				// 	n.SaveTeePeer(peerid, 0)
-				// 	configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
-				// }
+				for _, v := range events.FileBank_StorageCompleted {
+					n.Put([]byte(Cach_prefix_File+string(v.FileHash[:])), []byte(fmt.Sprintf("%d", head.Number)))
+					n.Subscribe("info", fmt.Sprintf("Record a file: %s", string(v.FileHash[:])))
+				}
+
+				for _, v := range events.TeeWorker_RegistrationTeeWorker {
+					peerid = base58.Encode([]byte(string(v.PeerId[:])))
+					n.SaveTeePeer(peerid, 0)
+					configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
+				}
+				n.Put([]byte(Cach_prefix_ParseBlock), []byte(fmt.Sprintf("%d", head.Number)))
+				n.Subscribe("info", fmt.Sprintf("Parse block: %d", head.Number))
 			}
 		}
 		time.Sleep(time.Millisecond * 20)
@@ -134,22 +152,32 @@ func (n *Node) parsingOldBlocks(block uint32) (uint32, error) {
 				return startBlock, errors.Wrapf(err, "[DecodeEventRecords]")
 			}
 
+			// Corresponding processing according to different events
 			for _, v := range events.Sminer_Registered {
 				storageNode, err = n.QueryStorageMiner(v.Acc[:])
 				if err != nil {
-					return startBlock, errors.Wrapf(err, "[QueryStorageMiner]")
+					n.Subscribe("err", fmt.Sprintf("[QueryStorageMiner] %v", err.Error()))
+					continue
 				}
 				stakingAcc, _ = sutils.EncodePublicKeyAsCessAccount(v.Acc[:])
 				peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
 				n.SaveStoragePeer(peerid, stakingAcc)
 				configs.Tip(fmt.Sprintf("Record a storage node: %s", peerid))
+				n.Subscribe("info", fmt.Sprintf("Record a storage node: %s", peerid))
 			}
 
-			// for _, v := range events.TeeWorker_RegistrationScheduler {
-			// 	peerid = base58.Encode([]byte(string(v.Ip[:])))
-			// 	n.SaveTeePeer(peerid, 0)
-			// 	configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
-			// }
+			for _, v := range events.FileBank_StorageCompleted {
+				n.Put([]byte(Cach_prefix_File+string(v.FileHash[:])), []byte(fmt.Sprintf("%d", i)))
+				n.Subscribe("info", fmt.Sprintf("Record a file: %s", string(v.FileHash[:])))
+			}
+
+			for _, v := range events.TeeWorker_RegistrationTeeWorker {
+				peerid = base58.Encode([]byte(string(v.PeerId[:])))
+				n.SaveTeePeer(peerid, 0)
+				configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
+			}
+			n.Put([]byte(Cach_prefix_ParseBlock), []byte(fmt.Sprintf("%d", i)))
+			n.Subscribe("info", fmt.Sprintf("Parse block: %d", i))
 			startBlock = i
 		}
 		startBlock = blockheight

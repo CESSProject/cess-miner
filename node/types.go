@@ -27,6 +27,8 @@ const (
 	Cach_prefix_MyLost        = "mylost:"
 	Cach_prefix_recovery      = "recovery:"
 	Cach_prefix_TargetMiner   = "targetminer:"
+	Cach_prefix_File          = "file:"
+	Cach_prefix_ParseBlock    = "parseblocks"
 )
 
 const P2PResponseOK uint32 = 200

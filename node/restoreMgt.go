@@ -193,8 +193,17 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 }
 
 func (n *Node) claimRestoreOrder() error {
+	var err error
 	val, _ := n.QueryPrefixKeyList(Cach_prefix_recovery)
 	for _, v := range val {
+		_, err = n.QueryRestoralOrder(v)
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				n.Delete([]byte(Cach_prefix_recovery + v))
+				continue
+			}
+		}
+
 		b, err := n.Get([]byte(Cach_prefix_recovery + v))
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[Get %s] %v", v, err))
@@ -368,6 +377,7 @@ func (n *Node) claimNoExitOrder() error {
 		}
 		for _, v := range roothashList {
 			roothash = filepath.Base(v)
+			n.Restore("info", fmt.Sprintf("check file: %s", roothash))
 			fmeta, err = n.QueryFileMetadata(roothash)
 			if err != nil {
 				n.Restore("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
@@ -400,6 +410,7 @@ func (n *Node) claimNoExitOrder() error {
 								continue
 							}
 						}
+						n.Restore("info", fmt.Sprintf("will claim restore order and fragment is: %s", string(fragment.Hash[:])))
 						txhash, err = n.ClaimRestoralNoExistOrder(fragment.Miner[:], roothash, string(fragment.Hash[:]))
 						if err != nil {
 							n.Restore("err", fmt.Sprintf("[ClaimRestoralNoExistOrder] %v", err))
