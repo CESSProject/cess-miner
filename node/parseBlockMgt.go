@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/event"
@@ -62,6 +61,7 @@ func (n *Node) parseBlockMgt(ch chan<- bool) {
 
 func (n *Node) pBlock() error {
 	var err error
+	var pdblock uint32
 	var latestBlockHeight uint32
 	var parsedBlock int
 	var b []byte
@@ -87,7 +87,8 @@ func (n *Node) pBlock() error {
 		return errors.Wrapf(err, "[strconv.Atoi]")
 	}
 
-	_, err = n.parseOldBlocks(uint32(parsedBlock+1), latestBlockHeight)
+	pdblock, err = n.parseOldBlocks(uint32(parsedBlock+1), latestBlockHeight)
+	n.Put([]byte(Cach_prefix_ParseBlock), []byte(fmt.Sprintf("%d", pdblock)))
 	if err != nil {
 		return errors.Wrapf(err, "[parseOldBlocks]")
 	}
@@ -147,7 +148,7 @@ func (n *Node) parseOldBlocks(startBlock, endBlock uint32) (uint32, error) {
 		for _, v := range events.TeeWorker_RegistrationTeeWorker {
 			peerid = base58.Encode([]byte(string(v.PeerId[:])))
 			n.SaveTeePeer(peerid, 0)
-			configs.Tip(fmt.Sprintf("Record a tee node: %s", peerid))
+			n.Parseblock("info", fmt.Sprintf("Record a tee node: %s", peerid))
 		}
 
 		n.Put([]byte(Cach_prefix_ParseBlock), []byte(fmt.Sprintf("%d", i)))

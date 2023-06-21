@@ -19,6 +19,7 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 func (n *Node) stagMgt(ch chan bool) {
@@ -28,43 +29,50 @@ func (n *Node) stagMgt(ch chan bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+	n.Stag("info", ">>>>> Start stagMgt <<<<<")
+
+	var err error
+	var recordErr string
 
 	for {
-		n.calcFileTag()
+		err = n.calcFileTag()
+		if err != nil {
+			if recordErr != err.Error() {
+				n.Stag("err", err.Error())
+				recordErr = err.Error()
+			}
+		}
 		time.Sleep(pattern.BlockInterval)
 	}
-
 }
 
-func (n *Node) calcFileTag() {
-	var roothash string
+func (n *Node) calcFileTag() error {
+	var fragmentHash string
 	var code uint32
 	var id peer.ID
 
 	tees, err := n.QueryTeeInfoList()
 	if err != nil {
-		n.Stag("err", err.Error())
-		return
+		return errors.Wrapf(err, "[QueryTeeInfoList]")
 	}
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
-		n.Stag("err", err.Error())
-		return
+		return errors.Wrapf(err, "[Dirs]")
 	}
 	timeout := time.NewTicker(time.Minute * 2)
 	defer timeout.Stop()
 
 	for _, fileDir := range roothashs {
-		roothash = filepath.Base(fileDir)
 		n.Stag("info", fmt.Sprintf("Check file: %s", fileDir))
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[DirFiles:%s] %v", fileDir, err))
+			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
 			continue
 		}
 
 		for _, f := range files {
-			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, roothash+".tag")
+			fragmentHash = filepath.Base(f)
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, fragmentHash+".tag")
 			_, err = os.Stat(serviceTagPath)
 			if err == nil {
 				continue
@@ -114,27 +122,28 @@ func (n *Node) calcFileTag() {
 					continue
 				}
 
-				n.Stag("info", fmt.Sprintf("Send file tag request to tee: %s", teePeerId))
+				n.Stag("info", fmt.Sprintf("Send fragment [%s] tag req to tee: %s", filepath.Base(f), teePeerId))
 				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
 				if err != nil || code != 0 {
 					n.Stag("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue
 				}
-				n.Stag("info", fmt.Sprintf("Send file tag file request to tee: %s", teePeerId))
+				n.Stag("info", fmt.Sprintf("Send fragment [%s] file req to tee: %s", filepath.Base(f), teePeerId))
 				code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil || code != 0 {
 					n.Stag("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
 					continue
 				}
-				timeout.Reset(time.Minute * 3)
+				timeout.Reset(time.Minute * 5)
 				select {
 				case <-timeout.C:
-					n.Stag("err", fmt.Sprintf("Waiting for service file tag timeout: %s", f))
+					n.Stag("err", fmt.Sprintf("Waiting for fragment tag timeout: %s", f))
 				case filetag := <-n.GetServiceTagCh():
-					n.Stag("info", fmt.Sprintf("Received a service file tag: %s", filetag))
+					n.Stag("info", fmt.Sprintf("Received the fragment tag: %s", filepath.Base(filetag)))
 				}
 				break
 			}
 		}
 	}
+	return nil
 }
