@@ -193,8 +193,17 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 }
 
 func (n *Node) claimRestoreOrder() error {
+	var err error
 	val, _ := n.QueryPrefixKeyList(Cach_prefix_recovery)
 	for _, v := range val {
+		_, err = n.QueryRestoralOrder(v)
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				n.Delete([]byte(Cach_prefix_recovery + v))
+				continue
+			}
+		}
+
 		b, err := n.Get([]byte(Cach_prefix_recovery + v))
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[Get %s] %v", v, err))
@@ -360,14 +369,26 @@ func (n *Node) claimNoExitOrder() error {
 	var txhash string
 	var restoralOrder pattern.RestoralOrderInfo
 	var blockHeight uint32
+	var roothashs = make(map[string]struct{}, 0)
 	targetMiner, err := n.QueryPrefixKeyList(Cach_prefix_TargetMiner)
 	if err == nil && len(targetMiner) > 0 {
 		roothashList, err := utils.Dirs(n.GetDirs().FileDir)
 		if err != nil {
-			return errors.Wrapf(err, "[Dirs]")
+			n.Restore("err", fmt.Sprintf("[Dirs] %v", err))
 		}
 		for _, v := range roothashList {
-			roothash = filepath.Base(v)
+			roothashs[filepath.Base(v)] = struct{}{}
+		}
+		filelist, err := n.QueryPrefixKeyList(Cach_prefix_File)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[QueryPrefixKeyList] %v", err))
+		}
+		for _, v := range filelist {
+			roothashs[v] = struct{}{}
+		}
+		for v, _ := range roothashs {
+			roothash = v
+			n.Restore("info", fmt.Sprintf("check file: %s", roothash))
 			fmeta, err = n.QueryFileMetadata(roothash)
 			if err != nil {
 				n.Restore("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
@@ -400,6 +421,7 @@ func (n *Node) claimNoExitOrder() error {
 								continue
 							}
 						}
+						n.Restore("info", fmt.Sprintf("will claim restore order and fragment is: %s", string(fragment.Hash[:])))
 						txhash, err = n.ClaimRestoralNoExistOrder(fragment.Miner[:], roothash, string(fragment.Hash[:]))
 						if err != nil {
 							n.Restore("err", fmt.Sprintf("[ClaimRestoralNoExistOrder] %v", err))
