@@ -17,12 +17,12 @@ const (
 )
 
 const (
-	Cach_prefix_metadata       = "metadata:"
-	Cach_prefix_report         = "report:"
-	Cach_prefix_idle           = "idle:"
-	Cach_prefix_idleSiama      = "sigmaidle:"
-	Cach_prefix_serviceSiama   = "sigmaservice:"
-	Cach_AggrProof_Reported    = "AggrProofReported"
+	Cach_prefix_metadata     = "metadata:"
+	Cach_prefix_report       = "report:"
+	Cach_prefix_idle         = "idle:"
+	Cach_prefix_idleSiama    = "sigmaidle:"
+	Cach_prefix_serviceSiama = "sigmaservice:"
+	// Cach_AggrProof_Reported    = "AggrProofReported"
 	Cach_AggrProof_Transfered  = "AggrProofTransfered"
 	Cach_IdleChallengeBlock    = "ChallengeIdleBlock"
 	Cach_ServiceChallengeBlock = "ChallengeServiceBlock"
