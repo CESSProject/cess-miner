@@ -48,7 +48,7 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	var netinfo pattern.ChallengeSnapShot
 	var qslice []proof.QElement
 
-	n.Chal("info", ">>>>> Start challengeMgt task")
+	n.Chal("info", ">>>>> start challengeMgt <<<<<")
 
 	for {
 		pubkey, err := n.QueryTeePodr2Puk()
@@ -177,6 +177,188 @@ func (n *Node) challengeMgt(ch chan<- bool) {
 	}
 }
 
+func (n *Node) pChallenge() error {
+	var err error
+	var txhash string
+	var idleSiama string
+	var serviceSigma string
+	var peerid peer.ID
+	var b []byte
+	var chalStart int
+	var chal pattern.ChallengeInfo
+	var netinfo pattern.ChallengeSnapShot
+
+	var tempInt int
+	var haveChallenge bool
+	var challenge pattern.ChallengeSnapshot
+
+	challenge, err = n.QueryChallengeSt()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryChallengeSnapshot]")
+	}
+
+	for _, v := range challenge.MinerSnapshot {
+		if n.GetSignatureAcc() == v.Miner {
+			haveChallenge = true
+			break
+		}
+	}
+
+	if !haveChallenge {
+		b, err = n.Get([]byte(Cach_AggrProof_Transfered))
+		if err != nil {
+			err = n.transferProof()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+			continue
+		}
+		netinfo, err = n.QueryChallengeSnapshot()
+		if err != nil {
+			n.Chal("err", err.Error())
+			continue
+		}
+
+		temp := strings.Split(string(b), "_")
+		if len(temp) <= 1 {
+			n.Delete([]byte(Cach_AggrProof_Transfered))
+			err = n.transferProof()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+			continue
+		}
+
+		peerid, _, err = n.queryProofAssignedTee()
+		if err != nil {
+			n.Chal("err", fmt.Sprintf("[queryProofAssignedTee] %v", err))
+			continue
+		}
+
+		chalStart, err = strconv.Atoi(temp[1])
+		if err != nil {
+			n.Delete([]byte(Cach_AggrProof_Transfered))
+			err = n.transferProof()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+			continue
+		}
+
+		if chalStart != int(netinfo.NetSnapshot.Start) || peerid.Pretty() != temp[0] {
+			err = n.transferProof()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+			continue
+		}
+		n.Chal("info", "Proof was transmitted")
+		time.Sleep(time.Minute)
+		continue
+	}
+
+	n.Delete([]byte(Cach_AggrProof_Transfered))
+
+	n.Chal("info", fmt.Sprintf("Start processing challenges: %v", chal.Start))
+
+	var qslice = make([]proof.QElement, len(challenge.NetSnapshot.Random_index_list))
+	for k, v := range challenge.NetSnapshot.Random_index_list {
+		qslice[k].I = int64(v)
+		qslice[k].V = new(big.Int).SetBytes(challenge.NetSnapshot.Random[k]).String()
+	}
+
+	err = n.saveRandom(chal)
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("Save challenge random err: %v", err))
+	}
+
+	n.Chal("info", "Save challenge random suc")
+
+	b, err = n.Get([]byte(Cach_IdleChallengeBlock))
+	if err != nil {
+		idleSiama, qslice, err = n.idleAggrProof(qslice, chal.Start)
+		if err != nil {
+			return errors.Wrapf(err, "[idleAggrProof]")
+		}
+		n.Put([]byte(Cach_IdleChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+		n.Chal("info", fmt.Sprintf("Idle data aggregation proof: %s", idleSiama))
+	} else {
+		tempInt, err = strconv.Atoi(string(b))
+		if err != nil {
+			n.Delete([]byte(Cach_IdleChallengeBlock))
+			idleSiama, qslice, err = n.idleAggrProof(chal.RandomIndexList, chal.Random, chal.Start)
+			if err != nil {
+				return errors.Wrapf(err, "[idleAggrProof]")
+			}
+			n.Put([]byte(Cach_IdleChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+			n.Chal("info", fmt.Sprintf("Idle data aggregation proof: %s", idleSiama))
+		} else {
+			if uint32(tempInt) != chal.Start {
+				idleSiama, qslice, err = n.idleAggrProof(chal.RandomIndexList, chal.Random, chal.Start)
+				if err != nil {
+					return errors.Wrapf(err, "[idleAggrProof]")
+				}
+				n.Put([]byte(Cach_IdleChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+				n.Chal("info", fmt.Sprintf("Idle data aggregation proof: %s", idleSiama))
+			}
+		}
+	}
+
+	b, err = n.Get([]byte(Cach_ServiceChallengeBlock))
+	if err != nil {
+		serviceSigma, err = n.serviceAggrProof(qslice, chal.Start)
+		if err != nil {
+			return errors.Wrapf(err, "[serviceAggrProof]")
+		}
+		n.Put([]byte(Cach_ServiceChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+		n.Chal("info", fmt.Sprintf("Service data aggregation proof: %s", serviceSigma))
+	} else {
+		tempInt, err = strconv.Atoi(string(b))
+		if err != nil {
+			n.Delete([]byte(Cach_ServiceChallengeBlock))
+			serviceSigma, err = n.serviceAggrProof(qslice, chal.Start)
+			if err != nil {
+				return errors.Wrapf(err, "[serviceAggrProof]")
+			}
+			n.Put([]byte(Cach_ServiceChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+			n.Chal("info", fmt.Sprintf("Service data aggregation proof: %s", serviceSigma))
+		} else {
+			if uint32(tempInt) != chal.Start {
+				serviceSigma, err = n.serviceAggrProof(qslice, chal.Start)
+				if err != nil {
+					return errors.Wrapf(err, "[serviceAggrProof]")
+				}
+				n.Put([]byte(Cach_ServiceChallengeBlock), []byte(fmt.Sprintf("%d", chal.Start)))
+				n.Chal("info", fmt.Sprintf("Service data aggregation proof: %s", serviceSigma))
+			}
+		}
+	}
+
+	n.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
+	n.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
+
+	txhash, err = n.ReportProof(idleSiama, serviceSigma)
+	if err != nil {
+		return errors.Wrapf(err, "[ReportProof]")
+	}
+
+	n.Chal("info", fmt.Sprintf("Submit proof suc: %v", txhash))
+
+	err = n.Put([]byte(Cach_AggrProof_Reported), []byte(fmt.Sprintf("%v", chal.Start)))
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
+	}
+
+	time.Sleep(pattern.BlockInterval)
+
+	err = n.transferProof()
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("Put Cach_AggrProof_Reported [%d] err: %v", chal.Start, err))
+		continue
+	}
+	return nil
+}
+
 func (n *Node) transferProof() error {
 	chalshort, err := n.QueryChallengeSt()
 	if err != nil {
@@ -239,7 +421,7 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		if err != nil || code != 0 {
 			count++
 			n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
-			time.Sleep(pattern.BlockInterval * 5)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
@@ -261,7 +443,7 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		if err != nil || code != 0 {
 			count++
 			n.Chal("err", fmt.Sprintf("FileType_IdleMu FileReq err: %v, code: %d", err, code))
-			time.Sleep(pattern.BlockInterval * 5)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
@@ -279,7 +461,7 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		if err != nil || code != 0 {
 			count++
 			n.Chal("err", fmt.Sprintf("FileType_CustomMu FileReq err: %v, code: %d", err, code))
-			time.Sleep(pattern.BlockInterval * 5)
+			time.Sleep(pattern.BlockInterval)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))
@@ -288,14 +470,10 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 	return peerid.Pretty(), code, err
 }
 
-func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start uint32) (string, []proof.QElement, error) {
-	if len(randomIndexList) != len(random) {
-		return "", nil, fmt.Errorf("invalid random length")
-	}
-
+func (n *Node) idleAggrProof(qslice []proof.QElement, start uint32) (string, error) {
 	idleRoothashs, err := n.QueryPrefixKeyListByHeigh(Cach_prefix_idle, start)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	var buf []byte
@@ -308,12 +486,6 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 	pf.Names = make([]string, len(idleRoothashs))
 	pf.Us = make([]string, len(idleRoothashs))
 	pf.Mus = make([]string, len(idleRoothashs))
-
-	var qslice = make([]proof.QElement, len(randomIndexList))
-	for k, v := range randomIndexList {
-		qslice[k].I = int64(v)
-		qslice[k].V = new(big.Int).SetBytes(random[k]).String()
-	}
 
 	timeout := time.NewTicker(time.Duration(time.Minute))
 	defer timeout.Stop()
@@ -371,11 +543,11 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 	//
 	buf, err = json.Marshal(&pf)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	f, err := os.OpenFile(n.GetDirs().IproofFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	defer func() {
 		if f != nil {
@@ -385,18 +557,18 @@ func (n *Node) idleAggrProof(randomIndexList []uint32, random [][]byte, start ui
 
 	_, err = f.Write(buf)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	err = f.Sync()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	f.Close()
 	f = nil
 
-	return sigma, qslice, nil
+	return sigma, nil
 }
 
 func (n *Node) serviceAggrProof(qslice []proof.QElement, start uint32) (string, error) {
