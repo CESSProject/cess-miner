@@ -1,19 +1,21 @@
-FROM cesslab/cess-pbc-env:latest AS builder
+FROM golang:alpine AS builder
 
+# go_proxy
 ARG go_proxy
 ENV GOPROXY ${go_proxy}
 
-# Download packages first so they can be cached.
-COPY go.mod go.sum /opt/target/
-RUN cd /opt/target/ && go mod download
+# Workdir
+WORKDIR /opt/target
 
+# Copy file
 COPY . /opt/target/
 
-# Build the thing.
+# Build
 RUN cd /opt/target/ \
-  && go build -ldflags '-w -s' -gcflags '-N -l' -o cess-bucket cmd/main/main.go
+  && go mod download \
+  && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -gcflags '-N -l' -o cess-bucket cmd/main.go
 
-FROM cesslab/cess-pbc-env:latest
+# Run
+FROM alpine AS runner
 WORKDIR /opt/cess
 COPY --from=builder /opt/target/cess-bucket ./
-
