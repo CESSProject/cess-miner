@@ -191,7 +191,7 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 >> Please enter the maximum space used by the storage node in GiB:
 2000
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
@@ -200,7 +200,7 @@ OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 # ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/,wss://testnet-rpc1.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 15001 --space 2000
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
@@ -220,13 +220,18 @@ If the configuration file is named conf.yaml and is located in the same director
 nohup ./bucket run &
 ```
 
+> :warning: If you are not running the bucket program with root privileges, make sure the user you are currently logged in to has all the permissions for the workspace directory you have configured, if the user you are logged in to is `user` and the configured directory is `/cess`, please execute the following command to grant permissions:
+```
+sudo chown -R  user:user /cess/bucket
+```
+
 ## Other commands
 
 - stat
 ```shell
 ./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 +------------------+------------------------------------------------------+
 | role             | bucket                                               |
 | peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
@@ -244,7 +249,7 @@ nohup ./bucket run &
 ```shell
 ./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```
 
@@ -252,7 +257,7 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```shell
 ./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
 ```
 
@@ -266,7 +271,7 @@ bucket v0.6.0
 ```shell
 ./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 ```
 
@@ -274,7 +279,7 @@ OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 ```shell
 ./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 ```
 
@@ -282,7 +287,7 @@ OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 ```shell
 ./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 ```
 
@@ -290,7 +295,7 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 ```shell
 ./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
-
+*******************************************************************************
 +------------------+---------------------------+
 | total reward     | 2_613_109_650_924_024_640 |
 | claimed reward   | 534_235_750_855_578_370   |
