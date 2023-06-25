@@ -168,19 +168,30 @@ func runCmd(cmd *cobra.Command, args []string) {
 }
 
 func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
+	var err error
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
 	if configpath1 != "" {
+		_, err = os.Stat(configpath1)
+		if err != nil {
+			configs.Err(err.Error())
+			os.Exit(1)
+		}
 		conFilePath = configpath1
 	} else if configpath2 != "" {
+		_, err = os.Stat(configpath2)
+		if err != nil {
+			configs.Err(err.Error())
+			os.Exit(1)
+		}
 		conFilePath = configpath2
 	} else {
 		conFilePath = configs.DefaultConfigFile
 	}
 
 	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath, port)
+	err = cfg.Parse(conFilePath, port)
 	if err == nil {
 		return cfg, err
 	}
