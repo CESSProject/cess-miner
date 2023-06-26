@@ -21,7 +21,7 @@ apt install git curl wget vim util-linux -y
 
 For the Fedora, RedHat and CentOS families of linux systems:
 
-```
+```shell
 yum install git curl wget vim util-linux -y
 ```
 
