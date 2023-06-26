@@ -193,7 +193,11 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	cfg := confile.NewConfigfile()
 	err = cfg.Parse(conFilePath, port)
 	if err == nil {
-		return cfg, err
+		return cfg, nil
+	}
+
+	if !strings.Contains(err.Error(), "stat") {
+		configs.Err(err.Error())
 	}
 
 	var istips bool
