@@ -71,7 +71,7 @@ func NewConfigfile() *confile {
 func (c *confile) Parse(fpath string, port int) error {
 	fstat, err := os.Stat(fpath)
 	if err != nil {
-		return errors.Errorf("Parse: %v", err)
+		return err
 	}
 	if fstat.IsDir() {
 		return errors.Errorf("The '%v' is not a file", fpath)
@@ -91,7 +91,7 @@ func (c *confile) Parse(fpath string, port int) error {
 
 	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	if err != nil {
-		return errors.Errorf("Secret: %v", err)
+		return errors.Errorf("invalid mnemonic: %v", err)
 	}
 
 	if len(c.Rpc) == 0 ||
