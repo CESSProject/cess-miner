@@ -63,7 +63,6 @@ func (n *Node) calcFileTag() error {
 	defer timeout.Stop()
 
 	for _, fileDir := range roothashs {
-		n.Stag("info", fmt.Sprintf("Check file: %s", fileDir))
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
