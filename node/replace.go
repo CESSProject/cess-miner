@@ -36,7 +36,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	tickReplace := time.NewTicker(time.Second * 30)
 	defer tickReplace.Stop()
 
-	tikSpace := time.NewTicker(time.Minute)
+	tikSpace := time.NewTicker(time.Hour)
 	defer tikSpace.Stop()
 
 	for {
@@ -96,7 +96,6 @@ func (n *Node) resizeSpace() error {
 		return err
 	}
 	for _, v := range allSpace {
-		n.Replace("info", fmt.Sprintf("check: %s", v))
 		_, err = n.QueryFillerMap(v)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {

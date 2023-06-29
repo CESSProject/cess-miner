@@ -58,6 +58,8 @@ func (n *Node) chainMgt(ch chan bool) {
 				//os.Exit(1)
 			}
 			lastMem = memSt.HeapAlloc
+
+		case <-tickListening.C:
 			if !n.GetChainState() {
 				err = n.Reconnect()
 				if err != nil {
@@ -69,7 +71,6 @@ func (n *Node) chainMgt(ch chan bool) {
 					n.SetChainState(true)
 				}
 			}
-		case <-tickListening.C:
 			boots = n.GetBootNodes()
 			for _, b := range boots {
 				bootstrap, err = sutils.ParseMultiaddrs(b)
