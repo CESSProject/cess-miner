@@ -26,7 +26,7 @@ func (n *Node) TaskMgt() {
 	go n.challengeMgt(ch_challengeMgt)
 	go n.stagMgt(ch_stagMgt)
 	go n.restoreMgt(ch_restoreMgt)
-	go n.parseBlockMgt(ch_parseBlockMgt)
+	// go n.parseBlockMgt(ch_parseBlockMgt)
 
 	for {
 		select {
