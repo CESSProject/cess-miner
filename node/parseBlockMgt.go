@@ -74,7 +74,7 @@ func (n *Node) pBlock() error {
 	b, err = n.Get([]byte(Cach_prefix_ParseBlock))
 	if err != nil {
 		if err == cache.NotFound {
-			_, err = n.parseOldBlocks(0, latestBlockHeight)
+			_, err = n.parseOldBlocks(0, 100)
 			if err != nil {
 				return errors.Wrapf(err, "[parseOldBlocks]")
 			}

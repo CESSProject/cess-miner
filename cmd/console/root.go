@@ -42,7 +42,7 @@ func init() {
 		Command_Run(),
 		Command_Withdraw(),
 	)
-	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom configuration file")
+	rootCmd.PersistentFlags().StringP("config", "c", "", "custom configuration file")
 	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint list")
 	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
 	rootCmd.PersistentFlags().StringP("earnings", "", "", "earnings account")
