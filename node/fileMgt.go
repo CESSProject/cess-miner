@@ -93,7 +93,7 @@ func (n *Node) reportFiles() error {
 			continue
 		}
 
-		n.Report("info", fmt.Sprintf("Will report %s", roothash))
+		//n.Report("info", fmt.Sprintf("Will report %s", roothash))
 
 		b, err = n.Get([]byte(Cach_prefix_report + roothash))
 		if err == nil {
@@ -103,7 +103,7 @@ func (n *Node) reportFiles() error {
 				n.Delete([]byte(Cach_prefix_report + roothash))
 			} else {
 				if count == int64(storageorder.Count) {
-					n.Report("info", fmt.Sprintf("Alreaey report: %s", roothash))
+					//n.Report("info", fmt.Sprintf("Already report: %s", roothash))
 					continue
 				}
 			}
@@ -122,10 +122,16 @@ func (n *Node) reportFiles() error {
 		failfile = false
 		for i := 0; i < len(assignedFragmentHash); i++ {
 			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
-			if err != nil || fstat.Size() != pattern.FragmentSize {
+			if err != nil {
 				failfile = true
-				n.Report("err", fmt.Sprintf("Check %s err: %v, size: %d", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]), err, fstat.Size()))
+				n.Report("err", fmt.Sprintf("Check %s err: %v", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]), err))
 				break
+			} else {
+				if fstat.Size() != pattern.FragmentSize {
+					failfile = true
+					n.Report("err", fmt.Sprintf("Check %s err: size: %d", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]), fstat.Size()))
+					break
+				}
 			}
 			n.Report("info", fmt.Sprintf("Check suc: %s", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i])))
 		}
@@ -133,6 +139,7 @@ func (n *Node) reportFiles() error {
 			continue
 		}
 
+		n.Report("info", fmt.Sprintf("Will report %s", roothash))
 		txhash, _, err = n.ReportFiles([]string{roothash})
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
