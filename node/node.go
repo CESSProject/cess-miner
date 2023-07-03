@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type Bucket interface {
@@ -31,24 +32,16 @@ type Node struct {
 	logger.Logger
 	cache.Cache
 	sdk.SDK
-	key             *proof.RSAKeyPair
-	teePeerLock     *sync.RWMutex
-	storagePeerLock *sync.RWMutex
-	deossPeerLock   *sync.RWMutex
-	teePeer         map[string]int64
-	storagePeer     map[string]string
-	deossPeer       map[string]struct{}
+	key      *proof.RSAKeyPair
+	peerLock *sync.RWMutex
+	peers    map[string]peer.AddrInfo
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		teePeerLock:     new(sync.RWMutex),
-		storagePeerLock: new(sync.RWMutex),
-		deossPeerLock:   new(sync.RWMutex),
-		teePeer:         make(map[string]int64, 10),
-		storagePeer:     make(map[string]string, 10),
-		deossPeer:       make(map[string]struct{}, 10),
+		peerLock: new(sync.RWMutex),
+		peers:    make(map[string]peer.AddrInfo, 20),
 	}
 }
 
@@ -70,67 +63,37 @@ func (n *Node) SetPublickey(pubkey []byte) error {
 	return nil
 }
 
-func (n *Node) SaveTeePeer(peerid string, value int64) {
-	n.teePeerLock.Lock()
-	defer n.teePeerLock.Unlock()
-	if _, ok := n.teePeer[peerid]; !ok {
-		n.teePeer[peerid] = value
+func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
+	if n.peerLock.TryLock() {
+		n.peers[peerid] = addr
+		n.peerLock.Unlock()
 	}
 }
 
-func (n *Node) SaveAndUpdateTeePeer(peerid string, value int64) {
-	n.teePeerLock.Lock()
-	defer n.teePeerLock.Unlock()
-	n.teePeer[peerid] = value
-}
-
-func (n *Node) HasTeePeer(peerid string) bool {
-	n.teePeerLock.RLock()
-	defer n.teePeerLock.RUnlock()
-	_, ok := n.teePeer[peerid]
+func (n *Node) HasPeer(peerid string) bool {
+	n.peerLock.RLock()
+	_, ok := n.peers[peerid]
+	n.peerLock.RUnlock()
 	return ok
 }
 
-func (n *Node) GetAllTeePeerId() []string {
-	n.teePeerLock.RLock()
-	defer n.teePeerLock.RUnlock()
-	var result = make([]string, len(n.teePeer))
+func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
+	n.peerLock.RLock()
+	result, ok := n.peers[peerid]
+	n.peerLock.RUnlock()
+	return result, ok
+}
+
+func (n *Node) GetAllPeerId() []string {
+	n.peerLock.RLock()
+	defer n.peerLock.RUnlock()
+	var result = make([]string, len(n.peers))
 	var i int
-	for k, _ := range n.teePeer {
+	for k, _ := range n.peers {
 		result[i] = k
 		i++
 	}
 	return result
-}
-
-func (n *Node) SaveStoragePeer(peerid string, stakingAcc string) {
-	n.storagePeerLock.Lock()
-	defer n.storagePeerLock.Unlock()
-	if _, ok := n.storagePeer[peerid]; !ok {
-		n.storagePeer[peerid] = stakingAcc
-	}
-}
-
-func (n *Node) HasStoragePeer(peerid string) bool {
-	n.storagePeerLock.RLock()
-	defer n.storagePeerLock.RUnlock()
-	_, ok := n.storagePeer[peerid]
-	return ok
-}
-
-func (n *Node) SaveDeossPeer(peerid string) {
-	n.deossPeerLock.Lock()
-	defer n.deossPeerLock.Unlock()
-	if _, ok := n.deossPeer[peerid]; !ok {
-		n.deossPeer[peerid] = struct{}{}
-	}
-}
-
-func (n *Node) HasDeossPeer(peerid string) bool {
-	n.deossPeerLock.RLock()
-	defer n.deossPeerLock.RUnlock()
-	_, ok := n.deossPeer[peerid]
-	return ok
 }
 
 func (n *Node) RebuildDirs() {

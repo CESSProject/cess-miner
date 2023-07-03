@@ -16,7 +16,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/event"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -100,7 +99,6 @@ func (n *Node) parseOldBlocks(startBlock, endBlock uint32) (uint32, error) {
 	var err error
 	var parsedBlock uint32
 	var peerid string
-	var stakingAcc string
 	var storageNode pattern.MinerInfo
 	var blockhash types.Hash
 	var h *types.StorageDataRaw
@@ -134,9 +132,8 @@ func (n *Node) parseOldBlocks(startBlock, endBlock uint32) (uint32, error) {
 				n.Parseblock("err", fmt.Sprintf("[QueryStorageMiner] %v", err.Error()))
 				continue
 			}
-			stakingAcc, _ = sutils.EncodePublicKeyAsCessAccount(v.Acc[:])
 			peerid = base58.Encode([]byte(string(storageNode.PeerId[:])))
-			n.SaveStoragePeer(peerid, stakingAcc)
+			//n.SavePeer(peerid)
 			n.Parseblock("info", fmt.Sprintf("Record a storage node: %s", peerid))
 		}
 
@@ -147,7 +144,7 @@ func (n *Node) parseOldBlocks(startBlock, endBlock uint32) (uint32, error) {
 
 		for _, v := range events.TeeWorker_RegistrationTeeWorker {
 			peerid = base58.Encode([]byte(string(v.PeerId[:])))
-			n.SaveTeePeer(peerid, 0)
+			//n.SavePeer(peerid)
 			n.Parseblock("info", fmt.Sprintf("Record a tee node: %s", peerid))
 		}
 

@@ -70,7 +70,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				continue
 			}
-			n.SaveTeePeer(addrInfo.ID.Pretty(), 0)
+			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 		}
 	}
 

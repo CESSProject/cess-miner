@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -17,7 +16,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/mr-tron/base58"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -29,14 +27,11 @@ func (n *Node) chainMgt(ch chan bool) {
 		}
 	}()
 	var err error
-	var peerid string
 	var maAddr ma.Multiaddr
 	var addrInfo *peer.AddrInfo
-	var teeList []pattern.TeeWorkerInfo
-	var deossList []string
 	var bootstrap []string
 	// var lastMem uint64
-	tickListening := time.NewTicker(time.Second * 15)
+	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
 
 	// memSt := &runtime.MemStats{}
@@ -93,77 +88,35 @@ func (n *Node) chainMgt(ch chan bool) {
 				if err != nil {
 					continue
 				}
-				n.Log("info", fmt.Sprintf("connect to bootnode: %s", addrInfo.ID.Pretty()))
-				n.SaveTeePeer(addrInfo.ID.Pretty(), 0)
+				//n.Log("info", fmt.Sprintf("connect to bootnode: %s", addrInfo.ID.Pretty()))
+				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
-			if !n.GetDiscoverSt() {
-				n.StartDiscover()
-			}
-		case discoverPeer := <-n.DiscoveredPeer():
-			peerid = discoverPeer.ID.Pretty()
-			n.Log("info", fmt.Sprintf("discovered:  %s", peerid))
-			err = n.Connect(n.GetRootCtx(), discoverPeer)
-			if err != nil {
-				continue
-			}
-			n.Log("info", fmt.Sprintf("connect to %s", peerid))
-			for _, v := range discoverPeer.Addrs {
-				boots = strings.Split(v.String(), "/")
-				for _, vv := range boots {
-					if sutils.IsIPv4(vv) {
-						if vv[len(vv)-1] == byte(49) && vv[len(vv)-3] == byte(48) {
-							continue
-						}
-						n.AddMultiaddrToPeerstore(fmt.Sprintf("%s/p2p/%s", v.String(), peerid), time.Hour)
-						break
-					}
-				}
-			}
-
-			if n.HasStoragePeer(peerid) {
-				break
-			}
-			if n.HasDeossPeer(peerid) {
-				break
-			}
-			if n.HasTeePeer(peerid) {
-				break
-			}
-
-			teeList, err = n.QueryTeeInfoList()
-			if err != nil {
-				break
-			}
-			for _, v := range teeList {
-				if peerid == base58.Encode([]byte(string(v.PeerId[:]))) {
-					n.SaveTeePeer(peerid, 0)
-					configs.Tip(fmt.Sprintf("save a tee node: %s", peerid))
-					break
-				}
-			}
-			if n.HasTeePeer(peerid) {
-				break
-			}
-
-			deossList, err = n.QueryDeossPeerIdList()
-			if err != nil {
-				break
-			}
-
-			for _, v := range deossList {
-				if peerid == v {
-					n.SaveDeossPeer(peerid)
-					configs.Tip(fmt.Sprintf("save a deoss node: %s", peerid))
-					break
-				}
-			}
-
-			if n.HasDeossPeer(peerid) {
-				break
-			}
-
-			n.SaveStoragePeer(peerid, "")
-			configs.Tip(fmt.Sprintf("save a storage node: %s", peerid))
+			// if !n.P2P.GetDiscoverSt() {
+			// 	n.Log("info", fmt.Sprintf("restart discover service"))
+			// 	n.P2P.StartDiscover()
+			// }
+			// case discoverPeer := <-n.DiscoveredPeer():
+			// 	peerid = discoverPeer.ID.Pretty()
+			// 	n.Log("info", fmt.Sprintf("discovered:  %s", peerid))
+			// 	err = n.Connect(n.GetRootCtx(), discoverPeer)
+			// 	if err != nil {
+			// 		continue
+			// 	}
+			// 	n.SavePeer(peerid)
+			// 	n.Log("info", fmt.Sprintf("connect to %s", peerid))
+			// 	for _, v := range discoverPeer.Addrs {
+			// 		boots = strings.Split(v.String(), "/")
+			// 		for _, vv := range boots {
+			// 			if sutils.IsIPv4(vv) {
+			// 				if vv[len(vv)-1] == byte(49) && vv[len(vv)-3] == byte(48) {
+			// 					break
+			// 				}
+			// 				n.AddMultiaddrToPeerstore(fmt.Sprintf("%s/p2p/%s", v.String(), peerid), time.Hour)
+			// 				break
+			// 			}
+			// 		}
+			// 	 }
+			//}
 		}
 	}
 }

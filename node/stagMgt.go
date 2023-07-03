@@ -17,7 +17,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -56,7 +55,6 @@ func (n *Node) stagMgt(ch chan bool) {
 func (n *Node) calcFileTag() error {
 	var fragmentHash string
 	var code uint32
-	var id peer.ID
 	var err error
 
 	tees, err := n.QueryTeeInfoList()
@@ -121,24 +119,29 @@ func (n *Node) calcFileTag() error {
 			utils.RandSlice(tees)
 			for _, t := range tees {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
-				if !n.HasTeePeer(teePeerId) {
+				addr, ok := n.GetPeer(teePeerId)
+				if !ok {
+					continue
+				}
+				err = n.Connect(n.GetRootCtx(), addr)
+				if err != nil {
 					continue
 				}
 
-				id, err = peer.Decode(teePeerId)
-				if err != nil {
-					n.Stag("err", fmt.Sprintf("[peer.Decode:%s] err: %v", teePeerId, err))
-					continue
-				}
+				// id, err = peer.Decode(teePeerId)
+				// if err != nil {
+				// 	n.Stag("err", fmt.Sprintf("[peer.Decode:%s] err: %v", teePeerId, err))
+				// 	continue
+				// }
 
 				n.Stag("info", fmt.Sprintf("Send fragment [%s] tag req to tee: %s", filepath.Base(f), teePeerId))
-				code, err = n.TagReq(id, filepath.Base(f), "", pattern.BlockNumber)
+				code, err = n.TagReq(addr.ID, filepath.Base(f), "", pattern.BlockNumber)
 				if err != nil || code != 0 {
 					n.Stag("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue
 				}
 				n.Stag("info", fmt.Sprintf("Send fragment [%s] file req to tee: %s", filepath.Base(f), teePeerId))
-				code, err = n.FileReq(id, filepath.Base(f), pb.FileType_CustomData, f)
+				code, err = n.FileReq(addr.ID, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil || code != 0 {
 					n.Stag("err", fmt.Sprintf("[FileReq] err: %s code: %d", err, code))
 					continue

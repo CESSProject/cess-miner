@@ -462,7 +462,7 @@ func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
 	var err error
 	var ok bool
 	var id peer.ID
-	peers := n.GetAllTeePeerId()
+	peers := n.GetAllPeerId()
 
 	for _, v := range peers {
 		id, err = peer.Decode(v)

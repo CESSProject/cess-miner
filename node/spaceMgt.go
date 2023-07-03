@@ -18,7 +18,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/bytedance/sonic"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -40,7 +39,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var peerid string
 	var blockheight uint32
 	var teepuk []byte
-	var tSatrt int64
 	var idlefile pattern.IdleFileMeta
 
 	n.Space("info", ">>>>> Start spaceMgt <<<<<")
@@ -56,8 +54,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 				n.Space("err", err.Error())
 				continue
 			}
-
-			tSatrt = time.Now().Unix()
 
 			n.Space("info", fmt.Sprintf("Requset a idle file to: %s", peerid))
 
@@ -84,8 +80,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 				os.Remove(spacePath)
 				continue
 			}
-
-			n.SaveAndUpdateTeePeer(peerid, time.Now().Unix()-tSatrt)
 
 			if !verifyTagfile(tagPath, spacePath) {
 				os.Remove(tagPath)
@@ -156,7 +150,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	var err error
 	var teePeerId string
-	var id peer.ID
 	var freeSpace uint64
 
 	freeSpace, err = utils.GetDirFreeSpace(n.GetWorkspace())
@@ -189,12 +182,13 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 
 	for _, tee := range teelist {
 		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
-		if n.HasTeePeer(teePeerId) {
-			id, err = peer.Decode(teePeerId)
+		addr, ok := n.GetPeer(teePeerId)
+		if ok {
+			err = n.Connect(n.GetRootCtx(), addr)
 			if err != nil {
 				continue
 			}
-			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
+			_, err = n.IdleReq(addr.ID, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
 			if err != nil {
 				continue
 			}

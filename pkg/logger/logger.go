@@ -31,6 +31,7 @@ type Logger interface {
 	Stag(level string, msg string)
 	Restore(level string, msg string)
 	Parseblock(level string, msg string)
+	Discover(msg string)
 }
 
 type logs struct {
@@ -48,6 +49,7 @@ var LogFiles = []string{
 	"stag",
 	"restore",
 	"parseblock",
+	"discover",
 }
 
 func NewLogs(logfiles map[string]string) (Logger, error) {
@@ -187,6 +189,14 @@ func (l *logs) Parseblock(level string, msg string) {
 		case "err":
 			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 		}
+	}
+}
+
+func (l *logs) Discover(msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["discover"]
+	if ok {
+		v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
