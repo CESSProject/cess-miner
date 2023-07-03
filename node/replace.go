@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/pkg/errors"
 )
 
 // replaceMgr
@@ -31,7 +32,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	var count uint32
 	var spacedir = n.GetDirs().IdleDataDir
 
-	n.Replace("info", ">>>>> Start replaceMgt")
+	n.Replace("info", ">>>>> Start replaceMgt <<<<<")
 
 	tickReplace := time.NewTicker(time.Second * 30)
 	defer tickReplace.Stop()
@@ -93,7 +94,7 @@ func (n *Node) resizeSpace() error {
 	var allSpace = make([]string, 0)
 	allSpace, err = n.Cache.QueryPrefixKeyList(Cach_prefix_idle)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "[QueryPrefixKeyList]")
 	}
 	for _, v := range allSpace {
 		_, err = n.QueryFillerMap(v)
@@ -104,8 +105,7 @@ func (n *Node) resizeSpace() error {
 				n.Delete([]byte(Cach_prefix_idle + v))
 				continue
 			}
-			n.Replace("err", err.Error())
-			continue
+			return errors.Wrapf(err, "[QueryFillerMap]")
 		}
 		_, err = os.Stat(filepath.Join(n.GetDirs().IdleDataDir, v))
 		if err != nil {

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -31,10 +30,10 @@ func (n *Node) fileMgt(ch chan<- bool) {
 
 	var err error
 
-	n.Report("info", ">>>>> Start fileMgt task")
+	n.Report("info", ">>>>> Start fileMgt <<<<<")
 
 	for {
-		for n.GetChainState() {
+		if n.GetChainState() {
 			err = n.reportFiles()
 			if err != nil {
 				time.Sleep(pattern.BlockInterval)
@@ -48,14 +47,14 @@ func (n *Node) fileMgt(ch chan<- bool) {
 
 func (n *Node) reportFiles() error {
 	var (
+		reReport     bool
 		failfile     bool
 		roothash     string
 		txhash       string
-		b            []byte
 		metadata     pattern.FileMetadata
 		storageorder pattern.StorageOrder
 	)
-	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().TmpDir))
+	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("[Dirs %v]", n.GetDirs().TmpDir))
 	}
@@ -66,8 +65,7 @@ func (n *Node) reportFiles() error {
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				n.Report("err", fmt.Sprintf("[QueryFileMetadata %s]", roothash))
-				continue
+				return errors.Wrapf(err, "[QueryFileMetadata]")
 			}
 		} else {
 			if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
@@ -76,7 +74,6 @@ func (n *Node) reportFiles() error {
 					n.Report("err", fmt.Sprintf("[RenameDir %s] %v", roothash, err))
 					continue
 				}
-				n.Delete([]byte(Cach_prefix_report + roothash))
 				n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
 			}
 			continue
@@ -84,35 +81,27 @@ func (n *Node) reportFiles() error {
 
 		storageorder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
-				os.RemoveAll(v)
-				n.Delete([]byte(Cach_prefix_report + roothash))
-				continue
+			if err.Error() != pattern.ERR_Empty {
+				return errors.Wrapf(err, "[QueryStorageOrder]")
 			}
-			n.Report("err", fmt.Sprintf("[QueryStorageOrder %s] %v", roothash, err))
+			os.RemoveAll(v)
 			continue
 		}
 
-		//n.Report("info", fmt.Sprintf("Will report %s", roothash))
-
-		b, err = n.Get([]byte(Cach_prefix_report + roothash))
-		if err == nil {
-			count, err := strconv.ParseInt(string(b), 10, 64)
-			if err != nil {
-				n.Report("err", fmt.Sprintf("[ParseInt %s] %v", roothash, err))
-				n.Delete([]byte(Cach_prefix_report + roothash))
-			} else {
-				if count == int64(storageorder.Count) {
-					//n.Report("info", fmt.Sprintf("Already report: %s", roothash))
-					continue
-				}
+		for _, completeMiner := range storageorder.CompleteList {
+			if sutils.CompareSlice(completeMiner[:], n.GetSignatureAccPulickey()) {
+				reReport = false
 			}
+		}
+
+		if !reReport {
+			n.Report("err", fmt.Sprintf("check %s failed", roothash))
+			continue
 		}
 
 		var assignedFragmentHash = make([]string, 0)
 		for i := 0; i < len(storageorder.AssignedMiner); i++ {
-			assignedAddr, _ := sutils.EncodePublicKeyAsCessAccount(storageorder.AssignedMiner[i].Account[:])
-			if n.GetStakingAcc() == assignedAddr {
+			if sutils.CompareSlice(storageorder.AssignedMiner[i].Account[:], n.GetSignatureAccPulickey()) {
 				for j := 0; j < len(storageorder.AssignedMiner[i].Hash); j++ {
 					assignedFragmentHash = append(assignedFragmentHash, string(storageorder.AssignedMiner[i].Hash[j][:]))
 				}
@@ -124,17 +113,15 @@ func (n *Node) reportFiles() error {
 			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
 			if err != nil {
 				failfile = true
-				n.Report("err", fmt.Sprintf("Check %s err: %v", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]), err))
 				break
 			} else {
 				if fstat.Size() != pattern.FragmentSize {
 					failfile = true
-					n.Report("err", fmt.Sprintf("Check %s err: size: %d", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]), fstat.Size()))
 					break
 				}
 			}
-			n.Report("info", fmt.Sprintf("Check suc: %s", filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i])))
 		}
+
 		if failfile {
 			continue
 		}
@@ -145,13 +132,7 @@ func (n *Node) reportFiles() error {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
 			continue
 		}
-
 		n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
-		err = n.Put([]byte(Cach_prefix_report+roothash), []byte(fmt.Sprintf("%v", storageorder.Count)))
-		if err != nil {
-			n.Report("info", fmt.Sprintf("Report file [%s] suc, record failed: %v", roothash, err))
-		}
-		n.Report("info", fmt.Sprintf("Report file [%s] suc, record suc", roothash))
 	}
 	return err
 }
