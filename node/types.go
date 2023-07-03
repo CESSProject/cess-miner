@@ -46,3 +46,15 @@ type RandomList struct {
 	Index  []uint32 `json:"index"`
 	Random [][]byte `json:"random"`
 }
+
+type T struct {
+	Name string   `json:"name"`
+	U    string   `json:"u"`
+	Phi  []string `json:"phi"`
+}
+
+type tagInfo struct {
+	T        T      `json:"t"`
+	Phi_hash string `json:"phi_hash"`
+	Attest   string `json:"attest"`
+}

@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/bytedance/sonic"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -85,6 +87,12 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 
 			n.SaveAndUpdateTeePeer(peerid, time.Now().Unix()-tSatrt)
 
+			if !verifyTagfile(tagPath, spacePath) {
+				os.Remove(tagPath)
+				os.Remove(spacePath)
+				continue
+			}
+
 			n.Space("info", fmt.Sprintf("Receive a idle file tag: %s", tagPath))
 			n.Space("info", fmt.Sprintf("Receive a idle file: %s", spacePath))
 
@@ -95,11 +103,15 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 				os.Remove(tagPath)
 				continue
 			}
+			if filehash != filepath.Base(spacePath) {
+				os.Remove(spacePath)
+				os.Remove(tagPath)
+				continue
+			}
 
-			os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
-			os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
-
-			n.Space("info", fmt.Sprintf("Idle file %s hash: %s", spacePath, filehash))
+			// os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
+			// os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
+			// n.Space("info", fmt.Sprintf("Idle file %s hash: %s", spacePath, filehash))
 
 			idlefile.BlockNum = pattern.BlockNumber
 			idlefile.Hash = filehash
@@ -191,4 +203,25 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	}
 
 	return nil, teePeerId, err
+}
+
+func verifyTagfile(tagfile, idlefile string) bool {
+	buf, err := os.ReadFile(tagfile)
+	if err != nil {
+		return false
+	}
+	var tagInfo tagInfo
+
+	err = sonic.Unmarshal(buf, &tagInfo)
+	if err != nil {
+		return false
+	}
+	tagFileHash := strings.TrimSuffix(filepath.Base(tagfile), ".tag")
+	if tagInfo.T.Name != tagFileHash {
+		return false
+	}
+	if tagFileHash != filepath.Base(idlefile) {
+		return false
+	}
+	return true
 }
