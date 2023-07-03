@@ -16,6 +16,7 @@ func (n *Node) TaskMgt() {
 		ch_challengeMgt  = make(chan bool, 1)
 		ch_stagMgt       = make(chan bool, 1)
 		ch_restoreMgt    = make(chan bool, 1)
+		ch_discoverMgt   = make(chan bool, 1)
 		ch_parseBlockMgt = make(chan bool, 1)
 	)
 
@@ -26,6 +27,7 @@ func (n *Node) TaskMgt() {
 	go n.challengeMgt(ch_challengeMgt)
 	go n.stagMgt(ch_stagMgt)
 	go n.restoreMgt(ch_restoreMgt)
+	go n.discoverMgt(ch_discoverMgt)
 	// go n.parseBlockMgt(ch_parseBlockMgt)
 
 	for {
@@ -44,6 +46,8 @@ func (n *Node) TaskMgt() {
 			go n.stagMgt(ch_stagMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
+		case <-ch_discoverMgt:
+			go n.discoverMgt(ch_discoverMgt)
 		case <-ch_parseBlockMgt:
 			go n.parseBlockMgt(ch_parseBlockMgt)
 		}

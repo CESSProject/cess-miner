@@ -31,6 +31,7 @@ type Logger interface {
 	Stag(level string, msg string)
 	Restore(level string, msg string)
 	Parseblock(level string, msg string)
+	Discover(msg string)
 }
 
 type logs struct {
@@ -48,6 +49,7 @@ var LogFiles = []string{
 	"stag",
 	"restore",
 	"parseblock",
+	"discover",
 }
 
 func NewLogs(logfiles map[string]string) (Logger, error) {
@@ -190,6 +192,14 @@ func (l *logs) Parseblock(level string, msg string) {
 	}
 }
 
+func (l *logs) Discover(msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["discover"]
+	if ok {
+		v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	}
+}
+
 func getFilePath(fpath string) string {
 	path, _ := filepath.Abs(fpath)
 	index := strings.LastIndex(path, string(os.PathSeparator))
@@ -218,9 +228,9 @@ func getEncoder() zapcore.Encoder {
 func getWriteSyncer(fpath string) zapcore.WriteSyncer {
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   fpath,
-		MaxSize:    10,
-		MaxBackups: 99,
-		MaxAge:     180,
+		MaxSize:    5,
+		MaxBackups: 10,
+		MaxAge:     30,
 		LocalTime:  true,
 		Compress:   true,
 	}
