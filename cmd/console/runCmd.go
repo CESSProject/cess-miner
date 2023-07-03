@@ -9,7 +9,6 @@ package console
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -37,6 +35,7 @@ import (
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
+		firstReg  bool
 		err       error
 		logDir    string
 		cacheDir  string
@@ -81,6 +80,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
+		cess.Workspace(n.GetWorkspace()),
+		cess.P2pPort(n.GetServicePort()),
+		cess.Bootnodes(bootstrap),
 	)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[cess.New] %v", err))
@@ -101,21 +103,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	n.P2P, err = p2pgo.New(
-		context.Background(),
-		p2pgo.ListenPort(n.GetServicePort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetStakingAcc(), n.GetRoleName())),
-		p2pgo.BootPeers(bootstrap),
-	)
-	if err != nil {
-		configs.Err(fmt.Sprintf("[p2pgo.New] %v", err))
-		os.Exit(1)
-	}
-
 	_, err = n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
-			n.RebuildDirs()
+			firstReg = true
 			token = n.GetUseSpace() / 1024
 			if n.GetUseSpace()%1024 != 0 {
 				token += 1
@@ -133,6 +124,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	n.SetEarningsAcc(earnings)
+
+	if firstReg {
+		n.RebuildDirs()
+	}
 
 	// Build data directory
 	logDir, cacheDir, err = buildDir(n.Workspace())

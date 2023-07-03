@@ -20,7 +20,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
-	"github.com/CESSProject/p2p-go/core"
 )
 
 type Bucket interface {
@@ -32,10 +31,9 @@ type Node struct {
 	logger.Logger
 	cache.Cache
 	sdk.SDK
-	core.P2P
 	key             *proof.RSAKeyPair
-	TeePeerLock     *sync.RWMutex
-	StoragePeerLock *sync.RWMutex
+	teePeerLock     *sync.RWMutex
+	storagePeerLock *sync.RWMutex
 	deossPeerLock   *sync.RWMutex
 	teePeer         map[string]int64
 	storagePeer     map[string]string
@@ -45,8 +43,8 @@ type Node struct {
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		TeePeerLock:     new(sync.RWMutex),
-		StoragePeerLock: new(sync.RWMutex),
+		teePeerLock:     new(sync.RWMutex),
+		storagePeerLock: new(sync.RWMutex),
 		deossPeerLock:   new(sync.RWMutex),
 		teePeer:         make(map[string]int64, 10),
 		storagePeer:     make(map[string]string, 10),
@@ -73,29 +71,29 @@ func (n *Node) SetPublickey(pubkey []byte) error {
 }
 
 func (n *Node) SaveTeePeer(peerid string, value int64) {
-	n.TeePeerLock.Lock()
-	defer n.TeePeerLock.Unlock()
+	n.teePeerLock.Lock()
+	defer n.teePeerLock.Unlock()
 	if _, ok := n.teePeer[peerid]; !ok {
 		n.teePeer[peerid] = value
 	}
 }
 
 func (n *Node) SaveAndUpdateTeePeer(peerid string, value int64) {
-	n.TeePeerLock.Lock()
-	defer n.TeePeerLock.Unlock()
+	n.teePeerLock.Lock()
+	defer n.teePeerLock.Unlock()
 	n.teePeer[peerid] = value
 }
 
 func (n *Node) HasTeePeer(peerid string) bool {
-	n.TeePeerLock.RLock()
-	defer n.TeePeerLock.RUnlock()
+	n.teePeerLock.RLock()
+	defer n.teePeerLock.RUnlock()
 	_, ok := n.teePeer[peerid]
 	return ok
 }
 
 func (n *Node) GetAllTeePeerId() []string {
-	n.TeePeerLock.RLock()
-	defer n.TeePeerLock.RUnlock()
+	n.teePeerLock.RLock()
+	defer n.teePeerLock.RUnlock()
 	var result = make([]string, len(n.teePeer))
 	var i int
 	for k, _ := range n.teePeer {
@@ -106,16 +104,16 @@ func (n *Node) GetAllTeePeerId() []string {
 }
 
 func (n *Node) SaveStoragePeer(peerid string, stakingAcc string) {
-	n.StoragePeerLock.Lock()
-	defer n.StoragePeerLock.Unlock()
+	n.storagePeerLock.Lock()
+	defer n.storagePeerLock.Unlock()
 	if _, ok := n.storagePeer[peerid]; !ok {
 		n.storagePeer[peerid] = stakingAcc
 	}
 }
 
 func (n *Node) HasStoragePeer(peerid string) bool {
-	n.StoragePeerLock.RLock()
-	defer n.StoragePeerLock.RUnlock()
+	n.storagePeerLock.RLock()
+	defer n.storagePeerLock.RUnlock()
 	_, ok := n.storagePeer[peerid]
 	return ok
 }

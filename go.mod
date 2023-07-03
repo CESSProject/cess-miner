@@ -3,8 +3,8 @@ module github.com/CESSProject/cess-bucket
 go 1.19
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.2.3
-	github.com/CESSProject/p2p-go v0.0.33
+	github.com/CESSProject/cess-go-sdk v0.2.6
+	github.com/CESSProject/p2p-go v0.0.34
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.13
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
@@ -44,6 +44,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -131,6 +132,7 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/cors v1.8.2 // indirect
+	github.com/samber/lo v1.36.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
