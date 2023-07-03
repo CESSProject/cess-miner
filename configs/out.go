@@ -36,19 +36,19 @@ func Input(msg string) {
 }
 
 func Tip(msg string) {
-	fmt.Println(textTip(), fmt.Sprintf("%v %s", time.Now(), msg))
+	fmt.Println(textTip(), fmt.Sprintf("%v %s", time.Now().Format(TimeFormat), msg))
 }
 
 func Err(msg string) {
-	fmt.Println(textErr(), fmt.Sprintf("%v %s", time.Now(), msg))
+	fmt.Println(textErr(), fmt.Sprintf("%v %s", time.Now().Format(TimeFormat), msg))
 }
 
 func Warn(msg string) {
-	fmt.Println(textWarn(), fmt.Sprintf("%v %s", time.Now(), msg))
+	fmt.Println(textWarn(), fmt.Sprintf("%v %s", time.Now().Format(TimeFormat), msg))
 }
 
 func Ok(msg string) {
-	fmt.Println(textOk(), fmt.Sprintf("%v %s", time.Now(), msg))
+	fmt.Println(textOk(), fmt.Sprintf("%v %s", time.Now().Format(TimeFormat), msg))
 }
 
 func textTip() string {

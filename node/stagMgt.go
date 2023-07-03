@@ -35,11 +35,18 @@ func (n *Node) stagMgt(ch chan bool) {
 	var recordErr string
 
 	for {
-		err = n.calcFileTag()
-		if err != nil {
-			if recordErr != err.Error() {
-				n.Stag("err", err.Error())
-				recordErr = err.Error()
+		if n.GetChainState() {
+			err = n.calcFileTag()
+			if err != nil {
+				if recordErr != err.Error() {
+					n.Stag("err", err.Error())
+					recordErr = err.Error()
+				}
+			}
+		} else {
+			if recordErr != pattern.ERR_RPC_CONNECTION.Error() {
+				n.Stag("err", pattern.ERR_RPC_CONNECTION.Error())
+				recordErr = pattern.ERR_RPC_CONNECTION.Error()
 			}
 		}
 		time.Sleep(pattern.BlockInterval)
@@ -50,16 +57,19 @@ func (n *Node) calcFileTag() error {
 	var fragmentHash string
 	var code uint32
 	var id peer.ID
+	var err error
 
 	tees, err := n.QueryTeeInfoList()
 	if err != nil {
 		return errors.Wrapf(err, "[QueryTeeInfoList]")
 	}
+
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
 		return errors.Wrapf(err, "[Dirs]")
 	}
-	timeout := time.NewTicker(time.Minute * 2)
+
+	timeout := time.NewTicker(time.Minute * 5)
 	defer timeout.Stop()
 
 	for _, fileDir := range roothashs {

@@ -8,7 +8,6 @@
 package node
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 // spaceMgt is a subtask for managing spaces
@@ -41,7 +41,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var tSatrt int64
 	var idlefile pattern.IdleFileMeta
 
-	n.Space("info", ">>>>> Start spaceMgt task")
+	n.Space("info", ">>>>> Start spaceMgt <<<<<")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 5))
 	defer timeout.Stop()
@@ -145,6 +145,25 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	var err error
 	var teePeerId string
 	var id peer.ID
+	var freeSpace uint64
+
+	freeSpace, err = utils.GetDirFreeSpace(n.GetWorkspace())
+	if err != nil {
+		return nil, "", errors.Wrapf(err, "[GetDirFreeSpace]")
+	}
+
+	if freeSpace < pattern.SIZE_1MiB*100 {
+		return nil, "", errors.New("disk space will be used up soon")
+	}
+
+	usedSpace, err := utils.DirSize(n.Workspace())
+	if err != nil {
+		return nil, "", errors.Wrapf(err, "[DirSize]")
+	}
+
+	if usedSpace >= uint64(n.GetUseSpace()*pattern.SIZE_1GiB) {
+		return nil, "", errors.New("the configured usage space limit is reached")
+	}
 
 	teelist, err := n.QueryTeeInfoList()
 	if err != nil {
@@ -163,7 +182,6 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 			if err != nil {
 				continue
 			}
-			n.Space("info", fmt.Sprintf("Will req tee: %s", teePeerId))
 			_, err = n.IdleReq(id, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
 			if err != nil {
 				continue
