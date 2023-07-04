@@ -6,19 +6,25 @@ CESS-Bucket is a mining program provided by cess platform for storage miners.
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📑 Announcement
-### CESS test network rpc endpoints:
+**CESS test network rpc endpoints**
 ```
 wss://testnet-rpc0.cess.cloud/ws/
 wss://testnet-rpc2.cess.cloud/ws/
 wss://testnet-rpc3.cess.cloud/ws/
 ```
-### CESS test network bootstrap node:
+**CESS test network bootstrap node**
 ```
 _dnsaddr.boot-kldr-testnet.cess.cloud
 ```
 
+### 🚰 CESS test network faucet
+```
+https://testnet-faucet.cess.cloud/
+```
+
 ## :warning: Attention
 The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
+
 
 ## System Requirements
 - Linux 64-bit Intel/AMD
