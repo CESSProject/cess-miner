@@ -17,10 +17,11 @@ wss://testnet-rpc3.cess.cloud/ws/
 _dnsaddr.boot-kldr-testnet.cess.cloud
 ```
 
+## :warning: Attention
+The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
+
 ## System Requirements
 - Linux 64-bit Intel/AMD
-
-> :warning: The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
 ## System configuration
 ### Install application tools
