@@ -29,39 +29,14 @@ func (n *Node) chainMgt(ch chan bool) {
 	var err error
 	var maAddr ma.Multiaddr
 	var addrInfo *peer.AddrInfo
-	var bootstrap []string
-	// var lastMem uint64
+
 	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
 
-	// memSt := &runtime.MemStats{}
-	// tikProgram := time.NewTicker(pattern.BlockInterval)
-	// defer tikProgram.Stop()
+	n.Log("info", ">>>>> start chainMgt <<<<<")
 
-	n.Log("info", ">>>>> Start chainMgt")
-
-	boots := n.GetBootNodes()
-	for _, b := range boots {
-		temp, err := sutils.ParseMultiaddrs(b)
-		if err != nil {
-			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
-			continue
-		}
-		bootstrap = append(bootstrap, temp...)
-	}
-	n.Log("info", fmt.Sprintf("bootnode list:  %s", bootstrap))
 	for {
 		select {
-		// case <-tikProgram.C:
-		// runtime.ReadMemStats(memSt)
-		// if memSt.HeapSys >= pattern.SIZE_1GiB*2 {
-		// 	if memSt.HeapAlloc != lastMem {
-		// 		n.Log("err", fmt.Sprintf("memory usage: %d bytes", memSt.HeapAlloc))
-		// 	}
-		// 	//os.Exit(1)
-		// }
-		// lastMem = memSt.HeapAlloc
-
 		case <-tickListening.C:
 			if !n.GetChainState() {
 				err = n.Reconnect()
@@ -75,6 +50,16 @@ func (n *Node) chainMgt(ch chan bool) {
 				}
 			}
 
+			boots := n.GetBootNodes()
+			var bootstrap []string
+			for _, b := range boots {
+				temp, err := sutils.ParseMultiaddrs(b)
+				if err != nil {
+					n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+					continue
+				}
+				bootstrap = append(bootstrap, temp...)
+			}
 			for _, v := range bootstrap {
 				maAddr, err = ma.NewMultiaddr(v)
 				if err != nil {
@@ -88,35 +73,8 @@ func (n *Node) chainMgt(ch chan bool) {
 				if err != nil {
 					continue
 				}
-				//n.Log("info", fmt.Sprintf("connect to bootnode: %s", addrInfo.ID.Pretty()))
 				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
-			// if !n.P2P.GetDiscoverSt() {
-			// 	n.Log("info", fmt.Sprintf("restart discover service"))
-			// 	n.P2P.StartDiscover()
-			// }
-			// case discoverPeer := <-n.DiscoveredPeer():
-			// 	peerid = discoverPeer.ID.Pretty()
-			// 	n.Log("info", fmt.Sprintf("discovered:  %s", peerid))
-			// 	err = n.Connect(n.GetRootCtx(), discoverPeer)
-			// 	if err != nil {
-			// 		continue
-			// 	}
-			// 	n.SavePeer(peerid)
-			// 	n.Log("info", fmt.Sprintf("connect to %s", peerid))
-			// 	for _, v := range discoverPeer.Addrs {
-			// 		boots = strings.Split(v.String(), "/")
-			// 		for _, vv := range boots {
-			// 			if sutils.IsIPv4(vv) {
-			// 				if vv[len(vv)-1] == byte(49) && vv[len(vv)-3] == byte(48) {
-			// 					break
-			// 				}
-			// 				n.AddMultiaddrToPeerstore(fmt.Sprintf("%s/p2p/%s", v.String(), peerid), time.Hour)
-			// 				break
-			// 			}
-			// 		}
-			// 	 }
-			//}
 		}
 	}
 }

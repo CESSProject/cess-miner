@@ -19,7 +19,9 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
 )
 
 type MountPathInfo struct {
@@ -158,4 +160,32 @@ func RecoverError(err interface{}) string {
 	fmt.Fprintf(buf, "%v\n", err)
 	fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
 	return buf.String()
+}
+
+func GetSysMemAvailable() (uint64, error) {
+	var result uint64
+	memInfo, err := mem.VirtualMemory()
+	if err != nil {
+		return 0, errors.Wrapf(err, "[mem.VirtualMemory]")
+	}
+	result = memInfo.Available
+	swapInfo, err := mem.SwapMemory()
+	if err != nil {
+		return result, nil
+	}
+	return result + swapInfo.Free, nil
+}
+
+func GetSysMemTotle() (uint64, error) {
+	var result uint64
+	memInfo, err := mem.VirtualMemory()
+	if err != nil {
+		return 0, errors.Wrapf(err, "[mem.VirtualMemory]")
+	}
+	result = memInfo.Total
+	swapInfo, err := mem.SwapMemory()
+	if err != nil {
+		return result, nil
+	}
+	return result + swapInfo.Free, nil
 }

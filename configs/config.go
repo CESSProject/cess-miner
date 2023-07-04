@@ -24,22 +24,7 @@ const (
 	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
 	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
 	//
-	DefaultBootNodeAddr = "_dnsaddr.bootstrap-kldr.cess.cloud"
-)
-
-const (
-	HELP_common = `Please check with the following help information:
-    1.Check if the wallet balance is sufficient
-    2.Block hash:`
-	HELP_register = `    3.Check the Sminer_Registered transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_UpdateAddress = `    3.Check the Sminer_UpdataIp transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_UpdataBeneficiary = `    3.Check the Sminer_UpdataBeneficiary transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
+	DefaultBootNodeAddr = "_dnsaddr.boot-kldr-testnet.cess.cloud"
 )
 
 const (
