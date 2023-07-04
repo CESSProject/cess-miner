@@ -21,21 +21,14 @@ func (n *Node) discoverMgt(ch chan bool) {
 		}
 	}()
 
-	// var err error
 	var peerid string
-
 	n.Discover(">>>>> Start discoverMgt <<<<<")
 	for {
 		select {
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
 			n.Discover(fmt.Sprintf("discovered:  %s", peerid))
-			// err = n.P2P.Connect(n.P2P.GetRootCtx(), discoverPeer)
-			// if err != nil {
-			// 	continue
-			// }
 			n.SavePeer(peerid, discoverPeer)
-			// n.Discover(fmt.Sprintf("connect to %s", peerid))
 		}
 	}
 }
