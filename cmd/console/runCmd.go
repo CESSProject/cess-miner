@@ -25,25 +25,22 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/howeyc/gopass"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
 	var (
-		firstReg  bool
-		err       error
-		logDir    string
-		cacheDir  string
-		earnings  string
-		token     uint64
-		syncSt    pattern.SysSyncState
-		bootstrap = make([]string, 0)
-		n         = node.New()
+		firstReg       bool
+		err            error
+		logDir         string
+		cacheDir       string
+		earnings       string
+		token          uint64
+		syncSt         pattern.SysSyncState
+		protocolPrefix string
+		n              = node.New()
 	)
 
 	// Build profile instances
@@ -54,23 +51,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	boots := n.GetBootNodes()
-	for _, b := range boots {
-		bootnodes, err := sutils.ParseMultiaddrs(b)
-		if err != nil {
-			continue
-		}
-		bootstrap = append(bootstrap, bootnodes...)
-		for _, v := range bootnodes {
-			configs.Tip(fmt.Sprintf("bootstrap node: %v", v))
-			addr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
-			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
-			if err != nil {
-				continue
-			}
-			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+	for _, v := range boots {
+		if strings.Contains(v, "testnet") {
+			configs.Tip("Test network")
+			protocolPrefix = config.TestnetProtocolPrefix
+			break
+		} else if strings.Contains(v, "mainnet") {
+			configs.Tip("Main network")
+			protocolPrefix = config.MainnetProtocolPrefix
+			break
+		} else if strings.Contains(v, "devnet") {
+			configs.Tip("Dev network")
+			protocolPrefix = config.DevnetProtocolPrefix
+			break
+		} else {
+			configs.Tip("Unknown network")
 		}
 	}
 
@@ -82,7 +77,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 		cess.Workspace(n.GetWorkspace()),
 		cess.P2pPort(n.GetServicePort()),
-		cess.Bootnodes(bootstrap),
+		cess.Bootnodes(n.GetBootNodes()),
+		cess.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
 		configs.Err(fmt.Sprintf("[cess.New] %v", err))
@@ -157,6 +153,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if n.GetDiscoverSt() {
 		configs.Tip("Start node discovery service")
 	}
+
+	configs.Tip(n.GetProtocolPrefix())
 
 	// run
 	n.Run()
