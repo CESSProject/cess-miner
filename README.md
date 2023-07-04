@@ -5,6 +5,18 @@ CESS-Bucket is a mining program provided by cess platform for storage miners.
 ## Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
+## 📑 Announcement
+### CESS test network rpc endpoints:
+```
+wss://testnet-rpc0.cess.cloud/ws/
+wss://testnet-rpc2.cess.cloud/ws/
+wss://testnet-rpc3.cess.cloud/ws/
+```
+### CESS test network bootstrap node:
+```
+_dnsaddr.boot-kldr-testnet.cess.cloud
+```
+
 ## System Requirements
 - Linux 64-bit Intel/AMD
 
@@ -181,7 +193,7 @@ Enter the `bucket run` command to run directly, and enter the information accord
 ```
 # ./bucket run
 >> Please enter the rpc address of the chain, multiple addresses are separated by spaces:
-wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/
+wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the workspace, press enter to use / by default workspace:
 /
 >> Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
@@ -198,7 +210,7 @@ OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 **method two**
 
 ```
-# ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/,wss://testnet-rpc1.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 15001 --space 2000
+# ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
@@ -229,7 +241,7 @@ sudo chown -R  user:user /cess/bucket
 
 - stat
 ```shell
-./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+------------------------------------------------------+
@@ -247,7 +259,7 @@ sudo chown -R  user:user /cess/bucket
 
 - increase
 ```shell
-./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/  wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
@@ -255,7 +267,7 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 
 - update earnings
 ```shell
-./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
@@ -269,7 +281,7 @@ bucket v0.6.0
 
 - exit
 ```shell
-./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
@@ -277,7 +289,7 @@ OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 
 - withdraw
 ```shell
-./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
@@ -285,7 +297,7 @@ OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 
 - claim
 ```shell
-./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
@@ -293,7 +305,7 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 
 - reward
 ```shell
-./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/
+./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+---------------------------+
