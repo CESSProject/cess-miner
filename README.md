@@ -26,7 +26,7 @@ https://testnet-faucet.cess.cloud/
 The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
 ## ⚙ System configuration
-### System Requirements
+### System requirements
 - Linux 64-bit Intel/AMD
 
 ### Install application tools
@@ -86,10 +86,32 @@ sysctl -w net.ipv4.tcp_timestsmps = 0
 sysctl -w net.ipv4.ip_local_port_range = 10000 65500
 ```
 
-## Build from source
+## 💰 Configure CESS wallet
 
-**Step 1:** Install go
+**1) Register two cess wallet**
 
+For wallet one, it is called an  `earnings account`, which is used to receive rewards from mining, and you should keep the private key carefully.
+
+For wallet two, it is called a `staking account` and is used to staking some tokens and sign blockchain transactions.
+
+Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Create-a-CESS-Wallet) to create your cess wallet.
+
+**2) Recharge your staking account**
+
+The staking amount is calculated based on the space you configure. The minimum staking amount is 2000CESS, and an additional 2000CESS staking is required for each additional 1TiB of space.
+
+If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
+
+## 🏗 Get the binary program
+### Method one
+Download the latest release of the binary application directly at：
+```
+wget https://github.com/CESSProject/cess-bucket/releases/download/v0.6.0/bucket
+```
+### Method two
+Compile the binary program from the storage node source code and follow the process as follows:
+
+**1) install go**
 CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open gomod mode:
@@ -102,46 +124,28 @@ Users in China can add go proxy to speed up the download:
 go env -w GOPROXY="https://goproxy.cn,direct"
 ```
 
-**Step 2:** Clone code
+**2) clone code**
 
 ```shell
 git clone https://github.com/CESSProject/cess-bucket.git
 ```
 
-**Step 3:** Build a bucket
+**3) compile code**
 
 ```shell
 cd cess-bucket/
 go build -o bucket cmd/main.go
 ```
 
-**Step 4:** Grant execute permission
+**4) Grant execute permission**
 
 ```shell
 chmod +x bucket
 ```
 
-If all goes well, you will get a mining program called `bucket`.
+**5) View bucket features (optional)**
 
-## Configure Wallet
-
-**Step 1:** Register two cess wallet
-
-For wallet one, it is called an  `earnings account`, which is used to receive rewards from mining, and you should keep the private key carefully.
-
-For wallet two, it is called a `staking account` and is used to staking some tokens and sign blockchain transactions.
-
-Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Create-a-CESS-Wallet) to create your cess wallet.
-
-**Step 2:** Recharge your staking account
-
-The staking amount is calculated based on the space you configure. The minimum staking amount is 2000CESS, and an additional 2000CESS staking is required for each additional 1TiB of space.
-
-If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
-
-## View bucket features
-
-The `bucket` has many functions, you can use `-h` or `--help` to view, as follows:
+The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` to view, as follows:
 
 - Flags
 
@@ -170,7 +174,7 @@ The `bucket` has many functions, you can use `-h` or `--help` to view, as follow
 | reward   |            | Query reward information                       |
 | claim    |            | Claim reward                                   |
 
-## Start mining
+## 🟢 Start mining
 The bucket program has two running modes: foreground and background.
 
 **Foreground operation mode**
@@ -243,7 +247,7 @@ nohup ./bucket run &
 chown -R  user:user /cess/bucket
 ```
 
-## Other commands
+## 💡 Other commands
 
 - stat
 ```shell
