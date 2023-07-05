@@ -9,8 +9,8 @@ If you find out any system bugs or you have a better suggestions, please send an
 **CESS test network rpc endpoints**
 ```
 wss://testnet-rpc0.cess.cloud/ws/
+wss://testnet-rpc1.cess.cloud/ws/
 wss://testnet-rpc2.cess.cloud/ws/
-wss://testnet-rpc3.cess.cloud/ws/
 ```
 **CESS test network bootstrap node**
 ```
