@@ -2,10 +2,10 @@
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
-## Reporting a Vulnerability
+## 📝 Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
-## 📑 Announcement
+## 📢 Announcement
 **CESS test network rpc endpoints**
 ```
 wss://testnet-rpc0.cess.cloud/ws/
@@ -17,19 +17,18 @@ wss://testnet-rpc2.cess.cloud/ws/
 _dnsaddr.boot-kldr-testnet.cess.cloud
 ```
 
-### 🚰 CESS test network faucet
+## 🚰 CESS test network faucet
 ```
 https://testnet-faucet.cess.cloud/
 ```
 
-## :warning: Attention
+## ⚠ Attention
 The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
-
-## System Requirements
+## ⚙ System configuration
+### System Requirements
 - Linux 64-bit Intel/AMD
 
-## System configuration
 ### Install application tools
 
 For the Debian and  ubuntu families of linux systems:
@@ -241,7 +240,7 @@ nohup ./bucket run &
 
 > :warning: If you are not running the bucket program with root privileges, make sure the user you are currently logged in to has all the permissions for the workspace directory you have configured, if the user you are logged in to is `user` and the configured directory is `/cess`, please execute the following command to grant permissions:
 ```
-sudo chown -R  user:user /cess/bucket
+chown -R  user:user /cess/bucket
 ```
 
 ## Other commands
@@ -266,7 +265,7 @@ sudo chown -R  user:user /cess/bucket
 
 - increase
 ```shell
-./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/  wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
