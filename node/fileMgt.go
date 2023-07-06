@@ -107,6 +107,10 @@ func (n *Node) reportFiles() error {
 			}
 		}
 
+		if len(assignedFragmentHash) == 0 {
+			continue
+		}
+
 		failfile = false
 		for i := 0; i < len(assignedFragmentHash); i++ {
 			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
