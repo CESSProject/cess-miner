@@ -183,17 +183,22 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	for _, tee := range teelist {
 		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
 		addr, ok := n.GetPeer(teePeerId)
-		if ok {
-			err = n.Connect(n.GetRootCtx(), addr)
+		if !ok {
+			addr, err = n.DHTFindPeer(teePeerId)
 			if err != nil {
 				continue
 			}
-			_, err = n.IdleReq(addr.ID, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
-			if err != nil {
-				continue
-			}
-			return tee.ControllerAccount[:], teePeerId, nil
 		}
+
+		err = n.Connect(n.GetRootCtx(), addr)
+		if err != nil {
+			continue
+		}
+		_, err = n.IdleReq(addr.ID, pattern.FragmentSize, pattern.BlockNumber, n.GetStakingPublickey(), sign)
+		if err != nil {
+			continue
+		}
+		return tee.ControllerAccount[:], teePeerId, nil
 	}
 
 	return nil, teePeerId, err
