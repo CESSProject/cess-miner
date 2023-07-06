@@ -87,7 +87,7 @@ func (n *Node) reportFiles() error {
 			os.RemoveAll(v)
 			continue
 		}
-
+		reReport = true
 		for _, completeMiner := range storageorder.CompleteList {
 			if sutils.CompareSlice(completeMiner[:], n.GetSignatureAccPulickey()) {
 				reReport = false
@@ -95,7 +95,6 @@ func (n *Node) reportFiles() error {
 		}
 
 		if !reReport {
-			n.Report("err", fmt.Sprintf("check %s failed", roothash))
 			continue
 		}
 
