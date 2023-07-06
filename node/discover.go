@@ -8,7 +8,7 @@
 package node
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 )
@@ -20,15 +20,34 @@ func (n *Node) discoverMgt(ch chan bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	var peerid string
 	n.Discover(">>>>> Start discoverMgt <<<<<")
+	tickDiscover := time.NewTicker(time.Minute * 5)
+	defer tickDiscover.Stop()
+
+	var reset bool
+	var length int
 	for {
 		select {
 		case discoverPeer := <-n.DiscoveredPeer():
-			peerid = discoverPeer.ID.Pretty()
-			n.Discover(fmt.Sprintf("discovered:  %s", peerid))
-			n.SavePeer(peerid, discoverPeer)
+			if !reset {
+				reset = true
+				tickDiscover.Reset(time.Minute * 5)
+			}
+			n.SavePeer(discoverPeer.ID.Pretty(), discoverPeer)
+		case <-tickDiscover.C:
+			length = 0
+			n.RouteTableFindPeers(len(n.peers) + 30)
+		default:
+			if reset {
+				if length != len(n.peers) {
+					length = len(n.peers)
+					allPeer := n.GetAllPeerId()
+					for _, v := range allPeer {
+						n.Discover(v)
+					}
+				}
+			}
+			reset = false
 		}
 	}
 }

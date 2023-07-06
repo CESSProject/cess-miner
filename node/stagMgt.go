@@ -121,18 +121,15 @@ func (n *Node) calcFileTag() error {
 				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
 				addr, ok := n.GetPeer(teePeerId)
 				if !ok {
-					continue
+					addr, err = n.DHTFindPeer(teePeerId)
+					if err != nil {
+						continue
+					}
 				}
 				err = n.Connect(n.GetRootCtx(), addr)
 				if err != nil {
 					continue
 				}
-
-				// id, err = peer.Decode(teePeerId)
-				// if err != nil {
-				// 	n.Stag("err", fmt.Sprintf("[peer.Decode:%s] err: %v", teePeerId, err))
-				// 	continue
-				// }
 
 				n.Stag("info", fmt.Sprintf("Send fragment [%s] tag req to tee: %s", filepath.Base(f), teePeerId))
 				code, err = n.TagReq(addr.ID, filepath.Base(f), "", pattern.BlockNumber)
