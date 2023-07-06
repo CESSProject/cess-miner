@@ -60,13 +60,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 			configs.Tip("Main network")
 			protocolPrefix = config.MainnetProtocolPrefix
 			break
-		} else if strings.Contains(v, "devnet") {
-			configs.Tip("Dev network")
-			protocolPrefix = config.DevnetProtocolPrefix
-			break
 		} else {
 			configs.Tip("Unknown network")
 		}
+		// else if strings.Contains(v, "devnet") {
+		// 	configs.Tip("Dev network")
+		// 	protocolPrefix = config.DevnetProtocolPrefix
+		// 	break
+		// }
 	}
 
 	//Build client
