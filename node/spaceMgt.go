@@ -81,14 +81,16 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 				continue
 			}
 
-			if !verifyTagfile(tagPath, spacePath) {
-				os.Remove(tagPath)
-				os.Remove(spacePath)
-				continue
-			}
-
 			n.Space("info", fmt.Sprintf("Receive a idle file tag: %s", tagPath))
 			n.Space("info", fmt.Sprintf("Receive a idle file: %s", spacePath))
+
+			err = verifyTagfile(tagPath, spacePath)
+			if err != nil {
+				os.Remove(tagPath)
+				os.Remove(spacePath)
+				n.Space("err", err.Error())
+				continue
+			}
 
 			filehash, err = sutils.CalcPathSHA256(spacePath)
 			if err != nil {
@@ -204,23 +206,23 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 	return nil, teePeerId, err
 }
 
-func verifyTagfile(tagfile, idlefile string) bool {
+func verifyTagfile(tagfile, idlefile string) error {
 	buf, err := os.ReadFile(tagfile)
 	if err != nil {
-		return false
+		return err
 	}
 	var tagInfo tagInfo
 
 	err = sonic.Unmarshal(buf, &tagInfo)
 	if err != nil {
-		return false
+		return err
 	}
 	tagFileHash := strings.TrimSuffix(filepath.Base(tagfile), ".tag")
 	if tagInfo.T.Name != tagFileHash {
-		return false
+		return fmt.Errorf("[%s] not equal tag name: [%s]", tagFileHash, tagInfo.T.Name)
 	}
 	if tagFileHash != filepath.Base(idlefile) {
-		return false
+		return fmt.Errorf("%s not equal idle file hash: [%s]", tagFileHash, filepath.Base(idlefile))
 	}
-	return true
+	return nil
 }
