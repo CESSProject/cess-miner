@@ -8,7 +8,6 @@
 package node
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -25,22 +24,30 @@ func (n *Node) discoverMgt(ch chan bool) {
 	tickDiscover := time.NewTicker(time.Minute * 5)
 	defer tickDiscover.Stop()
 
+	var reset bool
 	var length int
 	for {
 		select {
 		case discoverPeer := <-n.DiscoveredPeer():
-			tickDiscover.Reset(time.Minute * 5)
+			if !reset {
+				reset = true
+				tickDiscover.Reset(time.Minute * 5)
+			}
 			n.SavePeer(discoverPeer.ID.Pretty(), discoverPeer)
 		case <-tickDiscover.C:
+			length = 0
 			n.RouteTableFindPeers(len(n.peers) + 30)
-		}
-		if length != len(n.peers) {
-			length = len(n.peers)
-			allPeer := n.GetAllPeerId()
-			for _, v := range allPeer {
-				n.Discover(fmt.Sprintf("discovered:  %s", v))
+		default:
+			if reset {
+				if length != len(n.peers) {
+					length = len(n.peers)
+					allPeer := n.GetAllPeerId()
+					for _, v := range allPeer {
+						n.Discover(v)
+					}
+				}
 			}
+			reset = false
 		}
-
 	}
 }
