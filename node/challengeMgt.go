@@ -197,6 +197,19 @@ func (n *Node) pChallenge() error {
 				n.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
 				n.Put([]byte(Cach_IdleChallengeBlock), []byte(fmt.Sprintf("%d", challenge.NetSnapshot.Start)))
 				n.Chal("info", fmt.Sprintf("Idle data aggregation proof: %s", idleSiama))
+			} else {
+				b, err = n.Get([]byte(Cach_prefix_idleSiama))
+				if err != nil {
+					idleSiama, err = n.idleAggrProof(qslice, challenge.NetSnapshot.Start)
+					if err != nil {
+						return errors.Wrapf(err, "[idleAggrProof]")
+					}
+					n.Put([]byte(Cach_prefix_idleSiama), []byte(idleSiama))
+					n.Put([]byte(Cach_IdleChallengeBlock), []byte(fmt.Sprintf("%d", challenge.NetSnapshot.Start)))
+					n.Chal("info", fmt.Sprintf("Idle data aggregation proof: %s", idleSiama))
+				} else {
+					idleSiama = string(b)
+				}
 			}
 		}
 	}
@@ -230,6 +243,19 @@ func (n *Node) pChallenge() error {
 				n.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
 				n.Put([]byte(Cach_ServiceChallengeBlock), []byte(fmt.Sprintf("%d", challenge.NetSnapshot.Start)))
 				n.Chal("info", fmt.Sprintf("Service data aggregation proof: %s", serviceSigma))
+			} else {
+				b, err = n.Get([]byte(Cach_prefix_serviceSiama))
+				if err != nil {
+					serviceSigma, err = n.idleAggrProof(qslice, challenge.NetSnapshot.Start)
+					if err != nil {
+						return errors.Wrapf(err, "[serviceAggrProof]")
+					}
+					n.Put([]byte(Cach_prefix_serviceSiama), []byte(serviceSigma))
+					n.Put([]byte(Cach_ServiceChallengeBlock), []byte(fmt.Sprintf("%d", challenge.NetSnapshot.Start)))
+					n.Chal("info", fmt.Sprintf("Service data aggregation proof: %s", serviceSigma))
+				} else {
+					serviceSigma = string(b)
+				}
 			}
 		}
 	}
