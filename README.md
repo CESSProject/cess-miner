@@ -177,7 +177,12 @@ The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` 
 ## 🟢 Start mining
 The bucket program has two running modes: foreground and background.
 
-**Foreground operation mode**
+> :warning: If you are not running the bucket program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your staking account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
+```
+chown -R  user:user /cess/cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y/
+```
+
+### Foreground operation mode
 
 The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the bucket and ensure that the window always exists. 
 Create and enter the bucket window command:
@@ -214,7 +219,6 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
-OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
 **method two**
@@ -223,10 +227,9 @@ OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 # ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
-OK /cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw/bucket
 ```
 
-**Background operation mode**
+### Background operation mode
 
 Generate configuration file:
 ```
@@ -240,11 +243,6 @@ nohup ./bucket run -c /root/bucket/conf.yaml &
 If the configuration file is named conf.yaml and is located in the same directory as the bucket program, you can specify without -c:
 ```
 nohup ./bucket run &
-```
-
-> :warning: If you are not running the bucket program with root privileges, make sure the user you are currently logged in to has all the permissions for the workspace directory you have configured, if the user you are logged in to is `user` and the configured directory is `/cess`, please execute the following command to grant permissions:
-```
-chown -R  user:user /cess/bucket
 ```
 
 ## 💡 Other commands
