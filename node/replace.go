@@ -34,7 +34,7 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 
 	n.Replace("info", ">>>>> Start replaceMgt <<<<<")
 
-	tickReplace := time.NewTicker(time.Second * 30)
+	tickReplace := time.NewTicker(time.Minute)
 	defer tickReplace.Stop()
 
 	tikSpace := time.NewTicker(time.Hour)

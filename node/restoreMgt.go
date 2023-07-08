@@ -23,7 +23,7 @@ func (n *Node) restoreMgt(ch chan bool) {
 		}
 	}()
 
-	n.Restore("info", ">>>>> Start restoreMgt <<<<<")
+	n.Restore("info", ">>>>> start restoreMgt <<<<<")
 	for {
 		for n.GetChainState() {
 			err := n.inspector()

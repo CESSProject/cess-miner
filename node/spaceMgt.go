@@ -41,7 +41,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 	var teepuk []byte
 	var idlefile pattern.IdleFileMeta
 
-	n.Space("info", ">>>>> Start spaceMgt <<<<<")
+	n.Space("info", ">>>>> start spaceMgt <<<<<")
 
 	timeout := time.NewTimer(time.Duration(time.Minute * 5))
 	defer timeout.Stop()
@@ -50,8 +50,8 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 		for n.GetChainState() {
 			time.Sleep(pattern.BlockInterval)
 			teepuk, peerid, err = n.requsetIdlefile()
-			if err != nil {
-				n.Space("err", err.Error())
+			if err != nil || peerid == "" {
+				n.Space("err", fmt.Sprintf("[%v] %v", peerid, err.Error()))
 				continue
 			}
 
@@ -64,7 +64,7 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 			for err == nil {
 				select {
 				case <-timeout.C:
-					n.Space("err", fmt.Sprintf("Requset timeout: %s", peerid))
+					n.Space("err", fmt.Sprintf("Response timeout: %s", peerid))
 					err = errors.New("timeout")
 				case spacePath = <-n.GetIdleDataCh():
 				case tagPath = <-n.GetIdleTagCh():
@@ -104,10 +104,6 @@ func (n *Node) spaceMgt(ch chan<- bool) {
 				os.Remove(tagPath)
 				continue
 			}
-
-			// os.Rename(spacePath, filepath.Join(n.GetDirs().IdleDataDir, filehash))
-			// os.Rename(tagPath, filepath.Join(n.GetDirs().IdleTagDir, filehash+".tag"))
-			// n.Space("info", fmt.Sprintf("Idle file %s hash: %s", spacePath, filehash))
 
 			idlefile.BlockNum = pattern.BlockNumber
 			idlefile.Hash = filehash
@@ -172,18 +168,26 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 		return nil, "", errors.New("the configured usage space limit is reached")
 	}
 
-	teelist, err := n.QueryTeeInfoList()
-	if err != nil {
-		return nil, teePeerId, err
-	}
-	utils.RandSlice(teelist)
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		return nil, teePeerId, err
 	}
 
-	for _, tee := range teelist {
-		teePeerId = base58.Encode([]byte(string(tee.PeerId[:])))
+	tees := n.GetAllTeeWorkAccount()
+
+	utils.RandSlice(tees)
+
+	for _, tee := range tees {
+		puk, err := sutils.ParsingPublickey(tee)
+		if err != nil {
+			continue
+		}
+		teepeerid, ok := n.GetTeeWork(tee)
+		if !ok {
+			continue
+		}
+
+		teePeerId = base58.Encode(teepeerid)
 		addr, ok := n.GetPeer(teePeerId)
 		if !ok {
 			addr, err = n.DHTFindPeer(teePeerId)
@@ -192,7 +196,7 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 			}
 		}
 
-		err = n.Connect(n.GetRootCtx(), addr)
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
 			continue
 		}
@@ -200,7 +204,7 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 		if err != nil {
 			continue
 		}
-		return tee.ControllerAccount[:], teePeerId, nil
+		return puk, teePeerId, nil
 	}
 
 	return nil, teePeerId, err

@@ -57,15 +57,12 @@ func (n *Node) calcFileTag() error {
 	var code uint32
 	var err error
 
-	tees, err := n.QueryTeeInfoList()
-	if err != nil {
-		return errors.Wrapf(err, "[QueryTeeInfoList]")
-	}
-
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
 		return errors.Wrapf(err, "[Dirs]")
 	}
+
+	tees := n.GetAllTeeWorkPeerId()
 
 	timeout := time.NewTicker(time.Minute * 5)
 	defer timeout.Stop()
@@ -118,7 +115,7 @@ func (n *Node) calcFileTag() error {
 
 			utils.RandSlice(tees)
 			for _, t := range tees {
-				teePeerId := base58.Encode([]byte(string(t.PeerId[:])))
+				teePeerId := base58.Encode(t)
 				addr, ok := n.GetPeer(teePeerId)
 				if !ok {
 					addr, err = n.DHTFindPeer(teePeerId)
@@ -126,7 +123,7 @@ func (n *Node) calcFileTag() error {
 						continue
 					}
 				}
-				err = n.Connect(n.GetRootCtx(), addr)
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 				if err != nil {
 					continue
 				}
@@ -137,6 +134,7 @@ func (n *Node) calcFileTag() error {
 					n.Stag("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue
 				}
+
 				n.Stag("info", fmt.Sprintf("Send fragment [%s] file req to tee: %s", filepath.Base(f), teePeerId))
 				code, err = n.FileReq(addr.ID, filepath.Base(f), pb.FileType_CustomData, f)
 				if err != nil || code != 0 {

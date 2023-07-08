@@ -98,6 +98,20 @@ func (n *Node) pChallenge() error {
 		}
 	}
 
+	latestBlock, err := n.QueryBlockHeight("")
+	if err != nil {
+		return errors.Wrapf(err, "[QueryBlockHeight]")
+	}
+
+	challExpiration, err := n.QueryChallengeExpiration()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryChallengeExpiration]")
+	}
+
+	if challExpiration <= latestBlock {
+		haveChallenge = false
+	}
+
 	var b []byte
 	var tempInt int
 	var peerid peer.ID
@@ -260,15 +274,18 @@ func (n *Node) pChallenge() error {
 		}
 	}
 
-	var txhash string
-	txhash, err = n.ReportProof(idleSiama, serviceSigma)
+	if idleSiama == "" && serviceSigma == "" {
+		return errors.New("Both proofs are empty")
+	}
+
+	txhash, err := n.ReportProof(idleSiama, serviceSigma)
 	if err != nil {
 		return errors.Wrapf(err, "[ReportProof]")
 	}
 
 	n.Chal("info", fmt.Sprintf("Reported challenge results: %v", txhash))
 
-	time.Sleep(pattern.BlockInterval)
+	time.Sleep(pattern.BlockInterval * 3)
 
 	err = n.transferProof(challenge)
 	if err != nil {
@@ -597,31 +614,32 @@ func (n *Node) saveRandom(challenge pattern.ChallengeSnapshot) error {
 
 func (n *Node) queryProofAssignedTee() (peer.ID, []byte, error) {
 	var err error
-	var teelist []pattern.TeeWorkerInfo
-	var proof []pattern.ProofAssignmentInfo
-	var teeAsigned []byte
-	var peerid peer.ID
-	teelist, err = n.QueryTeeInfoList()
-	if err != nil {
-		return "", nil, errors.Wrapf(err, "[QueryTeeInfoList]")
-	}
 
-	for _, v := range teelist {
-		proof, err = n.QueryTeeAssignedProof(v.ControllerAccount[:])
+	tees := n.GetAllTeeWorkAccount()
+
+	for _, v := range tees {
+		puk, err := sutils.ParsingPublickey(v)
+		if err != nil {
+			continue
+		}
+		proof, err := n.QueryTeeAssignedProof(puk)
 		if err != nil {
 			continue
 		}
 
 		for i := 0; i < len(proof); i++ {
 			if sutils.CompareSlice(proof[i].SnapShot.Miner[:], n.GetStakingPublickey()) {
-				peerid, err = peer.Decode(base58.Encode([]byte(string(v.PeerId[:]))))
+				teepeerid, ok := n.GetTeeWork(v)
+				if !ok {
+					continue
+				}
+				peerid, err := peer.Decode(base58.Encode(teepeerid))
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "[peer.Decode]")
 				}
-				teeAsigned = v.ControllerAccount[:]
-				return peerid, teeAsigned, nil
+				return peerid, puk, nil
 			}
 		}
 	}
-	return peerid, teeAsigned, err
+	return peer.ID(""), nil, err
 }

@@ -32,16 +32,20 @@ type Node struct {
 	logger.Logger
 	cache.Cache
 	sdk.SDK
-	key      *proof.RSAKeyPair
-	peerLock *sync.RWMutex
-	peers    map[string]peer.AddrInfo
+	key        *proof.RSAKeyPair
+	peerLock   *sync.RWMutex
+	teeLock    *sync.RWMutex
+	peers      map[string]peer.AddrInfo
+	teeWorkers map[string][]byte
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		peerLock: new(sync.RWMutex),
-		peers:    make(map[string]peer.AddrInfo, 20),
+		peerLock:   new(sync.RWMutex),
+		teeLock:    new(sync.RWMutex),
+		peers:      make(map[string]peer.AddrInfo, 20),
+		teeWorkers: make(map[string][]byte, 20),
 	}
 }
 
@@ -85,12 +89,50 @@ func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
 }
 
 func (n *Node) GetAllPeerId() []string {
+	var result = make([]string, len(n.peers))
 	n.peerLock.RLock()
 	defer n.peerLock.RUnlock()
-	var result = make([]string, len(n.peers))
 	var i int
 	for k, _ := range n.peers {
 		result[i] = k
+		i++
+	}
+	return result
+}
+
+func (n *Node) SaveTeeWork(account string, peerid []byte) {
+	if n.teeLock.TryLock() {
+		n.teeWorkers[account] = peerid
+		n.teeLock.Unlock()
+	}
+}
+
+func (n *Node) GetTeeWork(account string) ([]byte, bool) {
+	n.teeLock.RLock()
+	result, ok := n.teeWorkers[account]
+	n.teeLock.RUnlock()
+	return result, ok
+}
+
+func (n *Node) GetAllTeeWorkAccount() []string {
+	var result = make([]string, len(n.teeWorkers))
+	n.teeLock.RLock()
+	defer n.teeLock.RUnlock()
+	var i int
+	for k, _ := range n.teeWorkers {
+		result[i] = k
+		i++
+	}
+	return result
+}
+
+func (n *Node) GetAllTeeWorkPeerId() [][]byte {
+	var result = make([][]byte, len(n.teeWorkers))
+	n.teeLock.RLock()
+	defer n.teeLock.RUnlock()
+	var i int
+	for _, v := range n.teeWorkers {
+		result[i] = v
 		i++
 	}
 	return result

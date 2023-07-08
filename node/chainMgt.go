@@ -26,9 +26,6 @@ func (n *Node) chainMgt(ch chan bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-	var err error
-	var maAddr ma.Multiaddr
-	var addrInfo *peer.AddrInfo
 
 	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
@@ -38,43 +35,64 @@ func (n *Node) chainMgt(ch chan bool) {
 	for {
 		select {
 		case <-tickListening.C:
-			if !n.GetChainState() {
-				err = n.Reconnect()
-				if err != nil {
-					n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-					configs.Err(pattern.ERR_RPC_CONNECTION.Error())
-				} else {
-					n.Log("info", "rpc reconnection successful")
-					configs.Tip("rpc reconnection successful")
-					n.SetChainState(true)
-				}
+			n.connectBoot()
+			if err := n.connectChain(); err != nil {
+				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
+				configs.Err(pattern.ERR_RPC_CONNECTION.Error())
+				break
 			}
+			n.syncChainStatus()
+		}
+	}
+}
 
-			boots := n.GetBootNodes()
-			var bootstrap []string
-			for _, b := range boots {
-				temp, err := sutils.ParseMultiaddrs(b)
-				if err != nil {
-					n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
-					continue
-				}
-				bootstrap = append(bootstrap, temp...)
+func (n *Node) connectBoot() {
+	boots := n.GetBootNodes()
+	for _, b := range boots {
+		multiaddr, err := sutils.ParseMultiaddrs(b)
+		if err != nil {
+			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+			continue
+		}
+		for _, v := range multiaddr {
+			maAddr, err := ma.NewMultiaddr(v)
+			if err != nil {
+				continue
 			}
-			for _, v := range bootstrap {
-				maAddr, err = ma.NewMultiaddr(v)
-				if err != nil {
-					continue
-				}
-				addrInfo, err = peer.AddrInfoFromP2pAddr(maAddr)
-				if err != nil {
-					continue
-				}
-				err = n.Connect(n.GetRootCtx(), *addrInfo)
-				if err != nil {
-					continue
-				}
-				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+			if err != nil {
+				continue
 			}
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+			if err != nil {
+				continue
+			}
+			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+		}
+	}
+}
+
+func (n *Node) connectChain() error {
+	var err error
+	if !n.GetChainState() {
+		err = n.Reconnect()
+		if err != nil {
+			return err
+		}
+		n.Log("info", "rpc reconnection successful")
+		configs.Tip("rpc reconnection successful")
+		n.SetChainState(true)
+	}
+	return nil
+}
+
+func (n *Node) syncChainStatus() {
+	teelist, err := n.QueryTeeWorkerList()
+	if err != nil {
+		n.Log("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
+	} else {
+		for _, v := range teelist {
+			n.SaveTeeWork(v.Controller_account, v.Peer_id)
 		}
 	}
 }

@@ -8,6 +8,7 @@
 package console
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -40,6 +41,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	// Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
@@ -65,7 +67,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"role", n.GetRoleName()},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
-		{"staking amount", fmt.Sprintf("%v TCESS", minerInfo.Collaterals)},
+		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
 		{"validated space", fmt.Sprintf("%s", unitConversion(minerInfo.IdleSpace))},
 		{"used space", fmt.Sprintf("%s", unitConversion(minerInfo.ServiceSpace))},
 		{"locked space", fmt.Sprintf("%s", unitConversion(minerInfo.LockSpace))},
