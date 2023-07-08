@@ -106,7 +106,7 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-bucket/releases/download/v0.6.0/bucket
+wget https://github.com/CESSProject/cess-bucket/releases/download/v0.6.2/bucket
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
