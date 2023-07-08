@@ -8,6 +8,7 @@
 package console
 
 import (
+	"context"
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -76,6 +77,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 
 	//Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),

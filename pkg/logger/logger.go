@@ -31,7 +31,7 @@ type Logger interface {
 	Stag(level string, msg string)
 	Restore(level string, msg string)
 	Parseblock(level string, msg string)
-	Discover(msg string)
+	Discover(level, msg string)
 }
 
 type logs struct {
@@ -192,11 +192,16 @@ func (l *logs) Parseblock(level string, msg string) {
 	}
 }
 
-func (l *logs) Discover(msg string) {
+func (l *logs) Discover(level, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["discover"]
 	if ok {
-		v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+		}
 	}
 }
 

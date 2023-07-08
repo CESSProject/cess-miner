@@ -8,6 +8,7 @@
 package console
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -53,6 +54,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),

@@ -8,6 +8,7 @@
 package console
 
 import (
+	"context"
 	"math/big"
 	"os"
 
@@ -59,6 +60,7 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),

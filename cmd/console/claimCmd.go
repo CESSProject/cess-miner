@@ -8,6 +8,7 @@
 package console
 
 import (
+	"context"
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -50,6 +51,7 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),

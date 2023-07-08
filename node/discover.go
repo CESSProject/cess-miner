@@ -8,9 +8,11 @@
 package node
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"golang.org/x/time/rate"
 )
 
 func (n *Node) discoverMgt(ch chan bool) {
@@ -20,34 +22,41 @@ func (n *Node) discoverMgt(ch chan bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-	n.Discover(">>>>> Start discoverMgt <<<<<")
-	tickDiscover := time.NewTicker(time.Minute * 5)
+	n.Discover("info", ">>>>> start discoverMgt <<<<<")
+	tickDiscover := time.NewTicker(time.Minute)
 	defer tickDiscover.Stop()
 
-	var reset bool
-	var length int
+	var r1 = rate.Every(time.Second * 3)
+	var limit = rate.NewLimiter(r1, 1)
+
+	var r2 = rate.Every(time.Minute * 10)
+	var printLimit = rate.NewLimiter(r2, 1)
+	n.RouteTableFindPeers(0)
+
 	for {
 		select {
-		case discoverPeer := <-n.DiscoveredPeer():
-			if !reset {
-				reset = true
-				tickDiscover.Reset(time.Minute * 5)
+		case peer, _ := <-n.GetDiscoveredPeers():
+			if limit.Allow() {
+				tickDiscover.Reset(time.Minute)
 			}
-			n.SavePeer(discoverPeer.ID.Pretty(), discoverPeer)
+			if len(peer.Responses) == 0 {
+				break
+			}
+			for _, v := range peer.Responses {
+				n.SavePeer(v.ID.Pretty(), *v)
+			}
 		case <-tickDiscover.C:
-			length = 0
-			n.RouteTableFindPeers(len(n.peers) + 30)
-		default:
-			if reset {
-				if length != len(n.peers) {
-					length = len(n.peers)
-					allPeer := n.GetAllPeerId()
-					for _, v := range allPeer {
-						n.Discover(v)
-					}
+			if printLimit.Allow() {
+				allpeer := n.GetAllPeerId()
+				for _, v := range allpeer {
+					n.Discover("info", fmt.Sprintf("found %s", v))
 				}
 			}
-			reset = false
+			n.Discover("info", "RouteTableFindPeers")
+			_, err := n.RouteTableFindPeers(len(n.peers) + 10)
+			if err != nil {
+				n.Discover("err", err.Error())
+			}
 		}
 	}
 }

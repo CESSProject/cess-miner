@@ -9,6 +9,7 @@ package console
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,6 +72,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = cess.New(
+		context.Background(),
 		config.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
@@ -148,10 +150,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	for _, v := range n.Addrs() {
 		configs.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
-	}
-
-	if n.GetDiscoverSt() {
-		configs.Tip("Start node discovery service")
 	}
 
 	configs.Tip(n.GetProtocolPrefix())
