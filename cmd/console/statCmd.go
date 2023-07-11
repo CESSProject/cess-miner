@@ -19,6 +19,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -35,7 +36,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -48,14 +49,14 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	//Query your own information on the chain
 	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 

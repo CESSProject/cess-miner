@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
 
@@ -36,24 +36,24 @@ func init() {
 func CreateConfigFile() {
 	f, err := os.Create(confile.DefaultProfile)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		return
 	}
 	defer f.Close()
 	_, err = f.WriteString(confile.TempleteProfile)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		return
 	}
 	err = f.Sync()
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		return
 	}
 	pwd, err := os.Getwd()
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		return
 	}
-	configs.Ok(filepath.Join(pwd, confile.DefaultProfile))
+	out.Ok(filepath.Join(pwd, confile.DefaultProfile))
 }

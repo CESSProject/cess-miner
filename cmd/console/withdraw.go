@@ -15,6 +15,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -41,20 +42,20 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	txhash, err := n.Withdraw()
 	if err != nil {
 		if txhash == "" {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
-		configs.Warn(txhash)
+		out.Warn(txhash)
 		os.Exit(0)
 	}
 
-	configs.Ok(txhash)
+	out.Ok(txhash)
 	os.Exit(0)
 }

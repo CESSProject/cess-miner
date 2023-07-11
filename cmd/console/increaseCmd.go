@@ -17,6 +17,7 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
 
@@ -41,20 +42,20 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	if len(os.Args) < 3 {
-		configs.Err("Please enter the stakes amount")
+		out.Err("Please enter the stakes amount")
 		os.Exit(1)
 	}
 
 	stakes, ok := new(big.Int).SetString(os.Args[2]+pattern.TokenPrecision_CESS, 10)
 	if !ok {
-		configs.Err("Please enter the correct stakes amount")
+		out.Err("Please enter the correct stakes amount")
 		os.Exit(1)
 	}
 
 	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -67,20 +68,20 @@ func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	txhash, err := n.IncreaseStakingAmount(stakes)
 	if err != nil {
 		if txhash == "" {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
-		configs.Warn(txhash)
+		out.Warn(txhash)
 		os.Exit(0)
 	}
 
-	configs.Ok(txhash)
+	out.Ok(txhash)
 	os.Exit(0)
 }

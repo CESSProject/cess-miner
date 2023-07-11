@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -51,7 +52,7 @@ func New() *Node {
 
 func (n *Node) Run() {
 	go n.TaskMgt()
-	configs.Ok("Start successfully")
+	out.Ok("start successfully")
 	select {}
 }
 

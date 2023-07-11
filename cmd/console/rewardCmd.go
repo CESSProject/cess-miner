@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +49,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -61,13 +62,13 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	rewardInfo, err := n.QuaryStorageNodeRewardInfo(n.GetStakingPublickey())
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 	var total string
