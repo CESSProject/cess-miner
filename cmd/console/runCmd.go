@@ -26,6 +26,7 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )
@@ -47,26 +48,26 @@ func runCmd(cmd *cobra.Command, args []string) {
 	// Build profile instances
 	n.Confile, err = buildConfigFile(cmd, 0)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[buildConfigFile] %v", err))
+		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
 
 	boots := n.GetBootNodes()
 	for _, v := range boots {
 		if strings.Contains(v, "testnet") {
-			configs.Tip("Test network")
+			out.Tip("Test network")
 			protocolPrefix = config.TestnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "mainnet") {
-			configs.Tip("Main network")
+			out.Tip("Main network")
 			protocolPrefix = config.MainnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "devnet") {
-			configs.Tip("Dev network")
+			out.Tip("Dev network")
 			protocolPrefix = config.DevnetProtocolPrefix
 			break
 		} else {
-			configs.Tip("Unknown network")
+			out.Tip("Unknown network")
 		}
 	}
 
@@ -83,21 +84,21 @@ func runCmd(cmd *cobra.Command, args []string) {
 		cess.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[cess.New] %v", err))
+		out.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
 	}
 
 	for {
 		syncSt, err = n.SyncState()
 		if err != nil {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
 		if syncSt.CurrentBlock == syncSt.HighestBlock {
-			configs.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			out.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
 			break
 		}
-		configs.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		out.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
@@ -111,14 +112,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 			}
 			token *= 2000
 		} else {
-			configs.Err("Weak network signal or rpc service failure")
+			out.Err("Weak network signal or rpc service failure")
 			os.Exit(1)
 		}
 	}
 
 	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
-		configs.Err(fmt.Sprintf("Register or update err: %v", err))
+		out.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
 	}
 	n.SetEarningsAcc(earnings)
@@ -130,29 +131,29 @@ func runCmd(cmd *cobra.Command, args []string) {
 	// Build data directory
 	logDir, cacheDir, err = buildDir(n.Workspace())
 	if err != nil {
-		configs.Err(fmt.Sprintf("[buildDir] %v", err))
+		out.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
 
 	// Build cache instance
 	n.Cache, err = buildCache(cacheDir)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[buildCache] %v", err))
+		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
 
 	//Build log instance
 	n.Logger, err = buildLogs(logDir)
 	if err != nil {
-		configs.Err(fmt.Sprintf("[buildLogs] %v", err))
+		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
 
 	for _, v := range n.Addrs() {
-		configs.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
+		out.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
 	}
 
-	configs.Tip(n.GetProtocolPrefix())
+	out.Tip(n.GetProtocolPrefix())
 
 	// run
 	n.Run()
@@ -166,14 +167,14 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if configpath1 != "" {
 		_, err = os.Stat(configpath1)
 		if err != nil {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
 		conFilePath = configpath1
 	} else if configpath2 != "" {
 		_, err = os.Stat(configpath2)
 		if err != nil {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
 		conFilePath = configpath2
@@ -188,7 +189,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	}
 
 	if !strings.Contains(err.Error(), "stat") {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 	}
 
 	var istips bool
@@ -204,12 +205,12 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if len(rpc) == 0 {
 		for {
 			if !istips {
-				configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -234,7 +235,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetRpcAddr(rpc)
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
 
 	var boots []string
 	boots, err = cmd.Flags().GetStringSlice("boot")
@@ -246,12 +247,12 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if len(boots) == 0 {
 		for {
 			if !istips {
-				configs.Input(fmt.Sprintf("Enter the boot node address, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default boot node address:", configs.DefaultBootNodeAddr))
+				out.Input(fmt.Sprintf("Enter the boot node address, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default boot node address:", configs.DefaultBootNodeAddr))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -276,7 +277,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetBootNodes(boots)
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetBootNodes()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetBootNodes()))
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
@@ -286,12 +287,12 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if workspace == "" {
 		for {
 			if !istips {
-				configs.Input(fmt.Sprintf("Enter the workspace path, press Enter to skip to use %s as default workspace:", configs.DefaultWorkspace))
+				out.Input(fmt.Sprintf("Enter the workspace path, press Enter to skip to use %s as default workspace:", configs.DefaultWorkspace))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			} else {
 				workspace = strings.ReplaceAll(lines, "\n", "")
@@ -299,7 +300,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 			if workspace != "" {
 				if workspace[0] != configs.DefaultWorkspace[0] {
 					workspace = ""
-					configs.Err(fmt.Sprintf("Enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
+					out.Err(fmt.Sprintf("Enter the full path of the workspace starting with %s :", configs.DefaultWorkspace))
 					continue
 				}
 			} else {
@@ -307,7 +308,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 			}
 			err = cfg.SetWorkspace(workspace)
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			}
 			break
@@ -319,7 +320,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetWorkspace()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetWorkspace()))
 
 	var earnings string
 	earnings, err = cmd.Flags().GetString("earnings")
@@ -330,19 +331,19 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if earnings == "" {
 		for {
 			if !istips {
-				configs.Input("Enter the earnings account, if you have already registered and don't want to update, press Enter to skip:")
+				out.Input("Enter the earnings account, if you have already registered and don't want to update, press Enter to skip:")
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			}
 			earnings = strings.ReplaceAll(lines, "\n", "")
 			err = cfg.SetEarningsAcc(earnings)
 			if err != nil {
 				earnings = ""
-				configs.Err("Invalid account, please check and re-enter:")
+				out.Err("Invalid account, please check and re-enter:")
 				continue
 			}
 			break
@@ -354,7 +355,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetEarningsAcc()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetEarningsAcc()))
 
 	var listenPort int
 	listenPort, err = cmd.Flags().GetInt("port")
@@ -368,12 +369,12 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if listenPort == 0 {
 		for {
 			if !istips {
-				configs.Input(fmt.Sprintf("Enter the service port, press Enter to skip to use %d as default port:", configs.DefaultServicePort))
+				out.Input(fmt.Sprintf("Enter the service port, press Enter to skip to use %d as default port:", configs.DefaultServicePort))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			}
 			lines = strings.ReplaceAll(lines, "\n", "")
@@ -383,7 +384,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 				listenPort, err = strconv.Atoi(lines)
 				if err != nil || listenPort < 1024 {
 					listenPort = 0
-					configs.Err("Please enter a number between 1024~65535:")
+					out.Err("Please enter a number between 1024~65535:")
 					continue
 				}
 			}
@@ -391,7 +392,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 			err = cfg.SetServicePort(listenPort)
 			if err != nil {
 				listenPort = 0
-				configs.Err("Please enter a number between 1024~65535:")
+				out.Err("Please enter a number between 1024~65535:")
 				continue
 			}
 			break
@@ -403,7 +404,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetServicePort()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetServicePort()))
 
 	useSpace, err := cmd.Flags().GetUint64("space")
 	if err != nil {
@@ -416,23 +417,23 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	if useSpace == 0 {
 		for {
 			if !istips {
-				configs.Input("Please enter the maximum space used by the storage node in GiB:")
+				out.Input("Please enter the maximum space used by the storage node in GiB:")
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			}
 			lines = strings.ReplaceAll(lines, "\n", "")
 			if lines == "" {
-				configs.Err("Please enter an integer greater than or equal to 0:")
+				out.Err("Please enter an integer greater than or equal to 0:")
 				continue
 			}
 			useSpace, err = strconv.ParseUint(lines, 10, 64)
 			if err != nil {
 				useSpace = 0
-				configs.Err("Please enter an integer greater than or equal to 0:")
+				out.Err("Please enter an integer greater than or equal to 0:")
 				continue
 			}
 			cfg.SetUseSpace(useSpace)
@@ -442,13 +443,13 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetUseSpace(useSpace)
 	}
 
-	configs.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
+	out.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
 
 	//var mnemonic string
 	istips = false
 	for {
 		if !istips {
-			configs.Input("Please enter the mnemonic of the staking account:")
+			out.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
 		pwd, err := gopass.GetPasswdMasked()
@@ -456,16 +457,16 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
 				os.Exit(0)
 			}
-			configs.Err("Invalid mnemonic, please check and re-enter:")
+			out.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
 		if len(pwd) == 0 {
-			configs.Err("The mnemonic you entered is empty, please re-enter:")
+			out.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
 		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
-			configs.Err("Invalid mnemonic, please check and re-enter:")
+			out.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
 		break
@@ -503,12 +504,12 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	if len(rpc) == 0 {
 		for {
 			if !istips {
-				configs.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
-				configs.Err(err.Error())
+				out.Err(err.Error())
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -536,7 +537,7 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	istips = false
 	for {
 		if !istips {
-			configs.Input("Please enter the mnemonic of the staking account:")
+			out.Input("Please enter the mnemonic of the staking account:")
 			istips = true
 		}
 		pwd, err := gopass.GetPasswdMasked()
@@ -544,16 +545,16 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
 				os.Exit(0)
 			}
-			configs.Err("Invalid mnemonic, please check and re-enter:")
+			out.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
 		if len(pwd) == 0 {
-			configs.Err("The mnemonic you entered is empty, please re-enter:")
+			out.Err("The mnemonic you entered is empty, please re-enter:")
 			continue
 		}
 		err = cfg.SetMnemonic(string(pwd))
 		if err != nil {
-			configs.Err("Invalid mnemonic, please check and re-enter:")
+			out.Err("Invalid mnemonic, please check and re-enter:")
 			continue
 		}
 		break
@@ -572,7 +573,7 @@ func buildDir(workspace string) (string, string, error) {
 		return "", "", err
 	}
 
-	configs.Ok(workspace)
+	out.Ok(workspace)
 	return logDir, cacheDir, nil
 }
 

@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -30,19 +30,24 @@ func (n *Node) chainMgt(ch chan bool) {
 	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
 
+	tickConnect := time.NewTicker(time.Hour)
+	defer tickConnect.Stop()
+
 	n.Log("info", ">>>>> start chainMgt <<<<<")
 
 	for {
 		select {
 		case <-tickListening.C:
-			n.connectBoot()
 			if err := n.connectChain(); err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-				configs.Err(pattern.ERR_RPC_CONNECTION.Error())
+				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
 			n.syncChainStatus()
+		case <-tickConnect.C:
+			n.connectBoot()
 		}
+
 	}
 }
 
@@ -80,7 +85,7 @@ func (n *Node) connectChain() error {
 			return err
 		}
 		n.Log("info", "rpc reconnection successful")
-		configs.Tip("rpc reconnection successful")
+		out.Tip("rpc reconnection successful")
 		n.SetChainState(true)
 	}
 	return nil

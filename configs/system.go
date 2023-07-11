@@ -10,6 +10,8 @@ package configs
 import (
 	"os"
 	"runtime"
+
+	"github.com/CESSProject/p2p-go/out"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 func SysInit() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	if !RunOnLinuxSystem() {
-		Err("Please run on a linux system")
+		out.Err("Please run on a linux system")
 		os.Exit(1)
 	}
 }

@@ -16,6 +16,7 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
 
@@ -58,20 +59,20 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	)
 
 	if len(os.Args) < 3 {
-		configs.Err("Please enter your earnings account")
+		out.Err("Please enter your earnings account")
 		os.Exit(1)
 	}
 
 	err = sutils.VerityAddress(os.Args[3], sutils.CessPrefix)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
@@ -84,20 +85,20 @@ func updateEarningsAccount(cmd *cobra.Command) {
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
-		configs.Err(err.Error())
+		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	txhash, err := n.UpdateEarningsAccount(os.Args[3])
 	if err != nil {
 		if txhash == "" {
-			configs.Err(err.Error())
+			out.Err(err.Error())
 			os.Exit(1)
 		}
-		configs.Warn(txhash)
+		out.Warn(txhash)
 		os.Exit(0)
 	}
 
-	configs.Ok(txhash)
+	out.Ok(txhash)
 	os.Exit(0)
 }
