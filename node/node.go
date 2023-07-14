@@ -9,9 +9,11 @@ package node
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -20,6 +22,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -38,6 +41,7 @@ type Node struct {
 	teeLock    *sync.RWMutex
 	peers      map[string]peer.AddrInfo
 	teeWorkers map[string][]byte
+	peersPath  string
 }
 
 // New is used to build a node instance
@@ -45,15 +49,23 @@ func New() *Node {
 	return &Node{
 		peerLock:   new(sync.RWMutex),
 		teeLock:    new(sync.RWMutex),
-		peers:      make(map[string]peer.AddrInfo, 20),
+		peers:      make(map[string]peer.AddrInfo, 0),
 		teeWorkers: make(map[string][]byte, 20),
 	}
 }
 
 func (n *Node) Run() {
+	n.peersPath = filepath.Join(n.Workspace(), "peers")
 	go n.TaskMgt()
 	out.Ok("start successfully")
-	select {}
+	tickConnect := time.NewTicker(time.Hour)
+	defer tickConnect.Stop()
+	for {
+		select {
+		case <-tickConnect.C:
+			n.connectBoot()
+		}
+	}
 }
 
 func (n *Node) SetPublickey(pubkey []byte) error {
@@ -100,6 +112,31 @@ func (n *Node) GetAllPeerId() []string {
 	}
 	return result
 }
+
+func (n *Node) SavePeersToDisk(path string) error {
+	n.peerLock.RLock()
+	buf, err := json.Marshal(n.peers)
+	if err != nil {
+		n.peerLock.RUnlock()
+		return err
+	}
+	n.peerLock.RUnlock()
+	err = sutils.WriteBufToFile(buf, n.peersPath)
+	return err
+}
+
+func (n *Node) LoadPeersFromDisk(path string) error {
+	buf, err := os.ReadFile(n.peersPath)
+	if err != nil {
+		return err
+	}
+	n.peerLock.Lock()
+	err = json.Unmarshal(buf, &n.peers)
+	n.peerLock.Unlock()
+	return err
+}
+
+// tee peers
 
 func (n *Node) SaveTeeWork(account string, peerid []byte) {
 	if n.teeLock.TryLock() {

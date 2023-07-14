@@ -154,6 +154,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	out.Tip(n.GetProtocolPrefix())
+	out.Tip(n.Workspace())
 
 	// run
 	n.Run()
@@ -573,7 +574,6 @@ func buildDir(workspace string) (string, string, error) {
 		return "", "", err
 	}
 
-	out.Ok(workspace)
 	return logDir, cacheDir, nil
 }
 
