@@ -41,6 +41,7 @@ func (n *Node) chainMgt(ch chan bool) {
 				break
 			}
 			n.syncChainStatus()
+			n.replaceFiller()
 		}
 	}
 }
