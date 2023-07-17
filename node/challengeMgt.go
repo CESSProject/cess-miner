@@ -29,57 +29,42 @@ import (
 )
 
 // challengeMgr
-func (n *Node) challengeMgt(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
+// func (n *Node) challengeMgt(ch chan<- bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
 
-	var err error
-	var recordErr string
+// 	var err error
+// 	var recordErr string
 
-	n.Chal("info", ">>>>> start challengeMgt <<<<<")
+// 	n.Chal("info", ">>>>> start challengeMgt <<<<<")
 
-	for {
-		pubkey, err := n.QueryTeePodr2Puk()
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		err = n.SetPublickey(pubkey)
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		n.Chal("info", "Initialize key successfully")
-		break
-	}
+// 	tick := time.NewTicker(time.Minute)
+// 	defer tick.Stop()
 
-	tick := time.NewTicker(time.Minute)
-	defer tick.Stop()
-
-	for {
-		select {
-		case <-tick.C:
-			if n.GetChainState() {
-				err = n.pChallenge()
-				if err != nil {
-					if recordErr != err.Error() {
-						n.Chal("err", err.Error())
-						recordErr = err.Error()
-					}
-				}
-			} else {
-				if recordErr != pattern.ERR_RPC_CONNECTION.Error() {
-					n.Chal("err", pattern.ERR_RPC_CONNECTION.Error())
-					recordErr = pattern.ERR_RPC_CONNECTION.Error()
-				}
-			}
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-tick.C:
+// 			if n.GetChainState() {
+// 				err = n.pChallenge()
+// 				if err != nil {
+// 					if recordErr != err.Error() {
+// 						n.Chal("err", err.Error())
+// 						recordErr = err.Error()
+// 					}
+// 				}
+// 			} else {
+// 				if recordErr != pattern.ERR_RPC_CONNECTION.Error() {
+// 					n.Chal("err", pattern.ERR_RPC_CONNECTION.Error())
+// 					recordErr = pattern.ERR_RPC_CONNECTION.Error()
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 func (n *Node) pChallenge() error {
 	var err error
