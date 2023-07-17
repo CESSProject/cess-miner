@@ -39,6 +39,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		logDir         string
 		cacheDir       string
 		earnings       string
+		bootEnv        string
 		token          uint64
 		syncSt         pattern.SysSyncState
 		protocolPrefix string
@@ -55,19 +56,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 	boots := n.GetBootNodes()
 	for _, v := range boots {
 		if strings.Contains(v, "testnet") {
-			out.Tip("Test network")
+			bootEnv = "cess-testnet"
 			protocolPrefix = config.TestnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "mainnet") {
-			out.Tip("Main network")
+			bootEnv = "cess-mainnet"
 			protocolPrefix = config.MainnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "devnet") {
-			out.Tip("Dev network")
+			bootEnv = "cess-devnet"
 			protocolPrefix = config.DevnetProtocolPrefix
 			break
 		} else {
-			out.Tip("Unknown network")
+			bootEnv = "unknown"
 		}
 	}
 
@@ -86,6 +87,26 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		out.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
+	}
+
+	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
+	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
+	if strings.Contains(bootEnv, "test") {
+		if !strings.Contains(n.GetNetworkEnv(), "test") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "main") {
+		if !strings.Contains(n.GetNetworkEnv(), "main") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "dev") {
+		if !strings.Contains(n.GetNetworkEnv(), "dev") {
+			out.Warn("chain and p2p are not in the same network")
+		}
 	}
 
 	for {
@@ -117,7 +138,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	_, earnings, err = n.Register(configs.Name, n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+	_, earnings, err = n.RegisterOrUpdateSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
 		out.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
