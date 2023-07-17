@@ -30,9 +30,6 @@ func (n *Node) chainMgt(ch chan bool) {
 	tickListening := time.NewTicker(time.Minute)
 	defer tickListening.Stop()
 
-	tickConnect := time.NewTicker(time.Hour)
-	defer tickConnect.Stop()
-
 	n.Log("info", ">>>>> start chainMgt <<<<<")
 
 	for {
@@ -44,10 +41,8 @@ func (n *Node) chainMgt(ch chan bool) {
 				break
 			}
 			n.syncChainStatus()
-		case <-tickConnect.C:
-			n.connectBoot()
+			n.replaceFiller()
 		}
-
 	}
 }
 

@@ -28,14 +28,8 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 	}()
 
 	var err error
-	var txhash string
-	var count uint32
-	var spacedir = n.GetDirs().IdleDataDir
 
 	n.Replace("info", ">>>>> Start replaceMgt <<<<<")
-
-	tickReplace := time.NewTicker(time.Minute)
-	defer tickReplace.Stop()
 
 	tikSpace := time.NewTicker(time.Hour)
 	defer tikSpace.Stop()
@@ -46,43 +40,6 @@ func (n *Node) replaceMgr(ch chan<- bool) {
 			err = n.resizeSpace()
 			if err != nil {
 				n.Replace("err", err.Error())
-			}
-		case <-tickReplace.C:
-			count, err = n.QueryPendingReplacements(n.GetStakingPublickey())
-			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
-					n.Replace("err", err.Error())
-				}
-				time.Sleep(time.Minute)
-				break
-			}
-
-			if count == 0 {
-				time.Sleep(time.Minute)
-				break
-			}
-
-			if count > MaxReplaceFiles {
-				count = MaxReplaceFiles
-			}
-			files, err := SelectIdleFiles(spacedir, count)
-			if err != nil {
-				n.Replace("err", err.Error())
-				time.Sleep(time.Minute)
-				break
-			}
-
-			txhash, _, err = n.ReplaceFile(files)
-			if err != nil {
-				n.Replace("err", err.Error())
-				time.Sleep(time.Minute)
-				break
-			}
-
-			n.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
-			for i := 0; i < len(files); i++ {
-				os.Remove(filepath.Join(spacedir, files[i]))
-				os.Remove(filepath.Join(n.GetDirs().IdleTagDir, files[i]+".tag"))
 			}
 		}
 	}
@@ -133,6 +90,45 @@ func (n *Node) resizeSpace() error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) replaceFiller() {
+	count, err := n.QueryPendingReplacements(n.GetStakingPublickey())
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			n.Replace("err", err.Error())
+		}
+		return
+	}
+
+	if count == 0 {
+		return
+	}
+
+	if count > MaxReplaceFiles {
+		count = MaxReplaceFiles
+	}
+	files, err := SelectIdleFiles(n.GetDirs().IdleDataDir, count)
+	if err != nil {
+		n.Replace("err", err.Error())
+		return
+	}
+
+	if len(files) == 0 {
+		return
+	}
+
+	txhash, _, err := n.ReplaceFile(files)
+	if err != nil {
+		n.Replace("err", err.Error())
+		return
+	}
+
+	n.Replace("info", fmt.Sprintf("Replace files: %v suc: [%s]", files, txhash))
+	for i := 0; i < len(files); i++ {
+		os.Remove(filepath.Join(n.GetDirs().IdleDataDir, files[i]))
+		os.Remove(filepath.Join(n.GetDirs().IdleTagDir, files[i]+".tag"))
+	}
 }
 
 func SelectIdleFiles(dir string, count uint32) ([]string, error) {

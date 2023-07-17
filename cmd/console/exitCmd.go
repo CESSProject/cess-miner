@@ -63,7 +63,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.Exit(configs.Name)
+	txhash, err := n.ExitSminer()
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

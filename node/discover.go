@@ -23,13 +23,19 @@ func (n *Node) discoverMgt(ch chan bool) {
 		}
 	}()
 	n.Discover("info", ">>>>> start discoverMgt <<<<<")
-	tickDiscover := time.NewTicker(time.Minute)
+
+	err := n.LoadPeersFromDisk(n.peersPath)
+	if err != nil {
+		n.Discover("err", err.Error())
+	}
+
+	tickDiscover := time.NewTicker(time.Minute * 5)
 	defer tickDiscover.Stop()
 
-	var r1 = rate.Every(time.Second * 3)
+	var r1 = rate.Every(time.Second * 5)
 	var limit = rate.NewLimiter(r1, 1)
 
-	var r2 = rate.Every(time.Minute * 10)
+	var r2 = rate.Every(time.Minute * 30)
 	var printLimit = rate.NewLimiter(r2, 1)
 	n.RouteTableFindPeers(0)
 
@@ -37,7 +43,8 @@ func (n *Node) discoverMgt(ch chan bool) {
 		select {
 		case peer, _ := <-n.GetDiscoveredPeers():
 			if limit.Allow() {
-				tickDiscover.Reset(time.Minute)
+				n.Discover("info", "reset")
+				tickDiscover.Reset(time.Minute * 5)
 			}
 			if len(peer.Responses) == 0 {
 				break
@@ -47,13 +54,17 @@ func (n *Node) discoverMgt(ch chan bool) {
 			}
 		case <-tickDiscover.C:
 			if printLimit.Allow() {
+				err = n.SavePeersToDisk(n.peersPath)
+				if err != nil {
+					n.Discover("err", err.Error())
+				}
 				allpeer := n.GetAllPeerId()
 				for _, v := range allpeer {
 					n.Discover("info", fmt.Sprintf("found %s", v))
 				}
 			}
 			n.Discover("info", "RouteTableFindPeers")
-			_, err := n.RouteTableFindPeers(len(n.peers) + 10)
+			_, err := n.RouteTableFindPeers(len(n.peers) + 20)
 			if err != nil {
 				n.Discover("err", err.Error())
 			}
