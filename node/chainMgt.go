@@ -9,42 +9,39 @@ package node
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-func (n *Node) chainMgt(ch chan bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
+// func (n *Node) chainMgt(ch chan bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
 
-	tickListening := time.NewTicker(time.Minute)
-	defer tickListening.Stop()
+// 	tickListening := time.NewTicker(time.Minute)
+// 	defer tickListening.Stop()
 
-	n.Log("info", ">>>>> start chainMgt <<<<<")
+// 	n.Log("info", ">>>>> start chainMgt <<<<<")
 
-	for {
-		select {
-		case <-tickListening.C:
-			if err := n.connectChain(); err != nil {
-				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-				out.Err(pattern.ERR_RPC_CONNECTION.Error())
-				break
-			}
-			n.syncChainStatus()
-			n.replaceFiller()
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-tickListening.C:
+// 			if err := n.connectChain(); err != nil {
+// 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
+// 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
+// 				break
+// 			}
+// 			n.syncChainStatus()
+// 			n.replaceFiller()
+// 		}
+// 	}
+// }
 
 func (n *Node) connectBoot() {
 	boots := n.GetBootNodes()

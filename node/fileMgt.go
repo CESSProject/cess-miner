@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -20,30 +19,30 @@ import (
 )
 
 // fileMgr
-func (n *Node) fileMgt(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
+// func (n *Node) fileMgt(ch chan<- bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
 
-	var err error
+// 	var err error
 
-	n.Report("info", ">>>>> Start fileMgt <<<<<")
+// 	n.Report("info", ">>>>> Start fileMgt <<<<<")
 
-	for {
-		if n.GetChainState() {
-			err = n.reportFiles()
-			if err != nil {
-				time.Sleep(pattern.BlockInterval)
-			} else {
-				time.Sleep(time.Minute)
-			}
-		}
-		time.Sleep(pattern.BlockInterval)
-	}
-}
+// 	for {
+// 		if n.GetChainState() {
+// 			err = n.reportFiles()
+// 			if err != nil {
+// 				time.Sleep(pattern.BlockInterval)
+// 			} else {
+// 				time.Sleep(time.Minute)
+// 			}
+// 		}
+// 		time.Sleep(pattern.BlockInterval)
+// 	}
+// }
 
 func (n *Node) reportFiles() error {
 	var (

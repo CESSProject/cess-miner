@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -19,31 +18,31 @@ import (
 )
 
 // replaceMgr
-func (n *Node) replaceMgr(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
+// func (n *Node) replaceMgr(ch chan<- bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
 
-	var err error
+// 	var err error
 
-	n.Replace("info", ">>>>> Start replaceMgt <<<<<")
+// 	n.Replace("info", ">>>>> Start replaceMgt <<<<<")
 
-	tikSpace := time.NewTicker(time.Hour)
-	defer tikSpace.Stop()
+// 	tikSpace := time.NewTicker(time.Hour)
+// 	defer tikSpace.Stop()
 
-	for {
-		select {
-		case <-tikSpace.C:
-			err = n.resizeSpace()
-			if err != nil {
-				n.Replace("err", err.Error())
-			}
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-tikSpace.C:
+// 			err = n.resizeSpace()
+// 			if err != nil {
+// 				n.Replace("err", err.Error())
+// 			}
+// 		}
+// 	}
+// }
 
 func (n *Node) resizeSpace() error {
 	var err error
