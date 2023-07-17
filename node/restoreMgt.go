@@ -43,6 +43,7 @@ func (n *Node) restoreMgt(ch chan bool) {
 				n.Restore("err", err.Error())
 				time.Sleep(pattern.BlockInterval)
 			}
+			time.Sleep(time.Minute)
 		}
 		time.Sleep(pattern.BlockInterval)
 	}

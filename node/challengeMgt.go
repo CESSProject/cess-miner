@@ -29,57 +29,42 @@ import (
 )
 
 // challengeMgr
-func (n *Node) challengeMgt(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
+// func (n *Node) challengeMgt(ch chan<- bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
 
-	var err error
-	var recordErr string
+// 	var err error
+// 	var recordErr string
 
-	n.Chal("info", ">>>>> start challengeMgt <<<<<")
+// 	n.Chal("info", ">>>>> start challengeMgt <<<<<")
 
-	for {
-		pubkey, err := n.QueryTeePodr2Puk()
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		err = n.SetPublickey(pubkey)
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		n.Chal("info", "Initialize key successfully")
-		break
-	}
+// 	tick := time.NewTicker(time.Minute)
+// 	defer tick.Stop()
 
-	tick := time.NewTicker(time.Minute)
-	defer tick.Stop()
-
-	for {
-		select {
-		case <-tick.C:
-			if n.GetChainState() {
-				err = n.pChallenge()
-				if err != nil {
-					if recordErr != err.Error() {
-						n.Chal("err", err.Error())
-						recordErr = err.Error()
-					}
-				}
-			} else {
-				if recordErr != pattern.ERR_RPC_CONNECTION.Error() {
-					n.Chal("err", pattern.ERR_RPC_CONNECTION.Error())
-					recordErr = pattern.ERR_RPC_CONNECTION.Error()
-				}
-			}
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-tick.C:
+// 			if n.GetChainState() {
+// 				err = n.pChallenge()
+// 				if err != nil {
+// 					if recordErr != err.Error() {
+// 						n.Chal("err", err.Error())
+// 						recordErr = err.Error()
+// 					}
+// 				}
+// 			} else {
+// 				if recordErr != pattern.ERR_RPC_CONNECTION.Error() {
+// 					n.Chal("err", pattern.ERR_RPC_CONNECTION.Error())
+// 					recordErr = pattern.ERR_RPC_CONNECTION.Error()
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 func (n *Node) pChallenge() error {
 	var err error
@@ -339,19 +324,31 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 	if err != nil {
 		return "", code, errors.Wrapf(err, "[Sign]")
 	}
+
+	if !n.HasPeer(peerid.Pretty()) {
+		addr, err := n.DHTFindPeer(peerid.Pretty())
+		if err != nil {
+			return "", code, fmt.Errorf("No verification proof tee found: %s", peerid.Pretty())
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		if err != nil {
+			return "", code, fmt.Errorf("Failed to connect to verification proof tee: %s", peerid.Pretty())
+		}
+	}
+
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
 		break
 	}
 
-	if count >= 5 {
+	if count >= 3 {
 		n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
 		return "", code, err
 	}
@@ -360,27 +357,27 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 	serviceProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().SproofFile)
 
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
 		break
 	}
-	if count >= 5 {
+	if count >= 3 {
 		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 		return "", code, err
 	}
 
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))

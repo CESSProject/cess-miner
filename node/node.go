@@ -27,21 +27,17 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type Bucket interface {
-	Run()
-}
-
 type Node struct {
-	confile.Confile
-	logger.Logger
-	cache.Cache
-	sdk.SDK
 	key        *proof.RSAKeyPair
 	peerLock   *sync.RWMutex
 	teeLock    *sync.RWMutex
 	peers      map[string]peer.AddrInfo
 	teeWorkers map[string][]byte
 	peersPath  string
+	sdk.SDK
+	confile.Confile
+	logger.Logger
+	cache.Cache
 }
 
 // New is used to build a node instance
@@ -50,20 +46,78 @@ func New() *Node {
 		peerLock:   new(sync.RWMutex),
 		teeLock:    new(sync.RWMutex),
 		peers:      make(map[string]peer.AddrInfo, 0),
-		teeWorkers: make(map[string][]byte, 20),
+		teeWorkers: make(map[string][]byte, 10),
 	}
 }
 
 func (n *Node) Run() {
+	var (
+		ch_spaceMgt    = make(chan bool, 1)
+		ch_stagMgt     = make(chan bool, 1)
+		ch_restoreMgt  = make(chan bool, 1)
+		ch_discoverMgt = make(chan bool, 1)
+	)
+
+	// peer persistent location
 	n.peersPath = filepath.Join(n.Workspace(), "peers")
-	go n.TaskMgt()
+
+	for {
+		pubkey, err := n.QueryTeePodr2Puk()
+		if err != nil {
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
+		err = n.SetPublickey(pubkey)
+		if err != nil {
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
+		n.Chal("info", "Initialize key successfully")
+		break
+	}
+
+	task_Minute := time.NewTicker(time.Minute)
+	defer task_Minute.Stop()
+
+	task_Hour := time.NewTicker(time.Hour)
+	defer task_Hour.Stop()
+
+	go n.spaceMgt(ch_spaceMgt)
+	go n.stagMgt(ch_stagMgt)
+	go n.restoreMgt(ch_restoreMgt)
+	go n.discoverMgt(ch_discoverMgt)
+
 	out.Ok("start successfully")
-	tickConnect := time.NewTicker(time.Hour)
-	defer tickConnect.Stop()
+
 	for {
 		select {
-		case <-tickConnect.C:
+		case <-task_Minute.C:
+			if err := n.connectChain(); err != nil {
+				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
+				out.Err(pattern.ERR_RPC_CONNECTION.Error())
+				break
+			}
+			n.syncChainStatus()
+			n.replaceFiller()
+			if err := n.reportFiles(); err != nil {
+				n.Report("err", err.Error())
+			}
+			if err := n.pChallenge(); err != nil {
+				n.Chal("err", err.Error())
+			}
+		case <-task_Hour.C:
 			n.connectBoot()
+			if err := n.resizeSpace(); err != nil {
+				n.Replace("err", err.Error())
+			}
+		case <-ch_spaceMgt:
+			go n.spaceMgt(ch_spaceMgt)
+		case <-ch_stagMgt:
+			go n.stagMgt(ch_stagMgt)
+		case <-ch_restoreMgt:
+			go n.restoreMgt(ch_restoreMgt)
+		case <-ch_discoverMgt:
+			go n.discoverMgt(ch_discoverMgt)
 		}
 	}
 }
