@@ -339,19 +339,31 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 	if err != nil {
 		return "", code, errors.Wrapf(err, "[Sign]")
 	}
+
+	if !n.HasPeer(peerid.Pretty()) {
+		addr, err := n.DHTFindPeer(peerid.Pretty())
+		if err != nil {
+			return "", code, fmt.Errorf("No verification proof tee found: %s", peerid.Pretty())
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		if err != nil {
+			return "", code, fmt.Errorf("Failed to connect to verification proof tee: %s", peerid.Pretty())
+		}
+	}
+
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
 		break
 	}
 
-	if count >= 5 {
+	if count >= 3 {
 		n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
 		return "", code, err
 	}
@@ -360,27 +372,27 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 	serviceProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().SproofFile)
 
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
 		break
 	}
-	if count >= 5 {
+	if count >= 3 {
 		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 		return "", code, err
 	}
 
 	count = 0
-	for count < 5 {
+	for count < 3 {
 		code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
 		if err != nil || code != 0 {
 			count++
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 5)
 			continue
 		}
 		n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))
