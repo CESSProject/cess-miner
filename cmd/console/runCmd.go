@@ -467,31 +467,43 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 
 	out.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
 
-	//var mnemonic string
-	istips = false
-	for {
-		if !istips {
-			out.Input("Please enter the mnemonic of the staking account:")
-			istips = true
-		}
-		pwd, err := gopass.GetPasswdMasked()
-		if err != nil {
-			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
-				os.Exit(0)
+	var mnemonic string
+	mnemonic, err = cmd.Flags().GetString("mnemonic")
+	if err != nil {
+		mnemonic, err = cmd.Flags().GetString("m")
+	}
+	if mnemonic == "" {
+		istips = false
+		for {
+			if !istips {
+				out.Input("Please enter the mnemonic of the staking account:")
+				istips = true
 			}
-			out.Err("Invalid mnemonic, please check and re-enter:")
-			continue
+			pwd, err := gopass.GetPasswdMasked()
+			if err != nil {
+				if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+					os.Exit(0)
+				}
+				out.Err("Invalid mnemonic, please check and re-enter:")
+				continue
+			}
+			if len(pwd) == 0 {
+				out.Err("The mnemonic you entered is empty, please re-enter:")
+				continue
+			}
+			err = cfg.SetMnemonic(string(pwd))
+			if err != nil {
+				out.Err("Invalid mnemonic, please check and re-enter:")
+				continue
+			}
+			break
 		}
-		if len(pwd) == 0 {
-			out.Err("The mnemonic you entered is empty, please re-enter:")
-			continue
-		}
-		err = cfg.SetMnemonic(string(pwd))
+	} else {
+		err = cfg.SetMnemonic(mnemonic)
 		if err != nil {
-			out.Err("Invalid mnemonic, please check and re-enter:")
-			continue
+			out.Err("invalid mnemonic")
+			return cfg, err
 		}
-		break
 	}
 	return cfg, nil
 }
