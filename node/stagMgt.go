@@ -118,10 +118,7 @@ func (n *Node) calcFileTag() error {
 				teePeerId := base58.Encode(t)
 				addr, ok := n.GetPeer(teePeerId)
 				if !ok {
-					addr, err = n.DHTFindPeer(teePeerId)
-					if err != nil {
-						continue
-					}
+					continue
 				}
 				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 				if err != nil {

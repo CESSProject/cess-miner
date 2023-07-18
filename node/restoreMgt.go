@@ -147,10 +147,22 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 		}
 		miner, err = n.QueryStorageMiner(v.Miner[:])
 		if err != nil {
+			n.Restore("err", fmt.Sprintf("[%s] QueryStorageMiner err: %v", roothash, err))
 			continue
 		}
 		id, err = peer.Decode(base58.Encode([]byte(string(miner.PeerId[:]))))
 		if err != nil {
+			n.Restore("err", fmt.Sprintf("[%s] peer Decode err: %v", roothash, err))
+			continue
+		}
+		addr, ok := n.GetPeer(id.Pretty())
+		if !ok {
+			n.Restore("err", fmt.Sprintf("[%s] not found peer: %v", roothash, id.Pretty()))
+			continue
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[%s] Connect peer err: %v", roothash, err))
 			continue
 		}
 		n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.Pretty(), roothash, string(v.Hash[:])))
@@ -320,6 +332,14 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		if err != nil {
 			continue
 		}
+		addr, ok := n.GetPeer(id.Pretty())
+		if !ok {
+			continue
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		if err != nil {
+			continue
+		}
 		n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.Pretty(), roothash, string(v.Hash[:])))
 		err = n.ReadFileAction(id, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), pattern.FragmentSize)
 		if err != nil {
@@ -467,6 +487,14 @@ func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
 
 	for _, v := range peers {
 		id, err = peer.Decode(v)
+		if err != nil {
+			continue
+		}
+		addr, ok := n.GetPeer(v)
+		if !ok {
+			continue
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
 			continue
 		}

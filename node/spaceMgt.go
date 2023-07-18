@@ -193,10 +193,10 @@ func (n *Node) requsetIdlefile() ([]byte, string, error) {
 		teePeerId = base58.Encode(teepeerid)
 		addr, ok := n.GetPeer(teePeerId)
 		if !ok {
-			addr, err = n.DHTFindPeer(teePeerId)
-			if err != nil {
-				continue
-			}
+			// addr, err = n.DHTFindPeer(teePeerId)
+			// if err != nil {
+			continue
+			// }
 		}
 
 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
