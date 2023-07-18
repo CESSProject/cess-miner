@@ -49,6 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().IntP("port", "", 0, "listening port")
 	rootCmd.PersistentFlags().Uint64P("space", "", 0, "maximum space used (GiB)")
 	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap node list")
+	rootCmd.PersistentFlags().StringP("mnemonic", "m", "", "staking account mnemonic")
 }
 
 func Command_Version() *cobra.Command {
