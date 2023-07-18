@@ -301,7 +301,6 @@ func (n *Node) transferProof(challenge pattern.ChallengeSnapshot) error {
 
 func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, random [][]byte) (string, uint32, error) {
 	var err error
-	var count uint8
 	var code uint32
 	var teeAsigned []byte
 	var peerid peer.ID
@@ -336,56 +335,32 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		}
 	}
 
-	count = 0
-	for count < 3 {
-		code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
-		if err != nil || code != 0 {
-			count++
-			time.Sleep(pattern.BlockInterval * 5)
-			continue
-		}
-		n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
-		break
-	}
-
-	if count >= 3 {
+	code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
+	if err != nil || code != 0 {
 		n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
-		return "", code, err
+		return "", code, errors.New(fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
+
 	}
+	n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
 
 	idleProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().IproofFile)
 	serviceProofFileHashs, _ := sutils.CalcPathSHA256(n.GetDirs().SproofFile)
 
-	count = 0
-	for count < 3 {
-		code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
-		if err != nil || code != 0 {
-			count++
-			time.Sleep(pattern.BlockInterval * 5)
-			continue
-		}
-		n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
-		break
-	}
-	if count >= 3 {
+	code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
+	if err != nil || code != 0 {
 		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
-		return "", code, err
+		return "", code, errors.New(fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
+	}
+	n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
+
+	code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
+	if err != nil || code != 0 {
+		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
+		return peerid.Pretty(), code, errors.New(fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 	}
 
-	count = 0
-	for count < 3 {
-		code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
-		if err != nil || code != 0 {
-			count++
-			time.Sleep(pattern.BlockInterval * 5)
-			continue
-		}
-		n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))
-		return peerid.Pretty(), 0, nil
-	}
-
-	n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
-	return peerid.Pretty(), code, err
+	n.Chal("info", fmt.Sprintf("Aggr proof service file response suc: %s", peerid.Pretty()))
+	return peerid.Pretty(), 0, nil
 }
 
 func (n *Node) idleAggrProof(qslice []proof.QElement, start uint32) (string, error) {
