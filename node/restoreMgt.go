@@ -325,10 +325,10 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	n.Restore("info", fmt.Sprintf("[%s] locate to segment: %s", roothash, string(dstSegement.Hash[:])))
 	n.Restore("info", fmt.Sprintf("[%s] segmen contains %d fragments:", roothash, len(dstSegement.FragmentList)))
 	for k, v := range dstSegement.FragmentList {
-		if string(v.Hash[:]) == framentHash {
-			recoverList[k] = ""
-			continue
-		}
+		// if string(v.Hash[:]) == framentHash {
+		// 	recoverList[k] = ""
+		// 	continue
+		// }
 		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
 		if err == nil {
 			n.Restore("info", fmt.Sprintf("[%s] found a fragment: %s", roothash, string(v.Hash[:])))
