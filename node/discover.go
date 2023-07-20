@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,6 +28,15 @@ func (n *Node) discoverMgt(ch chan bool) {
 	err := n.LoadPeersFromDisk(n.peersPath)
 	if err != nil {
 		n.Discover("err", err.Error())
+	}
+	data, err := utils.QueryPeers("")
+	if err != nil {
+		n.Discover("err", err.Error())
+	} else {
+		err = json.Unmarshal(data, &n.peers)
+		if err != nil {
+			n.Discover("err", err.Error())
+		}
 	}
 
 	tickDiscover := time.NewTicker(time.Minute * 5)
