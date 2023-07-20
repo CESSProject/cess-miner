@@ -319,26 +319,28 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 		qslice[k].I = uint64(v)
 		qslice[k].V = random[k]
 	}
+
 	sign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		return "", code, errors.Wrapf(err, "[Sign]")
 	}
 
-	if !n.HasPeer(peerid.Pretty()) {
-		addr, err := n.DHTFindPeer(peerid.Pretty())
+	addr, ok := n.GetPeer(peerid.Pretty())
+	if !ok {
+		addr, err = n.DHTFindPeer(peerid.Pretty())
 		if err != nil {
 			return "", code, fmt.Errorf("No verification proof tee found: %s", peerid.Pretty())
 		}
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
-		if err != nil {
-			return "", code, fmt.Errorf("Failed to connect to verification proof tee: %s", peerid.Pretty())
-		}
+	}
+
+	err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+	if err != nil {
+		return "", code, fmt.Errorf("Failed to connect to verification proof tee: %s", peerid.Pretty())
 	}
 
 	code, err = n.AggrProofReq(peerid, ihash, shash, qslice, n.GetStakingPublickey(), sign)
 	if err != nil || code != 0 {
-		n.Chal("err", fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
-		return "", code, errors.New(fmt.Sprintf("AggrProofReq err: %v, code: %d", err, code))
+		return "", code, errors.New(fmt.Sprintf("AggrProofReq to %s err: %v, code: %d", peerid.Pretty(), err, code))
 
 	}
 	n.Chal("info", fmt.Sprintf("Aggr proof response suc: %s", peerid.Pretty()))
@@ -348,14 +350,12 @@ func (n *Node) proofAssignedInfo(ihash, shash []byte, randomIndexList []uint32, 
 
 	code, err = n.FileReq(peerid, idleProofFileHashs, pb.FileType_IdleMu, n.GetDirs().IproofFile)
 	if err != nil || code != 0 {
-		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 		return "", code, errors.New(fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 	}
 	n.Chal("info", fmt.Sprintf("Aggr proof idle file response suc: %s", peerid.Pretty()))
 
 	code, err = n.FileReq(peerid, serviceProofFileHashs, pb.FileType_CustomMu, n.GetDirs().SproofFile)
 	if err != nil || code != 0 {
-		n.Chal("err", fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 		return peerid.Pretty(), code, errors.New(fmt.Sprintf("FileReq FileType_IdleMu err: %v,code: %d", err, code))
 	}
 

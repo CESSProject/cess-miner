@@ -13,12 +13,16 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
 
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -188,4 +192,79 @@ func GetSysMemTotle() (uint64, error) {
 		return result, nil
 	}
 	return result + swapInfo.Free, nil
+}
+
+var globalTransport = &http.Transport{
+	DisableKeepAlives: true,
+}
+
+func QueryPeers(url string) ([]byte, error) {
+	if url == "" {
+		return nil, errors.New("invalid url")
+	}
+
+	if url[len(url)-1] != byte(47) {
+		url += "/"
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url+"peers", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{}
+	client.Transport = globalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed")
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+var regstr = `\d+\.\d+\.\d+\.\d+`
+var reg = regexp.MustCompile(regstr)
+
+func FildIpv4(data []byte) (string, bool) {
+	result := reg.Find(data)
+	return string(result), len(result) > 0
+}
+
+func IsIntranetIpv4(ipv4 string) (bool, error) {
+	ip := net.ParseIP(ipv4)
+	if ip == nil || !strings.Contains(ipv4, ".") {
+		return false, errors.New("invalid ipv4")
+	}
+	if ip.IsLoopback() {
+		return true, nil
+	}
+	if ip.IsPrivate() {
+		return true, nil
+	}
+	return false, nil
+}
+
+func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr) {
+	newArr = make([]multiaddr.Multiaddr, 0)
+	for i := 0; i < len(arr); i++ {
+		repeat := false
+		for j := i + 1; j < len(arr); j++ {
+			if arr[i].Equal(arr[j]) {
+				repeat = true
+				break
+			}
+		}
+		if !repeat {
+			newArr = append(newArr, arr[i])
+		}
+	}
+	return newArr
 }

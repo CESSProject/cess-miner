@@ -20,11 +20,13 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 )
 
 type Node struct {
@@ -141,6 +143,10 @@ func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 	}
 }
 
+func (n *Node) SaveOrUpdatePeerUnSafe(peerid string, addr peer.AddrInfo) {
+	n.peers[peerid] = addr
+}
+
 func (n *Node) HasPeer(peerid string) bool {
 	n.peerLock.RLock()
 	_, ok := n.peers[peerid]
@@ -165,6 +171,31 @@ func (n *Node) GetAllPeerId() []string {
 		i++
 	}
 	return result
+}
+
+func (n *Node) RemovePeerIntranetAddr() {
+	n.peerLock.Lock()
+	defer n.peerLock.Unlock()
+	for k, v := range n.peers {
+		var addrInfo peer.AddrInfo
+		var addrs []multiaddr.Multiaddr
+		for _, addr := range v.Addrs {
+			if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
+				if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
+					if !ok {
+						addrs = append(addrs, addr)
+					}
+				}
+			}
+		}
+		if len(addrs) > 0 {
+			addrInfo.ID = v.ID
+			addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
+			n.SaveOrUpdatePeerUnSafe(v.ID.Pretty(), addrInfo)
+		} else {
+			delete(n.peers, k)
+		}
+	}
 }
 
 func (n *Node) SavePeersToDisk(path string) error {
