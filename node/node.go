@@ -40,6 +40,7 @@ type Node struct {
 	confile.Confile
 	logger.Logger
 	cache.Cache
+	*Pois
 }
 
 // New is used to build a node instance

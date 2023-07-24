@@ -48,6 +48,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/CESSProject/cess-go-sdk v0.3.8 h1:JeKVp6yAubrZVVM5hzKSjZSsgl9lnDUdWpVR50TiiMU=
 github.com/CESSProject/cess-go-sdk v0.3.8/go.mod h1:aZ16u7ftBz75zhYbNDMjdwvTbON0cXNGCBQ8RSE6V2w=
+github.com/CESSProject/cess_pois v0.2.3 h1:dO/CpKLTI5iLqj3ZZIOMyTKt50G+5Zpuyt6gDaI8DUo=
+github.com/CESSProject/cess_pois v0.2.3/go.mod h1:od2ez9Gb6c+qyJxEONrL1Zg1QUak92Sd8j82ypvogBw=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
 github.com/CESSProject/p2p-go v0.1.6 h1:h/cobhOLIdzUV+dMhaQfeiczPKweYRCXA2h6JE2WbfE=
@@ -532,6 +534,8 @@ github.com/opencontainers/runtime-spec v1.0.2/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/
 github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+1B0VhjKrZUs=
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/openzipkin/zipkin-go v0.1.1/go.mod h1:NtoC/o8u3JlF1lSlyPNswIbeQH9bJTmOf0Erfk+hxe8=
+github.com/panjf2000/ants/v2 v2.7.5 h1:/vhh0Hza9G1vP1PdCj9hl6MUzCRbmtcTJL0OsnmytuU=
+github.com/panjf2000/ants/v2 v2.7.5/go.mod h1:KIBmYG9QQX5U2qzFP/yQJaq/nSb6rahS9iEHkrCMgM8=
 github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 h1:onHthvaw9LFnH4t2DcNVpwGmV9E1BkGknEliJkfwQj0=
 github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58/go.mod h1:DXv8WO4yhMYhSNPKjeNKa5WY9YCIEBRbNzFFPJbWO6Y=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=

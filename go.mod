@@ -25,6 +25,7 @@ require (
 )
 
 require (
+	github.com/CESSProject/cess_pois v0.2.3 // indirect
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
@@ -119,6 +120,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.5.1 // indirect
 	github.com/opencontainers/runtime-spec v1.0.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/panjf2000/ants/v2 v2.7.5 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
