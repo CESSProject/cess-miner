@@ -138,6 +138,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// n.ExpendersInfo, err = n.Expenders()
+	// if err != nil {
+	// 	out.Err("Weak network signal or rpc service failure")
+	// 	os.Exit(1)
+	// }
+	//
+	// n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(),n.GetEarningsAcc(),token,expenders,)
+
 	_, earnings, err = n.RegisterOrUpdateSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 	if err != nil {
 		out.Err(fmt.Sprintf("Register or update err: %v", err))
