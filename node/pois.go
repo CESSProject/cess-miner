@@ -8,6 +8,8 @@
 package node
 
 import (
+	"fmt"
+
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
@@ -57,9 +59,11 @@ func (n *Node) InitPois(front, rear int64) error {
 	return nil
 }
 
-func (n *Node) pois() {
+func (n *Node) pois() error {
 	// Generate Idle Files
 	if ok := n.Prover.GenerateFile(1); !ok {
-		return
+		return fmt.Errorf("GenerateFile failed")
 	}
+
+	return nil
 }

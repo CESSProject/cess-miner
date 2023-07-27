@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -241,6 +242,7 @@ func (n *Node) claimRestoreOrder() error {
 		}
 
 		if !sutils.CompareSlice(restoreOrder.Miner[:], n.GetStakingPublickey()) {
+			n.Delete([]byte(Cach_prefix_recovery + v))
 			continue
 		}
 
@@ -253,6 +255,8 @@ func (n *Node) claimRestoreOrder() error {
 		n.Delete([]byte(Cach_prefix_recovery + v))
 	}
 
+	time.Sleep(time.Second * time.Duration(rand.Intn(200)+3))
+
 	restoreOrderList, err := n.QueryRestoralOrderList()
 	if err != nil {
 		n.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
@@ -263,6 +267,7 @@ func (n *Node) claimRestoreOrder() error {
 		n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		return err
 	}
+	utils.RandSlice(restoreOrderList)
 	for _, v := range restoreOrderList {
 		if blockHeight <= uint32(v.Deadline) {
 			continue
@@ -461,7 +466,24 @@ func (n *Node) claimNoExitOrder() error {
 							if uint32(restoralOrder.Deadline) <= blockHeight {
 								continue
 							}
+							time.Sleep(time.Second * time.Duration(rand.Intn(100)+3))
+							restoralOrder, err = n.QueryRestoralOrder(string(fragment.Hash[:]))
+							if err != nil {
+								if err.Error() != pattern.ERR_Empty {
+									n.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
+									continue
+								}
+							} else {
+								blockHeight, err = n.QueryBlockHeight("")
+								if err != nil {
+									continue
+								}
+								if uint32(restoralOrder.Deadline) <= blockHeight {
+									continue
+								}
+							}
 						}
+
 						n.Restore("info", fmt.Sprintf("will claim restore order and fragment is: %s", string(fragment.Hash[:])))
 						txhash, err = n.ClaimRestoralNoExistOrder(fragment.Miner[:], roothash, string(fragment.Hash[:]))
 						if err != nil {
@@ -482,6 +504,9 @@ func (n *Node) claimNoExitOrder() error {
 	if err != nil {
 		return errors.Wrapf(err, "[QueryRestoralTargetList]")
 	}
+
+	utils.RandSlice(restoreTargetList)
+
 	for _, v := range restoreTargetList {
 		minerAcc, err := sutils.EncodePublicKeyAsCessAccount(v.Miner[:])
 		if err != nil {
