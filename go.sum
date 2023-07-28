@@ -50,6 +50,8 @@ github.com/CESSProject/cess-go-sdk v0.3.8 h1:JeKVp6yAubrZVVM5hzKSjZSsgl9lnDUdWpV
 github.com/CESSProject/cess-go-sdk v0.3.8/go.mod h1:aZ16u7ftBz75zhYbNDMjdwvTbON0cXNGCBQ8RSE6V2w=
 github.com/CESSProject/cess_pois v0.2.3 h1:dO/CpKLTI5iLqj3ZZIOMyTKt50G+5Zpuyt6gDaI8DUo=
 github.com/CESSProject/cess_pois v0.2.3/go.mod h1:od2ez9Gb6c+qyJxEONrL1Zg1QUak92Sd8j82ypvogBw=
+github.com/CESSProject/cess_pois v0.3.4 h1:emqjM4JmkaPNpx/DbzEebKN4C6WuDlf7BdXOhbv/8TA=
+github.com/CESSProject/cess_pois v0.3.4/go.mod h1:od2ez9Gb6c+qyJxEONrL1Zg1QUak92Sd8j82ypvogBw=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
 github.com/CESSProject/p2p-go v0.1.6 h1:h/cobhOLIdzUV+dMhaQfeiczPKweYRCXA2h6JE2WbfE=

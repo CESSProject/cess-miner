@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/cess-go-sdk v0.3.8
+	github.com/CESSProject/cess_pois v0.3.4
 	github.com/CESSProject/p2p-go v0.1.6
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bytedance/sonic v1.9.2
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	github.com/CESSProject/cess_pois v0.2.3 // indirect
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect

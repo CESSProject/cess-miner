@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
@@ -64,8 +65,13 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	beneficiaryAcc, _ := sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAcc[:])
 
+	name := n.GetSdkName()
+	if strings.Contains(name, "bucket") {
+		name = "storage miner"
+	}
+
 	var tableRows = []table.Row{
-		{"name", n.GetSdkName()},
+		{"name", name},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
