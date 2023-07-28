@@ -26,7 +26,7 @@ const (
 	//
 	DefaultBootNodeAddr = "_dnsaddr.boot-kldr-testnet.cess.cloud"
 	//
-	DefaultDeossAddr = "https://deoss-pub-gateway.cess.cloud/"
+	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
 )
 
 const (
