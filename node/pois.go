@@ -98,7 +98,7 @@ func (n *Node) pois() error {
 	}
 
 	var ok bool
-	var idleSignInfo pattern.IdleSignInfo
+	var idleSignInfo pattern.SpaceProofInfo
 	var sign pattern.TeeSignature
 	// TODO: send commitProofs and accProof to verifier and then wait for the response
 
