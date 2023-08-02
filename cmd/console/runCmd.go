@@ -27,6 +27,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )
@@ -123,6 +124,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
+	n.ExpendersInfo, err = n.Expenders()
+	if err != nil {
+		out.Err("Weak network signal or rpc service failure")
+		os.Exit(1)
+	}
+
 	_, err = n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
@@ -138,22 +145,45 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// n.ExpendersInfo, err = n.Expenders()
-	// if err != nil {
-	// 	out.Err("Weak network signal or rpc service failure")
-	// 	os.Exit(1)
-	// }
-	//
-	// n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(),n.GetEarningsAcc(),token,expenders,)
-
-	_, earnings, err = n.RegisterOrUpdateSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
-	if err != nil {
-		out.Err(fmt.Sprintf("Register or update err: %v", err))
-		os.Exit(1)
-	}
-	n.SetEarningsAcc(earnings)
-
 	if firstReg {
+		poisCli, err := n.PoisNewClient("")
+		minerInitParam, err := n.PoisGetMinerInitParam(poisCli, n.GetSignatureAccPulickey())
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+
+		var key pattern.PoISKeyInfo
+		if len(minerInitParam.KeyG) != len(pattern.PoISKey_G{}) {
+			out.Err("invalid key")
+			os.Exit(1)
+		}
+		if len(minerInitParam.KeyN) != len(pattern.PoISKey_N{}) {
+			out.Err("invalid key")
+			os.Exit(1)
+		}
+		for i := 0; i < len(minerInitParam.KeyG); i++ {
+			key.G[i] = types.U8(minerInitParam.KeyG[i])
+		}
+		for i := 0; i < len(minerInitParam.KeyN); i++ {
+			key.N[i] = types.U8(minerInitParam.KeyN[i])
+		}
+		var sign pattern.TeeSignature
+		if len(minerInitParam.Signature) != len(pattern.TeeSignature{}) {
+			out.Err("invalid tee signature")
+			os.Exit(1)
+		}
+		for i := 0; i < len(minerInitParam.Signature); i++ {
+			sign[i] = types.U8(minerInitParam.Signature[i])
+		}
+
+		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), token, key, sign)
+		//_, earnings, err = n.RegisterOrUpdateSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+		if err != nil {
+			out.Err(fmt.Sprintf("Register or update err: %v", err))
+			os.Exit(1)
+		}
+		n.SetEarningsAcc(earnings)
 		n.RebuildDirs()
 	}
 
