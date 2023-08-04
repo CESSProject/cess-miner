@@ -28,6 +28,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+func (n *Node) poisChallenge(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
+}
+
 // challengeMgr
 // func (n *Node) challengeMgt(ch chan<- bool) {
 // 	defer func() {
