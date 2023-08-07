@@ -77,7 +77,6 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 	n.Pois.rear = rear
 	cfg := pois.Config{
 		AccPath:        n.GetDirs().ProofDir,
-		AccBackupPath:  n.GetDirs().TmpDir,
 		IdleFilePath:   n.GetDirs().IdleDataDir,
 		MaxProofThread: runtime.NumCPU(),
 	}
@@ -294,26 +293,27 @@ func (n *Node) pois() error {
 	}
 	fmt.Println("UpdateStatus suc")
 
-	challenge, err := n.QueryChallenge_V2()
-	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
-			return errors.Wrapf(err, "[QueryChallenge]")
-		}
-		n.Prover.SetChallengeState(false)
-		return nil
-	}
+	// challenge, err := n.QueryChallenge_V2()
+	// if err != nil {
+	// 	if err.Error() != pattern.ERR_Empty {
+	// 		return errors.Wrapf(err, "[QueryChallenge]")
+	// 	}
+	// 	n.Prover.SetChallengeState(false)
+	// 	return nil
+	// }
 
-	for _, v := range challenge.MinerSnapshotList {
-		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
-			if int64(v.SpaceProofInfo.Front) != n.Prover.GetFront() || int64(v.SpaceProofInfo.Rear) != n.Prover.GetRear() {
-				n.Prover.SetChallengeState(true)
-			} else {
-				n.Prover.SetChallengeState(false)
-			}
-			return nil
-		}
-	}
-	n.Prover.SetChallengeState(false)
+	// for _, v := range challenge.MinerSnapshotList {
+	// 	if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+	// 		if int64(v.SpaceProofInfo.Front) != n.Prover.GetFront() || int64(v.SpaceProofInfo.Rear) != n.Prover.GetRear() {
+	// 			n.Prover.SetChallengeState(true)
+	// 		} else {
+	// 			n.Prover.SetChallengeState(false)
+	// 		}
+	// 		return nil
+	// 	}
+	// }
+	// n.Prover.SetChallengeState(false)
+
 	return nil
 }
 
@@ -415,4 +415,36 @@ func (n *Node) replaceIdle() {
 	}
 
 	n.Replace("info", fmt.Sprintf("Replace files suc: %v", txhash))
+
+	challenge, err := n.QueryChallenge_V2()
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			n.Replace("err", err.Error())
+			return //errors.Wrapf(err, "[QueryChallenge]")
+		}
+	}
+
+	for _, v := range challenge.MinerSnapshotList {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+			if int64(v.SpaceProofInfo.Front) != n.Prover.GetFront() || int64(v.SpaceProofInfo.Rear) != n.Prover.GetRear() {
+				minerInfo, err := n.QueryStorageMiner_V2(n.GetSignatureAccPulickey())
+				if err != nil {
+					return
+				}
+				var acc = make([]byte, len(pattern.Accumulator{}))
+				for i := 0; i < len(acc); i++ {
+					acc[i] = byte(minerInfo.SpaceProofInfo.Accumulator[i])
+				}
+				err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, int64(minerInfo.SpaceProofInfo.Front), int64(minerInfo.SpaceProofInfo.Rear))
+				if err != nil {
+					return
+				}
+			}
+		}
+	}
+
+	err = n.Prover.DeleteFiles()
+	if err != nil {
+		return
+	}
 }

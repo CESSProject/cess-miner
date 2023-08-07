@@ -8,6 +8,7 @@
 package node
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -22,20 +23,181 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
-func (n *Node) poisChallenge(ch chan<- bool) {
+func (n *Node) poisChallenge() error {
 	defer func() {
-		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
+	challenge, err := n.QueryChallenge_V2()
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			return errors.Wrapf(err, "[QueryChallenge]")
+		}
+		return nil
+	}
+
+	var haveChallenge bool
+	var minerChalInfo pattern.MinerSnapShot_V2
+	for _, v := range challenge.MinerSnapshotList {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+			haveChallenge = true
+			minerChalInfo = v
+			break
+		}
+	}
+
+	latestBlock, err := n.QueryBlockHeight("")
+	if err != nil {
+		return errors.Wrapf(err, "[QueryBlockHeight]")
+	}
+
+	challExpiration, err := n.QueryChallengeExpiration()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryChallengeExpiration]")
+	}
+
+	if challExpiration <= latestBlock {
+		haveChallenge = false
+	}
+
+	if !haveChallenge {
+		n.Chal("info", "no challenge")
+		return nil
+	}
+
+	var acc = make([]byte, len(pattern.Accumulator{}))
+	for i := 0; i < len(acc); i++ {
+		acc[i] = byte(minerChalInfo.SpaceProofInfo.Accumulator[i])
+	}
+
+	err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear))
+	if err != nil {
+		n.Chal("info", "no challenge")
+		return err
+	}
+
+	var challRandom = make([]int64, len(challenge.NetSnapShot.SpaceChallengeParam))
+	for i := 0; i < len(challRandom); i++ {
+		challRandom[i] = int64(challenge.NetSnapShot.SpaceChallengeParam[i])
+	}
+	var accMiner = make([]byte, len(pattern.Accumulator{}))
+	for i := 0; i < len(challRandom); i++ {
+		accMiner[i] = byte(minerChalInfo.SpaceProofInfo.Accumulator[i])
+	}
+
+	var rear int64
+	var blocksProof = make([]*pb.BlocksProof, 0)
+
+	for front := (minerChalInfo.SpaceProofInfo.Front + 1); front <= (minerChalInfo.SpaceProofInfo.Rear + 1); {
+		if (front + 100) > (minerChalInfo.SpaceProofInfo.Rear + 1) {
+			rear = int64(minerChalInfo.SpaceProofInfo.Rear + 1)
+		} else {
+			rear = int64(front + 100)
+		}
+		spaceProof, err := n.Prover.ProveSpace(challRandom, int64(front), rear)
+		if err != nil {
+			return errors.Wrapf(err, "[ProveSpace]")
+		}
+
+		var mhtProofGroup = make([]*pb.MhtProofGroup, len(spaceProof.Proofs))
+
+		for i := 0; i < len(spaceProof.Proofs); i++ {
+			mhtProofGroup[i] = &pb.MhtProofGroup{}
+			mhtProofGroup[i].Proofs = make([]*pb.MhtProof, len(spaceProof.Proofs[i]))
+			for j := 0; j < len(spaceProof.Proofs[i]); j++ {
+				mhtProofGroup[i].Proofs[j] = &pb.MhtProof{
+					Index: int32(spaceProof.Proofs[i][j].Index),
+					Label: spaceProof.Proofs[i][j].Label,
+					Paths: spaceProof.Proofs[i][j].Paths,
+					Locs:  spaceProof.Proofs[i][j].Locs,
+				}
+			}
+		}
+
+		var witChains = make([]*pb.AccWitnessNode, len(spaceProof.WitChains))
+
+		for i := 0; i < len(spaceProof.WitChains); i++ {
+			witChains[i] = &pb.AccWitnessNode{
+				Elem: spaceProof.WitChains[i].Elem,
+				Wit:  spaceProof.WitChains[i].Wit,
+				Acc: &pb.AccWitnessNode{
+					Elem: spaceProof.WitChains[i].Acc.Elem,
+					Wit:  spaceProof.WitChains[i].Acc.Wit,
+					Acc: &pb.AccWitnessNode{
+						Elem: spaceProof.WitChains[i].Acc.Acc.Elem,
+						Wit:  spaceProof.WitChains[i].Acc.Acc.Wit,
+					},
+				},
+			}
+
+		}
+
+		var proof = &pb.SpaceProof{
+			Left:      spaceProof.Left,
+			Right:     spaceProof.Right,
+			Roots:     spaceProof.Roots,
+			Proofs:    mhtProofGroup,
+			WitChains: witChains,
+		}
+
+		b, err := proto.Marshal(proof)
+		if err != nil {
+			return errors.Wrapf(err, "[proto.Marshal]")
+		}
+
+		h := sha256.New()
+		_, err = h.Write(b)
+		if err != nil {
+			return errors.Wrapf(err, "[h.Write]")
+		}
+
+		sign, err := n.Sign(h.Sum(nil))
+		if err != nil {
+			return errors.Wrapf(err, "[n.Sign]")
+		}
+		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(os.Args[2], n.GetSignatureAccPulickey(), challRandom, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), accMiner, int64(front), rear, proof, sign, time.Duration(time.Minute))
+		if err != nil {
+			return errors.Wrapf(err, "[PoisSpaceProofVerifySingleBlock]")
+		}
+		var block = &pb.BlocksProof{
+			ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
+				SpaceProofHash: sign,
+				Left:           int64(front),
+				Right:          rear,
+			},
+			Signature: spaceProofVerify.Signature,
+		}
+		blocksProof = append(blocksProof, block)
+		front += 100
+	}
+
+	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front+1), int64(minerChalInfo.SpaceProofInfo.Rear+1), accMiner, challRandom, time.Duration(time.Minute*5))
+	if err != nil {
+		errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
+	}
+
+	var idleProof = make([]types.U8, len(spaceProofVerifyTotal.Signature))
+	for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
+		idleProof[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+	}
+
+	txHash, err := n.SubmitIdleProof(idleProof)
+	if err != nil {
+		errors.Wrapf(err, "[SubmitIdleProof]")
+	}
+	out.Ok(fmt.Sprintf("submit idle proof suc:%s", txHash))
+	return nil
 }
 
 // challengeMgr

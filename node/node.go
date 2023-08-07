@@ -104,6 +104,12 @@ func (n *Node) Run() {
 				break
 			}
 			n.syncChainStatus()
+			err := n.poisChallenge()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+			n.replaceIdle()
+
 			// n.replaceFiller()
 			// if err := n.reportFiles(); err != nil {
 			// 	n.Report("err", err.Error())
