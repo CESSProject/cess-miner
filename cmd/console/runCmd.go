@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -130,7 +131,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	_, err = n.QueryStorageMiner(n.GetStakingPublickey())
+	minerInfo_V2, err := n.QueryStorageMiner_V2(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			firstReg = true
@@ -140,16 +141,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 			}
 			token *= 2000
 		} else {
-			out.Err("Weak network signal or rpc service failure")
+			out.Err(pattern.ERR_RPC_CONNECTION.Error())
 			os.Exit(1)
 		}
 	}
 
 	if firstReg {
-		poisCli, err := n.PoisNewClient("")
-		minerInitParam, err := n.PoisGetMinerInitParam(poisCli, n.GetSignatureAccPulickey())
+		minerInitParam, err := n.PoisGetMinerInitParam(os.Args[2], n.GetSignatureAccPulickey(), time.Duration(time.Second*20))
 		if err != nil {
-			out.Err(err.Error())
+			out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
 			os.Exit(1)
 		}
 
@@ -158,6 +158,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err("invalid key")
 			os.Exit(1)
 		}
+
 		if len(minerInitParam.KeyN) != len(pattern.PoISKey_N{}) {
 			out.Err("invalid key")
 			os.Exit(1)
@@ -185,6 +186,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		n.SetEarningsAcc(earnings)
 		n.RebuildDirs()
+		err = n.InitPois(0, 0, 10240, 32, *new(big.Int).SetBytes(minerInitParam.KeyN), *new(big.Int).SetBytes(minerInitParam.KeyG))
+		if err != nil {
+			out.Err(fmt.Sprintf("[InitPois] %v", err))
+			os.Exit(1)
+		}
+	} else {
+		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
+		//_, earnings, err = n.RegisterOrUpdateSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+		if err != nil {
+			out.Err(fmt.Sprintf("Register or update err: %v", err))
+			os.Exit(1)
+		}
+		n.SetEarningsAcc(earnings)
+		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), 102400, 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
+		if err != nil {
+			out.Err(fmt.Sprintf("[InitPois-2] %v", err))
+			os.Exit(1)
+		}
 	}
 
 	// Build data directory

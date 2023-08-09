@@ -50,6 +50,7 @@ func New() *Node {
 		teeLock:    new(sync.RWMutex),
 		peers:      make(map[string]peer.AddrInfo, 0),
 		teeWorkers: make(map[string][]byte, 10),
+		Pois:       &Pois{},
 	}
 }
 
@@ -79,18 +80,20 @@ func (n *Node) Run() {
 		break
 	}
 
-	task_Minute := time.NewTicker(time.Minute)
+	task_Minute := time.NewTicker(time.Second * 30)
 	defer task_Minute.Stop()
 
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
-	go n.spaceMgt(ch_spaceMgt)
-	go n.stagMgt(ch_stagMgt)
-	go n.restoreMgt(ch_restoreMgt)
-	go n.discoverMgt(ch_discoverMgt)
+	// go n.spaceMgt(ch_spaceMgt)
+	// go n.stagMgt(ch_stagMgt)
+	// go n.restoreMgt(ch_restoreMgt)
+	// go n.discoverMgt(ch_discoverMgt)
 
 	out.Ok("start successfully")
+
+	go n.poisMgt(ch_spaceMgt)
 
 	for {
 		select {
@@ -100,21 +103,28 @@ func (n *Node) Run() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			n.syncChainStatus()
-			n.replaceFiller()
-			if err := n.reportFiles(); err != nil {
-				n.Report("err", err.Error())
-			}
-			if err := n.pChallenge(); err != nil {
+			// n.syncChainStatus()
+			err := n.poisChallenge()
+			if err != nil {
 				n.Chal("err", err.Error())
 			}
+			n.replaceIdle()
+
+			// n.replaceFiller()
+			// if err := n.reportFiles(); err != nil {
+			// 	n.Report("err", err.Error())
+			// }
+			// if err := n.pChallenge(); err != nil {
+			// 	n.Chal("err", err.Error())
+			// }
 		case <-task_Hour.C:
 			n.connectBoot()
 			if err := n.resizeSpace(); err != nil {
 				n.Replace("err", err.Error())
 			}
 		case <-ch_spaceMgt:
-			go n.spaceMgt(ch_spaceMgt)
+			go n.poisMgt(ch_spaceMgt)
+		// 	go n.spaceMgt(ch_spaceMgt)
 		case <-ch_stagMgt:
 			go n.stagMgt(ch_stagMgt)
 		case <-ch_restoreMgt:
