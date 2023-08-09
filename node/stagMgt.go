@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +21,69 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
+
+func (n *Node) serviceTag() error {
+	var fragmentHash string
+	var err error
+
+	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
+	if err != nil {
+		return errors.Wrapf(err, "[Dirs]")
+	}
+
+	for _, fileDir := range roothashs {
+		files, err := utils.DirFiles(fileDir, 0)
+		if err != nil {
+			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
+			continue
+		}
+
+		for _, f := range files {
+			fragmentHash = filepath.Base(f)
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, fragmentHash+".tag")
+			_, err = os.Stat(serviceTagPath)
+			if err == nil {
+				continue
+			}
+
+			buf, err := os.ReadFile(f)
+			if err != nil {
+				n.Stag("err", fmt.Sprintf("ReadFile: %s", f))
+				continue
+			}
+
+			if len(buf) < pattern.FragmentSize {
+				n.Stag("err", fmt.Sprintf("Fragment Size: %d < 8388608", len(buf)))
+				continue
+			}
+
+			genTag, err := n.PoisServiceRequestGenTag(
+				os.Args[2],
+				buf[:pattern.FragmentSize],
+				pattern.BlockNumber,
+				filepath.Base(f),
+				"",
+				time.Duration(time.Minute*10),
+			)
+			if err != nil {
+				n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] err: %s", err))
+				continue
+			}
+			buf, err = json.Marshal(genTag.Tag)
+			if err != nil {
+				n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+				continue
+			}
+			err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))
+			if err != nil {
+				n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
+				continue
+			}
+			n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")))
+		}
+	}
+	return nil
+}
 
 func (n *Node) stagMgt(ch chan bool) {
 	defer func() {
