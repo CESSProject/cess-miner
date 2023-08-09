@@ -121,10 +121,8 @@ func (n *Node) pois() error {
 	}
 	fmt.Println("calc idle file suc")
 
-	fmt.Println(n.Pois.RsaKey.G.Bytes())
-	fmt.Println(n.Pois.RsaKey.N.Bytes())
-
 	fmt.Println("start get idle file commit...")
+	//n.Prover.CommitDataIsReady()
 	commits, err := n.Prover.GetIdleFileSetCommits()
 	if err != nil {
 		n.Prover.CommitRollback()
@@ -132,7 +130,7 @@ func (n *Node) pois() error {
 	}
 	fmt.Println("get idle file commit suc")
 
-	fmt.Println("commit.FileIndexs:", commits.FileIndexs)
+	//fmt.Println("commit.FileIndexs:", commits.FileIndexs)
 	//fmt.Println("commit.Roots:", commits.Roots)
 	// TODO: send commits to tee and receive chall
 	var commit_pb = &pb.Commits{
@@ -159,7 +157,7 @@ func (n *Node) pois() error {
 	if ok := verifier.ReceiveCommits(n.Prover.ID, commits); !ok {
 		fmt.Println("self reveive commits error")
 	}
-	fmt.Println("chals:", chals)
+	//fmt.Println("chals:", chals)
 	fmt.Println("start calc tee's challenge...")
 	commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 	if err != nil {
@@ -182,8 +180,6 @@ func (n *Node) pois() error {
 	}
 
 	fmt.Println("calc tee's challenge suc")
-
-	fmt.Println("leijiaqi-1:", n.Prover.AccManager.GetSnapshot().Accs.Value)
 
 	var commitProofGroupInner = make([]*pb.CommitProofGroupInner, len(commitProofs))
 	for i := 0; i < len(commitProofs); i++ {
@@ -210,8 +206,8 @@ func (n *Node) pois() error {
 		CommitProofGroupInner: commitProofGroupInner,
 	}
 
-	fmt.Println("accProof.AccPath:", accProof.AccPath)
-	fmt.Println("accProof.WitChains:", *accProof.WitChains)
+	//fmt.Println("accProof.AccPath:", accProof.AccPath)
+	//fmt.Println("accProof.WitChains:", *accProof.WitChains)
 
 	var accProof_pb = &pb.AccProof{
 		Indexs:  accProof.Indexs,

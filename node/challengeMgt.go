@@ -23,14 +23,35 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
+
+type fileBlockProofInfo struct {
+	ProofHashSign       []byte         `json:"proofHashSign"`
+	ProofHashSignOrigin []byte         `json:"proofHashSignOrigin"`
+	SpaceProof          *pb.SpaceProof `json:"spaceProof"`
+	FileBlockFront      int64          `json:"fileBlockFront"`
+	FileBlockRear       int64          `json:"fileBlockRear"`
+}
+
+type idleProofInfo struct {
+	Start              int32   `json:"start"`
+	ChainFront         int64   `json:"chainFront"`
+	ChainRear          int64   `json:"chainRear"`
+	IdleResult         bool    `json:"idleResult"`
+	IdleProof          []byte  `json:"idleProof"`
+	Acc                []byte  `json:"acc"`
+	TotalSignature     []byte  `json:"totalSignature"`
+	ChallRandom        []int64 `json:"challRandom"`
+	FileBlockProofInfo []fileBlockProofInfo
+	BlocksProof        []*pb.BlocksProof
+}
 
 func (n *Node) poisChallenge() error {
 	defer func() {
@@ -76,14 +97,223 @@ func (n *Node) poisChallenge() error {
 		return nil
 	}
 
+	n.Chal("info", fmt.Sprintf("Have a new Challenge: %v", challenge.NetSnapShot.Start))
+
+	var idleProofRecord idleProofInfo
+	keypair, _ := signature.KeyringPairFromSecret("tray fine poem nothing glimpse insane carbon empty grief dismiss bird nurse", 0)
+	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
+	if err == nil {
+		err = json.Unmarshal(buf, &idleProofRecord)
+		if err == nil {
+			n.Chal("info", fmt.Sprintf("local idleproof file challenge: %v", idleProofRecord.Start))
+			if idleProofRecord.Start != int32(challenge.NetSnapShot.Start) {
+				os.Remove(filepath.Join(n.Workspace(), "idleproof"))
+			} else {
+				idleProofInfos, err := n.QueryUnverifiedIdleProof(keypair.PublicKey)
+				if err != nil {
+					if err.Error() != pattern.ERR_Empty {
+						return errors.Wrapf(err, "[QueryUnverifiedIdleProof]")
+					}
+					var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+					for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+						idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+					}
+					_, err = n.SubmitIdleProof(idleProve)
+					if err != nil {
+						return errors.Wrapf(err, "[SubmitIdleProof]")
+					}
+				} else {
+					var have bool
+					for i := 0; i < len(idleProofInfos); i++ {
+						if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+							have = true
+							n.Chal("info", "already submit idle proof")
+							break
+						}
+					}
+					if have {
+						if idleProofRecord.TotalSignature != nil {
+							var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+							for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+								idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+							}
+							var teeSignature pattern.TeeSignature
+							if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+								return errors.New("invalid spaceProofVerifyTotal signature")
+							}
+
+							for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
+								teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+							}
+
+							txHash, err := n.SubmitIdleProofResult(
+								idleProve,
+								types.U64(idleProofRecord.ChainFront),
+								types.U64(idleProofRecord.ChainRear),
+								minerChalInfo.SpaceProofInfo.Accumulator,
+								types.Bool(idleProofRecord.IdleResult),
+								teeSignature,
+								keypair.PublicKey,
+							)
+							if err != nil {
+								return errors.Wrapf(err, "[SubmitIdleProofResult]")
+							}
+							n.Chal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+							return nil
+						}
+						if idleProofRecord.BlocksProof != nil {
+							spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), idleProofRecord.BlocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
+							if err != nil {
+								return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
+							}
+							idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
+							idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
+							buf, err = json.Marshal(&idleProofRecord)
+							if err != nil {
+								n.Chal("err", err.Error())
+							} else {
+								err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+								if err != nil {
+									n.Chal("err", err.Error())
+								}
+							}
+							var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+							for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+								idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+							}
+							var teeSignature pattern.TeeSignature
+							if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+								return errors.New("invalid spaceProofVerifyTotal signature")
+							}
+
+							for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
+								teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+							}
+
+							txHash, err := n.SubmitIdleProofResult(
+								idleProve,
+								types.U64(idleProofRecord.ChainFront),
+								types.U64(idleProofRecord.ChainRear),
+								minerChalInfo.SpaceProofInfo.Accumulator,
+								types.Bool(idleProofRecord.IdleResult),
+								teeSignature,
+								keypair.PublicKey,
+							)
+							if err != nil {
+								return errors.Wrapf(err, "[SubmitIdleProofResult]")
+							}
+							n.Chal("info", fmt.Sprintf("SubmitIdleProofResult: %s", txHash))
+							return nil
+						}
+					} else {
+						if minerChalInfo.IdleSubmitted {
+							n.Chal("info", "idle proof already submitted and verified")
+							return nil
+						}
+						var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+						for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+							idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+						}
+						_, err = n.SubmitIdleProof(idleProve)
+						if err != nil {
+							return errors.Wrapf(err, "[SubmitIdleProof]")
+						}
+					}
+				}
+				//TODO: wait assigned tee
+				var blocksProof = make([]*pb.BlocksProof, 0)
+				for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
+					spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
+						os.Args[2],
+						n.GetSignatureAccPulickey(),
+						idleProofRecord.ChallRandom,
+						n.Pois.RsaKey.N.Bytes(),
+						n.Pois.RsaKey.G.Bytes(),
+						idleProofRecord.Acc,
+						int64(minerChalInfo.SpaceProofInfo.Front),
+						int64(minerChalInfo.SpaceProofInfo.Rear),
+						idleProofRecord.FileBlockProofInfo[i].SpaceProof,
+						idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+						time.Duration(time.Minute),
+					)
+					if err != nil {
+						return errors.Wrapf(err, "[PoisSpaceProofVerifySingleBlock]")
+					}
+					var block = &pb.BlocksProof{
+						ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
+							SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+							Left:           idleProofRecord.FileBlockProofInfo[i].FileBlockFront,
+							Right:          idleProofRecord.FileBlockProofInfo[i].FileBlockRear,
+						},
+						Signature: spaceProofVerify.Signature,
+					}
+					blocksProof = append(blocksProof, block)
+				}
+
+				idleProofRecord.BlocksProof = blocksProof
+				buf, err = json.Marshal(&idleProofRecord)
+				if err != nil {
+					n.Chal("err", err.Error())
+				} else {
+					err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+					if err != nil {
+						n.Chal("err", err.Error())
+					}
+				}
+
+				spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
+				if err != nil {
+					return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
+				}
+
+				var teeSignature pattern.TeeSignature
+				if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
+					return errors.New("invalid spaceProofVerifyTotal signature")
+				}
+
+				for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
+					teeSignature[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+				}
+
+				var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+				for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+					idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+				}
+				txHash, err := n.SubmitIdleProofResult(
+					idleProve,
+					types.U64(idleProofRecord.ChainFront),
+					types.U64(idleProofRecord.ChainRear),
+					minerChalInfo.SpaceProofInfo.Accumulator,
+					types.Bool(spaceProofVerifyTotal.IdleResult),
+					teeSignature,
+					keypair.PublicKey,
+				)
+				if err != nil {
+					return errors.Wrapf(err, "[SubmitIdleProofResult]")
+				}
+				n.Chal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+				return nil
+			}
+		} else {
+			os.Remove(filepath.Join(n.Workspace(), "idleproof"))
+		}
+	}
+	idleProofRecord = idleProofInfo{}
+
+	idleProofRecord.Start = int32(challenge.NetSnapShot.Start)
+	idleProofRecord.ChainFront = int64(minerChalInfo.SpaceProofInfo.Front)
+	idleProofRecord.ChainRear = int64(minerChalInfo.SpaceProofInfo.Rear)
+
 	var acc = make([]byte, len(pattern.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
 		acc[i] = byte(minerChalInfo.SpaceProofInfo.Accumulator[i])
 	}
 
+	idleProofRecord.Acc = acc
+
 	err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear))
 	if err != nil {
-		n.Chal("info", "no challenge")
+		n.Chal("err", "[SetChallengeState]")
 		return err
 	}
 
@@ -91,20 +321,26 @@ func (n *Node) poisChallenge() error {
 	for i := 0; i < len(challRandom); i++ {
 		challRandom[i] = int64(challenge.NetSnapShot.SpaceChallengeParam[i])
 	}
-	var accMiner = make([]byte, len(pattern.Accumulator{}))
-	for i := 0; i < len(challRandom); i++ {
-		accMiner[i] = byte(minerChalInfo.SpaceProofInfo.Accumulator[i])
-	}
+
+	idleProofRecord.ChallRandom = challRandom
 
 	var rear int64
 	var blocksProof = make([]*pb.BlocksProof, 0)
 
+	n.Chal("info", "start calc challenge...")
+	idleProofRecord.FileBlockProofInfo = make([]fileBlockProofInfo, 0)
+	var idleproof []byte
+
 	for front := (minerChalInfo.SpaceProofInfo.Front + 1); front <= (minerChalInfo.SpaceProofInfo.Rear + 1); {
-		if (front + 100) > (minerChalInfo.SpaceProofInfo.Rear + 1) {
+		var fileBlockProofInfoEle fileBlockProofInfo
+		if (front + 256) > (minerChalInfo.SpaceProofInfo.Rear + 1) {
 			rear = int64(minerChalInfo.SpaceProofInfo.Rear + 1)
 		} else {
-			rear = int64(front + 100)
+			rear = int64(front + 256)
 		}
+		fileBlockProofInfoEle.FileBlockFront = int64(front)
+		fileBlockProofInfoEle.FileBlockRear = rear
+		n.Chal("info", fmt.Sprintf("front: %d  rear: %d", front, rear))
 		spaceProof, err := n.Prover.ProveSpace(challRandom, int64(front), rear)
 		if err != nil {
 			return errors.Wrapf(err, "[ProveSpace]")
@@ -137,10 +373,13 @@ func (n *Node) poisChallenge() error {
 					Acc: &pb.AccWitnessNode{
 						Elem: spaceProof.WitChains[i].Acc.Acc.Elem,
 						Wit:  spaceProof.WitChains[i].Acc.Acc.Wit,
+						Acc: &pb.AccWitnessNode{
+							Elem: spaceProof.WitChains[i].Acc.Acc.Acc.Elem,
+							Wit:  spaceProof.WitChains[i].Acc.Acc.Acc.Wit,
+						},
 					},
 				},
 			}
-
 		}
 
 		var proof = &pb.SpaceProof{
@@ -150,6 +389,8 @@ func (n *Node) poisChallenge() error {
 			Proofs:    mhtProofGroup,
 			WitChains: witChains,
 		}
+
+		fileBlockProofInfoEle.SpaceProof = proof
 
 		b, err := proto.Marshal(proof)
 		if err != nil {
@@ -161,42 +402,148 @@ func (n *Node) poisChallenge() error {
 		if err != nil {
 			return errors.Wrapf(err, "[h.Write]")
 		}
+		proofHash := h.Sum(nil)
 
-		sign, err := n.Sign(h.Sum(nil))
+		fileBlockProofInfoEle.ProofHashSignOrigin = proofHash
+		idleproof = append(idleproof, proofHash...)
+		sign, err := n.Sign(proofHash)
 		if err != nil {
 			return errors.Wrapf(err, "[n.Sign]")
 		}
-		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(os.Args[2], n.GetSignatureAccPulickey(), challRandom, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), accMiner, int64(front), rear, proof, sign, time.Duration(time.Minute))
+
+		fileBlockProofInfoEle.ProofHashSign = sign
+		idleProofRecord.FileBlockProofInfo = append(idleProofRecord.FileBlockProofInfo, fileBlockProofInfoEle)
+		if types.U64(rear) >= (minerChalInfo.SpaceProofInfo.Rear + 1) {
+			break
+		}
+		front += 256
+	}
+
+	h := sha256.New()
+	_, err = h.Write(idleproof)
+	if err != nil {
+		return errors.Wrapf(err, "[h.Write]")
+	}
+	idleProofRecord.IdleProof = h.Sum(nil)
+
+	var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+	for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+		idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+	}
+
+	//
+	txhash, err := n.SubmitIdleProof(idleProve)
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
+		buf, err := json.Marshal(&idleProofRecord)
+		if err != nil {
+			n.Chal("err", err.Error())
+		} else {
+			err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+		}
+		return errors.Wrapf(err, "[SubmitIdleProof]")
+	}
+
+	n.Chal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
+
+	buf, err = json.Marshal(&idleProofRecord)
+	if err != nil {
+		n.Chal("err", err.Error())
+	} else {
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+		if err != nil {
+			n.Chal("err", err.Error())
+		}
+	}
+
+	// TODO: wait for assigned tee
+
+	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
+		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
+			os.Args[2],
+			n.GetSignatureAccPulickey(),
+			idleProofRecord.ChallRandom,
+			n.Pois.RsaKey.N.Bytes(),
+			n.Pois.RsaKey.G.Bytes(),
+			idleProofRecord.Acc,
+			int64(minerChalInfo.SpaceProofInfo.Front),
+			int64(minerChalInfo.SpaceProofInfo.Rear),
+			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
+			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+			time.Duration(time.Minute),
+		)
 		if err != nil {
 			return errors.Wrapf(err, "[PoisSpaceProofVerifySingleBlock]")
 		}
 		var block = &pb.BlocksProof{
 			ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
-				SpaceProofHash: sign,
-				Left:           int64(front),
-				Right:          rear,
+				SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSignOrigin,
+				Left:           idleProofRecord.FileBlockProofInfo[i].FileBlockFront,
+				Right:          idleProofRecord.FileBlockProofInfo[i].FileBlockRear,
 			},
 			Signature: spaceProofVerify.Signature,
 		}
 		blocksProof = append(blocksProof, block)
-		front += 100
 	}
 
-	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front+1), int64(minerChalInfo.SpaceProofInfo.Rear+1), accMiner, challRandom, time.Duration(time.Minute*5))
+	idleProofRecord.BlocksProof = blocksProof
+	buf, err = json.Marshal(&idleProofRecord)
 	if err != nil {
-		errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
+		n.Chal("err", err.Error())
+	} else {
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+		if err != nil {
+			n.Chal("err", err.Error())
+		}
 	}
 
-	var idleProof = make([]types.U8, len(spaceProofVerifyTotal.Signature))
+	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear), acc, challRandom, time.Duration(time.Minute*3))
+	if err != nil {
+		return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
+	}
+
+	if !spaceProofVerifyTotal.IdleResult {
+		n.Chal("err", "spaceProofVerifyTotal.IdleResult is false")
+	}
+
+	var teeSignature pattern.TeeSignature
+	if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
+		return errors.New("invalid spaceProofVerifyTotal signature")
+	}
+
 	for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
-		idleProof[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+		teeSignature[i] = types.U8(spaceProofVerifyTotal.Signature[i])
 	}
 
-	txHash, err := n.SubmitIdleProof(idleProof)
+	idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
+	idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
+	buf, err = json.Marshal(&idleProofRecord)
 	if err != nil {
-		errors.Wrapf(err, "[SubmitIdleProof]")
+		n.Chal("err", err.Error())
+	} else {
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+		if err != nil {
+			n.Chal("err", err.Error())
+		}
 	}
-	out.Ok(fmt.Sprintf("submit idle proof suc:%s", txHash))
+
+	txHash, err := n.SubmitIdleProofResult(
+		idleProve,
+		types.U64(idleProofRecord.ChainFront),
+		types.U64(idleProofRecord.ChainRear),
+		minerChalInfo.SpaceProofInfo.Accumulator,
+		types.Bool(spaceProofVerifyTotal.IdleResult),
+		teeSignature,
+		keypair.PublicKey,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "[SubmitIdleProofResult]")
+	}
+
+	n.Chal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
 	return nil
 }
 

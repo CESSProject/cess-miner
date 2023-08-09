@@ -80,7 +80,7 @@ func (n *Node) Run() {
 		break
 	}
 
-	task_Minute := time.NewTicker(time.Minute)
+	task_Minute := time.NewTicker(time.Second * 30)
 	defer task_Minute.Stop()
 
 	task_Hour := time.NewTicker(time.Hour)
@@ -103,7 +103,7 @@ func (n *Node) Run() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			n.syncChainStatus()
+			// n.syncChainStatus()
 			err := n.poisChallenge()
 			if err != nil {
 				n.Chal("err", err.Error())
