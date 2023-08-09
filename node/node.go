@@ -89,11 +89,11 @@ func (n *Node) Run() {
 	// go n.spaceMgt(ch_spaceMgt)
 	// go n.stagMgt(ch_stagMgt)
 	// go n.restoreMgt(ch_restoreMgt)
-	// go n.discoverMgt(ch_discoverMgt)
-
-	out.Ok("start successfully")
+	go n.discoverMgt(ch_discoverMgt)
 
 	go n.poisMgt(ch_spaceMgt)
+
+	out.Ok("start successfully")
 
 	for {
 		select {
@@ -108,6 +108,12 @@ func (n *Node) Run() {
 			if err != nil {
 				n.Chal("err", err.Error())
 			}
+
+			err = n.serviceTag()
+			if err != nil {
+				n.Stag("err", err.Error())
+			}
+
 			n.replaceIdle()
 
 			// n.replaceFiller()

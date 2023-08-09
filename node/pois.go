@@ -328,10 +328,11 @@ func (n *Node) replaceIdle() {
 
 	if !replaceSize.IsUint64() {
 		n.Replace("err", "replaceSize is not uint64")
-
+		return
 	}
 
 	num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
+	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
 
 	chProof, ch := n.Prover.ProveDeletion(int64(num))
 	var delProof *pois.DeletionProof
