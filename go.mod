@@ -3,9 +3,9 @@ module github.com/CESSProject/cess-bucket
 go 1.19
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.11
-	github.com/CESSProject/cess_pois v0.3.10
-	github.com/CESSProject/p2p-go v0.1.10
+	github.com/CESSProject/cess-go-sdk v0.3.12-0.20230810070701-6a9f7cc7b467
+	github.com/CESSProject/cess_pois v0.3.15
+	github.com/CESSProject/p2p-go v0.1.11-0.20230810070545-fee28c13524e
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bytedance/sonic v1.9.2
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.13

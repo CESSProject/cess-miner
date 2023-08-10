@@ -53,6 +53,18 @@ type idleProofInfo struct {
 	BlocksProof        []*pb.BlocksProof
 }
 
+type serviceProofInfo struct {
+	Names              []string `json:"names"`
+	Us                 []string `json:"us"`
+	Mus                []string `json:"mus"`
+	ServiceBloomFilter []uint64 `json:"serviceBloomFilter"`
+	TeePeerId          []byte   `json:"teePeerId"`
+	Signature          []byte   `json:"signature"`
+	Sigma              string   `json:"sigma"`
+	Start              uint32   `json:"start"`
+	ServiceResult      bool     `json:"serviceResult"`
+}
+
 func (n *Node) poisChallenge() error {
 	defer func() {
 		if err := recover(); err != nil {
@@ -100,7 +112,12 @@ func (n *Node) poisChallenge() error {
 	n.Chal("info", fmt.Sprintf("Have a new Challenge: %v", challenge.NetSnapShot.Start))
 
 	var idleProofRecord idleProofInfo
-	keypair, _ := signature.KeyringPairFromSecret("tray fine poem nothing glimpse insane carbon empty grief dismiss bird nurse", 0)
+	//keypair, _ := signature.KeyringPairFromSecret("tray fine poem nothing glimpse insane carbon empty grief dismiss bird nurse", 0)
+	keypair, err := signature.KeyringPairFromSecret(os.Args[3], 0)
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("err tee mnemonic: %v", os.Args[3]))
+		return nil
+	}
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
 	if err == nil {
 		err = json.Unmarshal(buf, &idleProofRecord)
@@ -544,6 +561,359 @@ func (n *Node) poisChallenge() error {
 	}
 
 	n.Chal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+	return nil
+}
+
+func (n *Node) poisServiceChallenge() error {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
+	challenge, err := n.QueryChallenge_V2()
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			return errors.Wrapf(err, "[QueryChallenge]")
+		}
+		return nil
+	}
+
+	var haveChallenge bool
+	var minerChalInfo pattern.MinerSnapShot_V2
+	for _, v := range challenge.MinerSnapshotList {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+			haveChallenge = true
+			minerChalInfo = v
+			break
+		}
+	}
+
+	latestBlock, err := n.QueryBlockHeight("")
+	if err != nil {
+		return errors.Wrapf(err, "[QueryBlockHeight]")
+	}
+
+	challExpiration, err := n.QueryChallengeExpiration()
+	if err != nil {
+		return errors.Wrapf(err, "[QueryChallengeExpiration]")
+	}
+
+	if challExpiration <= latestBlock {
+		haveChallenge = false
+	}
+
+	if !haveChallenge {
+		n.Chal("info", "no challenge")
+		return nil
+	}
+
+	var qslice = make([]proof.QElement, len(challenge.NetSnapShot.RandomIndexList))
+	for k, v := range challenge.NetSnapShot.RandomIndexList {
+		qslice[k].I = int64(v)
+		var b = make([]byte, len(challenge.NetSnapShot.RandomList[k]))
+		for i := 0; i < len(challenge.NetSnapShot.RandomList[k]); i++ {
+			b[i] = byte(challenge.NetSnapShot.RandomList[k][i])
+		}
+		qslice[k].V = new(big.Int).SetBytes(b).String()
+	}
+
+	n.Chal("info", fmt.Sprintf("Have a new service Challenge: %v", challenge.NetSnapShot.Start))
+
+	var serviceProofRecord serviceProofInfo
+
+	// keypair, _ := signature.KeyringPairFromSecret("tray fine poem nothing glimpse insane carbon empty grief dismiss bird nurse", 0)
+	keypair, err := signature.KeyringPairFromSecret(os.Args[3], 0)
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("err tee mnemonic: %v", os.Args[3]))
+		return nil
+	}
+	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "serviceproof"))
+	if err == nil {
+		err = json.Unmarshal(buf, &serviceProofRecord)
+		if err == nil {
+			n.Chal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
+			if serviceProofRecord.Start != uint32(challenge.NetSnapShot.Start) {
+				os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
+			} else {
+				if !minerChalInfo.ServiceSubmitted {
+					var serviceProve = make([]types.U8, len(serviceProofRecord.Sigma))
+					for i := 0; i < len(serviceProofRecord.Sigma); i++ {
+						serviceProve[i] = types.U8(serviceProofRecord.Sigma[i])
+					}
+					_, err = n.SubmitServiceProof(serviceProve)
+					if err != nil {
+						return errors.Wrapf(err, "[SubmitServiceProof]")
+					}
+				} else {
+					if serviceProofRecord.ServiceBloomFilter != nil &&
+						serviceProofRecord.TeePeerId != nil &&
+						serviceProofRecord.Signature != nil {
+						var signature pattern.TeeSignature
+						if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
+							return errors.New("invalid batchVerify.Signature")
+						}
+						for i := 0; i < len(serviceProofRecord.Signature); i++ {
+							signature[i] = types.U8(serviceProofRecord.Signature[i])
+						}
+
+						var bloomFilter pattern.BloomFilter
+						if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
+							return errors.New("invalid batchVerify.ServiceBloomFilter")
+						}
+						for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
+							bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
+						}
+
+						txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, keypair.PublicKey)
+						if err != nil {
+							return errors.Wrapf(err, "[SubmitServiceProofResult]")
+						}
+						n.Chal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+					}
+				}
+				//TODO: wait assigned tee
+				peeridSign, err := n.Sign(n.GetPeerPublickey())
+				if err != nil {
+					return errors.Wrapf(err, "[Sign peerid]")
+				}
+
+				var randomIndexList = make([]uint32, len(challenge.NetSnapShot.RandomIndexList))
+				for i := 0; i < len(challenge.NetSnapShot.RandomIndexList); i++ {
+					randomIndexList[i] = uint32(challenge.NetSnapShot.RandomIndexList[i])
+				}
+				var randomList = make([][]byte, len(challenge.NetSnapShot.RandomList))
+				for i := 0; i < len(challenge.NetSnapShot.RandomList); i++ {
+					randomList[i] = make([]byte, len(challenge.NetSnapShot.RandomList[i]))
+					for j := 0; j < len(challenge.NetSnapShot.RandomList[i]); j++ {
+						randomList[i][j] = byte(challenge.NetSnapShot.RandomList[i][j])
+					}
+				}
+
+				var qslice_pb = &pb.RequestBatchVerify_Qslice{
+					RandomIndexList: randomIndexList,
+					RandomList:      randomList,
+				}
+
+				batchVerify, err := n.PoisServiceRequestBatchVerify(
+					os.Args[2],
+					serviceProofRecord.Names,
+					serviceProofRecord.Us,
+					serviceProofRecord.Mus,
+					serviceProofRecord.Sigma,
+					n.GetPeerPublickey(),
+					n.GetSignatureAccPulickey(),
+					peeridSign,
+					qslice_pb,
+					time.Duration(time.Minute*10),
+				)
+				if err != nil {
+					return errors.Wrapf(err, "[PoisServiceRequestBatchVerify]")
+				}
+				serviceProofRecord.ServiceResult = batchVerify.BatchVerifyResult
+				serviceProofRecord.ServiceBloomFilter = batchVerify.ServiceBloomFilter
+				serviceProofRecord.TeePeerId = batchVerify.TeePeerId
+				serviceProofRecord.Signature = batchVerify.Signature
+				buf, err = json.Marshal(&serviceProofRecord)
+				if err != nil {
+					n.Chal("err", err.Error())
+				}
+				err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
+				if err != nil {
+					n.Chal("err", err.Error())
+				}
+
+				var signature pattern.TeeSignature
+				if len(pattern.TeeSignature{}) != len(batchVerify.Signature) {
+					return errors.New("invalid batchVerify.Signature")
+				}
+				for i := 0; i < len(batchVerify.Signature); i++ {
+					signature[i] = types.U8(batchVerify.Signature[i])
+				}
+
+				var bloomFilter pattern.BloomFilter
+				if len(pattern.BloomFilter{}) != len(batchVerify.ServiceBloomFilter) {
+					return errors.New("invalid batchVerify.ServiceBloomFilter")
+				}
+				for i := 0; i < len(batchVerify.ServiceBloomFilter); i++ {
+					bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
+				}
+
+				txhash, err := n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, keypair.PublicKey)
+				if err != nil {
+					return errors.Wrapf(err, "[SubmitServiceProofResult]")
+				}
+				n.Chal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+				return nil
+			}
+		} else {
+			os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
+		}
+	}
+
+	serviceProofRecord = serviceProofInfo{}
+	serviceProofRecord.Start = uint32(challenge.NetSnapShot.Start)
+	serviceRoothashDir, err := utils.Dirs(n.GetDirs().FileDir)
+	if err != nil {
+		return errors.Wrapf(err, "[Dirs]")
+	}
+
+	var sigma string
+
+	var proveResponse proof.GenProofResponse
+	serviceProofRecord.Names = make([]string, 0)
+	serviceProofRecord.Us = make([]string, 0)
+	serviceProofRecord.Mus = make([]string, 0)
+
+	timeout := time.NewTicker(time.Duration(time.Minute))
+	defer timeout.Stop()
+
+	for i := int(0); i < len(serviceRoothashDir); i++ {
+		files, err := utils.DirFiles(serviceRoothashDir[i], 0)
+		if err != nil {
+			n.Chal("err", err.Error())
+			continue
+		}
+
+		for j := 0; j < len(files); j++ {
+			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(files[j])+".tag")
+			buf, err = os.ReadFile(serviceTagPath)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
+				continue
+			}
+			var tag pb.Tag
+			err = json.Unmarshal(buf, &tag)
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
+				continue
+			}
+			matrix, _, err := proof.SplitByN(files[j], int64(len(tag.T.Phi)))
+			if err != nil {
+				n.Chal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
+				continue
+			}
+
+			proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
+			timeout.Reset(time.Minute)
+			select {
+			case proveResponse = <-proveResponseCh:
+			case <-timeout.C:
+				proveResponse.StatueMsg.StatusCode = 0
+			}
+
+			if proveResponse.StatueMsg.StatusCode != proof.Success {
+				n.Chal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
+				continue
+			}
+
+			sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
+			if !ok {
+				continue
+			}
+			sigma = sigmaTemp
+			serviceProofRecord.Names = append(serviceProofRecord.Names, tag.T.Name)
+			serviceProofRecord.Us = append(serviceProofRecord.Us, tag.T.U)
+			serviceProofRecord.Mus = append(serviceProofRecord.Mus, proveResponse.MU)
+		}
+	}
+	serviceProofRecord.Sigma = sigma
+	buf, err = json.Marshal(&serviceProofRecord)
+	if err != nil {
+		return err
+	}
+	err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
+	if err != nil {
+		n.Chal("err", err.Error())
+	}
+
+	var serviceProof = make([]types.U8, len(sigma))
+	for i := 0; i < len(sigma); i++ {
+		serviceProof[i] = types.U8(sigma[i])
+	}
+	n.Chal("info", fmt.Sprintf("sigma: %v", sigma))
+	n.Chal("info", fmt.Sprintf("serviceProof: %v", serviceProof))
+	txhash, err := n.SubmitServiceProof(serviceProof)
+	if err != nil {
+		return errors.Wrapf(err, "[SubmitServiceProof]")
+	}
+	n.Chal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
+
+	peeridSign, err := n.Sign(n.GetPeerPublickey())
+	if err != nil {
+		return errors.Wrapf(err, "[Sign peerid]")
+	}
+
+	var randomIndexList = make([]uint32, len(challenge.NetSnapShot.RandomIndexList))
+	for i := 0; i < len(challenge.NetSnapShot.RandomIndexList); i++ {
+		randomIndexList[i] = uint32(challenge.NetSnapShot.RandomIndexList[i])
+	}
+
+	var randomList = make([][]byte, len(challenge.NetSnapShot.RandomList))
+	for i := 0; i < len(challenge.NetSnapShot.RandomList); i++ {
+		randomList[i] = make([]byte, len(challenge.NetSnapShot.RandomList[i]))
+		for j := 0; j < len(challenge.NetSnapShot.RandomList[i]); j++ {
+			randomList[i][j] = byte(challenge.NetSnapShot.RandomList[i][j])
+		}
+	}
+
+	var qslice_pb = &pb.RequestBatchVerify_Qslice{
+		RandomIndexList: randomIndexList,
+		RandomList:      randomList,
+	}
+	n.Chal("info", fmt.Sprintf("randomIndexList: %v", randomIndexList))
+	n.Chal("info", fmt.Sprintf("randomList: %v", randomList))
+	batchVerify, err := n.PoisServiceRequestBatchVerify(
+		os.Args[2],
+		serviceProofRecord.Names,
+		serviceProofRecord.Us,
+		serviceProofRecord.Mus,
+		sigma,
+		n.GetPeerPublickey(),
+		n.GetSignatureAccPulickey(),
+		peeridSign,
+		qslice_pb,
+		time.Duration(time.Minute*10),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "[PoisServiceRequestBatchVerify]")
+	}
+	n.Chal("info", fmt.Sprintf("BatchVerifyResult:%v", batchVerify.BatchVerifyResult))
+
+	serviceProofRecord.ServiceResult = batchVerify.BatchVerifyResult
+	serviceProofRecord.ServiceBloomFilter = batchVerify.ServiceBloomFilter
+	serviceProofRecord.TeePeerId = batchVerify.TeePeerId
+	serviceProofRecord.Signature = batchVerify.Signature
+	buf, err = json.Marshal(&serviceProofRecord)
+	if err != nil {
+		n.Chal("err", err.Error())
+	}
+	err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
+	if err != nil {
+		n.Chal("err", err.Error())
+	}
+
+	var signature pattern.TeeSignature
+	if len(pattern.TeeSignature{}) != len(batchVerify.Signature) {
+		return errors.New("invalid batchVerify.Signature")
+	}
+	for i := 0; i < len(batchVerify.Signature); i++ {
+		signature[i] = types.U8(batchVerify.Signature[i])
+	}
+
+	var bloomFilter pattern.BloomFilter
+	if len(pattern.BloomFilter{}) != len(batchVerify.ServiceBloomFilter) {
+		return errors.New("invalid batchVerify.ServiceBloomFilter")
+	}
+	for i := 0; i < len(batchVerify.ServiceBloomFilter); i++ {
+		bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
+	}
+
+	txhash, err = n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, keypair.PublicKey)
+	if err != nil {
+		return errors.Wrapf(err, "[SubmitServiceProofResult]")
+	}
+	n.Chal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
 	return nil
 }
 
