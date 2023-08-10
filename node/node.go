@@ -109,6 +109,11 @@ func (n *Node) Run() {
 				n.Chal("err", err.Error())
 			}
 
+			err = n.poisServiceChallenge()
+			if err != nil {
+				n.Chal("err", err.Error())
+			}
+
 			err = n.serviceTag()
 			if err != nil {
 				n.Stag("err", err.Error())
@@ -117,9 +122,9 @@ func (n *Node) Run() {
 			n.replaceIdle()
 
 			// n.replaceFiller()
-			// if err := n.reportFiles(); err != nil {
-			// 	n.Report("err", err.Error())
-			// }
+			if err := n.reportFiles(); err != nil {
+				n.Report("err", err.Error())
+			}
 			// if err := n.pChallenge(); err != nil {
 			// 	n.Chal("err", err.Error())
 			// }

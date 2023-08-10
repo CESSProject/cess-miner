@@ -199,7 +199,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		n.SetEarningsAcc(earnings)
-		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), 102400, 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
+		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), 10240, 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
 		if err != nil {
 			out.Err(fmt.Sprintf("[InitPois-2] %v", err))
 			os.Exit(1)

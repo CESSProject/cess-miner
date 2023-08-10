@@ -374,7 +374,7 @@ func (n *Node) replaceIdle() {
 			},
 		},
 	}
-	verifyCommitOrDeletionProof, err := n.PoisRequestVerifyDeletionProof(os.Args[2], delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute))
+	verifyCommitOrDeletionProof, err := n.PoisRequestVerifyDeletionProof(os.Args[2], delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
 	if err != nil {
 		n.AccRollback(true)
 		n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
