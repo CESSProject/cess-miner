@@ -57,9 +57,9 @@ func New() *Node {
 
 func (n *Node) Run() {
 	var (
-		ch_spaceMgt    = make(chan bool, 1)
-		ch_stagMgt     = make(chan bool, 1)
-		ch_restoreMgt  = make(chan bool, 1)
+		ch_spaceMgt = make(chan bool, 1)
+		//ch_stagMgt     = make(chan bool, 1)
+		//ch_restoreMgt  = make(chan bool, 1)
 		ch_discoverMgt = make(chan bool, 1)
 	)
 
@@ -139,10 +139,10 @@ func (n *Node) Run() {
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
 		// 	go n.spaceMgt(ch_spaceMgt)
-		case <-ch_stagMgt:
-			go n.stagMgt(ch_stagMgt)
-		case <-ch_restoreMgt:
-			go n.restoreMgt(ch_restoreMgt)
+		// case <-ch_stagMgt:
+		// 	go n.stagMgt(ch_stagMgt)
+		// case <-ch_restoreMgt:
+		// 	go n.restoreMgt(ch_restoreMgt)
 		case <-ch_discoverMgt:
 			go n.discoverMgt(ch_discoverMgt)
 		}

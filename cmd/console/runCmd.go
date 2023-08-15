@@ -318,6 +318,10 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	err = cfg.Parse(conFilePath, port)
 	if err == nil {
 		return cfg, nil
+	} else {
+		if configpath1 != "" || configpath2 != "" {
+			return cfg, err
+		}
 	}
 
 	if !strings.Contains(err.Error(), "stat") {
