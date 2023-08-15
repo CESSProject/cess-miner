@@ -26,6 +26,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -103,7 +104,9 @@ func (n *Node) Run() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			// n.syncChainStatus()
+
+			n.syncChainStatus()
+
 			err := n.poisChallenge()
 			if err != nil {
 				n.Chal("err", err.Error())
@@ -183,7 +186,7 @@ func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
 	return result, ok
 }
 
-func (n *Node) GetAllPeerId() []string {
+func (n *Node) GetAllPeerIdString() []string {
 	var result = make([]string, len(n.peers))
 	n.peerLock.RLock()
 	defer n.peerLock.RUnlock()
@@ -191,6 +194,28 @@ func (n *Node) GetAllPeerId() []string {
 	for k, _ := range n.peers {
 		result[i] = k
 		i++
+	}
+	return result
+}
+
+func (n *Node) GetAllPeerID() []peer.ID {
+	var result = make([]peer.ID, len(n.peers))
+	n.peerLock.RLock()
+	defer n.peerLock.RUnlock()
+	var i int
+	for _, v := range n.peers {
+		result[i] = v.ID
+		i++
+	}
+	return result
+}
+
+func (n *Node) GetAllPeerIDMap() map[string]peer.AddrInfo {
+	var result = make(map[string]peer.AddrInfo, len(n.peers))
+	n.peerLock.RLock()
+	defer n.peerLock.RUnlock()
+	for k, v := range n.peers {
+		result[k] = v
 	}
 	return result
 }
@@ -278,6 +303,18 @@ func (n *Node) GetAllTeeWorkPeerId() [][]byte {
 	var i int
 	for _, v := range n.teeWorkers {
 		result[i] = v
+		i++
+	}
+	return result
+}
+
+func (n *Node) GetAllTeeWorkPeerIdString() []string {
+	var result = make([]string, len(n.teeWorkers))
+	n.teeLock.RLock()
+	defer n.teeLock.RUnlock()
+	var i int
+	for _, v := range n.teeWorkers {
+		result[i] = base58.Encode(v)
 		i++
 	}
 	return result

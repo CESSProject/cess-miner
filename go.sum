@@ -46,14 +46,14 @@ git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGy
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/CESSProject/cess-go-sdk v0.3.12-0.20230810070701-6a9f7cc7b467 h1:PpmCoR0jTrZpq/46FxUK/sntzkG7e9jlIArpngw60Jw=
-github.com/CESSProject/cess-go-sdk v0.3.12-0.20230810070701-6a9f7cc7b467/go.mod h1:vIpZZiMk55UV3gTqdIxoMzhJDmvx1NRjyJmJ1IQXo0A=
+github.com/CESSProject/cess-go-sdk v0.3.12-0.20230814064334-183c1e2010f2 h1:EmGVU8kALRNbInsoIqii0jhdskO0Dwd7QhQfANiFywQ=
+github.com/CESSProject/cess-go-sdk v0.3.12-0.20230814064334-183c1e2010f2/go.mod h1:TP7rRr9pnZrTQTcosfGFYyo+pfmUJGBVRlSfzlM/vgs=
 github.com/CESSProject/cess_pois v0.3.15 h1:ZH7UO5T1NtJyBxU0CbUf+pMA+7EbLntP20DwMNIgh40=
 github.com/CESSProject/cess_pois v0.3.15/go.mod h1:od2ez9Gb6c+qyJxEONrL1Zg1QUak92Sd8j82ypvogBw=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
-github.com/CESSProject/p2p-go v0.1.11-0.20230810070545-fee28c13524e h1:ObomkvWnaotjZzF7b+mvE1wt9My7RAiXjvl0M8ogZvY=
-github.com/CESSProject/p2p-go v0.1.11-0.20230810070545-fee28c13524e/go.mod h1:8OWpngIEFRmUTr3HXDx+g/cNyWGPRSyCmeq/pT99zfc=
+github.com/CESSProject/p2p-go v0.1.11-0.20230814055758-b3d8aaa4f924 h1:N58vGKzpmLufR9XwEMPQVTeIfXZ0fdtQ/c+yLLaCqKA=
+github.com/CESSProject/p2p-go v0.1.11-0.20230814055758-b3d8aaa4f924/go.mod h1:+hN9tEOCcS812sMgLLEANMOccUCk6wc0lGc/hytv06Q=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
@@ -138,6 +138,8 @@ github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0/go.mod h1:DZGJHZMqrU4JJqFAWUS2U
 github.com/docker/go-units v0.4.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
+github.com/drgomesp/go-libp2p-grpc v0.1.0 h1:BIZX8YHfBd2ZiOj4FMCFB6w4MWOh4LQ0toJi6gykY0g=
+github.com/drgomesp/go-libp2p-grpc v0.1.0/go.mod h1:W1m432BwirtsJDU35guWQVCHIimbhiy3x3iaBiEUr10=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/elastic/gosigar v0.12.0/go.mod h1:iXRIGg2tLnu7LBdpqzyQfGDEidKCfWcCMS0WKyPWoMs=
 github.com/elastic/gosigar v0.14.2 h1:Dg80n8cr90OZ7x+bAax/QjoW/XqTI11RmA79ZwIm9/4=
@@ -416,6 +418,8 @@ github.com/libp2p/go-libp2p v0.26.3 h1:6g/psubqwdaBqNNoidbRKSTBEYgaOuKBhHl8Q5tO+
 github.com/libp2p/go-libp2p v0.26.3/go.mod h1:x75BN32YbwuY0Awm2Uix4d4KOz+/4piInkp4Wr3yOo8=
 github.com/libp2p/go-libp2p-asn-util v0.2.0 h1:rg3+Os8jbnO5DxkC7K/Utdi+DkY3q/d1/1q+8WeNAsw=
 github.com/libp2p/go-libp2p-asn-util v0.2.0/go.mod h1:WoaWxbHKBymSN41hWSq/lGKJEca7TNm58+gGJi2WsLI=
+github.com/libp2p/go-libp2p-gostream v0.5.0 h1:niNGTUrFoUDP/8jxMgu97zngMO+UGYBpVpbCKwIJBls=
+github.com/libp2p/go-libp2p-gostream v0.5.0/go.mod h1:rXrb0CqfcRRxa7m3RSKORQiKiWgk3IPeXWda66ZXKsA=
 github.com/libp2p/go-libp2p-kad-dht v0.23.0 h1:sxE6LxLopp79eLeV695n7+c77V/Vn4AMF28AdM/XFqM=
 github.com/libp2p/go-libp2p-kad-dht v0.23.0/go.mod h1:oO5N308VT2msnQI6qi5M61wzPmJYg7Tr9e16m5n7uDU=
 github.com/libp2p/go-libp2p-kbucket v0.5.0 h1:g/7tVm8ACHDxH29BGrpsQlnNeu+6OF1A9bno/4/U1oA=
