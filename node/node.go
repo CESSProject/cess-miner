@@ -99,7 +99,8 @@ func (n *Node) Run() {
 	for {
 		select {
 		case <-task_Minute.C:
-			if err := n.connectChain(); err != nil {
+			err := n.connectChain()
+			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
@@ -107,7 +108,7 @@ func (n *Node) Run() {
 
 			n.syncChainStatus()
 
-			err := n.poisChallenge()
+			err = n.poisChallenge()
 			if err != nil {
 				n.Chal("err", err.Error())
 			}
@@ -125,7 +126,8 @@ func (n *Node) Run() {
 			n.replaceIdle()
 
 			// n.replaceFiller()
-			if err := n.reportFiles(); err != nil {
+			err = n.reportFiles()
+			if err != nil {
 				n.Report("err", err.Error())
 			}
 			// if err := n.pChallenge(); err != nil {
