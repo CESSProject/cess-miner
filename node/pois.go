@@ -159,7 +159,7 @@ func (n *Node) pois() error {
 			n.Space("err", fmt.Sprintf("Connect %s err: %v", v, err))
 			continue
 		}
-		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute))
+		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute*2))
 		if err != nil {
 			n.Prover.CommitRollback()
 			n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
@@ -248,7 +248,7 @@ func (n *Node) pois() error {
 	}
 
 	n.Space("info", "Verify idle file commits")
-	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(workTeePeerID, n.GetSignatureAccPulickey(), commitProofGroup_pb, accProof_pb, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
+	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(workTeePeerID, n.GetSignatureAccPulickey(), commitProofGroup_pb, accProof_pb, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*10))
 	if err != nil {
 		n.Prover.AccRollback(false)
 		return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
@@ -395,13 +395,6 @@ func (n *Node) replaceIdle() {
 		n.AccRollback(true)
 		return
 	}
-
-	// verifyCommitOrDeletionProof, err := n.PoisRequestVerifyDeletionProof(os.Args[2], delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
-	// if err != nil {
-	// 	n.AccRollback(true)
-	// 	n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
-	// 	return
-	// }
 
 	var idleSignInfo pattern.SpaceProofInfo
 	minerAcc, _ := types.NewAccountID(n.GetSignatureAccPulickey())

@@ -24,7 +24,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
@@ -56,15 +55,17 @@ type idleProofInfo struct {
 }
 
 type serviceProofInfo struct {
-	Names              []string `json:"names"`
-	Us                 []string `json:"us"`
-	Mus                []string `json:"mus"`
-	ServiceBloomFilter []uint64 `json:"serviceBloomFilter"`
-	TeePeerId          []byte   `json:"teePeerId"`
-	Signature          []byte   `json:"signature"`
-	Sigma              string   `json:"sigma"`
-	Start              uint32   `json:"start"`
-	ServiceResult      bool     `json:"serviceResult"`
+	Names                 []string `json:"names"`
+	Us                    []string `json:"us"`
+	Mus                   []string `json:"mus"`
+	ServiceBloomFilter    []uint64 `json:"serviceBloomFilter"`
+	TeePeerId             []byte   `json:"teePeerId"`
+	Signature             []byte   `json:"signature"`
+	AllocatedTeeAccountId []byte   `json:"allocatedTeeAccountId"`
+	AllocatedTeeAccount   string   `json:"allocatedTeeAccount"`
+	Sigma                 string   `json:"sigma"`
+	Start                 uint32   `json:"start"`
+	ServiceResult         bool     `json:"serviceResult"`
 }
 
 func (n *Node) poisChallenge() error {
@@ -93,7 +94,7 @@ func (n *Node) poisChallenge() error {
 	}
 
 	if !haveChallenge {
-		n.Chal("info", "no challenge")
+		n.Chal("info", "no idle challenge")
 		return nil
 	}
 
@@ -112,16 +113,13 @@ func (n *Node) poisChallenge() error {
 	}
 
 	if !haveChallenge {
-		if minerChalInfo.IdleSubmitted || minerChalInfo.ServiceSubmitted {
-
-		} else {
-			n.Chal("err", "Proof of idle and service files not submitted")
+		if !minerChalInfo.IdleSubmitted {
+			n.Chal("err", "Proof of idle files not submitted")
 			return nil
 		}
 	}
 
-	n.Chal("info", fmt.Sprintf("Have a new Challenge: %v", challenge.NetSnapShot.Start))
-
+	var found bool
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
 	if err == nil {
@@ -143,8 +141,12 @@ func (n *Node) poisChallenge() error {
 					time.Sleep(pattern.BlockInterval)
 					time.Sleep(pattern.BlockInterval)
 
+					found = false
 					teeAccounts := n.GetAllTeeWorkAccount()
 					for _, v := range teeAccounts {
+						if found {
+							break
+						}
 						publickey, _ := sutils.ParsingPublickey(v)
 						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
 						if err != nil {
@@ -155,12 +157,13 @@ func (n *Node) poisChallenge() error {
 							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
 								idleProofRecord.AllocatedTeeAccount = v
 								idleProofRecord.AllocatedTeeAccountId = publickey
+								found = true
 								break
 							}
 						}
 					}
-					if idleProofRecord.AllocatedTeeAccount == "" {
-						n.Chal("err", "Not found allocated tee for idle proof")
+
+					if !found {
 						return errors.New("Not found allocated tee for idle proof")
 					}
 
@@ -174,6 +177,30 @@ func (n *Node) poisChallenge() error {
 						}
 					}
 				} else {
+					found = false
+					teeAccounts := n.GetAllTeeWorkAccount()
+					for _, v := range teeAccounts {
+						if found {
+							break
+						}
+						publickey, _ := sutils.ParsingPublickey(v)
+						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+						if err != nil {
+							continue
+						}
+
+						for i := 0; i < len(idleProofInfos); i++ {
+							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+								idleProofRecord.AllocatedTeeAccount = v
+								idleProofRecord.AllocatedTeeAccountId = publickey
+								found = true
+								break
+							}
+						}
+					}
+					if !found {
+						return errors.New("Not found allocated tee for idle proof")
+					}
 					if idleProofRecord.TotalSignature != nil {
 						var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 						for i := 0; i < len(idleProofRecord.IdleProof); i++ {
@@ -204,7 +231,19 @@ func (n *Node) poisChallenge() error {
 						return nil
 					}
 					if idleProofRecord.BlocksProof != nil {
-						spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), idleProofRecord.BlocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
+						teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
+
+						teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+						if !ok {
+							n.Chal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+							return errors.New(fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+						}
+
+						err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
+						if err != nil {
+							n.Chal("err", fmt.Sprintf("Connect tee peer err: %v", err))
+						}
+						spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), idleProofRecord.BlocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
 						if err != nil {
 							return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
 						}
@@ -300,7 +339,7 @@ func (n *Node) poisChallenge() error {
 					}
 				}
 
-				spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
+				spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*10))
 				if err != nil {
 					return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
 				}
@@ -337,6 +376,7 @@ func (n *Node) poisChallenge() error {
 			os.Remove(filepath.Join(n.Workspace(), "idleproof"))
 		}
 	}
+	n.Chal("info", fmt.Sprintf("Have a new idle challenge: %v", challenge.NetSnapShot.Start))
 	idleProofRecord = idleProofInfo{}
 
 	idleProofRecord.Start = int32(challenge.NetSnapShot.Start)
@@ -502,7 +542,11 @@ func (n *Node) poisChallenge() error {
 
 	teeAccounts := n.GetAllTeeWorkAccount()
 	var teePeerIdPubkey []byte
+	found = false
 	for _, v := range teeAccounts {
+		if found {
+			break
+		}
 		publickey, _ := sutils.ParsingPublickey(v)
 		idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
 		if err != nil {
@@ -513,11 +557,12 @@ func (n *Node) poisChallenge() error {
 			if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
 				idleProofRecord.AllocatedTeeAccount = v
 				idleProofRecord.AllocatedTeeAccountId = publickey
+				found = true
 				break
 			}
 		}
 	}
-	if idleProofRecord.AllocatedTeeAccount == "" {
+	if !found {
 		n.Chal("err", "Not found allocated tee for idle proof")
 		return errors.New("Not found allocated tee for idle proof")
 	}
@@ -574,7 +619,7 @@ func (n *Node) poisChallenge() error {
 		}
 	}
 
-	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(os.Args[2], n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear), acc, challRandom, time.Duration(time.Minute*3))
+	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear), acc, challRandom, time.Duration(time.Minute*3))
 	if err != nil {
 		return errors.Wrapf(err, "[PoisRequestVerifySpaceTotal]")
 	}
@@ -646,6 +691,11 @@ func (n *Node) poisServiceChallenge() error {
 		}
 	}
 
+	if !haveChallenge {
+		n.Chal("info", "no service challenge")
+		return nil
+	}
+
 	latestBlock, err := n.QueryBlockHeight("")
 	if err != nil {
 		return errors.Wrapf(err, "[QueryBlockHeight]")
@@ -661,8 +711,10 @@ func (n *Node) poisServiceChallenge() error {
 	}
 
 	if !haveChallenge {
-		n.Chal("info", "no challenge")
-		return nil
+		if !minerChalInfo.ServiceSubmitted {
+			n.Chal("err", "Proof of service files not submitted")
+			return nil
+		}
 	}
 
 	var qslice = make([]proof.QElement, len(challenge.NetSnapShot.RandomIndexList))
@@ -677,14 +729,8 @@ func (n *Node) poisServiceChallenge() error {
 
 	n.Chal("info", fmt.Sprintf("Have a new service Challenge: %v", challenge.NetSnapShot.Start))
 
+	var found bool
 	var serviceProofRecord serviceProofInfo
-
-	// keypair, _ := signature.KeyringPairFromSecret("tray fine poem nothing glimpse insane carbon empty grief dismiss bird nurse", 0)
-	keypair, err := signature.KeyringPairFromSecret(os.Args[3], 0)
-	if err != nil {
-		n.Chal("err", fmt.Sprintf("err tee mnemonic: %v", os.Args[3]))
-		return nil
-	}
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "serviceproof"))
 	if err == nil {
 		err = json.Unmarshal(buf, &serviceProofRecord)
@@ -702,7 +748,70 @@ func (n *Node) poisServiceChallenge() error {
 					if err != nil {
 						return errors.Wrapf(err, "[SubmitServiceProof]")
 					}
+					time.Sleep(pattern.BlockInterval)
+					time.Sleep(pattern.BlockInterval)
+					found = false
+					teeAccounts := n.GetAllTeeWorkAccount()
+					for _, v := range teeAccounts {
+						if found {
+							break
+						}
+						publickey, _ := sutils.ParsingPublickey(v)
+						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+						if err != nil {
+							continue
+						}
+
+						for i := 0; i < len(idleProofInfos); i++ {
+							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+								serviceProofRecord.AllocatedTeeAccount = v
+								serviceProofRecord.AllocatedTeeAccountId = publickey
+								found = true
+								break
+							}
+						}
+					}
+
+					if !found {
+						return errors.New("Not found allocated tee for service proof")
+					}
+
+					buf, err = json.Marshal(&serviceProofRecord)
+					if err != nil {
+						n.Chal("err", err.Error())
+					} else {
+						err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
+						if err != nil {
+							n.Chal("err", err.Error())
+						}
+					}
 				} else {
+					found = false
+					teeAccounts := n.GetAllTeeWorkAccount()
+					for _, v := range teeAccounts {
+						if found {
+							break
+						}
+						publickey, _ := sutils.ParsingPublickey(v)
+						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+						if err != nil {
+							continue
+						}
+
+						for i := 0; i < len(idleProofInfos); i++ {
+							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+								serviceProofRecord.AllocatedTeeAccount = v
+								serviceProofRecord.AllocatedTeeAccountId = publickey
+								found = true
+								break
+							}
+						}
+					}
+
+					if !found {
+						return errors.New("Not found allocated tee for service proof")
+					}
+
 					if serviceProofRecord.ServiceBloomFilter != nil &&
 						serviceProofRecord.TeePeerId != nil &&
 						serviceProofRecord.Signature != nil {
@@ -722,14 +831,25 @@ func (n *Node) poisServiceChallenge() error {
 							bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 						}
 
-						txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, keypair.PublicKey)
+						txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
 						if err != nil {
 							return errors.Wrapf(err, "[SubmitServiceProofResult]")
 						}
 						n.Chal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+						return nil
 					}
 				}
-				//TODO: wait assigned tee
+				teePeerIdPubkey, _ := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
+
+				teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+				if !ok {
+					n.Chal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+					return errors.New(fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+				}
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
+				if err != nil {
+					n.Chal("err", fmt.Sprintf("Connect tee peer err: %v", err))
+				}
 				peeridSign, err := n.Sign(n.GetPeerPublickey())
 				if err != nil {
 					return errors.Wrapf(err, "[Sign peerid]")
@@ -752,8 +872,8 @@ func (n *Node) poisServiceChallenge() error {
 					RandomList:      randomList,
 				}
 
-				batchVerify, err := n.PoisServiceRequestBatchVerify(
-					os.Args[2],
+				batchVerify, err := n.PoisServiceRequestBatchVerifyP2P(
+					teeAddrInfo.ID,
 					serviceProofRecord.Names,
 					serviceProofRecord.Us,
 					serviceProofRecord.Mus,
@@ -796,7 +916,7 @@ func (n *Node) poisServiceChallenge() error {
 					bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
 				}
 
-				txhash, err := n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, keypair.PublicKey)
+				txhash, err := n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
 				if err != nil {
 					return errors.Wrapf(err, "[SubmitServiceProofResult]")
 				}
@@ -896,6 +1016,47 @@ func (n *Node) poisServiceChallenge() error {
 	}
 	n.Chal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
 
+	time.Sleep(pattern.BlockInterval)
+	time.Sleep(pattern.BlockInterval)
+	found = false
+	teeAccounts := n.GetAllTeeWorkAccount()
+	for _, v := range teeAccounts {
+		if found {
+			break
+		}
+		publickey, _ := sutils.ParsingPublickey(v)
+		idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+		if err != nil {
+			continue
+		}
+
+		for i := 0; i < len(idleProofInfos); i++ {
+			if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+				serviceProofRecord.AllocatedTeeAccount = v
+				serviceProofRecord.AllocatedTeeAccountId = publickey
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		return errors.New("Not found allocated tee for service proof")
+	}
+
+	teePeerIdPubkey, _ := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
+
+	teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+	if !ok {
+		n.Chal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+		return errors.New(fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
+	}
+
+	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
+	if err != nil {
+		n.Chal("err", fmt.Sprintf("Connect tee peer err: %v", err))
+	}
+
 	peeridSign, err := n.Sign(n.GetPeerPublickey())
 	if err != nil {
 		return errors.Wrapf(err, "[Sign peerid]")
@@ -920,8 +1081,8 @@ func (n *Node) poisServiceChallenge() error {
 	}
 	n.Chal("info", fmt.Sprintf("randomIndexList: %v", randomIndexList))
 	n.Chal("info", fmt.Sprintf("randomList: %v", randomList))
-	batchVerify, err := n.PoisServiceRequestBatchVerify(
-		os.Args[2],
+	batchVerify, err := n.PoisServiceRequestBatchVerifyP2P(
+		teeAddrInfo.ID,
 		serviceProofRecord.Names,
 		serviceProofRecord.Us,
 		serviceProofRecord.Mus,
@@ -966,7 +1127,7 @@ func (n *Node) poisServiceChallenge() error {
 		bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
 	}
 
-	txhash, err = n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, keypair.PublicKey)
+	txhash, err = n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
 	if err != nil {
 		return errors.Wrapf(err, "[SubmitServiceProofResult]")
 	}

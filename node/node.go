@@ -57,9 +57,9 @@ func New() *Node {
 
 func (n *Node) Run() {
 	var (
-		ch_spaceMgt    = make(chan bool, 1)
-		ch_stagMgt     = make(chan bool, 1)
-		ch_restoreMgt  = make(chan bool, 1)
+		ch_spaceMgt = make(chan bool, 1)
+		//ch_stagMgt     = make(chan bool, 1)
+		//ch_restoreMgt  = make(chan bool, 1)
 		ch_discoverMgt = make(chan bool, 1)
 	)
 
@@ -99,8 +99,7 @@ func (n *Node) Run() {
 	for {
 		select {
 		case <-task_Minute.C:
-			err := n.connectChain()
-			if err != nil {
+			if err := n.connectChain(); err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
@@ -108,7 +107,7 @@ func (n *Node) Run() {
 
 			n.syncChainStatus()
 
-			err = n.poisChallenge()
+			err := n.poisChallenge()
 			if err != nil {
 				n.Chal("err", err.Error())
 			}
@@ -126,8 +125,7 @@ func (n *Node) Run() {
 			n.replaceIdle()
 
 			// n.replaceFiller()
-			err = n.reportFiles()
-			if err != nil {
+			if err := n.reportFiles(); err != nil {
 				n.Report("err", err.Error())
 			}
 			// if err := n.pChallenge(); err != nil {
@@ -141,10 +139,10 @@ func (n *Node) Run() {
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
 		// 	go n.spaceMgt(ch_spaceMgt)
-		case <-ch_stagMgt:
-			go n.stagMgt(ch_stagMgt)
-		case <-ch_restoreMgt:
-			go n.restoreMgt(ch_restoreMgt)
+		// case <-ch_stagMgt:
+		// 	go n.stagMgt(ch_stagMgt)
+		// case <-ch_restoreMgt:
+		// 	go n.restoreMgt(ch_restoreMgt)
 		case <-ch_discoverMgt:
 			go n.discoverMgt(ch_discoverMgt)
 		}
