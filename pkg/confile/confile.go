@@ -123,6 +123,15 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.Errorf("The '%v' is not a directory", c.Workspace)
 	}
 
+	dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
+	if err != nil {
+		return errors.Wrapf(err, "[GetDirFreeSpace]")
+	}
+
+	if dirFreeSpace/1024/1024/1024 < c.UseSpace {
+		return errors.Errorf("The available space is less than %dG", c.UseSpace)
+	}
+
 	return nil
 }
 

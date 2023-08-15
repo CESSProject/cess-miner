@@ -8,11 +8,9 @@
 package node
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -32,22 +30,22 @@ func (n *Node) discoverMgt(ch chan bool) {
 	if err != nil {
 		n.Discover("err", err.Error())
 	}
-	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
-	if err != nil {
-		n.Discover("err", err.Error())
-	} else {
-		err = json.Unmarshal(data, &n.peers)
-		if err != nil {
-			n.Discover("err", err.Error())
-		} else {
-			err = n.SavePeersToDisk(n.peersPath)
-			if err != nil {
-				n.Discover("err", err.Error())
-			}
-		}
-	}
+	// data, err := utils.QueryPeers(configs.DefaultDeossAddr)
+	// if err != nil {
+	// 	n.Discover("err", err.Error())
+	// } else {
+	// 	err = json.Unmarshal(data, &n.peers)
+	// 	if err != nil {
+	// 		n.Discover("err", err.Error())
+	// 	} else {
+	// 		err = n.SavePeersToDisk(n.peersPath)
+	// 		if err != nil {
+	// 			n.Discover("err", err.Error())
+	// 		}
+	// 	}
+	// }
 
-	tickDiscover := time.NewTicker(time.Minute * 10)
+	tickDiscover := time.NewTicker(time.Minute)
 	defer tickDiscover.Stop()
 
 	var r1 = rate.Every(time.Second * 5)
@@ -62,7 +60,7 @@ func (n *Node) discoverMgt(ch chan bool) {
 		case discoveredPeer, _ := <-n.GetDiscoveredPeers():
 			if limit.Allow() {
 				n.Discover("info", "reset")
-				tickDiscover.Reset(time.Minute * 10)
+				tickDiscover.Reset(time.Minute)
 			}
 			if len(discoveredPeer.Responses) == 0 {
 				break
@@ -92,7 +90,7 @@ func (n *Node) discoverMgt(ch chan bool) {
 				if err != nil {
 					n.Discover("err", err.Error())
 				}
-				allpeer := n.GetAllPeerId()
+				allpeer := n.GetAllPeerIdString()
 				for _, v := range allpeer {
 					n.Discover("info", fmt.Sprintf("found %s", v))
 				}

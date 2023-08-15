@@ -10,7 +10,6 @@ package node
 import (
 	"fmt"
 	"math/big"
-	"os"
 	"runtime"
 	"time"
 
@@ -19,9 +18,10 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/out"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 )
 
@@ -46,9 +46,8 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	for {
 		err := n.pois()
 		if err != nil {
-			out.Err(err.Error())
+			n.Space("err", err.Error())
 		}
-		time.Sleep(time.Second * 20)
 	}
 }
 
@@ -88,7 +87,7 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 		int64(n.ExpendersInfo.N),
 		int64(n.ExpendersInfo.D),
 		n.GetSignatureAccPulickey(),
-		1024*1024*4, //freeSpace,
+		freeSpace,
 		count,
 	)
 	if err != nil {
@@ -113,52 +112,78 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 }
 
 func (n *Node) pois() error {
-	fmt.Println("start calc idle file...")
-	// Generate Idle Files
-	err := n.Prover.GenerateIdleFileSet()
+	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
 	if err != nil {
-		return errors.Wrapf(err, "[GenerateIdleFileSet]")
+		time.Sleep(time.Minute)
+		return errors.Errorf("[GetDirFreeSpace(%s)] %v", n.Workspace(), err)
 	}
-	fmt.Println("calc idle file suc")
 
-	fmt.Println("start get idle file commit...")
-	//n.Prover.CommitDataIsReady()
+	if dirfreeSpace < core.SIZE_1GiB {
+		time.Sleep(time.Minute)
+		return errors.New("The disk space is less than 1G")
+	}
+
+	if !n.Prover.CommitDataIsReady() {
+		n.Space("info", "Start generating idle files")
+		// Generate Idle Files
+		err = n.Prover.GenerateIdleFileSet()
+		if err != nil {
+			return errors.Wrapf(err, "[GenerateIdleFileSet]")
+		}
+	}
+
+	n.Space("info", "Get idle file commits")
 	commits, err := n.Prover.GetIdleFileSetCommits()
 	if err != nil {
 		n.Prover.CommitRollback()
 		return errors.Wrapf(err, "[GetIdleFileSetCommits]")
 	}
-	fmt.Println("get idle file commit suc")
 
-	//fmt.Println("commit.FileIndexs:", commits.FileIndexs)
-	//fmt.Println("commit.Roots:", commits.Roots)
-	// TODO: send commits to tee and receive chall
 	var commit_pb = &pb.Commits{
 		FileIndexs: commits.FileIndexs,
 		Roots:      commits.Roots,
 	}
 
-	fmt.Println("start send commit to tee...")
-	chall_pb, err := n.PoisMinerCommitGenChall(os.Args[2], n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Second*10))
-	if err != nil {
-		n.Prover.CommitRollback()
-		out.Err(fmt.Sprintf("[PoisMinerCommitGenChall] %v", err))
-		return errors.Wrapf(err, "[PoisMinerCommitGenChall]")
+	var chall_pb *pb.Challenge
+	var workTeePeerID peer.ID
+
+	teePeerIds := n.GetAllTeeWorkPeerIdString()
+	for _, v := range teePeerIds {
+		addrInfo, ok := n.GetPeer(v)
+		if !ok {
+			n.Space("err", fmt.Sprintf("Not found tee: %s", v))
+			continue
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addrInfo)
+		if err != nil {
+			n.Space("err", fmt.Sprintf("Connect %s err: %v", v, err))
+			continue
+		}
+		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute))
+		if err != nil {
+			n.Prover.CommitRollback()
+			n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
+			continue
+		}
+		workTeePeerID = addrInfo.ID
 	}
-	fmt.Println("send commit to tee suc...")
+
+	if workTeePeerID.Pretty() == "" {
+		return errors.New("no worked tee")
+	}
 
 	var chals = make([][]int64, len(chall_pb.Rows))
 	for i := 0; i < len(chall_pb.Rows); i++ {
 		chals[i] = chall_pb.Rows[i].Values
 	}
 
-	verifier := pois.NewVerifier(8, 16*1024, 64)
-	verifier.RegisterProverNode(n.Prover.ID, *n.RsaKey, n.AccManager.GetSnapshot().Accs.Value, n.front, n.rear)
-	if ok := verifier.ReceiveCommits(n.Prover.ID, commits); !ok {
-		fmt.Println("self reveive commits error")
-	}
-	//fmt.Println("chals:", chals)
-	fmt.Println("start calc tee's challenge...")
+	// verifier := pois.NewVerifier(8, 16*1024, 64)
+	// verifier.RegisterProverNode(n.Prover.ID, *n.RsaKey, n.AccManager.GetSnapshot().Accs.Value, n.front, n.rear)
+	// if ok := verifier.ReceiveCommits(n.Prover.ID, commits); !ok {
+	// 	fmt.Println("self reveive commits error")
+	// }
+
+	n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeePeerID.Pretty()))
 	commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 	if err != nil {
 		n.Prover.AccRollback(false)
@@ -170,16 +195,14 @@ func (n *Node) pois() error {
 		return errors.New("other programs are updating the data of the prover object")
 	}
 
-	fmt.Println("start self verify......")
-	if err := verifier.VerifyCommitProofs(n.Prover.ID, chals, commitProofs); err != nil {
-		fmt.Println("verify commit proofs error", err)
-	}
+	// fmt.Println("start self verify......")
+	// if err := verifier.VerifyCommitProofs(n.Prover.ID, chals, commitProofs); err != nil {
+	// 	fmt.Println("verify commit proofs error", err)
+	// }
 
-	if err := verifier.VerifyAcc(n.Prover.ID, chals, accProof); err != nil {
-		fmt.Println("verify acc proofs error", err)
-	}
-
-	fmt.Println("calc tee's challenge suc")
+	// if err := verifier.VerifyAcc(n.Prover.ID, chals, accProof); err != nil {
+	// 	fmt.Println("verify acc proofs error", err)
+	// }
 
 	var commitProofGroupInner = make([]*pb.CommitProofGroupInner, len(commitProofs))
 	for i := 0; i < len(commitProofs); i++ {
@@ -206,9 +229,6 @@ func (n *Node) pois() error {
 		CommitProofGroupInner: commitProofGroupInner,
 	}
 
-	//fmt.Println("accProof.AccPath:", accProof.AccPath)
-	//fmt.Println("accProof.WitChains:", *accProof.WitChains)
-
 	var accProof_pb = &pb.AccProof{
 		Indexs:  accProof.Indexs,
 		Labels:  accProof.Labels,
@@ -226,21 +246,19 @@ func (n *Node) pois() error {
 			},
 		},
 	}
-	// TODO: send commitProofs and accProof to verifier and then wait for the response
-	fmt.Println("start verify commit and acc proof...")
-	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProof(os.Args[2], n.GetSignatureAccPulickey(), commitProofGroup_pb, accProof_pb, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
+
+	n.Space("info", "Verify idle file commits")
+	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(workTeePeerID, n.GetSignatureAccPulickey(), commitProofGroup_pb, accProof_pb, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
 	if err != nil {
 		n.Prover.AccRollback(false)
-		return errors.Wrapf(err, "[PoisVerifyCommitProof]")
+		return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
 	}
-	fmt.Println("verify commit and acc proof suc")
 
 	// If the challenge is failure, need to roll back the prover to the previous status,
 	// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
 	if len(verifyCommitOrDeletionProof.SignatureAbove) != len(pattern.TeeSignature{}) {
 		n.Prover.AccRollback(false)
-		out.Err(fmt.Sprintf("[verifyCommitOrDeletionProof.SignatureAbove length err] %v", len(verifyCommitOrDeletionProof.SignatureAbove)))
 		return errors.Wrapf(err, "[verifyCommitOrDeletionProof.SignatureAbove length err]")
 	}
 
@@ -252,7 +270,6 @@ func (n *Node) pois() error {
 	}
 	if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
 		n.Prover.AccRollback(false)
-		out.Err(fmt.Sprintf("[verifyCommitOrDeletionProof.PoisStatus.Acc length err] %v", len(verifyCommitOrDeletionProof.PoisStatus.Acc)))
 		return errors.Wrapf(err, "[verifyCommitOrDeletionProof.PoisStatus.Acc length err]")
 	}
 	for i := 0; i < len(verifyCommitOrDeletionProof.PoisStatus.Acc); i++ {
@@ -271,45 +288,22 @@ func (n *Node) pois() error {
 		idleSignInfo.PoisKey.N[i] = types.U8(n_byte[i])
 	}
 
-	fmt.Println("start CertIdleSpace...")
+	n.Space("info", "Verify idle file commits")
 	txhash, err := n.CertIdleSpace(idleSignInfo, sign)
 	if err != nil {
 		n.Prover.AccRollback(false)
 		return errors.Wrapf(err, "[CertIdleSpace]")
 	}
-	fmt.Println("CertIdleSpace suc...")
-	fmt.Println("CertIdleSpace txhash:", txhash)
+
+	n.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
 
 	// If the challenge is successful, update the prover status, fileNum is challenged files number,
 	// the second parameter represents whether it is a delete operation, and the commit proofs should belong to the joining files, so it is false
-	fmt.Println("start UpdateStatus...")
 	err = n.Prover.UpdateStatus(256, false)
 	if err != nil {
 		return errors.Wrapf(err, "[UpdateStatus]")
 	}
-	fmt.Println("UpdateStatus suc")
-
-	// challenge, err := n.QueryChallenge_V2()
-	// if err != nil {
-	// 	if err.Error() != pattern.ERR_Empty {
-	// 		return errors.Wrapf(err, "[QueryChallenge]")
-	// 	}
-	// 	n.Prover.SetChallengeState(false)
-	// 	return nil
-	// }
-
-	// for _, v := range challenge.MinerSnapshotList {
-	// 	if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
-	// 		if int64(v.SpaceProofInfo.Front) != n.Prover.GetFront() || int64(v.SpaceProofInfo.Rear) != n.Prover.GetRear() {
-	// 			n.Prover.SetChallengeState(true)
-	// 		} else {
-	// 			n.Prover.SetChallengeState(false)
-	// 		}
-	// 		return nil
-	// 	}
-	// }
-	// n.Prover.SetChallengeState(false)
-
+	n.Space("info", "update pois status")
 	return nil
 }
 
@@ -332,6 +326,11 @@ func (n *Node) replaceIdle() {
 	}
 
 	num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
+	if num == 0 {
+		n.Replace("info", "no files to replace")
+		return
+	}
+
 	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
 
 	chProof, ch := n.Prover.ProveDeletion(int64(num))
@@ -361,7 +360,7 @@ func (n *Node) replaceIdle() {
 		n.Replace("err", "delProof have nil field")
 		return
 	}
-	// TODO: send delProof to tee
+
 	var witChain = &pb.AccWitnessNode{
 		Elem: delProof.WitChain.Elem,
 		Wit:  delProof.WitChain.Wit,
@@ -374,12 +373,35 @@ func (n *Node) replaceIdle() {
 			},
 		},
 	}
-	verifyCommitOrDeletionProof, err := n.PoisRequestVerifyDeletionProof(os.Args[2], delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
-	if err != nil {
+
+	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
+	var workTeePeerID peer.ID
+	peerIDs := n.GetAllPeerIDMap()
+	for _, v := range peerIDs {
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), v)
+		if err != nil {
+			n.Replace("err", fmt.Sprintf("Connect %s err: %v", v.ID.Pretty(), err))
+			continue
+		}
+		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(v.ID, delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
+		if err != nil {
+			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
+			continue
+		}
+		workTeePeerID = v.ID
+	}
+
+	if workTeePeerID.String() == "" {
 		n.AccRollback(true)
-		n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
 		return
 	}
+
+	// verifyCommitOrDeletionProof, err := n.PoisRequestVerifyDeletionProof(os.Args[2], delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
+	// if err != nil {
+	// 	n.AccRollback(true)
+	// 	n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
+	// 	return
+	// }
 
 	var idleSignInfo pattern.SpaceProofInfo
 	minerAcc, _ := types.NewAccountID(n.GetSignatureAccPulickey())
@@ -417,7 +439,7 @@ func (n *Node) replaceIdle() {
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			n.Replace("err", err.Error())
-			return //errors.Wrapf(err, "[QueryChallenge]")
+			return
 		}
 	}
 
@@ -442,6 +464,7 @@ func (n *Node) replaceIdle() {
 
 	err = n.Prover.DeleteFiles()
 	if err != nil {
-		return
+		n.Replace("err", err.Error())
 	}
+	n.Replace("info", fmt.Sprintf("Successfully replaced %d idle files", num))
 }

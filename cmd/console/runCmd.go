@@ -27,9 +27,13 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
@@ -93,6 +97,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
+	for _, v := range n.Addrs() {
+		out.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
+	}
+
 	if strings.Contains(bootEnv, "test") {
 		if !strings.Contains(n.GetNetworkEnv(), "test") {
 			out.Warn("chain and p2p are not in the same network")
@@ -140,6 +148,20 @@ func runCmd(cmd *cobra.Command, args []string) {
 				token += 1
 			}
 			token *= 2000
+			accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					out.Err("Weak network signal or rpc service failure")
+					os.Exit(1)
+				}
+				out.Err("Account does not exist")
+				os.Exit(1)
+			}
+			token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+			if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
+				out.Err(fmt.Sprintf("Account balance less than %d %s", token, n.GetTokenSymbol()))
+				os.Exit(1)
+			}
 		} else {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
 			os.Exit(1)
@@ -147,20 +169,51 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if firstReg {
-		minerInitParam, err := n.PoisGetMinerInitParam(os.Args[2], n.GetSignatureAccPulickey(), time.Duration(time.Second*20))
-		if err != nil {
-			out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
-			os.Exit(1)
+		//minerInitParam, err := n.PoisGetMinerInitParam(os.Args[2], n.GetSignatureAccPulickey(), time.Duration(time.Second*20))
+		var bootPeerID []peer.ID
+		var minerInitParam *pb.ResponseMinerInitParam
+		for _, b := range boots {
+			multiaddr, err := sutils.ParseMultiaddrs(b)
+			if err != nil {
+				n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+				continue
+			}
+			for _, v := range multiaddr {
+				maAddr, err := ma.NewMultiaddr(v)
+				if err != nil {
+					continue
+				}
+				addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+				if err != nil {
+					continue
+				}
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+				if err != nil {
+					continue
+				}
+				bootPeerID = append(bootPeerID, addrInfo.ID)
+				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+			}
+		}
+		fmt.Println("GrpcProtocolVersion:", n.GetGrpcProtocolVersion())
+		fmt.Println("bootPeerID:", bootPeerID)
+		for i := 0; i < len(bootPeerID); i++ {
+			minerInitParam, err = n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*15))
+			if err != nil {
+				out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
+				continue
+			}
+			break
 		}
 
 		var key pattern.PoISKeyInfo
 		if len(minerInitParam.KeyG) != len(pattern.PoISKey_G{}) {
-			out.Err("invalid key")
+			out.Err("invalid tee key_g")
 			os.Exit(1)
 		}
 
 		if len(minerInitParam.KeyN) != len(pattern.PoISKey_N{}) {
-			out.Err("invalid key")
+			out.Err("invalid tee key_n")
 			os.Exit(1)
 		}
 		for i := 0; i < len(minerInitParam.KeyG); i++ {
@@ -186,7 +239,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		n.SetEarningsAcc(earnings)
 		n.RebuildDirs()
-		err = n.InitPois(0, 0, 10240, 32, *new(big.Int).SetBytes(minerInitParam.KeyN), *new(big.Int).SetBytes(minerInitParam.KeyG))
+		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(minerInitParam.KeyN), *new(big.Int).SetBytes(minerInitParam.KeyG))
 		if err != nil {
 			out.Err(fmt.Sprintf("[InitPois] %v", err))
 			os.Exit(1)
@@ -199,7 +252,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		n.SetEarningsAcc(earnings)
-		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), 10240, 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
+		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
 		if err != nil {
 			out.Err(fmt.Sprintf("[InitPois-2] %v", err))
 			os.Exit(1)
@@ -227,9 +280,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	for _, v := range n.Addrs() {
-		out.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
-	}
+	// for _, v := range n.Addrs() {
+	// 	out.Tip(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
+	// }
 
 	out.Tip(n.GetProtocolPrefix())
 	out.Tip(n.Workspace())
