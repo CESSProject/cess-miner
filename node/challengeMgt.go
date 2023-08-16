@@ -118,7 +118,7 @@ func (n *Node) poisChallenge() error {
 			return nil
 		}
 	}
-
+	n.Chal("info", fmt.Sprintf("chain challenge: %v", challenge.NetSnapShot.Start))
 	var found bool
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))

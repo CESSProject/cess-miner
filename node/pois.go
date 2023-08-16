@@ -149,6 +149,7 @@ func (n *Node) pois() error {
 
 	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	for _, v := range teePeerIds {
+		n.Space("info", fmt.Sprintf("Will use tee: %v", v))
 		addrInfo, ok := n.GetPeer(v)
 		if !ok {
 			n.Space("err", fmt.Sprintf("Not found tee: %s", v))
