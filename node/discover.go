@@ -17,7 +17,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func (n *Node) discoverMgt(ch chan bool) {
+func (n *Node) discoverMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {

@@ -68,8 +68,9 @@ type serviceProofInfo struct {
 	ServiceResult         bool     `json:"serviceResult"`
 }
 
-func (n *Node) poisChallenge() error {
+func (n *Node) poisChallenge(ch chan<- bool) error {
 	defer func() {
+		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
@@ -509,24 +510,6 @@ func (n *Node) poisChallenge() error {
 		idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 	}
 
-	//
-	txhash, err := n.SubmitIdleProof(idleProve)
-	if err != nil {
-		n.Chal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-		buf, err := json.Marshal(&idleProofRecord)
-		if err != nil {
-			n.Chal("err", err.Error())
-		} else {
-			err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-			if err != nil {
-				n.Chal("err", err.Error())
-			}
-		}
-		return errors.Wrapf(err, "[SubmitIdleProof]")
-	}
-
-	n.Chal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
-
 	buf, err = json.Marshal(&idleProofRecord)
 	if err != nil {
 		n.Chal("err", err.Error())
@@ -536,6 +519,13 @@ func (n *Node) poisChallenge() error {
 			n.Chal("err", err.Error())
 		}
 	}
+
+	//
+	txhash, err := n.SubmitIdleProof(idleProve)
+	if err != nil {
+		return errors.Wrapf(err, "[SubmitIdleProof]")
+	}
+	n.Chal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
 
 	time.Sleep(pattern.BlockInterval)
 	time.Sleep(pattern.BlockInterval)
@@ -579,6 +569,8 @@ func (n *Node) poisChallenge() error {
 	if err != nil {
 		n.Chal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
+
+	n.Chal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlockP2P to tee: %s", teeAddrInfo.ID.Pretty()))
 
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlockP2P(
@@ -666,8 +658,9 @@ func (n *Node) poisChallenge() error {
 	return nil
 }
 
-func (n *Node) poisServiceChallenge() error {
+func (n *Node) poisServiceChallenge(ch chan<- bool) error {
 	defer func() {
+		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
@@ -1008,8 +1001,7 @@ func (n *Node) poisServiceChallenge() error {
 	for i := 0; i < len(sigma); i++ {
 		serviceProof[i] = types.U8(sigma[i])
 	}
-	n.Chal("info", fmt.Sprintf("sigma: %v", sigma))
-	n.Chal("info", fmt.Sprintf("serviceProof: %v", serviceProof))
+
 	txhash, err := n.SubmitServiceProof(serviceProof)
 	if err != nil {
 		return errors.Wrapf(err, "[SubmitServiceProof]")
@@ -1079,22 +1071,33 @@ func (n *Node) poisServiceChallenge() error {
 		RandomIndexList: randomIndexList,
 		RandomList:      randomList,
 	}
-	n.Chal("info", fmt.Sprintf("randomIndexList: %v", randomIndexList))
-	n.Chal("info", fmt.Sprintf("randomList: %v", randomList))
-	batchVerify, err := n.PoisServiceRequestBatchVerifyP2P(
-		teeAddrInfo.ID,
-		serviceProofRecord.Names,
-		serviceProofRecord.Us,
-		serviceProofRecord.Mus,
-		sigma,
-		n.GetPeerPublickey(),
-		n.GetSignatureAccPulickey(),
-		peeridSign,
-		qslice_pb,
-		time.Duration(time.Minute*10),
-	)
-	if err != nil {
-		return errors.Wrapf(err, "[PoisServiceRequestBatchVerify]")
+	var batchVerify *pb.ResponseBatchVerify
+	var count = 2000
+	for {
+		batchVerify, err = n.PoisServiceRequestBatchVerifyP2P(
+			teeAddrInfo.ID,
+			serviceProofRecord.Names,
+			serviceProofRecord.Us,
+			serviceProofRecord.Mus,
+			sigma,
+			n.GetPeerPublickey(),
+			n.GetSignatureAccPulickey(),
+			peeridSign,
+			qslice_pb,
+			time.Duration(time.Minute*10),
+		)
+		if err != nil {
+			if strings.Contains(err.Error(), "another task failed inside") {
+				count--
+				if count <= 0 {
+					return errors.Wrapf(err, "[PoisServiceRequestBatchVerifyP2P]")
+				}
+				time.Sleep(time.Second)
+				continue
+			}
+			return errors.Wrapf(err, "[PoisServiceRequestBatchVerifyP2P]")
+		}
+		break
 	}
 	n.Chal("info", fmt.Sprintf("BatchVerifyResult:%v", batchVerify.BatchVerifyResult))
 

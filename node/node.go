@@ -57,11 +57,17 @@ func New() *Node {
 
 func (n *Node) Run() {
 	var (
-		ch_spaceMgt = make(chan bool, 1)
-		//ch_stagMgt     = make(chan bool, 1)
+		ch_spaceMgt         = make(chan bool, 1)
+		ch_idlechallenge    = make(chan bool, 1)
+		ch_servicechallenge = make(chan bool, 1)
 		//ch_restoreMgt  = make(chan bool, 1)
 		ch_discoverMgt = make(chan bool, 1)
 	)
+
+	ch_idlechallenge <- true
+	ch_servicechallenge <- true
+	defer close(ch_idlechallenge)
+	defer close(ch_servicechallenge)
 
 	// peer persistent location
 	n.peersPath = filepath.Join(n.Workspace(), "peers")
@@ -81,56 +87,59 @@ func (n *Node) Run() {
 		break
 	}
 
-	task_Minute := time.NewTicker(time.Second * 30)
+	task_12S := time.NewTicker(time.Second * 12)
+	defer task_12S.Stop()
+
+	task_Minute := time.NewTicker(time.Minute)
 	defer task_Minute.Stop()
 
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
-	// go n.spaceMgt(ch_spaceMgt)
-	// go n.stagMgt(ch_stagMgt)
 	// go n.restoreMgt(ch_restoreMgt)
 	go n.discoverMgt(ch_discoverMgt)
 
-	go n.poisMgt(ch_spaceMgt)
+	// go n.poisMgt(ch_spaceMgt)
 
 	out.Ok("start successfully")
 
 	for {
 		select {
-		case <-task_Minute.C:
-			if err := n.connectChain(); err != nil {
+		case <-task_12S.C:
+			err := n.connectChain()
+			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
 
+			if len(ch_idlechallenge) > 0 {
+				_ = <-ch_idlechallenge
+				err := n.poisChallenge(ch_idlechallenge)
+				if err != nil {
+					n.Chal("err", err.Error())
+				}
+			}
+
+			if len(ch_servicechallenge) > 0 {
+				_ = <-ch_servicechallenge
+				err = n.poisServiceChallenge(ch_servicechallenge)
+				if err != nil {
+					n.Chal("err", err.Error())
+				}
+			}
+
+		case <-task_Minute.C:
 			n.syncChainStatus()
-
-			err := n.poisChallenge()
+			err := n.reportFiles()
 			if err != nil {
-				n.Chal("err", err.Error())
+				n.Report("err", err.Error())
 			}
-
-			err = n.poisServiceChallenge()
-			if err != nil {
-				n.Chal("err", err.Error())
-			}
-
 			err = n.serviceTag()
 			if err != nil {
 				n.Stag("err", err.Error())
 			}
-
 			n.replaceIdle()
-
-			// n.replaceFiller()
-			if err := n.reportFiles(); err != nil {
-				n.Report("err", err.Error())
-			}
-			// if err := n.pChallenge(); err != nil {
-			// 	n.Chal("err", err.Error())
-			// }
 		case <-task_Hour.C:
 			n.connectBoot()
 			if err := n.resizeSpace(); err != nil {
@@ -138,9 +147,6 @@ func (n *Node) Run() {
 			}
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
-		// 	go n.spaceMgt(ch_spaceMgt)
-		// case <-ch_stagMgt:
-		// 	go n.stagMgt(ch_stagMgt)
 		// case <-ch_restoreMgt:
 		// 	go n.restoreMgt(ch_restoreMgt)
 		case <-ch_discoverMgt:
