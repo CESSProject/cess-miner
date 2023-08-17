@@ -17,7 +17,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func (n *Node) discoverMgt(ch chan bool) {
+func (n *Node) discoverMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -68,11 +68,15 @@ func (n *Node) discoverMgt(ch chan bool) {
 			for _, v := range discoveredPeer.Responses {
 				var addrInfo peer.AddrInfo
 				var addrs []multiaddr.Multiaddr
-				for _, addr := range v.Addrs {
-					if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
-						if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
-							if !ok {
-								addrs = append(addrs, addr)
+				if v != nil {
+					for _, addr := range v.Addrs {
+						if !utils.InterfaceIsNIL(addr) {
+							if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
+								if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
+									if !ok {
+										addrs = append(addrs, addr)
+									}
+								}
 							}
 						}
 					}

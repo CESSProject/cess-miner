@@ -48,6 +48,7 @@ func (n *Node) poisMgt(ch chan<- bool) {
 		if err != nil {
 			n.Space("err", err.Error())
 		}
+		time.Sleep(pattern.BlockInterval)
 	}
 }
 
@@ -149,6 +150,7 @@ func (n *Node) pois() error {
 
 	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	for _, v := range teePeerIds {
+		n.Space("info", fmt.Sprintf("Will use tee: %v", v))
 		addrInfo, ok := n.GetPeer(v)
 		if !ok {
 			n.Space("err", fmt.Sprintf("Not found tee: %s", v))
@@ -166,6 +168,7 @@ func (n *Node) pois() error {
 			continue
 		}
 		workTeePeerID = addrInfo.ID
+		break
 	}
 
 	if workTeePeerID.Pretty() == "" {
@@ -177,12 +180,6 @@ func (n *Node) pois() error {
 		chals[i] = chall_pb.Rows[i].Values
 	}
 
-	// verifier := pois.NewVerifier(8, 16*1024, 64)
-	// verifier.RegisterProverNode(n.Prover.ID, *n.RsaKey, n.AccManager.GetSnapshot().Accs.Value, n.front, n.rear)
-	// if ok := verifier.ReceiveCommits(n.Prover.ID, commits); !ok {
-	// 	fmt.Println("self reveive commits error")
-	// }
-
 	n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeePeerID.Pretty()))
 	commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 	if err != nil {
@@ -191,18 +188,8 @@ func (n *Node) pois() error {
 	}
 	if err == nil && commitProofs == nil && accProof == nil {
 		n.Prover.AccRollback(false)
-		// If the results are all nil, it means that other programs are updating the data of the prover object.
 		return errors.New("other programs are updating the data of the prover object")
 	}
-
-	// fmt.Println("start self verify......")
-	// if err := verifier.VerifyCommitProofs(n.Prover.ID, chals, commitProofs); err != nil {
-	// 	fmt.Println("verify commit proofs error", err)
-	// }
-
-	// if err := verifier.VerifyAcc(n.Prover.ID, chals, accProof); err != nil {
-	// 	fmt.Println("verify acc proofs error", err)
-	// }
 
 	var commitProofGroupInner = make([]*pb.CommitProofGroupInner, len(commitProofs))
 	for i := 0; i < len(commitProofs); i++ {
@@ -262,7 +249,6 @@ func (n *Node) pois() error {
 		return errors.Wrapf(err, "[verifyCommitOrDeletionProof.SignatureAbove length err]")
 	}
 
-	//
 	var idleSignInfo pattern.SpaceProofInfo
 	var sign pattern.TeeSignature
 	for i := 0; i < len(verifyCommitOrDeletionProof.SignatureAbove); i++ {
@@ -288,7 +274,7 @@ func (n *Node) pois() error {
 		idleSignInfo.PoisKey.N[i] = types.U8(n_byte[i])
 	}
 
-	n.Space("info", "Verify idle file commits")
+	n.Space("info", "Submit idle space")
 	txhash, err := n.CertIdleSpace(idleSignInfo, sign)
 	if err != nil {
 		n.Prover.AccRollback(false)

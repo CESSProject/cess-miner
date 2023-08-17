@@ -268,3 +268,15 @@ func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr
 	}
 	return newArr
 }
+
+// InterfaceIsNIL returns the comparison between i and nil
+func InterfaceIsNIL(i interface{}) bool {
+	ret := i == nil
+	if !ret {
+		defer func() {
+			recover()
+		}()
+		ret = reflect.ValueOf(i).IsNil()
+	}
+	return ret
+}
