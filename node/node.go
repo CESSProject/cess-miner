@@ -100,7 +100,7 @@ func (n *Node) Run() {
 	// go n.restoreMgt(ch_restoreMgt)
 	go n.discoverMgt(ch_discoverMgt)
 
-	// go n.poisMgt(ch_spaceMgt)
+	go n.poisMgt(ch_spaceMgt)
 
 	out.Ok("start successfully")
 

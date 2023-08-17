@@ -30,7 +30,7 @@ func (n *Node) serviceTag() error {
 	if err != nil {
 		return errors.Wrapf(err, "[Dirs]")
 	}
-
+	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	for _, fileDir := range roothashs {
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
@@ -56,30 +56,44 @@ func (n *Node) serviceTag() error {
 				n.Stag("err", fmt.Sprintf("Fragment Size: %d < 8388608", len(buf)))
 				continue
 			}
-
-			genTag, err := n.PoisServiceRequestGenTag(
-				os.Args[2],
-				buf[:pattern.FragmentSize],
-				pattern.BlockNumber,
-				filepath.Base(f),
-				"",
-				time.Duration(time.Minute*10),
-			)
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] err: %s", err))
-				continue
+			utils.RandSlice(teePeerIds)
+			for i := 0; i < len(teePeerIds); i++ {
+				n.Stag("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
+				addrInfo, ok := n.GetPeer(teePeerIds[i])
+				if !ok {
+					n.Stag("err", fmt.Sprintf("Not found tee: %s", teePeerIds[i]))
+					continue
+				}
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addrInfo)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
+					continue
+				}
+				genTag, err := n.PoisServiceRequestGenTagP2P(
+					addrInfo.ID,
+					buf[:pattern.FragmentSize],
+					pattern.BlockNumber,
+					filepath.Base(f),
+					"",
+					time.Duration(time.Minute*10),
+				)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTagP2P] err: %s", err))
+					continue
+				}
+				buf, err = json.Marshal(genTag.Tag)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+					continue
+				}
+				err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
+					continue
+				}
+				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")))
+				break
 			}
-			buf, err = json.Marshal(genTag.Tag)
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
-				continue
-			}
-			err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
-				continue
-			}
-			n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")))
 		}
 	}
 	return nil
