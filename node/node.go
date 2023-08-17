@@ -10,6 +10,7 @@ package node
 import (
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -113,19 +114,25 @@ func (n *Node) Run() {
 				break
 			}
 
-			if len(ch_idlechallenge) > 0 {
-				_ = <-ch_idlechallenge
-				err := n.poisChallenge(ch_idlechallenge)
-				if err != nil {
-					n.Chal("err", err.Error())
+			challenge, err := n.QueryChallenge_V2()
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					n.Chal("err", fmt.Sprintf("[QueryChallenge] %v", err))
 				}
-			}
+			} else {
+				for _, v := range challenge.MinerSnapshotList {
+					if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+						if len(ch_idlechallenge) > 0 {
+							_ = <-ch_idlechallenge
+							go n.poisChallenge(ch_idlechallenge, challenge, v)
+						}
 
-			if len(ch_servicechallenge) > 0 {
-				_ = <-ch_servicechallenge
-				err = n.poisServiceChallenge(ch_servicechallenge)
-				if err != nil {
-					n.Chal("err", err.Error())
+						if len(ch_servicechallenge) > 0 {
+							_ = <-ch_servicechallenge
+							go n.poisServiceChallenge(ch_servicechallenge, challenge, v)
+						}
+						break
+					}
 				}
 			}
 
