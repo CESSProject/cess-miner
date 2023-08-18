@@ -15,7 +15,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/pkg/errors"
 )
 
 // fileMgr
@@ -44,7 +43,14 @@ import (
 // 	}
 // }
 
-func (n *Node) reportFiles() error {
+func (n *Node) reportFiles(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	var (
 		reReport     bool
 		failfile     bool
@@ -55,7 +61,8 @@ func (n *Node) reportFiles() error {
 	)
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("[Dirs %v]", n.GetDirs().TmpDir))
+		n.Report("err", fmt.Sprintf("[Dirs] %v", err))
+		return
 	}
 
 	for _, v := range roothashs {
@@ -64,7 +71,8 @@ func (n *Node) reportFiles() error {
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				return errors.Wrapf(err, "[QueryFileMetadata]")
+				n.Report("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
+				return
 			}
 		} else {
 			if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
@@ -81,7 +89,8 @@ func (n *Node) reportFiles() error {
 		storageorder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				return errors.Wrapf(err, "[QueryStorageOrder]")
+				n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
+				return
 			}
 			os.RemoveAll(v)
 			continue
@@ -135,8 +144,15 @@ func (n *Node) reportFiles() error {
 			continue
 		}
 		n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
+		if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
+			err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+			if err != nil {
+				n.Report("err", fmt.Sprintf("[RenameDir %s] %v", roothash, err))
+				continue
+			}
+			n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
+		}
 	}
-	return err
 }
 
 func RenameDir(oldDir, newDir string) error {
@@ -163,6 +179,5 @@ func RenameDir(oldDir, newDir string) error {
 			return err
 		}
 	}
-
 	return os.RemoveAll(oldDir)
 }

@@ -22,13 +22,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (n *Node) serviceTag() error {
+func (n *Node) serviceTag(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	var fragmentHash string
 	var err error
 
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
-		return errors.Wrapf(err, "[Dirs]")
+		n.Stag("err", fmt.Sprintf("[Dirs] %v", err))
+		return
 	}
 	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	for _, fileDir := range roothashs {
@@ -96,7 +104,6 @@ func (n *Node) serviceTag() error {
 			}
 		}
 	}
-	return nil
 }
 
 func (n *Node) stagMgt(ch chan bool) {

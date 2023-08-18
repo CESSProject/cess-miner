@@ -27,7 +27,8 @@ type Logger interface {
 	Space(level string, msg string)
 	Report(level string, msg string)
 	Replace(level string, msg string)
-	Chal(level string, msg string)
+	Ichal(level string, msg string)
+	Schal(level string, msg string)
 	Stag(level string, msg string)
 	Restore(level string, msg string)
 	Parseblock(level string, msg string)
@@ -45,7 +46,8 @@ var LogFiles = []string{
 	"space",
 	"report",
 	"replace",
-	"challenge",
+	"ichal",
+	"schal",
 	"stag",
 	"restore",
 	"parseblock",
@@ -140,9 +142,22 @@ func (l *logs) Replace(level string, msg string) {
 	}
 }
 
-func (l *logs) Chal(level string, msg string) {
+func (l *logs) Ichal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["challenge"]
+	v, ok := l.log["ichal"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+		}
+	}
+}
+
+func (l *logs) Schal(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["schal"]
 	if ok {
 		switch level {
 		case "info":
