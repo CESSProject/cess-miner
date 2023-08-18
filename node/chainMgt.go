@@ -88,8 +88,8 @@ func (n *Node) syncChainStatus() {
 	if err != nil {
 		n.Log("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
 	} else {
-		for _, v := range teelist {
-			n.SaveTeeWork(v.Controller_account, v.Peer_id)
+		for i := 0; i < len(teelist); i++ {
+			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].Peer_id)
 		}
 	}
 }

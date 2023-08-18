@@ -61,14 +61,20 @@ func (n *Node) Run() {
 		ch_spaceMgt         = make(chan bool, 1)
 		ch_idlechallenge    = make(chan bool, 1)
 		ch_servicechallenge = make(chan bool, 1)
+		ch_reportfiles      = make(chan bool, 1)
+		ch_calctag          = make(chan bool, 1)
+		ch_replace          = make(chan bool, 1)
+		ch_resizespace      = make(chan bool, 1)
 		//ch_restoreMgt  = make(chan bool, 1)
 		ch_discoverMgt = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
 	ch_servicechallenge <- true
-	defer close(ch_idlechallenge)
-	defer close(ch_servicechallenge)
+	ch_reportfiles <- true
+	ch_calctag <- true
+	ch_replace <- true
+	ch_resizespace <- true
 
 	// peer persistent location
 	n.peersPath = filepath.Join(n.Workspace(), "peers")
@@ -84,12 +90,12 @@ func (n *Node) Run() {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		n.Chal("info", "Initialize key successfully")
+		n.Schal("info", "Initialize key successfully")
 		break
 	}
 
-	task_12S := time.NewTicker(time.Second * 12)
-	defer task_12S.Stop()
+	task_18S := time.NewTicker(time.Second * 18)
+	defer task_18S.Stop()
 
 	task_Minute := time.NewTicker(time.Minute)
 	defer task_Minute.Stop()
@@ -100,13 +106,15 @@ func (n *Node) Run() {
 	// go n.restoreMgt(ch_restoreMgt)
 	go n.discoverMgt(ch_discoverMgt)
 
-	// go n.poisMgt(ch_spaceMgt)
+	go n.poisMgt(ch_spaceMgt)
+
+	n.syncChainStatus()
 
 	out.Ok("start successfully")
 
 	for {
 		select {
-		case <-task_12S.C:
+		case <-task_18S.C:
 			err := n.connectChain()
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
@@ -117,7 +125,8 @@ func (n *Node) Run() {
 			challenge, err := n.QueryChallenge_V2()
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {
-					n.Chal("err", fmt.Sprintf("[QueryChallenge] %v", err))
+					n.Ichal("err", fmt.Sprintf("[QueryChallenge] %v", err))
+					n.Schal("err", fmt.Sprintf("[QueryChallenge] %v", err))
 				}
 			} else {
 				for _, v := range challenge.MinerSnapshotList {
@@ -138,19 +147,24 @@ func (n *Node) Run() {
 
 		case <-task_Minute.C:
 			n.syncChainStatus()
-			err := n.reportFiles()
-			if err != nil {
-				n.Report("err", err.Error())
+			if len(ch_reportfiles) > 0 {
+				_ = <-ch_reportfiles
+				go n.reportFiles(ch_reportfiles)
 			}
-			err = n.serviceTag()
-			if err != nil {
-				n.Stag("err", err.Error())
+			if len(ch_calctag) > 0 {
+				_ = <-ch_calctag
+				go n.serviceTag(ch_calctag)
 			}
-			n.replaceIdle()
+			if len(ch_replace) > 0 {
+				_ = <-ch_replace
+				go n.replaceIdle(ch_replace)
+			}
+
 		case <-task_Hour.C:
 			n.connectBoot()
-			if err := n.resizeSpace(); err != nil {
-				n.Replace("err", err.Error())
+			if len(ch_resizespace) > 0 {
+				_ = <-ch_resizespace
+				go n.resizeSpace(ch_resizespace)
 			}
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
@@ -284,10 +298,9 @@ func (n *Node) LoadPeersFromDisk(path string) error {
 // tee peers
 
 func (n *Node) SaveTeeWork(account string, peerid []byte) {
-	if n.teeLock.TryLock() {
-		n.teeWorkers[account] = peerid
-		n.teeLock.Unlock()
-	}
+	n.teeLock.Lock()
+	n.teeWorkers[account] = peerid
+	n.teeLock.Unlock()
 }
 
 func (n *Node) GetTeeWork(account string) ([]byte, bool) {

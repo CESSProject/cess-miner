@@ -22,15 +22,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (n *Node) serviceTag() error {
+func (n *Node) serviceTag(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	var fragmentHash string
 	var err error
 
 	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
 	if err != nil {
-		return errors.Wrapf(err, "[Dirs]")
+		n.Stag("err", fmt.Sprintf("[Dirs] %v", err))
+		return
 	}
-
+	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	for _, fileDir := range roothashs {
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
@@ -56,33 +64,46 @@ func (n *Node) serviceTag() error {
 				n.Stag("err", fmt.Sprintf("Fragment Size: %d < 8388608", len(buf)))
 				continue
 			}
-
-			genTag, err := n.PoisServiceRequestGenTag(
-				os.Args[2],
-				buf[:pattern.FragmentSize],
-				pattern.BlockNumber,
-				filepath.Base(f),
-				"",
-				time.Duration(time.Minute*10),
-			)
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] err: %s", err))
-				continue
+			utils.RandSlice(teePeerIds)
+			for i := 0; i < len(teePeerIds); i++ {
+				n.Stag("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
+				addrInfo, ok := n.GetPeer(teePeerIds[i])
+				if !ok {
+					n.Stag("err", fmt.Sprintf("Not found tee: %s", teePeerIds[i]))
+					continue
+				}
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addrInfo)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
+					continue
+				}
+				genTag, err := n.PoisServiceRequestGenTagP2P(
+					addrInfo.ID,
+					buf[:pattern.FragmentSize],
+					pattern.BlockNumber,
+					filepath.Base(f),
+					"",
+					time.Duration(time.Minute*10),
+				)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTagP2P] err: %s", err))
+					continue
+				}
+				buf, err = json.Marshal(genTag.Tag)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+					continue
+				}
+				err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
+					continue
+				}
+				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")))
+				break
 			}
-			buf, err = json.Marshal(genTag.Tag)
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
-				continue
-			}
-			err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
-				continue
-			}
-			n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag")))
 		}
 	}
-	return nil
 }
 
 func (n *Node) stagMgt(ch chan bool) {

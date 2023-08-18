@@ -22,6 +22,7 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
 
@@ -149,21 +150,21 @@ func (n *Node) pois() error {
 	var workTeePeerID peer.ID
 
 	teePeerIds := n.GetAllTeeWorkPeerIdString()
-	for _, v := range teePeerIds {
-		n.Space("info", fmt.Sprintf("Will use tee: %v", v))
-		addrInfo, ok := n.GetPeer(v)
+	n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
+	for i := 0; i < len(teePeerIds); i++ {
+		n.Space("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
+		addrInfo, ok := n.GetPeer(teePeerIds[i])
 		if !ok {
-			n.Space("err", fmt.Sprintf("Not found tee: %s", v))
+			n.Space("err", fmt.Sprintf("Not found tee: %s", teePeerIds[i]))
 			continue
 		}
 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addrInfo)
 		if err != nil {
-			n.Space("err", fmt.Sprintf("Connect %s err: %v", v, err))
+			n.Space("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
 			continue
 		}
 		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute*2))
 		if err != nil {
-			n.Prover.CommitRollback()
 			n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
 			continue
 		}
@@ -172,6 +173,7 @@ func (n *Node) pois() error {
 	}
 
 	if workTeePeerID.Pretty() == "" {
+		n.Prover.CommitRollback()
 		return errors.New("no worked tee")
 	}
 
@@ -293,7 +295,14 @@ func (n *Node) pois() error {
 	return nil
 }
 
-func (n *Node) replaceIdle() {
+func (n *Node) replaceIdle(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	replaceSize, err := n.QueryPendingReplacements_V2(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
@@ -317,21 +326,13 @@ func (n *Node) replaceIdle() {
 		return
 	}
 
-	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
-
-	chProof, ch := n.Prover.ProveDeletion(int64(num))
-	var delProof *pois.DeletionProof
-	var timeOut = time.NewTicker(time.Minute)
-	err = nil
-	select {
-	case err = <-ch:
-		break
-	case delProof = <-chProof:
-		break
-	case <-timeOut.C:
-		err = errors.New("timeout")
+	if int64(num) > int64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM))) {
+		num = uint64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM)))
 	}
 
+	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
+
+	delProof, err := n.Prover.ProveDeletion(int64(num))
 	if err != nil {
 		n.Replace("err", err.Error())
 		return
@@ -362,19 +363,27 @@ func (n *Node) replaceIdle() {
 
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
 	var workTeePeerID peer.ID
-	peerIDs := n.GetAllPeerIDMap()
-	for _, v := range peerIDs {
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), v)
-		if err != nil {
-			n.Replace("err", fmt.Sprintf("Connect %s err: %v", v.ID.Pretty(), err))
+	tees := n.GetAllTeeWorkPeerId()
+	utils.RandSlice(tees)
+	for _, t := range tees {
+		teePeerId := base58.Encode(t)
+		addr, ok := n.GetPeer(teePeerId)
+		if !ok {
+			n.Replace("err", fmt.Sprintf("Not found tee: %s", teePeerId))
 			continue
 		}
-		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(v.ID, delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*5))
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
-			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
+			n.Replace("err", fmt.Sprintf("Connect %s err: %v", addr.ID.Pretty(), err))
 			continue
 		}
-		workTeePeerID = v.ID
+		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(addr.ID, delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*10))
+		if err != nil {
+			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProofP2P] %v", err))
+			continue
+		}
+		workTeePeerID = addr.ID
+		break
 	}
 
 	if workTeePeerID.String() == "" {
