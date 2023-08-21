@@ -288,7 +288,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 						int64(minerChalInfo.SpaceProofInfo.Rear),
 						idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 						idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
-						time.Duration(time.Minute),
+						time.Duration(time.Minute*3),
 					)
 					if err != nil {
 						n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
@@ -296,7 +296,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 					}
 					var block = &pb.BlocksProof{
 						ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
-							SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+							SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSignOrigin,
 							Left:           idleProofRecord.FileBlockProofInfo[i].FileBlockFront,
 							Right:          idleProofRecord.FileBlockProofInfo[i].FileBlockRear,
 						},
@@ -809,7 +809,7 @@ func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpir
 			int64(minerChalInfo.SpaceProofInfo.Rear),
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
-			time.Duration(time.Minute*5),
+			time.Duration(time.Minute*3),
 		)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
@@ -817,7 +817,7 @@ func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpir
 		}
 		var block = &pb.BlocksProof{
 			ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
-				SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+				SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSignOrigin,
 				Left:           idleProofRecord.FileBlockProofInfo[i].FileBlockFront,
 				Right:          idleProofRecord.FileBlockProofInfo[i].FileBlockRear,
 			},
