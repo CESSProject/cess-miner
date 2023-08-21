@@ -18,7 +18,7 @@ const (
 	// Name is the name of the program
 	Name = "bucket"
 	// version
-	Version = "v0.7.0 2308181832 dev"
+	Version = "v0.7.0 2308211729 dev"
 	// Description is the description of the program
 	Description = "Storage node implementation in CESS networks"
 	// NameSpace is the cached namespace

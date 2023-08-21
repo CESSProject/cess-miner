@@ -18,7 +18,6 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -34,6 +33,8 @@ type Pois struct {
 	front     int64
 	rear      int64
 }
+
+var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
 // spaceMgt is a subtask for managing spaces
 func (n *Node) poisMgt(ch chan<- bool) {
@@ -120,9 +121,9 @@ func (n *Node) pois() error {
 		return errors.Errorf("[GetDirFreeSpace(%s)] %v", n.Workspace(), err)
 	}
 
-	if dirfreeSpace < core.SIZE_1GiB {
+	if dirfreeSpace < minSpace {
 		time.Sleep(time.Minute)
-		return errors.New("The disk space is less than 1G")
+		return fmt.Errorf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB)
 	}
 
 	if !n.Prover.CommitDataIsReady() {
