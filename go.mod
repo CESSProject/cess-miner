@@ -3,12 +3,12 @@ module github.com/CESSProject/cess-bucket
 go 1.19
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.12-0.20230814064334-183c1e2010f2
-	github.com/CESSProject/cess_pois v0.3.18
-	github.com/CESSProject/p2p-go v0.1.11-0.20230814055758-b3d8aaa4f924
+	github.com/CESSProject/cess-go-sdk v0.3.13-0.20230821075937-d5e8bcf45bd5
+	github.com/CESSProject/cess_pois v0.3.19
+	github.com/CESSProject/p2p-go v0.1.11
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bytedance/sonic v1.9.2
-	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.13
+	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/libp2p/go-libp2p v0.26.3
@@ -148,6 +148,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect

@@ -111,7 +111,11 @@ func (n *Node) Run() {
 	n.syncChainStatus()
 
 	out.Ok("start successfully")
-
+	var idleChallResult bool
+	var serviceChallResult bool
+	var idleChallTeeAcc string
+	var serviceChallTeeAcc string
+	var minerSnapShot pattern.MinerSnapShot_V2
 	for {
 		select {
 		case <-task_18S.C:
@@ -128,19 +132,103 @@ func (n *Node) Run() {
 					n.Ichal("err", fmt.Sprintf("[QueryChallenge] %v", err))
 					n.Schal("err", fmt.Sprintf("[QueryChallenge] %v", err))
 				}
-			} else {
-				for _, v := range challenge.MinerSnapshotList {
-					if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+				break
+			}
+
+			for _, v := range challenge.MinerSnapshotList {
+				if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+					latestBlock, err := n.QueryBlockHeight("")
+					if err != nil {
+						n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+						n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+						break
+					}
+					challExpiration, err := n.QueryChallengeExpiration()
+					if err != nil {
+						n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
+						n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
+						break
+					}
+
+					if !v.IdleSubmitted {
 						if len(ch_idlechallenge) > 0 {
 							_ = <-ch_idlechallenge
-							go n.poisChallenge(ch_idlechallenge, challenge, v)
+							go n.poisChallenge(ch_idlechallenge, latestBlock, challExpiration, challenge, v)
 						}
+					}
 
+					if !v.ServiceSubmitted {
 						if len(ch_servicechallenge) > 0 {
 							_ = <-ch_servicechallenge
-							go n.poisServiceChallenge(ch_servicechallenge, challenge, v)
+							go n.poisServiceChallenge(ch_servicechallenge, latestBlock, challExpiration, challenge, v)
 						}
-						break
+					}
+					break
+				}
+			}
+			idleChallResult = false
+			serviceChallResult = false
+			teeAccounts := n.GetAllTeeWorkAccount()
+			for _, v := range teeAccounts {
+				if idleChallResult && serviceChallResult {
+					break
+				}
+				publickey, err := sutils.ParsingPublickey(v)
+				if err != nil {
+					continue
+				}
+				if !idleChallResult {
+					idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+					if err == nil {
+						for i := 0; i < len(idleProofInfos); i++ {
+							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+								idleChallResult = true
+								idleChallTeeAcc = v
+								minerSnapShot = idleProofInfos[i].MinerSnapShot
+								break
+							}
+						}
+					}
+				}
+				if !serviceChallResult {
+					serviceProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+					if err == nil {
+						for i := 0; i < len(serviceProofInfos); i++ {
+							if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+								serviceChallResult = true
+								serviceChallTeeAcc = v
+								minerSnapShot = serviceProofInfos[i].MinerSnapShot
+								break
+							}
+						}
+					}
+				}
+			}
+
+			if idleChallResult || serviceChallResult {
+				latestBlock, err := n.QueryBlockHeight("")
+				if err != nil {
+					n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+					n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+					break
+				}
+
+				challVerifyExpiration, err := n.QueryChallengeVerifyExpiration()
+				if err != nil {
+					n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
+					n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
+					break
+				}
+				if idleChallResult {
+					if len(ch_idlechallenge) > 0 {
+						_ = <-ch_idlechallenge
+						go n.poisChallengeResult(ch_idlechallenge, latestBlock, challVerifyExpiration, idleChallTeeAcc, challenge, minerSnapShot)
+					}
+				}
+				if serviceChallResult {
+					if len(ch_servicechallenge) > 0 {
+						_ = <-ch_servicechallenge
+						go n.poisServiceChallengeResult(ch_servicechallenge, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge, minerSnapShot)
 					}
 				}
 			}

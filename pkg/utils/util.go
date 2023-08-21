@@ -276,7 +276,11 @@ func InterfaceIsNIL(i interface{}) bool {
 		defer func() {
 			recover()
 		}()
-		ret = reflect.ValueOf(i).IsNil()
+		va := reflect.ValueOf(i)
+		if va.Kind() == reflect.Ptr {
+			return va.IsNil()
+		}
+		return false
 	}
 	return ret
 }
