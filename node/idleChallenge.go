@@ -47,7 +47,17 @@ type idleProofInfo struct {
 	BlocksProof           []*pb.BlocksProof
 }
 
-func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32, challenge pattern.ChallengeInfo_V2, minerChalInfo pattern.MinerSnapShot_V2) {
+func (n *Node) idleChallenge(
+	ch chan<- bool,
+	idleProofSubmited bool,
+	latestBlock uint32,
+	challExpiration uint32,
+	challStart uint32,
+	minerChallFront int64,
+	minerChallRear int64,
+	spaceChallengeParam pattern.SpaceChallengeParam,
+	minerAccumulator pattern.Accumulator,
+) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -62,13 +72,13 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 	}
 
 	if !haveChallenge {
-		if !minerChalInfo.IdleSubmitted {
+		if !idleProofSubmited {
 			n.Ichal("err", "Proof of idle files not submitted")
 			return
 		}
 	}
 
-	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challenge.NetSnapShot.Start))
+	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challStart))
 	var found bool
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
@@ -76,10 +86,10 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 		err = json.Unmarshal(buf, &idleProofRecord)
 		if err == nil {
 			n.Ichal("info", fmt.Sprintf("local idleproof file challenge: %v", idleProofRecord.Start))
-			if idleProofRecord.Start != int32(challenge.NetSnapShot.Start) {
+			if idleProofRecord.Start != int32(challStart) {
 				os.Remove(filepath.Join(n.Workspace(), "idleproof"))
 			} else {
-				if !minerChalInfo.IdleSubmitted {
+				if !idleProofSubmited {
 					var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 					for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 						idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
@@ -173,7 +183,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 							idleProve,
 							types.U64(idleProofRecord.ChainFront),
 							types.U64(idleProofRecord.ChainRear),
-							minerChalInfo.SpaceProofInfo.Accumulator,
+							minerAccumulator,
 							types.Bool(idleProofRecord.IdleResult),
 							teeSignature,
 							idleProofRecord.AllocatedTeeAccountId,
@@ -232,7 +242,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 							idleProve,
 							types.U64(idleProofRecord.ChainFront),
 							types.U64(idleProofRecord.ChainRear),
-							minerChalInfo.SpaceProofInfo.Accumulator,
+							minerAccumulator,
 							types.Bool(idleProofRecord.IdleResult),
 							teeSignature,
 							idleProofRecord.AllocatedTeeAccountId,
@@ -266,8 +276,8 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 						n.Pois.RsaKey.N.Bytes(),
 						n.Pois.RsaKey.G.Bytes(),
 						idleProofRecord.Acc,
-						int64(minerChalInfo.SpaceProofInfo.Front),
-						int64(minerChalInfo.SpaceProofInfo.Rear),
+						minerChallFront,
+						minerChallRear,
 						idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 						idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 						time.Duration(time.Minute*3),
@@ -322,7 +332,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 					idleProve,
 					types.U64(idleProofRecord.ChainFront),
 					types.U64(idleProofRecord.ChainRear),
-					minerChalInfo.SpaceProofInfo.Accumulator,
+					minerAccumulator,
 					types.Bool(spaceProofVerifyTotal.IdleResult),
 					teeSignature,
 					idleProofRecord.AllocatedTeeAccountId,
@@ -338,29 +348,29 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 			os.Remove(filepath.Join(n.Workspace(), "idleproof"))
 		}
 	}
-	n.Ichal("info", fmt.Sprintf("Have a new idle challenge: %v", challenge.NetSnapShot.Start))
+	n.Ichal("info", fmt.Sprintf("Have a new idle challenge: %v", challStart))
 	idleProofRecord = idleProofInfo{}
 
-	idleProofRecord.Start = int32(challenge.NetSnapShot.Start)
-	idleProofRecord.ChainFront = int64(minerChalInfo.SpaceProofInfo.Front)
-	idleProofRecord.ChainRear = int64(minerChalInfo.SpaceProofInfo.Rear)
+	idleProofRecord.Start = int32(challStart)
+	idleProofRecord.ChainFront = minerChallFront
+	idleProofRecord.ChainRear = minerChallRear
 
 	var acc = make([]byte, len(pattern.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
-		acc[i] = byte(minerChalInfo.SpaceProofInfo.Accumulator[i])
+		acc[i] = byte(minerAccumulator[i])
 	}
 
 	idleProofRecord.Acc = acc
 
-	err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear))
+	err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, minerChallFront, minerChallRear)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[SetChallengeState] %v", err))
 		return
 	}
 
-	var challRandom = make([]int64, len(challenge.NetSnapShot.SpaceChallengeParam))
+	var challRandom = make([]int64, len(spaceChallengeParam))
 	for i := 0; i < len(challRandom); i++ {
-		challRandom[i] = int64(challenge.NetSnapShot.SpaceChallengeParam[i])
+		challRandom[i] = int64(spaceChallengeParam[i])
 	}
 
 	idleProofRecord.ChallRandom = challRandom
@@ -372,10 +382,10 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 	idleProofRecord.FileBlockProofInfo = make([]fileBlockProofInfo, 0)
 	var idleproof []byte
 
-	for front := (minerChalInfo.SpaceProofInfo.Front + 1); front <= (minerChalInfo.SpaceProofInfo.Rear + 1); {
+	for front := (minerChallFront + 1); front <= (minerChallRear + 1); {
 		var fileBlockProofInfoEle fileBlockProofInfo
-		if (front + 256) > (minerChalInfo.SpaceProofInfo.Rear + 1) {
-			rear = int64(minerChalInfo.SpaceProofInfo.Rear + 1)
+		if (front + 256) > (minerChallRear + 1) {
+			rear = int64(minerChallRear + 1)
 		} else {
 			rear = int64(front + 256)
 		}
@@ -457,7 +467,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 
 		fileBlockProofInfoEle.ProofHashSign = sign
 		idleProofRecord.FileBlockProofInfo = append(idleProofRecord.FileBlockProofInfo, fileBlockProofInfoEle)
-		if types.U64(rear) >= (minerChalInfo.SpaceProofInfo.Rear + 1) {
+		if rear >= (minerChallRear + 1) {
 			break
 		}
 		front += 256
@@ -547,8 +557,8 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 			n.Pois.RsaKey.N.Bytes(),
 			n.Pois.RsaKey.G.Bytes(),
 			idleProofRecord.Acc,
-			int64(minerChalInfo.SpaceProofInfo.Front),
-			int64(minerChalInfo.SpaceProofInfo.Rear),
+			minerChallFront,
+			minerChallRear,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 			time.Duration(time.Minute),
@@ -579,7 +589,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 		}
 	}
 
-	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, int64(minerChalInfo.SpaceProofInfo.Front), int64(minerChalInfo.SpaceProofInfo.Rear), acc, challRandom, time.Duration(time.Minute*3))
+	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, minerChallFront, minerChallRear, acc, challRandom, time.Duration(time.Minute*3))
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
 		return
@@ -613,7 +623,7 @@ func (n *Node) poisChallenge(ch chan<- bool, latestBlock, challExpiration uint32
 		idleProve,
 		types.U64(idleProofRecord.ChainFront),
 		types.U64(idleProofRecord.ChainRear),
-		minerChalInfo.SpaceProofInfo.Accumulator,
+		minerAccumulator,
 		types.Bool(spaceProofVerifyTotal.IdleResult),
 		teeSignature,
 		idleProofRecord.AllocatedTeeAccountId,

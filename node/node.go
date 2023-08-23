@@ -10,7 +10,6 @@ package node
 import (
 	"crypto/x509"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -111,11 +110,7 @@ func (n *Node) Run() {
 	n.syncChainStatus()
 
 	out.Ok("start successfully")
-	var idleChallResult bool
-	var serviceChallResult bool
-	var idleChallTeeAcc string
-	var serviceChallTeeAcc string
-	var minerSnapShot pattern.MinerSnapShot_V2
+
 	for {
 		select {
 		case <-task_18S.C:
@@ -126,125 +121,7 @@ func (n *Node) Run() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-
-			challenge, err := n.QueryChallenge_V2()
-			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
-					n.Ichal("err", fmt.Sprintf("[QueryChallenge] %v", err))
-					n.Schal("err", fmt.Sprintf("[QueryChallenge] %v", err))
-				}
-				break
-			}
-			n.Log("info", "Query challenge suc")
-			for _, v := range challenge.MinerSnapshotList {
-				if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
-					n.Log("info", "Found challenge unsubmit prove")
-					latestBlock, err := n.QueryBlockHeight("")
-					if err != nil {
-						n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-						n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-						break
-					}
-					challExpiration, err := n.QueryChallengeExpiration()
-					if err != nil {
-						n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-						n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-						break
-					}
-
-					if !v.IdleSubmitted {
-						if len(ch_idlechallenge) > 0 {
-							_ = <-ch_idlechallenge
-							n.Log("info", "start poisChallenge thread")
-							go n.poisChallenge(ch_idlechallenge, latestBlock, challExpiration, challenge, v)
-						}
-					}
-
-					if !v.ServiceSubmitted {
-						if len(ch_servicechallenge) > 0 {
-							_ = <-ch_servicechallenge
-							n.Log("info", "start serviceChallenge thread")
-							go n.serviceChallenge(ch_servicechallenge, latestBlock, challExpiration, challenge, v)
-						}
-					}
-					break
-				}
-			}
-
-			n.Log("info", "start query unverified prove")
-			idleChallResult = false
-			serviceChallResult = false
-			teeAccounts := n.GetAllTeeWorkAccount()
-			for _, v := range teeAccounts {
-				if idleChallResult && serviceChallResult {
-					break
-				}
-				publickey, err := sutils.ParsingPublickey(v)
-				if err != nil {
-					continue
-				}
-				if !idleChallResult {
-					idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
-					if err == nil {
-						for i := 0; i < len(idleProofInfos); i++ {
-							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-								idleChallResult = true
-								idleChallTeeAcc = v
-								minerSnapShot = idleProofInfos[i].MinerSnapShot
-								n.Log("info", "Found unverified idle prove")
-								break
-							}
-						}
-					}
-				}
-				if !serviceChallResult {
-					serviceProofInfos, err := n.QueryUnverifiedServiceProof(publickey)
-					if err == nil {
-						for i := 0; i < len(serviceProofInfos); i++ {
-							if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-								serviceChallResult = true
-								serviceChallTeeAcc = v
-								minerSnapShot = serviceProofInfos[i].MinerSnapShot
-								n.Log("info", "Found unverified service prove")
-								break
-							}
-						}
-					}
-				}
-			}
-
-			n.Log("info", "Query unverified prove end")
-			if idleChallResult || serviceChallResult {
-				latestBlock, err := n.QueryBlockHeight("")
-				if err != nil {
-					n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-					n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-					break
-				}
-
-				challVerifyExpiration, err := n.QueryChallengeVerifyExpiration()
-				if err != nil {
-					n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-					n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-					break
-				}
-
-				if idleChallResult {
-					if len(ch_idlechallenge) > 0 {
-						_ = <-ch_idlechallenge
-						n.Log("info", "Start poisChallengeResult thread")
-						go n.poisChallengeResult(ch_idlechallenge, latestBlock, challVerifyExpiration, idleChallTeeAcc, challenge, minerSnapShot)
-					}
-				}
-
-				if serviceChallResult {
-					if len(ch_servicechallenge) > 0 {
-						_ = <-ch_servicechallenge
-						n.Log("info", "Start poisServiceChallengeResult thread")
-						go n.serviceChallengeResult(ch_servicechallenge, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge)
-					}
-				}
-			}
+			n.challenge(ch_idlechallenge, ch_servicechallenge)
 
 		case <-task_Minute.C:
 			n.syncChainStatus()

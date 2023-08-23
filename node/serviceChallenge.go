@@ -42,10 +42,12 @@ type serviceProofInfo struct {
 
 func (n *Node) serviceChallenge(
 	ch chan<- bool,
+	serviceProofSubmited bool,
 	latestBlock,
 	challExpiration uint32,
-	challenge pattern.ChallengeInfo_V2,
-	minerChalInfo pattern.MinerSnapShot_V2,
+	challStart uint32,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
 ) {
 	defer func() {
 		ch <- true
@@ -61,7 +63,7 @@ func (n *Node) serviceChallenge(
 	}
 
 	if !haveChallenge {
-		if !minerChalInfo.ServiceSubmitted {
+		if !serviceProofSubmited {
 			n.Schal("err", "Proof of service files not submitted")
 			return
 		}
@@ -69,31 +71,31 @@ func (n *Node) serviceChallenge(
 
 	var found bool
 	var serviceProofRecord serviceProofInfo
-	err := n.checkServiceProofRecord(challenge, minerChalInfo)
+	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList)
 	if err == nil {
 		return
 	}
 
-	n.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challenge.NetSnapShot.Start))
+	n.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challStart))
 
-	var qslice = make([]proof.QElement, len(challenge.NetSnapShot.RandomIndexList))
-	for k, v := range challenge.NetSnapShot.RandomIndexList {
+	var qslice = make([]proof.QElement, len(randomIndexList))
+	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
-		var b = make([]byte, len(challenge.NetSnapShot.RandomList[k]))
-		for i := 0; i < len(challenge.NetSnapShot.RandomList[k]); i++ {
-			b[i] = byte(challenge.NetSnapShot.RandomList[k][i])
+		var b = make([]byte, len(randomList[k]))
+		for i := 0; i < len(randomList[k]); i++ {
+			b[i] = byte(randomList[k][i])
 		}
 		qslice[k].V = new(big.Int).SetBytes(b).String()
 	}
 
-	err = n.saveRandom(challenge)
+	err = n.saveRandom(challStart, randomIndexList, randomList)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("Save service file challenge random err: %v", err))
 	}
 
 	serviceProofRecord = serviceProofInfo{}
-	serviceProofRecord.Start = uint32(challenge.NetSnapShot.Start)
-	serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challenge)
+	serviceProofRecord.Start = uint32(challStart)
+	serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 		return
@@ -156,7 +158,7 @@ func (n *Node) serviceChallenge(
 		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
 
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeAddrInfo, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
@@ -239,34 +241,37 @@ func (n *Node) serviceChallengeResult(
 		return
 	}
 
-	if serviceProofRecord.ServiceBloomFilter != nil &&
-		serviceProofRecord.TeeAccountId != nil &&
-		serviceProofRecord.Signature != nil {
-		var signature pattern.TeeSignature
-		if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
-			n.Schal("err", "invalid batchVerify.Signature")
-			return
-		}
-		for i := 0; i < len(serviceProofRecord.Signature); i++ {
-			signature[i] = types.U8(serviceProofRecord.Signature[i])
-		}
+	for {
+		if serviceProofRecord.ServiceBloomFilter != nil &&
+			serviceProofRecord.TeeAccountId != nil &&
+			serviceProofRecord.Signature != nil {
+			var signature pattern.TeeSignature
+			if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
+				n.Schal("err", "invalid batchVerify.Signature")
+				break
+			}
+			for i := 0; i < len(serviceProofRecord.Signature); i++ {
+				signature[i] = types.U8(serviceProofRecord.Signature[i])
+			}
 
-		var bloomFilter pattern.BloomFilter
-		if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
-			n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
-			return
-		}
-		for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
-			bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
-		}
+			var bloomFilter pattern.BloomFilter
+			if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
+				n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
+				break
+			}
+			for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
+				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
+			}
 
-		txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, allocatedTeeAccountId)
-		if err != nil {
-			n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
-			return
+			txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, allocatedTeeAccountId)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+				break
+			}
+			n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+			break
 		}
-		n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
-		return
+		break
 	}
 
 	teePeerIdPubkey, _ := n.GetTeeWork(serviceChallTeeAcc)
@@ -323,14 +328,6 @@ func (n *Node) serviceChallengeResult(
 	serviceProofRecord.ServiceBloomFilter = batchVerify.ServiceBloomFilter
 	serviceProofRecord.TeeAccountId = batchVerify.TeeAccountId
 	serviceProofRecord.Signature = batchVerify.Signature
-	buf, err = json.Marshal(&serviceProofRecord)
-	if err != nil {
-		n.Schal("err", err.Error())
-	}
-	err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
-	if err != nil {
-		n.Schal("err", err.Error())
-	}
 
 	var signature pattern.TeeSignature
 	if len(pattern.TeeSignature{}) != len(batchVerify.Signature) {
@@ -349,7 +346,7 @@ func (n *Node) serviceChallengeResult(
 	for i := 0; i < len(batchVerify.ServiceBloomFilter); i++ {
 		bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
 	}
-
+	n.saveServiceProofRecord(serviceProofRecord)
 	txhash, err := n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, allocatedTeeAccountId)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
@@ -360,20 +357,24 @@ func (n *Node) serviceChallengeResult(
 }
 
 // save challenge random number
-func (n *Node) saveRandom(challenge pattern.ChallengeInfo_V2) error {
-	randfilePath := filepath.Join(n.GetDirs().ProofDir, fmt.Sprintf("random.%d", challenge.NetSnapShot.Start))
+func (n *Node) saveRandom(
+	challStart uint32,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+) error {
+	randfilePath := filepath.Join(n.GetDirs().ProofDir, fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)
 	if err == nil && fstat.Size() > 0 {
 		return nil
 	}
 	var rd RandomList
-	rd.Index = make([]uint32, len(challenge.NetSnapShot.RandomIndexList))
-	rd.Random = make([][]byte, len(challenge.NetSnapShot.RandomIndexList))
-	for i := 0; i < len(challenge.NetSnapShot.RandomIndexList); i++ {
-		rd.Index[i] = uint32(challenge.NetSnapShot.RandomIndexList[i])
-		rd.Random[i] = make([]byte, len(challenge.NetSnapShot.RandomList[i]))
-		for j := 0; j < len(challenge.NetSnapShot.RandomList[i]); j++ {
-			rd.Random[i][j] = byte(challenge.NetSnapShot.RandomList[i][j])
+	rd.Index = make([]uint32, len(randomIndexList))
+	rd.Random = make([][]byte, len(randomIndexList))
+	for i := 0; i < len(randomIndexList); i++ {
+		rd.Index[i] = uint32(randomIndexList[i])
+		rd.Random[i] = make([]byte, len(randomList[i]))
+		for j := 0; j < len(randomList[i]); j++ {
+			rd.Random[i][j] = byte(randomList[i][j])
 		}
 	}
 	buff, err := json.Marshal(&rd)
@@ -394,18 +395,22 @@ func (n *Node) saveRandom(challenge pattern.ChallengeInfo_V2) error {
 }
 
 // calc sigma
-func (n *Node) calcSigma(challenge pattern.ChallengeInfo_V2) ([]string, []string, []string, string, error) {
+func (n *Node) calcSigma(
+	challStart uint32,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+) ([]string, []string, []string, string, error) {
 	var sigma string
 	var proveResponse proof.GenProofResponse
 	var names = make([]string, 0)
 	var us = make([]string, 0)
 	var mus = make([]string, 0)
-	var qslice = make([]proof.QElement, len(challenge.NetSnapShot.RandomIndexList))
-	for k, v := range challenge.NetSnapShot.RandomIndexList {
+	var qslice = make([]proof.QElement, len(randomIndexList))
+	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
-		var b = make([]byte, len(challenge.NetSnapShot.RandomList[k]))
-		for i := 0; i < len(challenge.NetSnapShot.RandomList[k]); i++ {
-			b[i] = byte(challenge.NetSnapShot.RandomList[k][i])
+		var b = make([]byte, len(randomList[k]))
+		for i := 0; i < len(randomList[k]); i++ {
+			b[i] = byte(randomList[k][i])
 		}
 		qslice[k].V = new(big.Int).SetBytes(b).String()
 	}
@@ -421,13 +426,13 @@ func (n *Node) calcSigma(challenge pattern.ChallengeInfo_V2) ([]string, []string
 
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		roothash := filepath.Base(serviceRoothashDir[i])
-		fmeta, err := n.QueryFileMetadataByBlock(roothash, uint64(challenge.NetSnapShot.Start))
+		n.Schal("info", fmt.Sprintf("calc file: %v", roothash))
+		fmeta, err := n.QueryFileMetadataByBlock(roothash, uint64(challStart))
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
 				n.Schal("err", fmt.Sprintf("[QueryFileMetadata(%s)] %v", roothash, err.Error()))
 				return names, us, mus, sigma, err
 			}
-			os.RemoveAll(serviceRoothashDir[i])
 			continue
 		}
 
@@ -435,62 +440,60 @@ func (n *Node) calcSigma(challenge pattern.ChallengeInfo_V2) ([]string, []string
 			for _, fragment := range segment.FragmentList {
 				if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 					os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
+					continue
 				}
-			}
-		}
+				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
+				serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, string(fragment.Hash[:])+".tag")
+				buf, err := os.ReadFile(serviceTagPath)
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
+					return names, us, mus, sigma, err
+				}
+				var tag pb.Tag
+				err = json.Unmarshal(buf, &tag)
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
+					return names, us, mus, sigma, err
+				}
+				matrix, _, err := proof.SplitByN(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])), int64(len(tag.T.Phi)))
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
+					return names, us, mus, sigma, err
+				}
 
-		files, err := utils.DirFiles(serviceRoothashDir[i], 0)
-		if err != nil {
-			n.Schal("err", err.Error())
-			continue
-		}
+				proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
+				timeout.Reset(time.Minute)
+				select {
+				case proveResponse = <-proveResponseCh:
+				case <-timeout.C:
+					proveResponse.StatueMsg.StatusCode = 0
+				}
 
-		for j := 0; j < len(files); j++ {
-			serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(files[j])+".tag")
-			buf, err := os.ReadFile(serviceTagPath)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
-				continue
-			}
-			var tag pb.Tag
-			err = json.Unmarshal(buf, &tag)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
-				continue
-			}
-			matrix, _, err := proof.SplitByN(files[j], int64(len(tag.T.Phi)))
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
-				continue
-			}
+				if proveResponse.StatueMsg.StatusCode != proof.Success {
+					n.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
+					return names, us, mus, sigma, err
+				}
 
-			proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
-			timeout.Reset(time.Minute)
-			select {
-			case proveResponse = <-proveResponseCh:
-			case <-timeout.C:
-				proveResponse.StatueMsg.StatusCode = 0
+				sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
+				if !ok {
+					return names, us, mus, sigma, errors.New("AggrAppendProof failed")
+				}
+				sigma = sigmaTemp
+				names = append(names, tag.T.Name)
+				us = append(us, tag.T.U)
+				mus = append(mus, proveResponse.MU)
 			}
-
-			if proveResponse.StatueMsg.StatusCode != proof.Success {
-				n.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
-				continue
-			}
-
-			sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
-			if !ok {
-				continue
-			}
-			sigma = sigmaTemp
-			names = append(names, tag.T.Name)
-			us = append(us, tag.T.U)
-			mus = append(mus, proveResponse.MU)
 		}
 	}
 	return names, us, mus, sigma, nil
 }
 
-func (n *Node) checkServiceProofRecord(challenge pattern.ChallengeInfo_V2, minerChalInfo pattern.MinerSnapShot_V2) error {
+func (n *Node) checkServiceProofRecord(
+	serviceProofSubmited bool,
+	challStart uint32,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+) error {
 	var found bool
 	var serviceProofRecord serviceProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "serviceproof"))
@@ -503,18 +506,18 @@ func (n *Node) checkServiceProofRecord(challenge pattern.ChallengeInfo_V2, miner
 		return err
 	}
 
-	if serviceProofRecord.Start != uint32(challenge.NetSnapShot.Start) {
+	if serviceProofRecord.Start != challStart {
 		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
 		return errors.New("Local service file challenge record is outdated")
 	}
 
 	n.Schal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
 
-	if !minerChalInfo.ServiceSubmitted {
+	if !serviceProofSubmited {
 		if serviceProofRecord.Names == nil ||
 			serviceProofRecord.Us == nil ||
 			serviceProofRecord.Mus == nil {
-			serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challenge)
+			serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil
@@ -610,7 +613,7 @@ func (n *Node) checkServiceProofRecord(challenge pattern.ChallengeInfo_V2, miner
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeAddrInfo, serviceProofRecord)
 	if err != nil {
 		return nil
 	}
@@ -655,22 +658,27 @@ func (n *Node) saveServiceProofRecord(serviceProofRecord serviceProofInfo) {
 	}
 }
 
-func (n *Node) batchVerify(challenge pattern.ChallengeInfo_V2, teeAddrInfo peer.AddrInfo, serviceProofRecord serviceProofInfo) ([]uint64, []byte, []byte, bool, error) {
-	var randomIndexList = make([]uint32, len(challenge.NetSnapShot.RandomIndexList))
-	for i := 0; i < len(challenge.NetSnapShot.RandomIndexList); i++ {
-		randomIndexList[i] = uint32(challenge.NetSnapShot.RandomIndexList[i])
+func (n *Node) batchVerify(
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+	teeAddrInfo peer.AddrInfo,
+	serviceProofRecord serviceProofInfo,
+) ([]uint64, []byte, []byte, bool, error) {
+	var randomIndexList_pb = make([]uint32, len(randomIndexList))
+	for i := 0; i < len(randomIndexList); i++ {
+		randomIndexList_pb[i] = uint32(randomIndexList[i])
 	}
-	var randomList = make([][]byte, len(challenge.NetSnapShot.RandomList))
-	for i := 0; i < len(challenge.NetSnapShot.RandomList); i++ {
-		randomList[i] = make([]byte, len(challenge.NetSnapShot.RandomList[i]))
-		for j := 0; j < len(challenge.NetSnapShot.RandomList[i]); j++ {
-			randomList[i][j] = byte(challenge.NetSnapShot.RandomList[i][j])
+	var randomList_pb = make([][]byte, len(randomList))
+	for i := 0; i < len(randomList); i++ {
+		randomList_pb[i] = make([]byte, len(randomList[i]))
+		for j := 0; j < len(randomList[i]); j++ {
+			randomList_pb[i][j] = byte(randomList[i][j])
 		}
 	}
 
 	var qslice_pb = &pb.RequestBatchVerify_Qslice{
-		RandomIndexList: randomIndexList,
-		RandomList:      randomList,
+		RandomIndexList: randomIndexList_pb,
+		RandomList:      randomList_pb,
 	}
 
 	peeridSign, err := n.Sign(n.GetPeerPublickey())
