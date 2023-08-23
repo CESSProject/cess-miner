@@ -31,7 +31,7 @@ type serviceProofInfo struct {
 	Us                    []string `json:"us"`
 	Mus                   []string `json:"mus"`
 	ServiceBloomFilter    []uint64 `json:"serviceBloomFilter"`
-	TeePeerId             []byte   `json:"teePeerId"`
+	TeeAccountId          []byte   `json:"teeAccountId"`
 	Signature             []byte   `json:"signature"`
 	AllocatedTeeAccountId []byte   `json:"allocatedTeeAccountId"`
 	AllocatedTeeAccount   string   `json:"allocatedTeeAccount"`
@@ -156,7 +156,7 @@ func (n *Node) serviceChallenge(
 		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
 
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeePeerId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
@@ -240,7 +240,7 @@ func (n *Node) serviceChallengeResult(
 	}
 
 	if serviceProofRecord.ServiceBloomFilter != nil &&
-		serviceProofRecord.TeePeerId != nil &&
+		serviceProofRecord.TeeAccountId != nil &&
 		serviceProofRecord.Signature != nil {
 		var signature pattern.TeeSignature
 		if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
@@ -321,7 +321,7 @@ func (n *Node) serviceChallengeResult(
 	}
 	serviceProofRecord.ServiceResult = batchVerify.BatchVerifyResult
 	serviceProofRecord.ServiceBloomFilter = batchVerify.ServiceBloomFilter
-	serviceProofRecord.TeePeerId = batchVerify.TeePeerId
+	serviceProofRecord.TeeAccountId = batchVerify.TeeAccountId
 	serviceProofRecord.Signature = batchVerify.Signature
 	buf, err = json.Marshal(&serviceProofRecord)
 	if err != nil {
@@ -563,7 +563,7 @@ func (n *Node) checkServiceProofRecord(challenge pattern.ChallengeInfo_V2, miner
 
 	for {
 		if serviceProofRecord.ServiceBloomFilter != nil &&
-			serviceProofRecord.TeePeerId != nil &&
+			serviceProofRecord.TeeAccountId != nil &&
 			serviceProofRecord.Signature != nil {
 			var signature pattern.TeeSignature
 			if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
@@ -610,7 +610,7 @@ func (n *Node) checkServiceProofRecord(challenge pattern.ChallengeInfo_V2, miner
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeePeerId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(challenge, teeAddrInfo, serviceProofRecord)
 	if err != nil {
 		return nil
 	}
@@ -696,5 +696,5 @@ func (n *Node) batchVerify(challenge pattern.ChallengeInfo_V2, teeAddrInfo peer.
 		n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerifyP2P] %v", err))
 		return nil, nil, nil, false, err
 	}
-	return batchVerify.ServiceBloomFilter, batchVerify.TeePeerId, batchVerify.Signature, batchVerify.BatchVerifyResult, nil
+	return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, nil
 }
