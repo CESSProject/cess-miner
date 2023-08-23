@@ -10,6 +10,7 @@ package node
 import (
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -80,6 +81,7 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 	cfg := pois.Config{
 		AccPath:        n.GetDirs().ProofDir,
 		IdleFilePath:   n.GetDirs().IdleDataDir,
+		ChallAccPath:   filepath.Join(n.Workspace(), "challacc"),
 		MaxProofThread: runtime.NumCPU(),
 	}
 

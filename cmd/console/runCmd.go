@@ -643,6 +643,10 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 		return cfg, err
 	}
 
+	if configpath1 != "" || configpath2 != "" {
+		return cfg, err
+	}
+
 	var istips bool
 	var inputReader = bufio.NewReader(os.Stdin)
 	var lines string
