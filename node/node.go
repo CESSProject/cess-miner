@@ -198,7 +198,7 @@ func (n *Node) Run() {
 					}
 				}
 				if !serviceChallResult {
-					serviceProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+					serviceProofInfos, err := n.QueryUnverifiedServiceProof(publickey)
 					if err == nil {
 						for i := 0; i < len(serviceProofInfos); i++ {
 							if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
@@ -241,7 +241,7 @@ func (n *Node) Run() {
 					if len(ch_servicechallenge) > 0 {
 						_ = <-ch_servicechallenge
 						n.Log("info", "Start poisServiceChallengeResult thread")
-						go n.poisServiceChallengeResult(ch_servicechallenge, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge, minerSnapShot)
+						go n.serviceChallengeResult(ch_servicechallenge, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge)
 					}
 				}
 			}

@@ -193,7 +193,13 @@ func (n *Node) serviceChallenge(
 	return
 }
 
-func (n *Node) poisServiceChallengeResult(ch chan<- bool, latestBlock, challVerifyExpiration uint32, serviceChallTeeAcc string, challenge pattern.ChallengeInfo_V2, minerChalInfo pattern.MinerSnapShot_V2) {
+func (n *Node) serviceChallengeResult(
+	ch chan<- bool,
+	latestBlock,
+	challVerifyExpiration uint32,
+	serviceChallTeeAcc string,
+	challenge pattern.ChallengeInfo_V2,
+) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
