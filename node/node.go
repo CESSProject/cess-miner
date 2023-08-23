@@ -94,7 +94,7 @@ func (n *Node) Run() {
 		break
 	}
 
-	task_18S := time.NewTicker(time.Second * 18)
+	task_18S := time.NewTicker(time.Duration(time.Second * 18))
 	defer task_18S.Stop()
 
 	task_Minute := time.NewTicker(time.Minute)
@@ -119,6 +119,7 @@ func (n *Node) Run() {
 	for {
 		select {
 		case <-task_18S.C:
+			n.Log("info", "Start chal task cycle...")
 			err := n.connectChain()
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
@@ -134,9 +135,10 @@ func (n *Node) Run() {
 				}
 				break
 			}
-
+			n.Log("info", "Query challenge suc")
 			for _, v := range challenge.MinerSnapshotList {
 				if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+					n.Log("info", "Found challenge unsubmit prove")
 					latestBlock, err := n.QueryBlockHeight("")
 					if err != nil {
 						n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
@@ -153,6 +155,7 @@ func (n *Node) Run() {
 					if !v.IdleSubmitted {
 						if len(ch_idlechallenge) > 0 {
 							_ = <-ch_idlechallenge
+							n.Log("info", "start poisChallenge thread")
 							go n.poisChallenge(ch_idlechallenge, latestBlock, challExpiration, challenge, v)
 						}
 					}
@@ -160,12 +163,15 @@ func (n *Node) Run() {
 					if !v.ServiceSubmitted {
 						if len(ch_servicechallenge) > 0 {
 							_ = <-ch_servicechallenge
-							go n.poisServiceChallenge(ch_servicechallenge, latestBlock, challExpiration, challenge, v)
+							n.Log("info", "start serviceChallenge thread")
+							go n.serviceChallenge(ch_servicechallenge, latestBlock, challExpiration, challenge, v)
 						}
 					}
 					break
 				}
 			}
+
+			n.Log("info", "start query unverified prove")
 			idleChallResult = false
 			serviceChallResult = false
 			teeAccounts := n.GetAllTeeWorkAccount()
@@ -185,6 +191,7 @@ func (n *Node) Run() {
 								idleChallResult = true
 								idleChallTeeAcc = v
 								minerSnapShot = idleProofInfos[i].MinerSnapShot
+								n.Log("info", "Found unverified idle prove")
 								break
 							}
 						}
@@ -198,6 +205,7 @@ func (n *Node) Run() {
 								serviceChallResult = true
 								serviceChallTeeAcc = v
 								minerSnapShot = serviceProofInfos[i].MinerSnapShot
+								n.Log("info", "Found unverified service prove")
 								break
 							}
 						}
@@ -205,6 +213,7 @@ func (n *Node) Run() {
 				}
 			}
 
+			n.Log("info", "Query unverified prove end")
 			if idleChallResult || serviceChallResult {
 				latestBlock, err := n.QueryBlockHeight("")
 				if err != nil {
@@ -219,15 +228,19 @@ func (n *Node) Run() {
 					n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
 					break
 				}
+
 				if idleChallResult {
 					if len(ch_idlechallenge) > 0 {
 						_ = <-ch_idlechallenge
+						n.Log("info", "Start poisChallengeResult thread")
 						go n.poisChallengeResult(ch_idlechallenge, latestBlock, challVerifyExpiration, idleChallTeeAcc, challenge, minerSnapShot)
 					}
 				}
+
 				if serviceChallResult {
 					if len(ch_servicechallenge) > 0 {
 						_ = <-ch_servicechallenge
+						n.Log("info", "Start poisServiceChallengeResult thread")
 						go n.poisServiceChallengeResult(ch_servicechallenge, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge, minerSnapShot)
 					}
 				}
