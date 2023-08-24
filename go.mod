@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/cess-go-sdk v0.3.13-0.20230823022917-fa99a915ca39
-	github.com/CESSProject/cess_pois v0.3.21
+	github.com/CESSProject/cess_pois v0.3.22
 	github.com/CESSProject/p2p-go v0.1.12
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bytedance/sonic v1.9.2

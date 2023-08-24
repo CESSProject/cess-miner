@@ -121,7 +121,7 @@ func (n *Node) Run() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			n.challenge(ch_idlechallenge, ch_servicechallenge)
+			n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
 
 		case <-task_Minute.C:
 			n.syncChainStatus()

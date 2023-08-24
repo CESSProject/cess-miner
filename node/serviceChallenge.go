@@ -45,6 +45,7 @@ func (n *Node) serviceChallenge(
 	serviceProofSubmited bool,
 	latestBlock,
 	challExpiration uint32,
+	challVerifyExpiration uint32,
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
@@ -67,6 +68,10 @@ func (n *Node) serviceChallenge(
 			n.Schal("err", "Proof of service files not submitted")
 			return
 		}
+	}
+
+	if challVerifyExpiration <= latestBlock {
+		return
 	}
 
 	var found bool
