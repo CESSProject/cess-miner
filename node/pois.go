@@ -37,7 +37,7 @@ type Pois struct {
 
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
-// spaceMgt is a subtask for managing spaces
+// poisMgt
 func (n *Node) poisMgt(ch chan<- bool) {
 	defer func() {
 		ch <- true

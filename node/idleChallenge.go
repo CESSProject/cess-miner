@@ -21,6 +21,7 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -33,7 +34,7 @@ type fileBlockProofInfo struct {
 }
 
 type idleProofInfo struct {
-	Start                 int32   `json:"start"`
+	Start                 uint32  `json:"start"`
 	ChainFront            int64   `json:"chainFront"`
 	ChainRear             int64   `json:"chainRear"`
 	IdleResult            bool    `json:"idleResult"`
@@ -52,6 +53,7 @@ func (n *Node) idleChallenge(
 	idleProofSubmited bool,
 	latestBlock uint32,
 	challExpiration uint32,
+	challVerifyExpiration uint32,
 	challStart uint32,
 	minerChallFront int64,
 	minerChallRear int64,
@@ -78,280 +80,25 @@ func (n *Node) idleChallenge(
 		}
 	}
 
-	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challStart))
-	var found bool
-	var idleProofRecord idleProofInfo
-	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
-	if err == nil {
-		err = json.Unmarshal(buf, &idleProofRecord)
-		if err == nil {
-			n.Ichal("info", fmt.Sprintf("local idleproof file challenge: %v", idleProofRecord.Start))
-			if idleProofRecord.Start != int32(challStart) {
-				os.Remove(filepath.Join(n.Workspace(), "idleproof"))
-			} else {
-				if !idleProofSubmited {
-					var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-					for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-						idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-					}
-					_, err = n.SubmitIdleProof(idleProve)
-					if err != nil {
-						n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-						return
-					}
-					time.Sleep(pattern.BlockInterval)
-					time.Sleep(pattern.BlockInterval)
-
-					found = false
-					teeAccounts := n.GetAllTeeWorkAccount()
-					for _, v := range teeAccounts {
-						if found {
-							break
-						}
-						publickey, _ := sutils.ParsingPublickey(v)
-						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
-						if err != nil {
-							continue
-						}
-
-						for i := 0; i < len(idleProofInfos); i++ {
-							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-								idleProofRecord.AllocatedTeeAccount = v
-								idleProofRecord.AllocatedTeeAccountId = publickey
-								found = true
-								break
-							}
-						}
-					}
-
-					if !found {
-						n.Ichal("err", "Not found allocated tee for idle proof")
-						return
-					}
-
-					buf, err = json.Marshal(&idleProofRecord)
-					if err != nil {
-						n.Ichal("err", err.Error())
-					} else {
-						err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-						if err != nil {
-							n.Ichal("err", err.Error())
-						}
-					}
-				} else {
-					found = false
-					teeAccounts := n.GetAllTeeWorkAccount()
-					for _, v := range teeAccounts {
-						if found {
-							break
-						}
-						publickey, _ := sutils.ParsingPublickey(v)
-						idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
-						if err != nil {
-							continue
-						}
-
-						for i := 0; i < len(idleProofInfos); i++ {
-							if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-								idleProofRecord.AllocatedTeeAccount = v
-								idleProofRecord.AllocatedTeeAccountId = publickey
-								found = true
-								break
-							}
-						}
-					}
-					if !found {
-						n.Ichal("err", "Not found allocated tee for idle proof")
-						return
-					}
-					if idleProofRecord.TotalSignature != nil {
-						var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-						for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-							idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-						}
-						var teeSignature pattern.TeeSignature
-						if len(idleProofRecord.TotalSignature) != len(teeSignature) {
-							n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-							return
-						}
-
-						for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-							teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
-						}
-
-						txHash, err := n.SubmitIdleProofResult(
-							idleProve,
-							types.U64(idleProofRecord.ChainFront),
-							types.U64(idleProofRecord.ChainRear),
-							minerAccumulator,
-							types.Bool(idleProofRecord.IdleResult),
-							teeSignature,
-							idleProofRecord.AllocatedTeeAccountId,
-						)
-						if err != nil {
-							n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-							return
-						}
-						n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-						return
-					}
-					if idleProofRecord.BlocksProof != nil {
-						teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-
-						teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
-						if !ok {
-							n.Ichal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
-							return
-						}
-
-						err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-						if err != nil {
-							n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-						}
-						spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), idleProofRecord.BlocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*3))
-						if err != nil {
-							n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
-							return
-						}
-						idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
-						idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
-						buf, err = json.Marshal(&idleProofRecord)
-						if err != nil {
-							n.Ichal("err", err.Error())
-						} else {
-							err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-							if err != nil {
-								n.Ichal("err", err.Error())
-							}
-						}
-						var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-						for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-							idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-						}
-						var teeSignature pattern.TeeSignature
-						if len(idleProofRecord.TotalSignature) != len(teeSignature) {
-							n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-							return
-						}
-
-						for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-							teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
-						}
-
-						txHash, err := n.SubmitIdleProofResult(
-							idleProve,
-							types.U64(idleProofRecord.ChainFront),
-							types.U64(idleProofRecord.ChainRear),
-							minerAccumulator,
-							types.Bool(idleProofRecord.IdleResult),
-							teeSignature,
-							idleProofRecord.AllocatedTeeAccountId,
-						)
-						if err != nil {
-							n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-							return
-						}
-						n.Ichal("info", fmt.Sprintf("SubmitIdleProofResult: %s", txHash))
-						return
-					}
-				}
-				teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-
-				teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
-				if !ok {
-					n.Ichal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
-					return
-				}
-
-				err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-				if err != nil {
-					n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-				}
-				var blocksProof = make([]*pb.BlocksProof, 0)
-				for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
-					spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlockP2P(
-						teeAddrInfo.ID,
-						n.GetSignatureAccPulickey(),
-						idleProofRecord.ChallRandom,
-						n.Pois.RsaKey.N.Bytes(),
-						n.Pois.RsaKey.G.Bytes(),
-						idleProofRecord.Acc,
-						minerChallFront,
-						minerChallRear,
-						idleProofRecord.FileBlockProofInfo[i].SpaceProof,
-						idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
-						time.Duration(time.Minute*3),
-					)
-					if err != nil {
-						n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
-						return
-					}
-					var block = &pb.BlocksProof{
-						ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
-							SpaceProofHash: idleProofRecord.FileBlockProofInfo[i].ProofHashSignOrigin,
-							Left:           idleProofRecord.FileBlockProofInfo[i].FileBlockFront,
-							Right:          idleProofRecord.FileBlockProofInfo[i].FileBlockRear,
-						},
-						Signature: spaceProofVerify.Signature,
-					}
-					blocksProof = append(blocksProof, block)
-				}
-
-				idleProofRecord.BlocksProof = blocksProof
-				buf, err = json.Marshal(&idleProofRecord)
-				if err != nil {
-					n.Ichal("err", err.Error())
-				} else {
-					err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-					if err != nil {
-						n.Ichal("err", err.Error())
-					}
-				}
-
-				spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, idleProofRecord.ChainFront, idleProofRecord.ChainRear, idleProofRecord.Acc, idleProofRecord.ChallRandom, time.Duration(time.Minute*10))
-				if err != nil {
-					n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
-					return
-				}
-
-				var teeSignature pattern.TeeSignature
-				if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
-					n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-					return
-				}
-
-				for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
-					teeSignature[i] = types.U8(spaceProofVerifyTotal.Signature[i])
-				}
-
-				var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-				for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-					idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-				}
-				txHash, err := n.SubmitIdleProofResult(
-					idleProve,
-					types.U64(idleProofRecord.ChainFront),
-					types.U64(idleProofRecord.ChainRear),
-					minerAccumulator,
-					types.Bool(spaceProofVerifyTotal.IdleResult),
-					teeSignature,
-					idleProofRecord.AllocatedTeeAccountId,
-				)
-				if err != nil {
-					n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-					return
-				}
-				n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-				return
-			}
-		} else {
-			os.Remove(filepath.Join(n.Workspace(), "idleproof"))
-		}
+	if challVerifyExpiration <= latestBlock {
+		return
 	}
-	n.Ichal("info", fmt.Sprintf("Have a new idle challenge: %v", challStart))
-	idleProofRecord = idleProofInfo{}
 
-	idleProofRecord.Start = int32(challStart)
+	err := n.checkIdleProofRecord(
+		idleProofSubmited,
+		challStart,
+		minerChallFront,
+		minerChallRear,
+		minerAccumulator,
+	)
+	if err == nil {
+		return
+	}
+
+	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challStart))
+
+	var idleProofRecord idleProofInfo
+	idleProofRecord.Start = challStart
 	idleProofRecord.ChainFront = minerChallFront
 	idleProofRecord.ChainRear = minerChallRear
 
@@ -486,15 +233,7 @@ func (n *Node) idleChallenge(
 		idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 	}
 
-	buf, err = json.Marshal(&idleProofRecord)
-	if err != nil {
-		n.Ichal("err", err.Error())
-	} else {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-		if err != nil {
-			n.Ichal("err", err.Error())
-		}
-	}
+	n.saveidleProofRecord(idleProofRecord)
 
 	//
 	txhash, err := n.SubmitIdleProof(idleProve)
@@ -504,12 +243,11 @@ func (n *Node) idleChallenge(
 	}
 	n.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
 
-	time.Sleep(pattern.BlockInterval)
-	time.Sleep(pattern.BlockInterval)
+	time.Sleep(pattern.BlockInterval * 2)
 
 	teeAccounts := n.GetAllTeeWorkAccount()
 	var teePeerIdPubkey []byte
-	found = false
+	found := false
 	for _, v := range teeAccounts {
 		if found {
 			break
@@ -579,15 +317,7 @@ func (n *Node) idleChallenge(
 	}
 
 	idleProofRecord.BlocksProof = blocksProof
-	buf, err = json.Marshal(&idleProofRecord)
-	if err != nil {
-		n.Ichal("err", err.Error())
-	} else {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-		if err != nil {
-			n.Ichal("err", err.Error())
-		}
-	}
+	n.saveidleProofRecord(idleProofRecord)
 
 	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, minerChallFront, minerChallRear, acc, challRandom, time.Duration(time.Minute*3))
 	if err != nil {
@@ -609,15 +339,7 @@ func (n *Node) idleChallenge(
 
 	idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
 	idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
-	buf, err = json.Marshal(&idleProofRecord)
-	if err != nil {
-		n.Ichal("err", err.Error())
-	} else {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-		if err != nil {
-			n.Ichal("err", err.Error())
-		}
-	}
+	n.saveidleProofRecord(idleProofRecord)
 
 	txHash, err := n.SubmitIdleProofResult(
 		idleProve,
@@ -637,157 +359,163 @@ func (n *Node) idleChallenge(
 	return
 }
 
-func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpiration uint32, idleChallTeeAcc string, challenge pattern.ChallengeInfo_V2, minerChalInfo pattern.MinerSnapShot_V2) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	if challVerifyExpiration <= latestBlock {
-		return
-	}
-
+func (n *Node) checkIdleProofRecord(
+	idleProofSubmited bool,
+	challStart uint32,
+	minerChallFront int64,
+	minerChallRear int64,
+	minerAccumulator pattern.Accumulator,
+) error {
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
 	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[ReadFile(idleproof)] %v", err))
-		return
+		return err
 	}
 
 	err = json.Unmarshal(buf, &idleProofRecord)
 	if err != nil {
-		os.Remove(filepath.Join(n.Workspace(), "idleproof"))
-		n.Ichal("err", fmt.Sprintf("[Unmarshal] %v", err))
-		return
+		return err
 	}
 
-	n.Ichal("info", fmt.Sprintf("chain challenge: %v, local idleproof file challenge: %v", challenge.NetSnapShot.Start, idleProofRecord.Start))
-
-	if idleProofRecord.Start != int32(challenge.NetSnapShot.Start) {
-		os.Remove(filepath.Join(n.Workspace(), "idleproof"))
-		return
+	if idleProofRecord.Start != challStart {
+		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
+		return errors.New("Local service file challenge record is outdated")
 	}
 
-	allocatedTeeAccountId, err := sutils.ParsingPublickey(idleChallTeeAcc)
-	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[ParsingPublickey(%s)] %v", idleChallTeeAcc, err))
-		return
+	n.Ichal("info", fmt.Sprintf("local idle proof file challenge: %v", idleProofRecord.Start))
+	if !idleProofSubmited {
+		return errors.New("Idle proof not submited")
 	}
 
-	if idleProofRecord.TotalSignature != nil {
-		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+	found := false
+	teeAccounts := n.GetAllTeeWorkAccount()
+	for _, v := range teeAccounts {
+		if found {
+			break
 		}
-		var teeSignature pattern.TeeSignature
-		if len(idleProofRecord.TotalSignature) != len(teeSignature) {
-			n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-			return
+		publickey, _ := sutils.ParsingPublickey(v)
+		idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
+		if err != nil {
+			continue
 		}
 
-		for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-			teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
-		}
-
-		txHash, err := n.SubmitIdleProofResult(
-			idleProve,
-			types.U64(idleProofRecord.ChainFront),
-			types.U64(idleProofRecord.ChainRear),
-			minerChalInfo.SpaceProofInfo.Accumulator,
-			types.Bool(idleProofRecord.IdleResult),
-			teeSignature,
-			allocatedTeeAccountId,
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-			return
-		}
-		n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-		return
-	}
-	if idleProofRecord.BlocksProof != nil {
-		teePeerIdPubkey, _ := n.GetTeeWork(idleChallTeeAcc)
-
-		teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
-		if !ok {
-			n.Ichal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
-			return
-		}
-
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-		}
-		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(
-			teeAddrInfo.ID,
-			n.GetSignatureAccPulickey(),
-			idleProofRecord.BlocksProof,
-			idleProofRecord.ChainFront,
-			idleProofRecord.ChainRear,
-			idleProofRecord.Acc,
-			idleProofRecord.ChallRandom,
-			time.Duration(time.Minute*10),
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
-			return
-		}
-		idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
-		idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
-		buf, err = json.Marshal(&idleProofRecord)
-		if err != nil {
-			n.Ichal("err", err.Error())
-		} else {
-			err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-			if err != nil {
-				n.Ichal("err", err.Error())
+		for i := 0; i < len(idleProofInfos); i++ {
+			if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+				idleProofRecord.AllocatedTeeAccount = v
+				idleProofRecord.AllocatedTeeAccountId = publickey
+				found = true
+				n.Ichal("info", fmt.Sprintf("Allocated tee account: %v", v))
+				break
 			}
 		}
-		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-		}
-		var teeSignature pattern.TeeSignature
-		if len(idleProofRecord.TotalSignature) != len(teeSignature) {
-			n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-			return
-		}
-
-		for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-			teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
-		}
-
-		txHash, err := n.SubmitIdleProofResult(
-			idleProve,
-			types.U64(idleProofRecord.ChainFront),
-			types.U64(idleProofRecord.ChainRear),
-			minerChalInfo.SpaceProofInfo.Accumulator,
-			types.Bool(idleProofRecord.IdleResult),
-			teeSignature,
-			allocatedTeeAccountId,
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-			return
-		}
-		n.Ichal("info", fmt.Sprintf("SubmitIdleProofResult: %s", txHash))
-		return
+	}
+	if !found {
+		n.Ichal("err", "Not found allocated tee for idle proof")
+		return nil
+	}
+	var acc = make([]byte, len(pattern.Accumulator{}))
+	for i := 0; i < len(acc); i++ {
+		acc[i] = byte(minerAccumulator[i])
 	}
 
-	teePeerIdPubkey, _ := n.GetTeeWork(idleChallTeeAcc)
+	for {
+		if idleProofRecord.TotalSignature != nil {
+			var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+			}
+			var teeSignature pattern.TeeSignature
+			if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+				n.Ichal("err", "invalid spaceProofVerifyTotal signature")
+				break
+			}
+			for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
+				teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+			}
+			txHash, err := n.SubmitIdleProofResult(
+				idleProve,
+				types.U64(minerChallFront),
+				types.U64(minerChallRear),
+				minerAccumulator,
+				types.Bool(idleProofRecord.IdleResult),
+				teeSignature,
+				idleProofRecord.AllocatedTeeAccountId,
+			)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+				break
+			}
+			n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+			return nil
+		}
+		break
+	}
 
-	teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+	teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
+	peerid_str := base58.Encode(teePeerIdPubkey)
+	n.Ichal("info", fmt.Sprintf("Allocated tee peer id: %v", peerid_str))
+	teeAddrInfo, ok := n.GetPeer(peerid_str)
 	if !ok {
-		n.Ichal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
-		return
+		n.Ichal("err", fmt.Sprintf("Not discovered the tee peer: %s", peerid_str))
+		return nil
 	}
-
 	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
 	}
+
+	for {
+		if idleProofRecord.BlocksProof != nil {
+			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(
+				teeAddrInfo.ID,
+				n.GetSignatureAccPulickey(),
+				idleProofRecord.BlocksProof,
+				minerChallFront,
+				minerChallRear,
+				acc,
+				idleProofRecord.ChallRandom,
+				time.Duration(time.Minute*10),
+			)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
+				break
+			}
+			idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
+			idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
+
+			var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+			}
+			var teeSignature pattern.TeeSignature
+			if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+				n.Ichal("err", "invalid spaceProofVerifyTotal signature")
+				break
+			}
+
+			for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
+				teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+			}
+			n.saveidleProofRecord(idleProofRecord)
+			txHash, err := n.SubmitIdleProofResult(
+				idleProve,
+				types.U64(minerChallFront),
+				types.U64(minerChallRear),
+				minerAccumulator,
+				types.Bool(idleProofRecord.IdleResult),
+				teeSignature,
+				idleProofRecord.AllocatedTeeAccountId,
+			)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+				break
+			}
+			n.Ichal("info", fmt.Sprintf("SubmitIdleProofResult: %s", txHash))
+			return nil
+		}
+		break
+	}
+
 	var blocksProof = make([]*pb.BlocksProof, 0)
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlockP2P(
@@ -796,16 +524,16 @@ func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpir
 			idleProofRecord.ChallRandom,
 			n.Pois.RsaKey.N.Bytes(),
 			n.Pois.RsaKey.G.Bytes(),
-			idleProofRecord.Acc,
-			int64(minerChalInfo.SpaceProofInfo.Front),
-			int64(minerChalInfo.SpaceProofInfo.Rear),
+			acc,
+			minerChallFront,
+			minerChallRear,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 			time.Duration(time.Minute*3),
 		)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
-			return
+			return nil
 		}
 		var block = &pb.BlocksProof{
 			ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
@@ -819,35 +547,27 @@ func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpir
 	}
 
 	idleProofRecord.BlocksProof = blocksProof
-	buf, err = json.Marshal(&idleProofRecord)
-	if err != nil {
-		n.Ichal("err", err.Error())
-	} else {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
-		if err != nil {
-			n.Ichal("err", err.Error())
-		}
-	}
+	n.saveidleProofRecord(idleProofRecord)
 
 	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(
 		teeAddrInfo.ID,
 		n.GetSignatureAccPulickey(),
 		blocksProof,
-		idleProofRecord.ChainFront,
-		idleProofRecord.ChainRear,
-		idleProofRecord.Acc,
+		minerChallFront,
+		minerChallRear,
+		acc,
 		idleProofRecord.ChallRandom,
 		time.Duration(time.Minute*10),
 	)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
-		return
+		return nil
 	}
 
 	var teeSignature pattern.TeeSignature
 	if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
 		n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-		return
+		return nil
 	}
 
 	for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
@@ -858,20 +578,32 @@ func (n *Node) poisChallengeResult(ch chan<- bool, latestBlock, challVerifyExpir
 	for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 		idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 	}
-
+	idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
+	idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
+	n.saveidleProofRecord(idleProofRecord)
 	txHash, err := n.SubmitIdleProofResult(
 		idleProve,
-		types.U64(idleProofRecord.ChainFront),
-		types.U64(idleProofRecord.ChainRear),
-		minerChalInfo.SpaceProofInfo.Accumulator,
+		types.U64(minerChallFront),
+		types.U64(minerChallRear),
+		minerAccumulator,
 		types.Bool(spaceProofVerifyTotal.IdleResult),
 		teeSignature,
-		allocatedTeeAccountId,
+		idleProofRecord.AllocatedTeeAccountId,
 	)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-		return
+		return nil
 	}
 	n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-	return
+	return nil
+}
+
+func (n *Node) saveidleProofRecord(idleProofRecord idleProofInfo) {
+	buf, err := json.Marshal(&idleProofRecord)
+	if err == nil {
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+		if err != nil {
+			n.Schal("err", err.Error())
+		}
+	}
 }

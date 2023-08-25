@@ -47,6 +47,7 @@ type Node struct {
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
+		key:        proof.NewKey(),
 		peerLock:   new(sync.RWMutex),
 		teeLock:    new(sync.RWMutex),
 		peers:      make(map[string]peer.AddrInfo, 0),
@@ -64,8 +65,8 @@ func (n *Node) Run() {
 		ch_calctag          = make(chan bool, 1)
 		ch_replace          = make(chan bool, 1)
 		ch_resizespace      = make(chan bool, 1)
-		//ch_restoreMgt  = make(chan bool, 1)
-		ch_discoverMgt = make(chan bool, 1)
+		ch_restoreMgt       = make(chan bool, 1)
+		ch_discoverMgt      = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
@@ -102,9 +103,8 @@ func (n *Node) Run() {
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
-	// go n.restoreMgt(ch_restoreMgt)
+	go n.restoreMgt(ch_restoreMgt)
 	go n.discoverMgt(ch_discoverMgt)
-
 	go n.poisMgt(ch_spaceMgt)
 
 	n.syncChainStatus()
@@ -114,14 +114,13 @@ func (n *Node) Run() {
 	for {
 		select {
 		case <-task_18S.C:
-			n.Log("info", "Start chal task cycle...")
 			err := n.connectChain()
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			n.challenge(ch_idlechallenge, ch_servicechallenge)
+			n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
 
 		case <-task_Minute.C:
 			n.syncChainStatus()
@@ -146,8 +145,8 @@ func (n *Node) Run() {
 			}
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
-		// case <-ch_restoreMgt:
-		// 	go n.restoreMgt(ch_restoreMgt)
+		case <-ch_restoreMgt:
+			go n.restoreMgt(ch_restoreMgt)
 		case <-ch_discoverMgt:
 			go n.discoverMgt(ch_discoverMgt)
 		}

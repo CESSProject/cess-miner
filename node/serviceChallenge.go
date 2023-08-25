@@ -45,6 +45,7 @@ func (n *Node) serviceChallenge(
 	serviceProofSubmited bool,
 	latestBlock,
 	challExpiration uint32,
+	challVerifyExpiration uint32,
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
@@ -67,6 +68,10 @@ func (n *Node) serviceChallenge(
 			n.Schal("err", "Proof of service files not submitted")
 			return
 		}
+	}
+
+	if challVerifyExpiration <= latestBlock {
+		return
 	}
 
 	var found bool
@@ -187,167 +192,6 @@ func (n *Node) serviceChallenge(
 	n.saveServiceProofRecord(serviceProofRecord)
 
 	txhash, err = n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
-		return
-	}
-	n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
-	return
-}
-
-func (n *Node) serviceChallengeResult(
-	ch chan<- bool,
-	latestBlock,
-	challVerifyExpiration uint32,
-	serviceChallTeeAcc string,
-	challenge pattern.ChallengeInfo_V2,
-) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	if challVerifyExpiration <= latestBlock {
-		return
-	}
-
-	n.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challenge.NetSnapShot.Start))
-
-	var serviceProofRecord serviceProofInfo
-	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "serviceproof"))
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[ReadFile(serviceproof)] %v", err))
-		return
-	}
-
-	err = json.Unmarshal(buf, &serviceProofRecord)
-	if err != nil {
-		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
-		n.Schal("err", fmt.Sprintf("[Unmarshal(serviceproof)] %v", err))
-		return
-	}
-
-	n.Schal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
-	if serviceProofRecord.Start != uint32(challenge.NetSnapShot.Start) {
-		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
-		return
-	}
-
-	allocatedTeeAccountId, err := sutils.ParsingPublickey(serviceChallTeeAcc)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[ParsingPublickey(%s)] %v", serviceChallTeeAcc, err))
-		return
-	}
-
-	for {
-		if serviceProofRecord.ServiceBloomFilter != nil &&
-			serviceProofRecord.TeeAccountId != nil &&
-			serviceProofRecord.Signature != nil {
-			var signature pattern.TeeSignature
-			if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
-				n.Schal("err", "invalid batchVerify.Signature")
-				break
-			}
-			for i := 0; i < len(serviceProofRecord.Signature); i++ {
-				signature[i] = types.U8(serviceProofRecord.Signature[i])
-			}
-
-			var bloomFilter pattern.BloomFilter
-			if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
-				n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
-				break
-			}
-			for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
-				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
-			}
-
-			txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, allocatedTeeAccountId)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
-				break
-			}
-			n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
-			break
-		}
-		break
-	}
-
-	teePeerIdPubkey, _ := n.GetTeeWork(serviceChallTeeAcc)
-
-	teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
-	if !ok {
-		n.Schal("err", fmt.Sprintf("Not found tee peer: %s", base58.Encode(teePeerIdPubkey)))
-		return
-	}
-	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-	}
-	peeridSign, err := n.Sign(n.GetPeerPublickey())
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[Sign] %v", err))
-		return
-	}
-
-	var randomIndexList = make([]uint32, len(challenge.NetSnapShot.RandomIndexList))
-	for i := 0; i < len(challenge.NetSnapShot.RandomIndexList); i++ {
-		randomIndexList[i] = uint32(challenge.NetSnapShot.RandomIndexList[i])
-	}
-	var randomList = make([][]byte, len(challenge.NetSnapShot.RandomList))
-	for i := 0; i < len(challenge.NetSnapShot.RandomList); i++ {
-		randomList[i] = make([]byte, len(challenge.NetSnapShot.RandomList[i]))
-		for j := 0; j < len(challenge.NetSnapShot.RandomList[i]); j++ {
-			randomList[i][j] = byte(challenge.NetSnapShot.RandomList[i][j])
-		}
-	}
-
-	var qslice_pb = &pb.RequestBatchVerify_Qslice{
-		RandomIndexList: randomIndexList,
-		RandomList:      randomList,
-	}
-	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", base58.Encode(teePeerIdPubkey)))
-	batchVerify, err := n.PoisServiceRequestBatchVerifyP2P(
-		teeAddrInfo.ID,
-		serviceProofRecord.Names,
-		serviceProofRecord.Us,
-		serviceProofRecord.Mus,
-		serviceProofRecord.Sigma,
-		n.GetPeerPublickey(),
-		n.GetSignatureAccPulickey(),
-		peeridSign,
-		qslice_pb,
-		time.Duration(time.Minute*10),
-	)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerifyP2P] %v", err))
-		return
-	}
-	serviceProofRecord.ServiceResult = batchVerify.BatchVerifyResult
-	serviceProofRecord.ServiceBloomFilter = batchVerify.ServiceBloomFilter
-	serviceProofRecord.TeeAccountId = batchVerify.TeeAccountId
-	serviceProofRecord.Signature = batchVerify.Signature
-
-	var signature pattern.TeeSignature
-	if len(pattern.TeeSignature{}) != len(batchVerify.Signature) {
-		n.Schal("err", "invalid batchVerify.Signature")
-		return
-	}
-	for i := 0; i < len(batchVerify.Signature); i++ {
-		signature[i] = types.U8(batchVerify.Signature[i])
-	}
-
-	var bloomFilter pattern.BloomFilter
-	if len(pattern.BloomFilter{}) != len(batchVerify.ServiceBloomFilter) {
-		n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
-		return
-	}
-	for i := 0; i < len(batchVerify.ServiceBloomFilter); i++ {
-		bloomFilter[i] = types.U64(batchVerify.ServiceBloomFilter[i])
-	}
-	n.saveServiceProofRecord(serviceProofRecord)
-	txhash, err := n.SubmitServiceProofResult(types.Bool(batchVerify.BatchVerifyResult), signature, bloomFilter, allocatedTeeAccountId)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
 		return

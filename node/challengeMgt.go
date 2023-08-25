@@ -14,14 +14,11 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 )
 
-func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
+func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 	var idleProofSubmited bool = true
 	var serviceProofSubmited bool = true
 	var idleChallResult bool
 	var serviceChallResult bool
-	var idleChallTeeAcc string
-	var serviceChallTeeAcc string
-	var minerSnapShot pattern.MinerSnapShot_V2
 
 	challenge, err := n.QueryChallenge_V2()
 	if err != nil {
@@ -38,13 +35,12 @@ func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
 		n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		return
 	}
-	challExpiration, err := n.QueryChallengeExpiration()
+	challVerifyExpiration, err := n.QueryChallengeVerifyExpiration()
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
 		n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
 		return
 	}
-
 	for _, v := range challenge.MinerSnapshotList {
 		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
 			idleProofSubmited = bool(v.IdleSubmitted)
@@ -56,7 +52,8 @@ func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						idleChallTaskCh,
 						idleProofSubmited,
 						latestBlock,
-						challExpiration,
+						uint32(v.IdleLife+challenge.NetSnapShot.Start),
+						challVerifyExpiration,
 						uint32(challenge.NetSnapShot.Start),
 						int64(v.SpaceProofInfo.Front),
 						int64(v.SpaceProofInfo.Rear),
@@ -73,7 +70,8 @@ func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						serviceChallTaskCh,
 						serviceProofSubmited,
 						latestBlock,
-						challExpiration,
+						uint32(v.ServiceLife+challenge.NetSnapShot.Start),
+						challVerifyExpiration,
 						uint32(challenge.NetSnapShot.Start),
 						challenge.NetSnapShot.RandomIndexList,
 						challenge.NetSnapShot.RandomList,
@@ -101,8 +99,21 @@ func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
 				for i := 0; i < len(idleProofInfos); i++ {
 					if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
 						idleChallResult = true
-						idleChallTeeAcc = v
-						minerSnapShot = idleProofInfos[i].MinerSnapShot
+						if len(idleChallTaskCh) > 0 {
+							_ = <-idleChallTaskCh
+							go n.idleChallenge(
+								idleChallTaskCh,
+								idleProofSubmited,
+								latestBlock,
+								uint32(idleProofInfos[i].MinerSnapShot.IdleLife+challenge.NetSnapShot.Start),
+								challVerifyExpiration,
+								uint32(challenge.NetSnapShot.Start),
+								int64(idleProofInfos[i].MinerSnapShot.SpaceProofInfo.Front),
+								int64(idleProofInfos[i].MinerSnapShot.SpaceProofInfo.Rear),
+								challenge.NetSnapShot.SpaceChallengeParam,
+								idleProofInfos[i].MinerSnapShot.SpaceProofInfo.Accumulator,
+							)
+						}
 						break
 					}
 				}
@@ -114,41 +125,22 @@ func (n *Node) challenge(idleChallTaskCh, serviceChallTaskCh chan bool) {
 				for i := 0; i < len(serviceProofInfos); i++ {
 					if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
 						serviceChallResult = true
-						serviceChallTeeAcc = v
-						minerSnapShot = serviceProofInfos[i].MinerSnapShot
+						if len(serviceChallTaskCh) > 0 {
+							_ = <-serviceChallTaskCh
+							go n.serviceChallenge(
+								serviceChallTaskCh,
+								serviceProofSubmited,
+								latestBlock,
+								uint32(serviceProofInfos[i].MinerSnapShot.ServiceLife+challenge.NetSnapShot.Start),
+								challVerifyExpiration,
+								uint32(challenge.NetSnapShot.Start),
+								challenge.NetSnapShot.RandomIndexList,
+								challenge.NetSnapShot.RandomList,
+							)
+						}
 						break
 					}
 				}
-			}
-		}
-	}
-
-	if idleChallResult || serviceChallResult {
-		latestBlock, err := n.QueryBlockHeight("")
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-			n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-			return
-		}
-
-		challVerifyExpiration, err := n.QueryChallengeVerifyExpiration()
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-			n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
-			return
-		}
-
-		if idleChallResult {
-			if len(idleChallTaskCh) > 0 {
-				_ = <-idleChallTaskCh
-				go n.poisChallengeResult(idleChallTaskCh, latestBlock, challVerifyExpiration, idleChallTeeAcc, challenge, minerSnapShot)
-			}
-		}
-
-		if serviceChallResult {
-			if len(serviceChallTaskCh) > 0 {
-				_ = <-serviceChallTaskCh
-				go n.serviceChallengeResult(serviceChallTaskCh, latestBlock, challVerifyExpiration, serviceChallTeeAcc, challenge)
 			}
 		}
 	}
