@@ -138,7 +138,7 @@ func (n *Node) Run() {
 			}
 
 		case <-task_Hour.C:
-			n.connectBoot()
+			go n.connectBoot()
 			if len(ch_resizespace) > 0 {
 				_ = <-ch_resizespace
 				go n.resizeSpace(ch_resizespace)

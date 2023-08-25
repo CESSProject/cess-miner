@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -131,10 +132,10 @@ func (n *Node) idleChallenge(
 
 	for front := (minerChallFront + 1); front <= (minerChallRear + 1); {
 		var fileBlockProofInfoEle fileBlockProofInfo
-		if (front + 256) > (minerChallRear + 1) {
+		if (front + poisSignalBlockNum) > (minerChallRear + 1) {
 			rear = int64(minerChallRear + 1)
 		} else {
-			rear = int64(front + 256)
+			rear = int64(front + poisSignalBlockNum)
 		}
 		fileBlockProofInfoEle.FileBlockFront = int64(front)
 		fileBlockProofInfoEle.FileBlockRear = rear
@@ -217,7 +218,7 @@ func (n *Node) idleChallenge(
 		if rear >= (minerChallRear + 1) {
 			break
 		}
-		front += 256
+		front += poisSignalBlockNum
 	}
 
 	h := sha256.New()
@@ -367,7 +368,7 @@ func (n *Node) checkIdleProofRecord(
 	minerAccumulator pattern.Accumulator,
 ) error {
 	var idleProofRecord idleProofInfo
-	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "idleproof"))
+	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.IdleProofFile))
 	if err != nil {
 		return err
 	}
@@ -378,7 +379,7 @@ func (n *Node) checkIdleProofRecord(
 	}
 
 	if idleProofRecord.Start != challStart {
-		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
+		os.Remove(filepath.Join(n.Workspace(), configs.ServiceProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 
@@ -601,7 +602,7 @@ func (n *Node) checkIdleProofRecord(
 func (n *Node) saveidleProofRecord(idleProofRecord idleProofInfo) {
 	buf, err := json.Marshal(&idleProofRecord)
 	if err == nil {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "idleproof"))
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), configs.IdleProofFile))
 		if err != nil {
 			n.Schal("err", err.Error())
 		}
