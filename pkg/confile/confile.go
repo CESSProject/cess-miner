@@ -26,9 +26,10 @@ Rpc:
   - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+  - "wss://testnet-rpc2.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.bootstrap-kldr.cess.cloud"
+  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
 # Staking account mnemonic
 Mnemonic: "xxx xxx ... xxx"
 # earnings account

@@ -35,6 +35,8 @@ type Pois struct {
 	rear      int64
 }
 
+const poisSignalBlockNum = 1024
+
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
 // poisMgt
@@ -290,7 +292,7 @@ func (n *Node) pois() error {
 
 	// If the challenge is successful, update the prover status, fileNum is challenged files number,
 	// the second parameter represents whether it is a delete operation, and the commit proofs should belong to the joining files, so it is false
-	err = n.Prover.UpdateStatus(256, false)
+	err = n.Prover.UpdateStatus(acc.DEFAULT_ELEMS_NUM, false)
 	if err != nil {
 		return errors.Wrapf(err, "[UpdateStatus]")
 	}

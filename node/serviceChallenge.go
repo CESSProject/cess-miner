@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -340,7 +341,7 @@ func (n *Node) checkServiceProofRecord(
 ) error {
 	var found bool
 	var serviceProofRecord serviceProofInfo
-	buf, err := os.ReadFile(filepath.Join(n.Workspace(), "serviceproof"))
+	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.ServiceProofFile))
 	if err != nil {
 		return err
 	}
@@ -351,7 +352,7 @@ func (n *Node) checkServiceProofRecord(
 	}
 
 	if serviceProofRecord.Start != challStart {
-		os.Remove(filepath.Join(n.Workspace(), "serviceproof"))
+		os.Remove(filepath.Join(n.Workspace(), configs.ServiceProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 
@@ -495,7 +496,7 @@ func (n *Node) checkServiceProofRecord(
 func (n *Node) saveServiceProofRecord(serviceProofRecord serviceProofInfo) {
 	buf, err := json.Marshal(&serviceProofRecord)
 	if err == nil {
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), "serviceproof"))
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.Workspace(), configs.ServiceProofFile))
 		if err != nil {
 			n.Schal("err", err.Error())
 		}

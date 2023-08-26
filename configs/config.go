@@ -19,7 +19,7 @@ const (
 	//
 	DefaultWorkspace = "/"
 	//
-	DefaultServicePort = 15001
+	DefaultServicePort = 4001
 	//
 	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
 	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
@@ -30,6 +30,8 @@ const (
 )
 
 const (
-	DbDir  = "db"
-	LogDir = "log"
+	DbDir            = "db"
+	LogDir           = "log"
+	IdleProofFile    = "idleproof"
+	ServiceProofFile = "serviceproof"
 )
