@@ -142,7 +142,7 @@ func (n *Node) calcFileTag() error {
 	var code uint32
 	var err error
 
-	roothashs, err := utils.Dirs(filepath.Join(n.GetDirs().FileDir))
+	roothashs, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
 		return errors.Wrapf(err, "[Dirs]")
 	}

@@ -300,7 +300,7 @@ func (n *Node) idleChallenge(
 			minerChallRear,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
-			time.Duration(time.Minute),
+			time.Duration(time.Minute*3),
 		)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
@@ -379,7 +379,7 @@ func (n *Node) checkIdleProofRecord(
 	}
 
 	if idleProofRecord.Start != challStart {
-		os.Remove(filepath.Join(n.Workspace(), configs.ServiceProofFile))
+		os.Remove(filepath.Join(n.Workspace(), configs.IdleProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 
