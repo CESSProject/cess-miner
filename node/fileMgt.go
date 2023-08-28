@@ -92,7 +92,9 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
 				return
 			}
-			os.RemoveAll(v)
+			n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
+			n.Report("err", fmt.Sprintf("[%s] will delete files", roothash))
+			//os.RemoveAll(v)
 			continue
 		}
 		reReport = true
@@ -144,14 +146,6 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			continue
 		}
 		n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
-		if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
-			err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-			if err != nil {
-				n.Report("err", fmt.Sprintf("[RenameDir %s] %v", roothash, err))
-				continue
-			}
-			n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
-		}
 	}
 }
 
@@ -179,5 +173,5 @@ func RenameDir(oldDir, newDir string) error {
 			return err
 		}
 	}
-	return os.RemoveAll(oldDir)
+	return nil
 }

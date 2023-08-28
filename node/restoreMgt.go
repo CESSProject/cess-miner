@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package node
 
 import (
@@ -82,7 +89,7 @@ func (n *Node) inspector() error {
 		fmeta, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
-				os.RemoveAll(v)
+				n.Log("info", fmt.Sprintf("[%s] will delete files", roothash))
 				continue
 			}
 			n.Restore("err", fmt.Sprintf("[QueryFileMetadata %v] %v", roothash, err))

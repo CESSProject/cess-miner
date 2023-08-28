@@ -64,7 +64,6 @@ func (n *Node) Run() {
 		ch_reportfiles      = make(chan bool, 1)
 		ch_calctag          = make(chan bool, 1)
 		ch_replace          = make(chan bool, 1)
-		ch_resizespace      = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
 		ch_discoverMgt      = make(chan bool, 1)
 	)
@@ -74,7 +73,6 @@ func (n *Node) Run() {
 	ch_reportfiles <- true
 	ch_calctag <- true
 	ch_replace <- true
-	ch_resizespace <- true
 
 	// peer persistent location
 	n.peersPath = filepath.Join(n.Workspace(), "peers")
@@ -139,10 +137,6 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			go n.connectBoot()
-			if len(ch_resizespace) > 0 {
-				_ = <-ch_resizespace
-				go n.resizeSpace(ch_resizespace)
-			}
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
 		case <-ch_restoreMgt:
