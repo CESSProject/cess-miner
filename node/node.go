@@ -107,7 +107,7 @@ func (n *Node) Run() {
 
 	n.syncChainStatus()
 
-	out.Ok("start successfully")
+	out.Ok("Start successfully")
 
 	for {
 		select {

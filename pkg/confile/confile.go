@@ -15,6 +15,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -110,7 +111,10 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
-	sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)
+	err = sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)
+	if err != nil {
+		return errors.New("invalid earnings account")
+	}
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
@@ -118,10 +122,10 @@ func (c *confile) Parse(fpath string, port int) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if !fstat.IsDir() {
-		return errors.Errorf("The '%v' is not a directory", c.Workspace)
+	} else {
+		if !fstat.IsDir() {
+			return errors.Errorf("The '%v' is not a directory", c.Workspace)
+		}
 	}
 
 	dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
@@ -130,7 +134,7 @@ func (c *confile) Parse(fpath string, port int) error {
 	}
 
 	if dirFreeSpace/1024/1024/1024 < c.UseSpace {
-		return errors.Errorf("The available space is less than %dG", c.UseSpace)
+		out.Warn(fmt.Sprintf("The available space is less than %dG", c.UseSpace))
 	}
 
 	return nil

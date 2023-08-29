@@ -41,6 +41,11 @@ type serviceProofInfo struct {
 	ServiceResult         bool     `json:"serviceResult"`
 }
 
+type RandomList struct {
+	Index  []uint32 `json:"index"`
+	Random [][]byte `json:"random"`
+}
+
 func (n *Node) serviceChallenge(
 	ch chan<- bool,
 	serviceProofSubmited bool,

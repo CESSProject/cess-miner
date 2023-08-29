@@ -58,7 +58,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
-	out.Ok("Configuration file parsing completed")
+	//out.Ok("Configuration file parsing completed")
+	out.Tip(fmt.Sprintf("Rpc addresses: %v", n.GetRpcAddr()))
 
 	boots := n.GetBootNodes()
 	for _, v := range boots {
@@ -78,7 +79,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 			bootEnv = "unknown"
 		}
 	}
-	out.Tip(fmt.Sprintf("Rpc addresses: %v", n.GetRpcAddr()))
 	out.Tip(fmt.Sprintf("Bootnodes: %v", boots))
 
 	//Build client
@@ -98,9 +98,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	out.Tip(fmt.Sprintf("P2P protocol version: %v", n.GetProtocolVersion()))
-	out.Tip(fmt.Sprintf("DHT protocol version: %v", n.GetDhtProtocolVersion()))
-	out.Tip(fmt.Sprintf("GRPC protocol version: %v", n.GetGrpcProtocolVersion()))
+	// out.Tip(fmt.Sprintf("P2P protocol version: %v", n.GetProtocolVersion()))
+	// out.Tip(fmt.Sprintf("DHT protocol version: %v", n.GetDhtProtocolVersion()))
+	// out.Tip(fmt.Sprintf("GRPC protocol version: %v", n.GetGrpcProtocolVersion()))
 	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().Pretty()))
 	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
@@ -205,7 +205,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
 				continue
 			}
-			out.Ok("Get the initial proof key")
+			//out.Ok("Get the initial proof key")
 			break
 		}
 
@@ -234,7 +234,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			sign[i] = types.U8(minerInitParam.Signature[i])
 		}
 
-		out.Tip("Start registering storage node")
+		//out.Tip("Start registering storage node")
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), token, key, sign)
 		if err != nil {
 			out.Err(fmt.Sprintf("Register failed: %v", err))
@@ -248,15 +248,13 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	} else {
-		out.Tip("Update storage node information")
+		//out.Tip("Update storage node information")
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
 		if err != nil {
 			out.Err(fmt.Sprintf("Update failed: %v", err))
 			os.Exit(1)
 		}
 		n.SetEarningsAcc(earnings)
-
-		out.Tip("Initialize pois")
 		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois-2] %v", err))
@@ -270,7 +268,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
-	out.Tip("Initialize the workspace")
+	//out.Tip("Initialize the workspace")
 
 	// Build cache instance
 	n.Cache, err = buildCache(cacheDir)
@@ -278,7 +276,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
-	out.Tip("Initialize the cache")
+	//out.Tip("Initialize the cache")
 
 	//Build log instance
 	n.Logger, err = buildLogs(logDir)
@@ -286,7 +284,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
-	out.Tip("Initialize the logger")
+	//out.Tip("Initialize the logger")
 
 	out.Tip(fmt.Sprintf("Workspace: %v", n.Workspace()))
 
