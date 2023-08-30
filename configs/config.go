@@ -32,6 +32,10 @@ const (
 const (
 	DbDir            = "db"
 	LogDir           = "log"
+	SpaceDir         = "space"
+	PoisDir          = "pois"
+	AccDir           = "acc"
+	RandomDir        = "random"
 	IdleProofFile    = "idleproof"
 	ServiceProofFile = "serviceproof"
 )

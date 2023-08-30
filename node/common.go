@@ -16,6 +16,15 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+type DataDir struct {
+	DbDir     string
+	LogDir    string
+	SpaceDir  string
+	PoisDir   string
+	AccDir    string
+	RandomDir string
+}
+
 const (
 	Active = iota
 	Calculate

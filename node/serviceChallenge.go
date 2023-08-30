@@ -212,7 +212,7 @@ func (n *Node) saveRandom(
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
 ) error {
-	randfilePath := filepath.Join(n.GetDirs().ProofDir, fmt.Sprintf("random.%d", challStart))
+	randfilePath := filepath.Join(n.DataDir.RandomDir, fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)
 	if err == nil && fstat.Size() > 0 {
 		return nil

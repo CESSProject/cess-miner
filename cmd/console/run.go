@@ -42,13 +42,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 	var (
 		firstReg       bool
 		err            error
-		logDir         string
-		cacheDir       string
 		earnings       string
 		bootEnv        string
 		token          uint64
-		syncSt         pattern.SysSyncState
 		protocolPrefix string
+		syncSt         pattern.SysSyncState
 		n              = node.New()
 	)
 
@@ -172,6 +170,13 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// Build data directory
+	n.DataDir, err = buildDir(n.Workspace())
+	if err != nil {
+		out.Err(fmt.Sprintf("[buildDir] %v", err))
+		os.Exit(1)
+	}
+
 	if firstReg {
 		var bootPeerID []peer.ID
 		var minerInitParam *pb.ResponseMinerInitParam
@@ -262,16 +267,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Build data directory
-	logDir, cacheDir, err = buildDir(n.Workspace())
-	if err != nil {
-		out.Err(fmt.Sprintf("[buildDir] %v", err))
-		os.Exit(1)
-	}
 	//out.Tip("Initialize the workspace")
 
 	// Build cache instance
-	n.Cache, err = buildCache(cacheDir)
+	n.Cache, err = buildCache(n.DataDir.DbDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
@@ -279,7 +278,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	//out.Tip("Initialize the cache")
 
 	//Build log instance
-	n.Logger, err = buildLogs(logDir)
+	n.Logger, err = buildLogs(n.DataDir.LogDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
@@ -715,18 +714,39 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, error) {
-	logDir := filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
-		return "", "", err
+func buildDir(workspace string) (*node.DataDir, error) {
+	var dir = &node.DataDir{}
+	dir.LogDir = filepath.Join(workspace, configs.LogDir)
+	if err := os.MkdirAll(dir.LogDir, pattern.DirMode); err != nil {
+		return dir, err
 	}
 
-	cacheDir := filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
-		return "", "", err
+	dir.DbDir = filepath.Join(workspace, configs.DbDir)
+	if err := os.MkdirAll(dir.DbDir, pattern.DirMode); err != nil {
+		return dir, err
 	}
 
-	return logDir, cacheDir, nil
+	dir.AccDir = filepath.Join(workspace, configs.AccDir)
+	if err := os.MkdirAll(dir.AccDir, pattern.DirMode); err != nil {
+		return dir, err
+	}
+
+	dir.PoisDir = filepath.Join(workspace, configs.PoisDir)
+	if err := os.MkdirAll(dir.PoisDir, pattern.DirMode); err != nil {
+		return dir, err
+	}
+
+	dir.RandomDir = filepath.Join(workspace, configs.RandomDir)
+	if err := os.MkdirAll(dir.RandomDir, pattern.DirMode); err != nil {
+		return dir, err
+	}
+
+	dir.SpaceDir = filepath.Join(workspace, configs.SpaceDir)
+	if err := os.MkdirAll(dir.SpaceDir, pattern.DirMode); err != nil {
+		return dir, err
+	}
+
+	return dir, nil
 }
 
 func buildCache(cacheDir string) (cache.Cache, error) {
