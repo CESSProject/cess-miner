@@ -16,32 +16,30 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// func (n *Node) chainMgt(ch chan bool) {
-// 	defer func() {
-// 		ch <- true
-// 		if err := recover(); err != nil {
-// 			n.Pnc(utils.RecoverError(err))
-// 		}
-// 	}()
+type DataDir struct {
+	DbDir     string
+	LogDir    string
+	SpaceDir  string
+	PoisDir   string
+	AccDir    string
+	RandomDir string
+}
 
-// 	tickListening := time.NewTicker(time.Minute)
-// 	defer tickListening.Stop()
+const (
+	Active = iota
+	Calculate
+	Missing
+	Recovery
+)
 
-// 	n.Log("info", ">>>>> start chainMgt <<<<<")
-
-// 	for {
-// 		select {
-// 		case <-tickListening.C:
-// 			if err := n.connectChain(); err != nil {
-// 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-// 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
-// 				break
-// 			}
-// 			n.syncChainStatus()
-// 			n.replaceFiller()
-// 		}
-// 	}
-// }
+const (
+	Cach_prefix_metadata    = "metadata:"
+	Cach_prefix_MyLost      = "mylost:"
+	Cach_prefix_recovery    = "recovery:"
+	Cach_prefix_TargetMiner = "targetminer:"
+	Cach_prefix_File        = "file:"
+	Cach_prefix_ParseBlock  = "parseblocks"
+)
 
 func (n *Node) connectBoot() {
 	boots := n.GetBootNodes()

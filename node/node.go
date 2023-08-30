@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
@@ -34,6 +33,7 @@ type Node struct {
 	key        *proof.RSAKeyPair
 	peerLock   *sync.RWMutex
 	teeLock    *sync.RWMutex
+	DataDir    *DataDir
 	peers      map[string]peer.AddrInfo
 	teeWorkers map[string][]byte
 	peersPath  string
@@ -107,7 +107,7 @@ func (n *Node) Run() {
 
 	n.syncChainStatus()
 
-	out.Ok("start successfully")
+	out.Ok("Start successfully")
 
 	for {
 		select {
@@ -319,17 +319,21 @@ func (n *Node) GetAllTeeWorkPeerIdString() []string {
 
 func (n *Node) RebuildDirs() {
 	os.RemoveAll(n.GetDirs().FileDir)
-	os.RemoveAll(n.GetDirs().IdleDataDir)
-	os.RemoveAll(n.GetDirs().IdleTagDir)
-	os.RemoveAll(n.GetDirs().ProofDir)
 	os.RemoveAll(n.GetDirs().ServiceTagDir)
 	os.RemoveAll(n.GetDirs().TmpDir)
-	os.RemoveAll(filepath.Join(n.Workspace(), configs.DbDir))
-	os.RemoveAll(filepath.Join(n.Workspace(), configs.LogDir))
+	os.RemoveAll(n.DataDir.DbDir)
+	os.RemoveAll(n.DataDir.LogDir)
+	os.RemoveAll(n.DataDir.SpaceDir)
+	os.RemoveAll(n.DataDir.AccDir)
+	os.RemoveAll(n.DataDir.PoisDir)
+	os.RemoveAll(n.DataDir.RandomDir)
 	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
 	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().IdleDataDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().IdleTagDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().ProofDir, pattern.DirMode)
 	os.MkdirAll(n.GetDirs().ServiceTagDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.DbDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.LogDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.SpaceDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.AccDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.PoisDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.RandomDir, pattern.DirMode)
 }

@@ -17,32 +17,6 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 )
 
-// fileMgr
-// func (n *Node) fileMgt(ch chan<- bool) {
-// 	defer func() {
-// 		ch <- true
-// 		if err := recover(); err != nil {
-// 			n.Pnc(utils.RecoverError(err))
-// 		}
-// 	}()
-
-// 	var err error
-
-// 	n.Report("info", ">>>>> Start fileMgt <<<<<")
-
-// 	for {
-// 		if n.GetChainState() {
-// 			err = n.reportFiles()
-// 			if err != nil {
-// 				time.Sleep(pattern.BlockInterval)
-// 			} else {
-// 				time.Sleep(time.Minute)
-// 			}
-// 		}
-// 		time.Sleep(pattern.BlockInterval)
-// 	}
-// }
-
 func (n *Node) reportFiles(ch chan<- bool) {
 	defer func() {
 		ch <- true

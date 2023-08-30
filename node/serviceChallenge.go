@@ -41,6 +41,11 @@ type serviceProofInfo struct {
 	ServiceResult         bool     `json:"serviceResult"`
 }
 
+type RandomList struct {
+	Index  []uint32 `json:"index"`
+	Random [][]byte `json:"random"`
+}
+
 func (n *Node) serviceChallenge(
 	ch chan<- bool,
 	serviceProofSubmited bool,
@@ -207,7 +212,7 @@ func (n *Node) saveRandom(
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
 ) error {
-	randfilePath := filepath.Join(n.GetDirs().ProofDir, fmt.Sprintf("random.%d", challStart))
+	randfilePath := filepath.Join(n.DataDir.RandomDir, fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)
 	if err == nil && fstat.Size() > 0 {
 		return nil

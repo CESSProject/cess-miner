@@ -43,14 +43,12 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 		n   = node.New()
 	)
 
-	// Build profile instances
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	//Build client
 	n.SDK, err = cess.New(
 		context.Background(),
 		config.CharacterName_Bucket,
