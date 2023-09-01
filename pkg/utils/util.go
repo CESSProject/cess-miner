@@ -194,7 +194,7 @@ func GetSysMemTotle() (uint64, error) {
 	return result + swapInfo.Free, nil
 }
 
-var globalTransport = &http.Transport{
+var GlobalTransport = &http.Transport{
 	DisableKeepAlives: true,
 }
 
@@ -213,7 +213,7 @@ func QueryPeers(url string) ([]byte, error) {
 	}
 
 	client := &http.Client{}
-	client.Transport = globalTransport
+	client.Transport = GlobalTransport
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

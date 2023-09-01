@@ -65,7 +65,8 @@ func (n *Node) Run() {
 		ch_calctag          = make(chan bool, 1)
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
-		ch_discoverMgt      = make(chan bool, 1)
+		ch_reportLogs       = make(chan bool, 1)
+		//ch_discoverMgt      = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
@@ -73,6 +74,7 @@ func (n *Node) Run() {
 	ch_reportfiles <- true
 	ch_calctag <- true
 	ch_replace <- true
+	ch_reportLogs <- true
 
 	// peer persistent location
 	n.peersPath = filepath.Join(n.Workspace(), "peers")
@@ -102,12 +104,13 @@ func (n *Node) Run() {
 	defer task_Hour.Stop()
 
 	go n.restoreMgt(ch_restoreMgt)
-	go n.discoverMgt(ch_discoverMgt)
 	go n.poisMgt(ch_spaceMgt)
-
-	n.syncChainStatus()
+	//go n.discoverMgt(ch_discoverMgt)
 
 	out.Ok("Start successfully")
+	n.syncChainStatus()
+	n.UpdatePeers()
+	n.reportLogsMgt(ch_reportLogs)
 
 	for {
 		select {
@@ -137,12 +140,14 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			go n.connectBoot()
+			go n.UpdatePeers()
+			go n.reportLogsMgt(ch_reportLogs)
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
-		case <-ch_discoverMgt:
-			go n.discoverMgt(ch_discoverMgt)
+			// case <-ch_discoverMgt:
+			// 	go n.discoverMgt(ch_discoverMgt)
 		}
 	}
 }

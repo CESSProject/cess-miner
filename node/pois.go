@@ -77,11 +77,15 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 	}
 	n.Pois.front = front
 	n.Pois.rear = rear
+	cpuCore := runtime.NumCPU()
+	if cpuCore > 1 {
+		cpuCore = cpuCore - 1
+	}
 	cfg := pois.Config{
 		AccPath:        n.DataDir.PoisDir,
 		IdleFilePath:   n.DataDir.SpaceDir,
 		ChallAccPath:   n.DataDir.AccDir,
-		MaxProofThread: runtime.NumCPU(),
+		MaxProofThread: cpuCore,
 	}
 
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
@@ -165,7 +169,7 @@ func (n *Node) pois() error {
 			n.Space("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
 			continue
 		}
-		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute*2))
+		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute*5))
 		if err != nil {
 			n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
 			continue
@@ -239,7 +243,15 @@ func (n *Node) pois() error {
 	}
 
 	n.Space("info", "Verify idle file commits")
-	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(workTeePeerID, n.GetSignatureAccPulickey(), commitProofGroup_pb, accProof_pb, n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*10))
+	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(
+		workTeePeerID,
+		n.GetSignatureAccPulickey(),
+		commitProofGroup_pb,
+		accProof_pb,
+		n.Pois.RsaKey.N.Bytes(),
+		n.Pois.RsaKey.G.Bytes(),
+		time.Duration(time.Minute*10),
+	)
 	if err != nil {
 		n.Prover.AccRollback(false)
 		return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
