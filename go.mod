@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/cess-go-sdk v0.3.13
-	github.com/CESSProject/cess_pois v0.3.22
+	github.com/CESSProject/cess_pois v0.3.23
 	github.com/CESSProject/p2p-go v0.1.13
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
@@ -21,7 +21,6 @@ require (
 	github.com/stretchr/testify v1.8.3
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
 	go.uber.org/zap v1.24.0
-	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	google.golang.org/protobuf v1.30.0
 )
 
