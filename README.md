@@ -253,7 +253,7 @@ nohup ./bucket run &
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+------------------------------------------------------+
-| role             | bucket                                               |
+| role             | storage node                                         |
 | peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
 | state            | positive                                             |
 | staking amount   | 2400 TCESS                                           |
