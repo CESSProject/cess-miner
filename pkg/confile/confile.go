@@ -15,7 +15,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -128,14 +127,14 @@ func (c *confile) Parse(fpath string, port int) error {
 		}
 	}
 
-	dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
-	if err != nil {
-		return errors.Wrapf(err, "[GetDirFreeSpace]")
-	}
+	// dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "[GetDirFreeSpace]")
+	// }
 
-	if dirFreeSpace/1024/1024/1024 < c.UseSpace {
-		out.Warn(fmt.Sprintf("The available space is less than %dG", c.UseSpace))
-	}
+	// if dirFreeSpace/1024/1024/1024 < c.UseSpace {
+	// 	out.Warn(fmt.Sprintf("The available space is less than %dG", c.UseSpace))
+	// }
 
 	return nil
 }

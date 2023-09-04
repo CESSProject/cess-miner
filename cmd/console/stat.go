@@ -57,7 +57,11 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	//Query your own information on the chain
 	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
-		out.Err(err.Error())
+		if err.Error() != pattern.ERR_Empty {
+			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+		} else {
+			out.Err("You are not a storage node")
+		}
 		os.Exit(1)
 	}
 
