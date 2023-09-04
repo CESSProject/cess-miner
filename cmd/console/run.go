@@ -30,6 +30,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -96,9 +97,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// out.Tip(fmt.Sprintf("P2P protocol version: %v", n.GetProtocolVersion()))
-	// out.Tip(fmt.Sprintf("DHT protocol version: %v", n.GetDhtProtocolVersion()))
-	// out.Tip(fmt.Sprintf("GRPC protocol version: %v", n.GetGrpcProtocolVersion()))
 	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().Pretty()))
 	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
@@ -177,8 +175,22 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	n.UpdatePeerFirst()
+
 	if firstReg {
 		var bootPeerID []peer.ID
+		var teePeerIdPubkey []byte
+		teeAccounts := n.GetAllTeeWorkAccount()
+		for _, v := range teeAccounts {
+			teePeerIdPubkey, _ = n.GetTeeWork(v)
+			teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+			if ok {
+				n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
+				bootPeerID = append(bootPeerID, teeAddrInfo.ID)
+				n.SavePeer(teeAddrInfo.ID.Pretty(), teeAddrInfo)
+			}
+		}
+
 		var minerInitParam *pb.ResponseMinerInitParam
 		for _, b := range boots {
 			multiaddr, err := sutils.ParseMultiaddrs(b)
@@ -203,15 +215,26 @@ func runCmd(cmd *cobra.Command, args []string) {
 				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
 		}
+		var suc bool
 
 		for i := 0; i < len(bootPeerID); i++ {
-			minerInitParam, err = n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*15))
-			if err != nil {
-				out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
-				continue
+			if suc {
+				break
 			}
-			//out.Ok("Get the initial proof key")
-			break
+			for j := 0; j < 10; j++ {
+				minerInitParam, err = n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
+				if err != nil {
+					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
+					continue
+				}
+				suc = true
+				break
+			}
+		}
+
+		if !suc {
+			out.Err("All trusted nodes are busy, program exits.")
+			os.Exit(1)
 		}
 
 		var key pattern.PoISKeyInfo

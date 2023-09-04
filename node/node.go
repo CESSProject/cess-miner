@@ -109,7 +109,6 @@ func (n *Node) Run() {
 
 	out.Ok("Start successfully")
 	n.syncChainStatus()
-	n.UpdatePeers()
 	n.reportLogsMgt(ch_reportLogs)
 
 	for {

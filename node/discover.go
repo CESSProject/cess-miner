@@ -99,7 +99,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 }
 
 func (n *Node) UpdatePeers() {
-	time.Sleep(time.Second * time.Duration(rand.Intn(30)))
+	time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
 	if err != nil {
 		n.Discover("err", err.Error())
@@ -112,6 +112,21 @@ func (n *Node) UpdatePeers() {
 			if err != nil {
 				n.Discover("err", err.Error())
 			}
+		}
+	}
+}
+
+func (n *Node) UpdatePeerFirst() {
+	time.Sleep(time.Second * time.Duration(rand.Intn(30)))
+	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
+	if err != nil {
+		return
+	} else {
+		err = json.Unmarshal(data, &n.peers)
+		if err != nil {
+			return
+		} else {
+			n.SavePeersToDisk(n.peersPath)
 		}
 	}
 }
