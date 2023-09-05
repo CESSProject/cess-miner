@@ -71,6 +71,7 @@ func (n *Node) idleChallenge(
 	var haveChallenge = true
 
 	if challExpiration <= latestBlock {
+		n.Ichal("err", fmt.Sprintf("%d < %d", challExpiration, latestBlock))
 		haveChallenge = false
 	}
 
@@ -82,6 +83,7 @@ func (n *Node) idleChallenge(
 	}
 
 	if challVerifyExpiration <= latestBlock {
+		n.Ichal("err", fmt.Sprintf("%d < %d", challVerifyExpiration, latestBlock))
 		return
 	}
 

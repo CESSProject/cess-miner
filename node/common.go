@@ -23,6 +23,7 @@ type DataDir struct {
 	PoisDir   string
 	AccDir    string
 	RandomDir string
+	PeersFile string
 }
 
 const (

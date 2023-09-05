@@ -10,8 +10,8 @@ package node
 import (
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -34,9 +34,11 @@ type Node struct {
 	peerLock   *sync.RWMutex
 	teeLock    *sync.RWMutex
 	DataDir    *DataDir
+	chalTick   *time.Ticker
 	peers      map[string]peer.AddrInfo
 	teeWorkers map[string][]byte
-	peersPath  string
+	peersFile  string
+	cpuCore    int
 	sdk.SDK
 	confile.Confile
 	logger.Logger
@@ -76,9 +78,6 @@ func (n *Node) Run() {
 	ch_replace <- true
 	ch_reportLogs <- true
 
-	// peer persistent location
-	n.peersPath = filepath.Join(n.Workspace(), "peers")
-
 	for {
 		pubkey, err := n.QueryTeePodr2Puk()
 		if err != nil {
@@ -105,22 +104,32 @@ func (n *Node) Run() {
 
 	go n.restoreMgt(ch_restoreMgt)
 	go n.poisMgt(ch_spaceMgt)
+	go n.reportLogsMgt(ch_reportLogs)
 	//go n.discoverMgt(ch_discoverMgt)
 
-	out.Ok("Start successfully")
+	n.chalTick = time.NewTicker(time.Minute)
+	defer n.chalTick.Stop()
+
 	n.syncChainStatus()
-	n.reportLogsMgt(ch_reportLogs)
+	out.Ok("Start successfully")
+	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Ichal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Schal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
 
 	for {
 		select {
+		case <-n.chalTick.C:
+			n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
+
 		case <-task_18S.C:
 			err := n.connectChain()
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
+				n.Ichal("err", pattern.ERR_RPC_CONNECTION.Error())
+				n.Schal("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 				break
 			}
-			n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
 
 		case <-task_Minute.C:
 			n.syncChainStatus()
@@ -149,6 +158,14 @@ func (n *Node) Run() {
 			// 	go n.discoverMgt(ch_discoverMgt)
 		}
 	}
+}
+
+func (n *Node) SaveCpuCore(cores int) {
+	n.cpuCore = cores
+}
+
+func (n *Node) GetCpuCore() int {
+	return n.cpuCore
 }
 
 func (n *Node) SetPublickey(pubkey []byte) error {
@@ -255,12 +272,12 @@ func (n *Node) SavePeersToDisk(path string) error {
 		return err
 	}
 	n.peerLock.RUnlock()
-	err = sutils.WriteBufToFile(buf, n.peersPath)
+	err = sutils.WriteBufToFile(buf, n.DataDir.PeersFile)
 	return err
 }
 
 func (n *Node) LoadPeersFromDisk(path string) error {
-	buf, err := os.ReadFile(n.peersPath)
+	buf, err := os.ReadFile(n.DataDir.PeersFile)
 	if err != nil {
 		return err
 	}

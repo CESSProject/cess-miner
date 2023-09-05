@@ -10,7 +10,6 @@ package node
 import (
 	"fmt"
 	"math/big"
-	"runtime"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -77,15 +76,11 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 	}
 	n.Pois.front = front
 	n.Pois.rear = rear
-	cpuCore := runtime.NumCPU()
-	if cpuCore > 1 {
-		cpuCore = cpuCore - 1
-	}
 	cfg := pois.Config{
 		AccPath:        n.DataDir.PoisDir,
 		IdleFilePath:   n.DataDir.SpaceDir,
 		ChallAccPath:   n.DataDir.AccDir,
-		MaxProofThread: cpuCore,
+		MaxProofThread: n.GetCpuCore(),
 	}
 
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.

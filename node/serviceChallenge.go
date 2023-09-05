@@ -66,6 +66,7 @@ func (n *Node) serviceChallenge(
 	var haveChallenge = true
 
 	if challExpiration <= latestBlock {
+		n.Schal("err", fmt.Sprintf("%d < %d", challExpiration, latestBlock))
 		haveChallenge = false
 	}
 
@@ -77,6 +78,7 @@ func (n *Node) serviceChallenge(
 	}
 
 	if challVerifyExpiration <= latestBlock {
+		n.Schal("err", fmt.Sprintf("%d < %d", challVerifyExpiration, latestBlock))
 		return
 	}
 

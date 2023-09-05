@@ -26,16 +26,17 @@ const (
 )
 
 // system init
-func SysInit() {
-	cpuCore := runtime.NumCPU()
-	if cpuCore > 1 {
-		cpuCore = cpuCore - 1
+func SysInit() int {
+	cpuCore := runtime.NumCPU() / 2
+	if cpuCore == 0 {
+		cpuCore = 1
 	}
 	runtime.GOMAXPROCS(cpuCore)
 	if !RunOnLinuxSystem() {
 		out.Err("Please run on a linux system")
 		os.Exit(1)
 	}
+	return cpuCore
 }
 
 func RunOnLinuxSystem() bool {
