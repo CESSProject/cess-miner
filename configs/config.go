@@ -36,6 +36,7 @@ const (
 	PoisDir          = "pois"
 	AccDir           = "acc"
 	RandomDir        = "random"
+	PeersFile        = "peers"
 	IdleProofFile    = "idleproof"
 	ServiceProofFile = "serviceproof"
 )

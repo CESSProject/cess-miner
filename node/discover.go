@@ -108,7 +108,7 @@ func (n *Node) UpdatePeers() {
 		if err != nil {
 			n.Discover("err", err.Error())
 		} else {
-			err = n.SavePeersToDisk(n.peersPath)
+			err = n.SavePeersToDisk(n.DataDir.PeersFile)
 			if err != nil {
 				n.Discover("err", err.Error())
 			}
@@ -121,14 +121,12 @@ func (n *Node) UpdatePeerFirst() {
 	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
 	if err != nil {
 		return
-	} else {
-		err = json.Unmarshal(data, &n.peers)
-		if err != nil {
-			return
-		} else {
-			n.SavePeersToDisk(n.peersPath)
-		}
 	}
+	err = json.Unmarshal(data, &n.peers)
+	if err != nil {
+		return
+	}
+	n.SavePeersToDisk(n.DataDir.PeersFile)
 }
 
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
@@ -144,6 +142,8 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "space.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "schal.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "ichal.log"))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
 	}
 }
 

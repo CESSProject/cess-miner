@@ -51,13 +51,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n              = node.New()
 	)
 
-	// Build profile instances
+	n.SaveCpuCore(configs.SysInit())
+
+	// parse configuration file
 	n.Confile, err = buildConfigFile(cmd, 0)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
-	//out.Ok("Configuration file parsing completed")
+
 	out.Tip(fmt.Sprintf("Rpc addresses: %v", n.GetRpcAddr()))
 
 	boots := n.GetBootNodes()
@@ -80,7 +82,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	out.Tip(fmt.Sprintf("Bootnodes: %v", boots))
 
-	//Build client
+	// build client
 	n.SDK, err = cess.New(
 		context.Background(),
 		config.CharacterName_Bucket,
@@ -122,7 +124,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	for {
 		syncSt, err = n.SyncState()
 		if err != nil {
-			out.Err(err.Error())
+			out.Err("Invalid chain node: rpc service failure")
 			os.Exit(1)
 		}
 		if syncSt.CurrentBlock == syncSt.HighestBlock {
@@ -135,7 +137,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	n.ExpendersInfo, err = n.Expenders()
 	if err != nil {
-		out.Err("Weak network signal or rpc service failure")
+		if err.Error() == pattern.ERR_Empty {
+			out.Err("Invalid chain node: file specification is empty")
+		} else {
+			out.Err("Invalid chain node: rpc service failure")
+		}
 		os.Exit(1)
 	}
 
@@ -151,7 +157,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {
-					out.Err("Weak network signal or rpc service failure")
+					out.Err("Invalid chain node: rpc service failure")
 					os.Exit(1)
 				}
 				out.Err("Account does not exist or balance is empty")
@@ -168,14 +174,18 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Build data directory
+	// build data directory
 	n.DataDir, err = buildDir(n.Workspace())
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
 
-	n.UpdatePeerFirst()
+	// load peers
+	err = n.LoadPeersFromDisk(n.DataDir.PeersFile)
+	if err != nil {
+		n.UpdatePeerFirst()
+	}
 
 	if firstReg {
 		var bootPeerID []peer.ID
@@ -207,10 +217,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				if err != nil {
 					continue
 				}
-				err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-				if err != nil {
-					continue
-				}
+				n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
 				bootPeerID = append(bootPeerID, addrInfo.ID)
 				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
@@ -262,7 +269,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 			sign[i] = types.U8(minerInitParam.Signature[i])
 		}
 
-		//out.Tip("Start registering storage node")
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), token, key, sign)
 		if err != nil {
 			out.Err(fmt.Sprintf("Register failed: %v", err))
@@ -276,7 +282,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	} else {
-		//out.Tip("Update storage node information")
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
 		if err != nil {
 			out.Err(fmt.Sprintf("Update failed: %v", err))
@@ -290,23 +295,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	//out.Tip("Initialize the workspace")
-
-	// Build cache instance
+	// build cache instance
 	n.Cache, err = buildCache(n.DataDir.DbDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
-	//out.Tip("Initialize the cache")
 
-	//Build log instance
+	// build log instance
 	n.Logger, err = buildLogs(n.DataDir.LogDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
-	//out.Tip("Initialize the logger")
 
 	out.Tip(fmt.Sprintf("Workspace: %v", n.Workspace()))
 
@@ -768,7 +769,7 @@ func buildDir(workspace string) (*node.DataDir, error) {
 	if err := os.MkdirAll(dir.SpaceDir, pattern.DirMode); err != nil {
 		return dir, err
 	}
-
+	dir.PeersFile = filepath.Join(workspace, configs.PeersFile)
 	return dir, nil
 }
 

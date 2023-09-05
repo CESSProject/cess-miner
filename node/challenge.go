@@ -9,6 +9,8 @@ package node
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -19,7 +21,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 	var serviceProofSubmited bool = true
 	var idleChallResult bool
 	var serviceChallResult bool
-
+	var challSuc bool = true
 	challenge, err := n.QueryChallenge_V2()
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
@@ -28,23 +30,33 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 		}
 		return
 	}
-
+	n.Ichal("info", fmt.Sprintf("challenge.start: %v", challenge.NetSnapShot.Start))
+	n.Schal("info", fmt.Sprintf("challenge.start: %v", challenge.NetSnapShot.Start))
 	latestBlock, err := n.QueryBlockHeight("")
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		return
 	}
+	n.Ichal("info", fmt.Sprintf("latestBlock: %v", latestBlock))
+	n.Schal("info", fmt.Sprintf("latestBlock: %v", latestBlock))
 	challVerifyExpiration, err := n.QueryChallengeVerifyExpiration()
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
 		n.Schal("err", fmt.Sprintf("[QueryChallengeExpiration] %v", err))
 		return
 	}
+	n.Ichal("info", fmt.Sprintf("challVerifyExpiration: %v", challVerifyExpiration))
+	n.Schal("info", fmt.Sprintf("challVerifyExpiration: %v", challVerifyExpiration))
 	for _, v := range challenge.MinerSnapshotList {
 		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
+			challSuc = false
 			idleProofSubmited = bool(v.IdleSubmitted)
 			serviceProofSubmited = bool(v.ServiceSubmitted)
+			n.Ichal("info", fmt.Sprintf("IdleSubmitted: %v", v.IdleSubmitted))
+			n.Schal("info", fmt.Sprintf("ServiceSubmitted: %v", v.ServiceSubmitted))
+			n.Ichal("info", fmt.Sprintf("IdleLife: %v", v.IdleLife))
+			n.Schal("info", fmt.Sprintf("ServiceLife: %v", v.ServiceLife))
 			if !v.IdleSubmitted {
 				if len(idleChallTaskCh) > 0 {
 					_ = <-idleChallTaskCh
@@ -98,7 +110,9 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 			if err == nil {
 				for i := 0; i < len(idleProofInfos); i++ {
 					if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+						challSuc = false
 						idleChallResult = true
+						n.Ichal("info", fmt.Sprintf("IdleLife2: %v", idleProofInfos[i].MinerSnapShot.IdleLife))
 						if len(idleChallTaskCh) > 0 {
 							_ = <-idleChallTaskCh
 							go n.idleChallenge(
@@ -124,7 +138,9 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 			if err == nil {
 				for i := 0; i < len(serviceProofInfos); i++ {
 					if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
+						challSuc = false
 						serviceChallResult = true
+						n.Schal("info", fmt.Sprintf("ServiceLife2: %v", serviceProofInfos[i].MinerSnapShot.IdleLife))
 						if len(serviceChallTaskCh) > 0 {
 							_ = <-serviceChallTaskCh
 							go n.serviceChallenge(
@@ -143,5 +159,16 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 				}
 			}
 		}
+	}
+	if challSuc {
+		if challVerifyExpiration > latestBlock {
+			n.Ichal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
+			n.Schal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
+			n.chalTick.Reset(time.Second * time.Duration((challVerifyExpiration-latestBlock)*4))
+		} else {
+			n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
+		}
+	} else {
+		n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
 	}
 }
