@@ -41,7 +41,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Build client
+	// build client
 	n.SDK, err = cess.New(
 		context.Background(),
 		config.CharacterName_Bucket,
@@ -54,8 +54,8 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Query your own information on the chain
-	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
+	// query your own information on the chain
+	minerInfo, err := n.QueryStorageMiner_V2(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())

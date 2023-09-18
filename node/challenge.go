@@ -71,6 +71,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						int64(v.SpaceProofInfo.Rear),
 						challenge.NetSnapShot.SpaceChallengeParam,
 						v.SpaceProofInfo.Accumulator,
+						v.TeeSignature,
 					)
 				}
 			}
@@ -126,6 +127,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 								int64(idleProofInfos[i].MinerSnapShot.SpaceProofInfo.Rear),
 								challenge.NetSnapShot.SpaceChallengeParam,
 								idleProofInfos[i].MinerSnapShot.SpaceProofInfo.Accumulator,
+								idleProofInfos[i].MinerSnapShot.TeeSignature,
 							)
 						}
 						break

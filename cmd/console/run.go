@@ -30,7 +30,6 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -187,52 +186,48 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.UpdatePeerFirst()
 	}
 
-	if firstReg {
-		var bootPeerID []peer.ID
-		var teePeerIdPubkey []byte
-		teeAccounts := n.GetAllTeeWorkAccount()
-		for _, v := range teeAccounts {
-			teePeerIdPubkey, _ = n.GetTeeWork(v)
-			teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
-			if ok {
-				n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-				bootPeerID = append(bootPeerID, teeAddrInfo.ID)
-				n.SavePeer(teeAddrInfo.ID.Pretty(), teeAddrInfo)
-			}
+	var bootPeerID []peer.ID
+	for _, b := range boots {
+		multiaddr, err := sutils.ParseMultiaddrs(b)
+		if err != nil {
+			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+			continue
 		}
-
-		var minerInitParam *pb.ResponseMinerInitParam
-		for _, b := range boots {
-			multiaddr, err := sutils.ParseMultiaddrs(b)
+		for _, v := range multiaddr {
+			maAddr, err := ma.NewMultiaddr(v)
 			if err != nil {
-				n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
 				continue
 			}
-			for _, v := range multiaddr {
-				maAddr, err := ma.NewMultiaddr(v)
-				if err != nil {
-					continue
-				}
-				addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
-				if err != nil {
-					continue
-				}
-				n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-				bootPeerID = append(bootPeerID, addrInfo.ID)
-				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+			if err != nil {
+				continue
 			}
+			n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+			bootPeerID = append(bootPeerID, addrInfo.ID)
+			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 		}
-		var suc bool
+	}
 
-		for i := 0; i < len(bootPeerID); i++ {
+	var suc bool
+	if firstReg {
+		for j := 0; j < 10; j++ {
 			if suc {
 				break
 			}
-			for j := 0; j < 10; j++ {
-				minerInitParam, err = n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
+			for i := 0; i < len(bootPeerID); i++ {
+				out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
+				responseMinerInitParam, err := n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
 				if err != nil {
 					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
 					continue
+				}
+				n.MinerPoisInfo = &pb.MinerPoisInfo{
+					Acc:           responseMinerInitParam.Acc,
+					Front:         responseMinerInitParam.Front,
+					Rear:          responseMinerInitParam.Rear,
+					KeyN:          responseMinerInitParam.KeyN,
+					KeyG:          responseMinerInitParam.KeyG,
+					StatusTeeSign: responseMinerInitParam.Signature,
 				}
 				suc = true
 				break
@@ -245,28 +240,28 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 
 		var key pattern.PoISKeyInfo
-		if len(minerInitParam.KeyG) != len(pattern.PoISKey_G{}) {
+		if len(n.MinerPoisInfo.KeyG) != len(pattern.PoISKey_G{}) {
 			out.Err("invalid tee key_g")
 			os.Exit(1)
 		}
 
-		if len(minerInitParam.KeyN) != len(pattern.PoISKey_N{}) {
+		if len(n.MinerPoisInfo.KeyN) != len(pattern.PoISKey_N{}) {
 			out.Err("invalid tee key_n")
 			os.Exit(1)
 		}
-		for i := 0; i < len(minerInitParam.KeyG); i++ {
-			key.G[i] = types.U8(minerInitParam.KeyG[i])
+		for i := 0; i < len(n.MinerPoisInfo.KeyG); i++ {
+			key.G[i] = types.U8(n.MinerPoisInfo.KeyG[i])
 		}
-		for i := 0; i < len(minerInitParam.KeyN); i++ {
-			key.N[i] = types.U8(minerInitParam.KeyN[i])
+		for i := 0; i < len(n.MinerPoisInfo.KeyN); i++ {
+			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 		}
 		var sign pattern.TeeSignature
-		if len(minerInitParam.Signature) != len(pattern.TeeSignature{}) {
+		if len(n.MinerPoisInfo.StatusTeeSign) != len(pattern.TeeSignature{}) {
 			out.Err("invalid tee signature")
 			os.Exit(1)
 		}
-		for i := 0; i < len(minerInitParam.Signature); i++ {
-			sign[i] = types.U8(minerInitParam.Signature[i])
+		for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
+			sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 		}
 
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), token, key, sign)
@@ -276,12 +271,20 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		n.SetEarningsAcc(earnings)
 		n.RebuildDirs()
-		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(minerInitParam.KeyN), *new(big.Int).SetBytes(minerInitParam.KeyG))
+		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(n.MinerPoisInfo.KeyN), *new(big.Int).SetBytes(n.MinerPoisInfo.KeyG))
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
 			os.Exit(1)
 		}
 	} else {
+		n.MinerPoisInfo = &pb.MinerPoisInfo{
+			Acc:           []byte(string(minerInfo_V2.SpaceProofInfo.Accumulator[:])),
+			Front:         int64(minerInfo_V2.SpaceProofInfo.Front),
+			Rear:          int64(minerInfo_V2.SpaceProofInfo.Rear),
+			KeyN:          []byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:])),
+			KeyG:          []byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:])),
+			StatusTeeSign: []byte(string(minerInfo_V2.TeeSignature[:])),
+		}
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
 		if err != nil {
 			out.Err(fmt.Sprintf("Update failed: %v", err))

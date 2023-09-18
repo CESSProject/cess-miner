@@ -20,6 +20,7 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 type Pois struct {
@@ -83,6 +84,7 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 		MaxProofThread: n.GetCpuCore(),
 	}
 
+	fmt.Println(n.ExpendersInfo)
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
 	// minerID is storage node's account ID, and space is the amount of physical space available(MiB)
 	n.Prover, err = pois.NewProver(
@@ -149,6 +151,25 @@ func (n *Node) pois() error {
 
 	var chall_pb *pb.Challenge
 	var workTeePeerID peer.ID
+	var commitGenChall = &pb.RequestMinerCommitGenChall{
+		MinerId:  n.GetSignatureAccPulickey(),
+		Commit:   commit_pb,
+		PoisInfo: n.MinerPoisInfo,
+	}
+	buf, err := proto.Marshal(commitGenChall)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Space("err", fmt.Sprintf("[Marshal] %v", err))
+		return err
+	}
+
+	commitGenChall.MinerSign, err = n.Sign(buf)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Space("err", fmt.Sprintf("[Sign] %v", err))
+		return err
+	}
+	fmt.Println("signData: ", len(commitGenChall.MinerSign), " :", commitGenChall.MinerSign)
 
 	teePeerIds := n.GetAllTeeWorkPeerIdString()
 	n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
@@ -164,7 +185,7 @@ func (n *Node) pois() error {
 			n.Space("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
 			continue
 		}
-		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, n.GetSignatureAccPulickey(), commit_pb, time.Duration(time.Minute*5))
+		chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, commitGenChall, time.Duration(time.Minute*5))
 		if err != nil {
 			n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
 			continue
@@ -183,6 +204,7 @@ func (n *Node) pois() error {
 		chals[i] = chall_pb.Rows[i].Values
 	}
 
+	fmt.Println(chals)
 	n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeePeerID.Pretty()))
 	commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 	if err != nil {
@@ -205,6 +227,14 @@ func (n *Node) pois() error {
 			commitProofGroupInner[i].CommitProof[j].Node.Label = commitProofs[i][j].Node.Label
 			commitProofGroupInner[i].CommitProof[j].Node.Locs = commitProofs[i][j].Node.Locs
 			commitProofGroupInner[i].CommitProof[j].Node.Paths = commitProofs[i][j].Node.Paths
+			commitProofGroupInner[i].CommitProof[j].Elders = make([]*pb.MhtProof, len(commitProofs[i][j].Elders))
+			for k := 0; k < len(commitProofs[i][j].Elders); k++ {
+				commitProofGroupInner[i].CommitProof[j].Elders[k] = &pb.MhtProof{}
+				commitProofGroupInner[i].CommitProof[j].Elders[k].Index = int32(commitProofs[i][j].Elders[k].Index)
+				commitProofGroupInner[i].CommitProof[j].Elders[k].Label = commitProofs[i][j].Elders[k].Label
+				commitProofGroupInner[i].CommitProof[j].Elders[k].Locs = commitProofs[i][j].Elders[k].Locs
+				commitProofGroupInner[i].CommitProof[j].Elders[k].Paths = commitProofs[i][j].Elders[k].Paths
+			}
 			commitProofGroupInner[i].CommitProof[j].Parents = make([]*pb.MhtProof, len(commitProofs[i][j].Parents))
 			for k := 0; k < len(commitProofs[i][j].Parents); k++ {
 				commitProofGroupInner[i].CommitProof[j].Parents[k] = &pb.MhtProof{}
@@ -237,20 +267,36 @@ func (n *Node) pois() error {
 		},
 	}
 
+	var requestVerifyCommitAndAccProof = &pb.RequestVerifyCommitAndAccProof{
+		CommitProofGroup: commitProofGroup_pb,
+		AccProof:         accProof_pb,
+		MinerId:          n.GetSignatureAccPulickey(),
+	}
+	buf, err = proto.Marshal(requestVerifyCommitAndAccProof)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Space("err", fmt.Sprintf("[Marshal-2] %v", err))
+		return err
+	}
+	requestVerifyCommitAndAccProof.MinerSign, err = n.Sign(buf)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Space("err", fmt.Sprintf("[Sign-2] %v", err))
+		return err
+	}
+
 	n.Space("info", "Verify idle file commits")
+	fmt.Println(len(commitProofGroup_pb.CommitProofGroupInner))
 	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(
 		workTeePeerID,
-		n.GetSignatureAccPulickey(),
-		commitProofGroup_pb,
-		accProof_pb,
-		n.Pois.RsaKey.N.Bytes(),
-		n.Pois.RsaKey.G.Bytes(),
+		requestVerifyCommitAndAccProof,
 		time.Duration(time.Minute*10),
 	)
 	if err != nil {
 		n.Prover.AccRollback(false)
 		return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
 	}
+	n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
 
 	// If the challenge is failure, need to roll back the prover to the previous status,
 	// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
@@ -300,6 +346,10 @@ func (n *Node) pois() error {
 	if err != nil {
 		return errors.Wrapf(err, "[UpdateStatus]")
 	}
+	n.MinerPoisInfo.Front = n.Prover.GetFront()
+	n.MinerPoisInfo.Rear = n.Prover.GetRear()
+	n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
+	n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
 	n.Space("info", "update pois status")
 	return nil
 }

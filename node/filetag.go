@@ -80,7 +80,6 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				genTag, err := n.PoisServiceRequestGenTagP2P(
 					addrInfo.ID,
 					buf[:pattern.FragmentSize],
-					pattern.BlockNumber,
 					filepath.Base(f),
 					"",
 					time.Duration(time.Minute*10),
@@ -92,6 +91,15 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				buf, err = json.Marshal(genTag.Tag)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+					continue
+				}
+				ok, err = n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
+					continue
+				}
+				if !ok {
+					n.Stag("err", "VerifyAttest is false")
 					continue
 				}
 				err = sutils.WriteBufToFile(buf, filepath.Join(n.GetDirs().ServiceTagDir, filepath.Base(f)+".tag"))

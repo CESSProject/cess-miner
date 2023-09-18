@@ -24,21 +24,23 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/CESSProject/p2p-go/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/multiformats/go-multiaddr"
 )
 
 type Node struct {
-	key        *proof.RSAKeyPair
-	peerLock   *sync.RWMutex
-	teeLock    *sync.RWMutex
-	DataDir    *DataDir
-	chalTick   *time.Ticker
-	peers      map[string]peer.AddrInfo
-	teeWorkers map[string][]byte
-	peersFile  string
-	cpuCore    int
+	key           *proof.RSAKeyPair
+	peerLock      *sync.RWMutex
+	teeLock       *sync.RWMutex
+	chalTick      *time.Ticker
+	DataDir       *DataDir
+	MinerPoisInfo *pb.MinerPoisInfo
+	peers         map[string]peer.AddrInfo
+	teeWorkers    map[string][]byte
+	peersFile     string
+	cpuCore       int
 	sdk.SDK
 	confile.Confile
 	logger.Logger
@@ -166,6 +168,10 @@ func (n *Node) SaveCpuCore(cores int) {
 
 func (n *Node) GetCpuCore() int {
 	return n.cpuCore
+}
+
+func (n *Node) GetPodr2Key() *proof.RSAKeyPair {
+	return n.key
 }
 
 func (n *Node) SetPublickey(pubkey []byte) error {
