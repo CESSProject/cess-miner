@@ -21,6 +21,7 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	"google.golang.org/protobuf/proto"
 )
 
 func (n *Node) replaceIdle(ch chan<- bool) {
@@ -48,15 +49,19 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		return
 	}
 
-	num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
+	n.Replace("info", fmt.Sprintf("replace size: %v", replaceSize.Uint64()))
+	n.Replace("info", fmt.Sprintf("uint64(pois.FileSize): %v", uint64(pois.FileSize)))
+	//num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
+	num := uint64(replaceSize.Uint64() / 1024 / 1024 / 64)
 	if num == 0 {
 		n.Replace("info", "no files to replace")
 		return
 	}
-
+	n.Replace("info", fmt.Sprintf("replace num: %v", num))
 	if int64(num) > int64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM))) {
 		num = uint64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM)))
 	}
+	n.Replace("info", fmt.Sprintf("replace num: %v", num))
 
 	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
 
@@ -88,7 +93,26 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 			},
 		},
 	}
-
+	var requestVerifyDeletionProof = &pb.RequestVerifyDeletionProof{
+		Roots:    delProof.Roots,
+		WitChain: witChain,
+		AccPath:  delProof.AccPath,
+		MinerId:  n.GetSignatureAccPulickey(),
+		PoisInfo: n.MinerPoisInfo,
+	}
+	buf, err := proto.Marshal(requestVerifyDeletionProof)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Replace("err", fmt.Sprintf("[Marshal-2] %v", err))
+		return
+	}
+	signData, err := n.Sign(buf)
+	if err != nil {
+		n.Prover.CommitRollback()
+		n.Replace("err", fmt.Sprintf("[Sign-2] %v", err))
+		return
+	}
+	requestVerifyDeletionProof.MinerSign = signData
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
 	var workTeePeerID peer.ID
 	tees := n.GetAllTeeWorkPeerId()
@@ -105,7 +129,11 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 			n.Replace("err", fmt.Sprintf("Connect %s err: %v", addr.ID.Pretty(), err))
 			continue
 		}
-		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(addr.ID, delProof.Roots, witChain, delProof.AccPath, n.GetSignatureAccPulickey(), n.Pois.RsaKey.N.Bytes(), n.Pois.RsaKey.G.Bytes(), time.Duration(time.Minute*10))
+		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(
+			addr.ID,
+			requestVerifyDeletionProof,
+			time.Duration(time.Minute*10),
+		)
 		if err != nil {
 			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProofP2P] %v", err))
 			continue

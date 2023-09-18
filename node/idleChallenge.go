@@ -60,6 +60,7 @@ func (n *Node) idleChallenge(
 	minerChallRear int64,
 	spaceChallengeParam pattern.SpaceChallengeParam,
 	minerAccumulator pattern.Accumulator,
+	teeSign pattern.TeeSignature,
 ) {
 	defer func() {
 		ch <- true
@@ -93,6 +94,7 @@ func (n *Node) idleChallenge(
 		minerChallFront,
 		minerChallRear,
 		minerAccumulator,
+		teeSign,
 	)
 	if err == nil {
 		return
@@ -111,6 +113,14 @@ func (n *Node) idleChallenge(
 	}
 
 	idleProofRecord.Acc = acc
+	var minerPoisInfo = &pb.MinerPoisInfo{
+		Acc:           acc,
+		Front:         minerChallFront,
+		Rear:          minerChallRear,
+		KeyN:          n.MinerPoisInfo.KeyN,
+		KeyG:          n.MinerPoisInfo.KeyG,
+		StatusTeeSign: []byte(string(teeSign[:])),
+	}
 
 	err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, minerChallFront, minerChallRear)
 	if err != nil {
@@ -295,11 +305,7 @@ func (n *Node) idleChallenge(
 			teeAddrInfo.ID,
 			n.GetSignatureAccPulickey(),
 			idleProofRecord.ChallRandom,
-			n.Pois.RsaKey.N.Bytes(),
-			n.Pois.RsaKey.G.Bytes(),
-			idleProofRecord.Acc,
-			minerChallFront,
-			minerChallRear,
+			minerPoisInfo,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 			time.Duration(time.Minute*3),
@@ -368,6 +374,7 @@ func (n *Node) checkIdleProofRecord(
 	minerChallFront int64,
 	minerChallRear int64,
 	minerAccumulator pattern.Accumulator,
+	teeSign pattern.TeeSignature,
 ) error {
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.IdleProofFile))
@@ -419,6 +426,15 @@ func (n *Node) checkIdleProofRecord(
 	var acc = make([]byte, len(pattern.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
 		acc[i] = byte(minerAccumulator[i])
+	}
+
+	var minerPoisInfo = &pb.MinerPoisInfo{
+		Acc:           acc,
+		Front:         minerChallFront,
+		Rear:          minerChallRear,
+		KeyN:          n.MinerPoisInfo.KeyN,
+		KeyG:          n.MinerPoisInfo.KeyG,
+		StatusTeeSign: []byte(string(teeSign[:])),
 	}
 
 	for {
@@ -525,11 +541,7 @@ func (n *Node) checkIdleProofRecord(
 			teeAddrInfo.ID,
 			n.GetSignatureAccPulickey(),
 			idleProofRecord.ChallRandom,
-			n.Pois.RsaKey.N.Bytes(),
-			n.Pois.RsaKey.G.Bytes(),
-			acc,
-			minerChallFront,
-			minerChallRear,
+			minerPoisInfo,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 			time.Duration(time.Minute*3),

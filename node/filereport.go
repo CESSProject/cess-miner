@@ -114,7 +114,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		}
 
 		n.Report("info", fmt.Sprintf("Will report %s", roothash))
-		txhash, _, err = n.ReportFiles([]string{roothash})
+		txhash, _, err = n.ReportFiles(roothash)
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
 			continue
