@@ -50,18 +50,15 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}
 
 	n.Replace("info", fmt.Sprintf("replace size: %v", replaceSize.Uint64()))
-	n.Replace("info", fmt.Sprintf("uint64(pois.FileSize): %v", uint64(pois.FileSize)))
-	//num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
-	num := uint64(replaceSize.Uint64() / 1024 / 1024 / 64)
+	num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
 	if num == 0 {
 		n.Replace("info", "no files to replace")
 		return
 	}
-	n.Replace("info", fmt.Sprintf("replace num: %v", num))
+
 	if int64(num) > int64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM))) {
 		num = uint64((int64(acc.DEFAULT_ELEMS_NUM) - n.GetFront()%int64(acc.DEFAULT_ELEMS_NUM)))
 	}
-	n.Replace("info", fmt.Sprintf("replace num: %v", num))
 
 	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
 
