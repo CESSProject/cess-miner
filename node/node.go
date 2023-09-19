@@ -70,7 +70,7 @@ func (n *Node) Run() {
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
-		//ch_discoverMgt      = make(chan bool, 1)
+		ch_discoverMgt      = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
@@ -107,7 +107,7 @@ func (n *Node) Run() {
 	go n.restoreMgt(ch_restoreMgt)
 	go n.poisMgt(ch_spaceMgt)
 	go n.reportLogsMgt(ch_reportLogs)
-	//go n.discoverMgt(ch_discoverMgt)
+	go n.discoverMgt(ch_discoverMgt)
 
 	n.chalTick = time.NewTicker(time.Minute)
 	defer n.chalTick.Stop()
@@ -156,8 +156,8 @@ func (n *Node) Run() {
 			go n.poisMgt(ch_spaceMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
-			// case <-ch_discoverMgt:
-			// 	go n.discoverMgt(ch_discoverMgt)
+		case <-ch_discoverMgt:
+			go n.discoverMgt(ch_discoverMgt)
 		}
 	}
 }

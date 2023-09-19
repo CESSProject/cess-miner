@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -163,14 +162,17 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 		}
 	}
 	if challSuc {
-		if challVerifyExpiration > latestBlock {
-			n.Ichal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
-			n.Schal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
-			n.chalTick.Reset(time.Second * time.Duration((challVerifyExpiration-latestBlock)*4))
+		latestBlock, err := n.QueryBlockHeight("")
+		if err == nil {
+			if challVerifyExpiration > latestBlock {
+				n.Ichal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
+				n.Schal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
+				n.chalTick.Reset(time.Second * time.Duration((challVerifyExpiration-latestBlock)*4))
+			}
 		} else {
-			n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
+			n.chalTick.Reset(time.Second * 18)
 		}
 	} else {
-		n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
+		n.chalTick.Reset(time.Second * 18)
 	}
 }
