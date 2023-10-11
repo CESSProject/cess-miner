@@ -176,6 +176,11 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 
 	n.Replace("info", fmt.Sprintf("Replace files suc: %v", txhash))
 
+	err = n.Prover.UpdateStatus(int64(num), true)
+	if err != nil {
+		n.Replace("err", err.Error())
+	}
+
 	challenge, err := n.QueryChallenge_V2()
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
