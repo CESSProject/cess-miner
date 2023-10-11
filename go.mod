@@ -1,6 +1,6 @@
 module github.com/CESSProject/cess-bucket
 
-go 1.19
+go 1.20
 
 require (
 	github.com/CESSProject/cess-go-sdk v0.3.17-0.20230918082827-2c34659a2103
