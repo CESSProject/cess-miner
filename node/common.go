@@ -10,6 +10,7 @@ package node
 import (
 	"fmt"
 
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -71,12 +72,18 @@ func (n *Node) connectBoot() {
 func (n *Node) connectChain() error {
 	var err error
 	if !n.GetChainState() {
+		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		err = n.Reconnect()
 		if err != nil {
 			return err
 		}
-		n.Log("info", "rpc reconnection successful")
-		out.Tip("rpc reconnection successful")
+		out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+		n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+		n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+		n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 		n.SetChainState(true)
 	}
 	return nil

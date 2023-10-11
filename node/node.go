@@ -71,6 +71,7 @@ func (n *Node) Run() {
 		ch_restoreMgt       = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
 		ch_discoverMgt      = make(chan bool, 1)
+		ch_GenIdleFile      = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
@@ -79,6 +80,7 @@ func (n *Node) Run() {
 	ch_calctag <- true
 	ch_replace <- true
 	ch_reportLogs <- true
+	ch_GenIdleFile <- true
 
 	for {
 		pubkey, err := n.QueryTeePodr2Puk()
@@ -115,8 +117,11 @@ func (n *Node) Run() {
 	n.syncChainStatus()
 	out.Ok("Start successfully")
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 	n.Ichal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Ichal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 	n.Schal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Schal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 
 	for {
 		select {
@@ -135,6 +140,10 @@ func (n *Node) Run() {
 
 		case <-task_Minute.C:
 			n.syncChainStatus()
+			if len(ch_GenIdleFile) > 0 {
+				_ = <-ch_GenIdleFile
+				go n.genIdlefile(ch_GenIdleFile)
+			}
 			if len(ch_reportfiles) > 0 {
 				_ = <-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
