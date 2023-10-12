@@ -219,7 +219,7 @@ func (n *Node) calcFileTag() error {
 				}
 
 				n.Stag("info", fmt.Sprintf("Send fragment [%s] tag req to tee: %s", filepath.Base(f), teePeerId))
-				code, err = n.TagReq(addr.ID, filepath.Base(f), "", pattern.BlockNumber)
+				code, err = n.TagReq(addr.ID, filepath.Base(f), "", 0)
 				if err != nil || code != 0 {
 					n.Stag("err", fmt.Sprintf("[TagReq] err: %s code: %d", err, code))
 					continue

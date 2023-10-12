@@ -162,10 +162,13 @@ func (n *Node) pois() error {
 			time.Sleep(time.Minute)
 		}
 
+		n.MinerPoisInfo.Front = n.Prover.GetFront()
+		n.MinerPoisInfo.Rear = n.Prover.GetRear()
+		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
+
 		n.Space("info", "Get idle file commits")
 		commits, err := n.Prover.GetIdleFileSetCommits()
 		if err != nil {
-			n.Prover.CommitRollback()
 			return errors.Wrapf(err, "[GetIdleFileSetCommits]")
 		}
 
@@ -389,10 +392,7 @@ func (n *Node) pois() error {
 		if err != nil {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
-		n.MinerPoisInfo.Front = n.Prover.GetFront()
-		n.MinerPoisInfo.Rear = n.Prover.GetRear()
-		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
-		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
+
 		n.Space("info", "update pois status")
 	}
 }

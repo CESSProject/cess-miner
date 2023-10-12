@@ -55,7 +55,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// query your own information on the chain
-	minerInfo, err := n.QueryStorageMiner_V2(n.GetStakingPublickey())
+	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())

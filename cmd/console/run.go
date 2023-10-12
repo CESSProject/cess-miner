@@ -144,7 +144,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	minerInfo_V2, err := n.QueryStorageMiner_V2(n.GetStakingPublickey())
+	minerInfo_V2, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			firstReg = true

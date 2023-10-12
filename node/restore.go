@@ -200,7 +200,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 	n.Restore("info", fmt.Sprintf("all found frgments: %v", recoverList))
 	segmentpath := filepath.Join(n.GetDirs().FileDir, roothash, string(segement.Hash[:]))
 	if canRestore >= int(len(segement.FragmentList)*2/3) {
-		err = n.RedundancyRecovery(segmentpath, recoverList)
+		err = erasure.RSRestore(segmentpath, recoverList)
 		if err != nil {
 			os.Remove(segmentpath)
 			return err
@@ -389,7 +389,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	n.Restore("info", fmt.Sprintf("all found frgments: %v", recoverList))
 	segmentpath := filepath.Join(n.GetDirs().FileDir, roothash, string(dstSegement.Hash[:]))
 	if canRestore >= int(len(dstSegement.FragmentList)*2/3) {
-		err = n.RedundancyRecovery(segmentpath, recoverList)
+		err = erasure.RSRestore(segmentpath, recoverList)
 		if err != nil {
 			os.Remove(segmentpath)
 			return err
