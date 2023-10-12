@@ -14,7 +14,6 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/pb"
@@ -181,7 +180,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		n.Replace("err", err.Error())
 	}
 
-	challenge, err := n.QueryChallenge_V2()
+	ok, challenge, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			n.Replace("err", err.Error())
@@ -189,22 +188,10 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		}
 	}
 
-	for _, v := range challenge.MinerSnapshotList {
-		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v.Miner[:]) {
-			if int64(v.SpaceProofInfo.Front) != n.Prover.GetFront() || int64(v.SpaceProofInfo.Rear) != n.Prover.GetRear() {
-				minerInfo, err := n.QueryStorageMiner_V2(n.GetSignatureAccPulickey())
-				if err != nil {
-					return
-				}
-				var acc = make([]byte, len(pattern.Accumulator{}))
-				for i := 0; i < len(acc); i++ {
-					acc[i] = byte(minerInfo.SpaceProofInfo.Accumulator[i])
-				}
-				err = n.Prover.SetChallengeState(*n.Pois.RsaKey, acc, int64(minerInfo.SpaceProofInfo.Front), int64(minerInfo.SpaceProofInfo.Rear))
-				if err != nil {
-					return
-				}
-			}
+	if ok {
+		err = n.Prover.SetChallengeState(*n.Pois.RsaKey, []byte(string(challenge.MinerSnapshot.SpaceProofInfo.Accumulator[:])), int64(challenge.MinerSnapshot.SpaceProofInfo.Front), int64(challenge.MinerSnapshot.SpaceProofInfo.Rear))
+		if err != nil {
+			return
 		}
 	}
 

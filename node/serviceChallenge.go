@@ -50,11 +50,10 @@ func (n *Node) serviceChallenge(
 	ch chan<- bool,
 	serviceProofSubmited bool,
 	latestBlock,
-	challExpiration uint32,
 	challVerifyExpiration uint32,
 	challStart uint32,
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomIndexList []types.U64,
+	randomList []types.Bytes,
 ) {
 	defer func() {
 		ch <- true
@@ -62,20 +61,6 @@ func (n *Node) serviceChallenge(
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	var haveChallenge = true
-
-	if challExpiration <= latestBlock {
-		n.Schal("err", fmt.Sprintf("%d < %d", challExpiration, latestBlock))
-		haveChallenge = false
-	}
-
-	if !haveChallenge {
-		if !serviceProofSubmited {
-			n.Schal("err", "Proof of service files not submitted")
-			return
-		}
-	}
 
 	if challVerifyExpiration <= latestBlock {
 		n.Schal("err", fmt.Sprintf("%d < %d", challVerifyExpiration, latestBlock))
@@ -211,8 +196,8 @@ func (n *Node) serviceChallenge(
 // save challenge random number
 func (n *Node) saveRandom(
 	challStart uint32,
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomIndexList []types.U64,
+	randomList []types.Bytes,
 ) error {
 	randfilePath := filepath.Join(n.DataDir.RandomDir, fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)
@@ -249,8 +234,8 @@ func (n *Node) saveRandom(
 // calc sigma
 func (n *Node) calcSigma(
 	challStart uint32,
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomIndexList []types.U64,
+	randomList []types.Bytes,
 ) ([]string, []string, []string, string, error) {
 	var sigma string
 	var proveResponse proof.GenProofResponse
@@ -343,8 +328,8 @@ func (n *Node) calcSigma(
 func (n *Node) checkServiceProofRecord(
 	serviceProofSubmited bool,
 	challStart uint32,
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomIndexList []types.U64,
+	randomList []types.Bytes,
 ) error {
 	var found bool
 	var serviceProofRecord serviceProofInfo
@@ -511,8 +496,8 @@ func (n *Node) saveServiceProofRecord(serviceProofRecord serviceProofInfo) {
 }
 
 func (n *Node) batchVerify(
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomIndexList []types.U64,
+	randomList []types.Bytes,
 	teeAddrInfo peer.AddrInfo,
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {

@@ -53,7 +53,6 @@ func (n *Node) idleChallenge(
 	ch chan<- bool,
 	idleProofSubmited bool,
 	latestBlock uint32,
-	challExpiration uint32,
 	challVerifyExpiration uint32,
 	challStart uint32,
 	minerChallFront int64,
@@ -68,20 +67,6 @@ func (n *Node) idleChallenge(
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	var haveChallenge = true
-
-	if challExpiration <= latestBlock {
-		n.Ichal("err", fmt.Sprintf("%d < %d", challExpiration, latestBlock))
-		haveChallenge = false
-	}
-
-	if !haveChallenge {
-		if !idleProofSubmited {
-			n.Ichal("err", "Proof of idle files not submitted")
-			return
-		}
-	}
 
 	if challVerifyExpiration <= latestBlock {
 		n.Ichal("err", fmt.Sprintf("%d < %d", challVerifyExpiration, latestBlock))
