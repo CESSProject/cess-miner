@@ -85,7 +85,6 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 		MaxProofThread: n.GetCpuCore(),
 	}
 
-	fmt.Println(n.ExpendersInfo)
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
 	// minerID is storage node's account ID, and space is the amount of physical space available(MiB)
 	n.Prover, err = pois.NewProver(
@@ -162,16 +161,13 @@ func (n *Node) pois() error {
 			time.Sleep(time.Minute)
 		}
 
-		n.MinerPoisInfo.Front = n.Prover.GetFront()
-		n.MinerPoisInfo.Rear = n.Prover.GetRear()
-		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
-
 		n.Space("info", "Get idle file commits")
 		commits, err := n.Prover.GetIdleFileSetCommits()
 		if err != nil {
 			return errors.Wrapf(err, "[GetIdleFileSetCommits]")
 		}
 
+		n.Space("info", fmt.Sprintf("FileIndexs[0]: %v ", commits.FileIndexs[0]))
 		var commit_pb = &pb.Commits{
 			FileIndexs: commits.FileIndexs,
 			Roots:      commits.Roots,
@@ -198,11 +194,15 @@ func (n *Node) pois() error {
 			n.Space("err", fmt.Sprintf("[Sign] %v", err))
 			return err
 		}
-		fmt.Println("signData: ", len(commitGenChall.MinerSign), " :", commitGenChall.MinerSign)
 
+		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
+		n.Space("info", fmt.Sprintf("len(Acc): %v, acc: %v", len(n.MinerPoisInfo.Acc), n.MinerPoisInfo.Acc))
 		teePeerIds := n.GetAllTeeWorkPeerIdString()
 		n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
 		for i := 0; i < len(teePeerIds); i++ {
+			if teePeerIds[i] != "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo" {
+				continue
+			}
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
 			addrInfo, ok := n.GetPeer(teePeerIds[i])
 			if !ok {
@@ -234,6 +234,7 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeePeerID.Pretty()))
+
 		commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 		if err != nil {
 			n.Prover.AccRollback(false)
@@ -392,6 +393,10 @@ func (n *Node) pois() error {
 		if err != nil {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
+
+		n.MinerPoisInfo.Front = n.Prover.GetFront()
+		n.MinerPoisInfo.Rear = n.Prover.GetRear()
+		n.MinerPoisInfo.Acc = n.Prover.GetAccValue()
 
 		n.Space("info", "update pois status")
 	}
