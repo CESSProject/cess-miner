@@ -106,10 +106,11 @@ func (n *Node) Run() {
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
-	go n.restoreMgt(ch_restoreMgt)
+	go n.watchMem()
+	//go n.restoreMgt(ch_restoreMgt)
 	go n.poisMgt(ch_spaceMgt)
-	go n.reportLogsMgt(ch_reportLogs)
-	go n.discoverMgt(ch_discoverMgt)
+	//go n.reportLogsMgt(ch_reportLogs)
+	//go n.discoverMgt(ch_discoverMgt)
 
 	n.chalTick = time.NewTicker(time.Minute)
 	defer n.chalTick.Stop()

@@ -79,8 +79,8 @@ func (n *Node) serviceChallenge(
 	var qslice = make([]proof.QElement, len(randomIndexList))
 	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
-		var b = make([]byte, len(randomList[k]))
-		for i := 0; i < len(randomList[k]); i++ {
+		var b = make([]byte, pattern.RandomLen)
+		for i := 0; i < pattern.RandomLen; i++ {
 			b[i] = byte(randomList[k][i])
 		}
 		qslice[k].V = new(big.Int).SetBytes(b).String()

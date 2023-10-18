@@ -24,9 +24,9 @@ const (
 	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
 	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
 	//
-	DefaultBootNodeAddr = "_dnsaddr.boot-kldr-testnet.cess.cloud"
+	DefaultBootNodeAddr = "_dnsaddr.boot-kldr-devnet.cess.cloud"
 	//
-	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
+	DefaultDeossAddr = ""
 )
 
 const (

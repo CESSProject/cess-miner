@@ -9,6 +9,9 @@ package node
 
 import (
 	"fmt"
+	"os"
+	"runtime"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -96,6 +99,23 @@ func (n *Node) syncChainStatus() {
 	} else {
 		for i := 0; i < len(teelist); i++ {
 			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].Peer_id)
+		}
+	}
+}
+
+func (n *Node) watchMem() {
+	memSt := &runtime.MemStats{}
+	tikProgram := time.NewTicker(time.Second * 3)
+	defer tikProgram.Stop()
+
+	for {
+		select {
+		case <-tikProgram.C:
+			runtime.ReadMemStats(memSt)
+			if memSt.HeapSys >= pattern.SIZE_1GiB*8 {
+				n.Log("err", fmt.Sprintf("Mem heigh: %d", memSt.HeapSys))
+				os.Exit(1)
+			}
 		}
 	}
 }
