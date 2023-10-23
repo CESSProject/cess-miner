@@ -9,11 +9,9 @@ Boot:
 # Signature account mnemonic
 Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
 # Income account
-IncomeAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
+EarningsAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
 # Service workspace
 Workspace: /
-# Service running address
-Address: "127.0.0.1"
 # Service listening port
 Port: 4001
 # Maximum space used, the unit is GIB
