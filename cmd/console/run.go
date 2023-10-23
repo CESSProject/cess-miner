@@ -148,11 +148,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			firstReg = true
-			token = n.GetUseSpace() / 1024
-			if n.GetUseSpace()%1024 != 0 {
+			token = n.GetUseSpace() / pattern.SIZE_1KiB
+			if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
 				token += 1
 			}
-			token *= 2000
+			token *= pattern.StakingStakePerTiB
 			accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {

@@ -204,9 +204,6 @@ func (n *Node) pois() error {
 		teePeerIds := n.GetAllTeeWorkPeerIdString()
 		n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
 		for i := 0; i < len(teePeerIds); i++ {
-			if teePeerIds[i] != "12D3KooWAdyc4qPWFHsxMtXvSrm7CXNFhUmKPQdoXuKQXki69qBo" {
-				continue
-			}
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
 			addrInfo, ok := n.GetPeer(teePeerIds[i])
 			if !ok {
@@ -347,8 +344,6 @@ func (n *Node) pois() error {
 			break
 		}
 
-		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
-
 		// If the challenge is failure, need to roll back the prover to the previous status,
 		// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
@@ -397,11 +392,13 @@ func (n *Node) pois() error {
 		if err != nil {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
-
-		n.MinerPoisInfo.Front = n.Prover.GetFront()
-		n.MinerPoisInfo.Rear = n.Prover.GetRear()
-		n.MinerPoisInfo.Acc = n.Prover.GetAccValue()
-
 		n.Space("info", "update pois status")
+
+		n.Space("info", fmt.Sprintf("local acc: %v", n.Prover.GetAccValue()))
+		n.Space("info", fmt.Sprintf("tee acc: %v", verifyCommitOrDeletionProof.PoisStatus.Acc))
+		n.MinerPoisInfo.Front = verifyCommitOrDeletionProof.PoisStatus.Front
+		n.MinerPoisInfo.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
+		n.MinerPoisInfo.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc
+		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
 	}
 }
