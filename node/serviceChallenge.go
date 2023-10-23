@@ -52,8 +52,9 @@ func (n *Node) serviceChallenge(
 	latestBlock,
 	challVerifyExpiration uint32,
 	challStart uint32,
-	randomIndexList []types.U64,
-	randomList []types.Bytes,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+	teeAcc types.AccountID,
 ) {
 	defer func() {
 		ch <- true
@@ -69,7 +70,7 @@ func (n *Node) serviceChallenge(
 
 	var found bool
 	var serviceProofRecord serviceProofInfo
-	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList)
+	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList, teeAcc)
 	if err == nil {
 		return
 	}
@@ -196,8 +197,8 @@ func (n *Node) serviceChallenge(
 // save challenge random number
 func (n *Node) saveRandom(
 	challStart uint32,
-	randomIndexList []types.U64,
-	randomList []types.Bytes,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
 ) error {
 	randfilePath := filepath.Join(n.DataDir.RandomDir, fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)
@@ -234,8 +235,8 @@ func (n *Node) saveRandom(
 // calc sigma
 func (n *Node) calcSigma(
 	challStart uint32,
-	randomIndexList []types.U64,
-	randomList []types.Bytes,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
 ) ([]string, []string, []string, string, error) {
 	var sigma string
 	var proveResponse proof.GenProofResponse
@@ -328,10 +329,10 @@ func (n *Node) calcSigma(
 func (n *Node) checkServiceProofRecord(
 	serviceProofSubmited bool,
 	challStart uint32,
-	randomIndexList []types.U64,
-	randomList []types.Bytes,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+	teeAcc types.AccountID,
 ) error {
-	var found bool
 	var serviceProofRecord serviceProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.ServiceProofFile))
 	if err != nil {
@@ -372,33 +373,21 @@ func (n *Node) checkServiceProofRecord(
 			return nil
 		}
 		time.Sleep(pattern.BlockInterval * 2)
-	}
-
-	found = false
-	teeAccounts := n.GetAllTeeWorkAccount()
-	for _, v := range teeAccounts {
-		if found {
-			break
-		}
-		publickey, _ := sutils.ParsingPublickey(v)
-		serviceProofInfos, err := n.QueryUnverifiedServiceProof(publickey)
+		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 		if err != nil {
-			continue
+			return err
 		}
-
-		for i := 0; i < len(serviceProofInfos); i++ {
-			if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-				serviceProofRecord.AllocatedTeeAccount = v
-				serviceProofRecord.AllocatedTeeAccountId = publickey
-				found = true
-				break
-			}
+		ok := chall.ProveInfo.ServiceProve.HasValue()
+		if ok {
+			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
+			serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
+			serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		} else {
+			return errors.New("chall.ProveInfo.ServiceProve is empty")
 		}
-	}
-
-	if !found {
-		n.Schal("err", "No tee found to verify service files prove")
-		return nil
+	} else {
+		serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
+		serviceProofRecord.AllocatedTeeAccountId = teeAcc[:]
 	}
 
 	for {
@@ -496,8 +485,8 @@ func (n *Node) saveServiceProofRecord(serviceProofRecord serviceProofInfo) {
 }
 
 func (n *Node) batchVerify(
-	randomIndexList []types.U64,
-	randomList []types.Bytes,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
 	teeAddrInfo peer.AddrInfo,
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {

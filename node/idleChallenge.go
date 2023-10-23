@@ -60,6 +60,7 @@ func (n *Node) idleChallenge(
 	spaceChallengeParam pattern.SpaceChallengeParam,
 	minerAccumulator pattern.Accumulator,
 	teeSign pattern.TeeSignature,
+	teeAcc types.AccountID,
 ) {
 	defer func() {
 		ch <- true
@@ -80,6 +81,7 @@ func (n *Node) idleChallenge(
 		minerChallRear,
 		minerAccumulator,
 		teeSign,
+		teeAcc,
 	)
 	if err == nil {
 		return
@@ -242,34 +244,20 @@ func (n *Node) idleChallenge(
 
 		time.Sleep(pattern.BlockInterval * 2)
 
-		teeAccounts := n.GetAllTeeWorkAccount()
-		var teePeerIdPubkey []byte
-		found := false
-		for _, v := range teeAccounts {
-			if found {
-				break
-			}
-			publickey, _ := sutils.ParsingPublickey(v)
-			idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
-			if err != nil {
-				continue
-			}
-
-			for i := 0; i < len(idleProofInfos); i++ {
-				if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-					idleProofRecord.AllocatedTeeAccount = v
-					idleProofRecord.AllocatedTeeAccountId = publickey
-					found = true
-					break
-				}
-			}
+		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
+		if err != nil {
+			return
 		}
-		if !found {
-			n.Ichal("err", "Not found allocated tee for idle proof")
+		ok := chall.ProveInfo.IdleProve.HasValue()
+		if ok {
+			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
+			idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
+			idleProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		} else {
 			return
 		}
 
-		teePeerIdPubkey, _ = n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
+		teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
 
 		teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
 		if !ok {
@@ -366,6 +354,7 @@ func (n *Node) checkIdleProofRecord(
 	minerChallRear int64,
 	minerAccumulator pattern.Accumulator,
 	teeSign pattern.TeeSignature,
+	teeAcc types.AccountID,
 ) error {
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.IdleProofFile))
@@ -388,32 +377,9 @@ func (n *Node) checkIdleProofRecord(
 		return errors.New("Idle proof not submited")
 	}
 
-	found := false
-	teeAccounts := n.GetAllTeeWorkAccount()
-	for _, v := range teeAccounts {
-		if found {
-			break
-		}
-		publickey, _ := sutils.ParsingPublickey(v)
-		idleProofInfos, err := n.QueryUnverifiedIdleProof(publickey)
-		if err != nil {
-			continue
-		}
+	idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
+	idleProofRecord.AllocatedTeeAccountId = teeAcc[:]
 
-		for i := 0; i < len(idleProofInfos); i++ {
-			if sutils.CompareSlice(idleProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-				idleProofRecord.AllocatedTeeAccount = v
-				idleProofRecord.AllocatedTeeAccountId = publickey
-				found = true
-				n.Ichal("info", fmt.Sprintf("Allocated tee account: %v", v))
-				break
-			}
-		}
-	}
-	if !found {
-		n.Ichal("err", "Not found allocated tee for idle proof")
-		return nil
-	}
 	var acc = make([]byte, len(pattern.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
 		acc[i] = byte(minerAccumulator[i])
