@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -42,6 +43,7 @@ type Node struct {
 	peersFile     string
 	cpuCore       int
 	sdk.SDK
+	core.P2P
 	confile.Confile
 	logger.Logger
 	cache.Cache

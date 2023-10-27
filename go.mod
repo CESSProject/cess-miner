@@ -3,9 +3,9 @@ module github.com/CESSProject/cess-bucket
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.18-0.20231019112347-1b2e77bb2e82
+	github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026073030-7bdf70164352
 	github.com/CESSProject/cess_pois v0.4.7
-	github.com/CESSProject/p2p-go v0.2.1
+	github.com/CESSProject/p2p-go v0.2.3
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
@@ -35,7 +35,6 @@ require (
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
-	github.com/cskr/pubsub v1.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -68,25 +67,15 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
-	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/boxo v0.12.0 // indirect
-	github.com/ipfs/go-block-format v0.1.2 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
-	github.com/ipfs/go-ipfs-blockstore v1.3.0 // indirect
-	github.com/ipfs/go-ipfs-delay v0.0.1 // indirect
-	github.com/ipfs/go-ipfs-ds-help v1.1.0 // indirect
-	github.com/ipfs/go-ipfs-pq v0.0.3 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
-	github.com/ipfs/go-ipld-format v0.5.0 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
-	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
-	github.com/ipfs/go-peertaskqueue v0.8.1 // indirect
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
@@ -164,7 +153,6 @@ require (
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/dig v1.17.0 // indirect
 	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
