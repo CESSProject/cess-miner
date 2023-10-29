@@ -18,7 +18,7 @@ const (
 	// Name is the name of the program
 	Name = "bucket"
 	// version
-	Version = "v0.7.4 devnet"
+	Version = "v0.7.4 devnet 10271640"
 	// Description is the description of the program
 	Description = "Storage node implementation in CESS networks"
 	// NameSpace is the cached namespace
@@ -27,7 +27,7 @@ const (
 
 // system init
 func SysInit() int {
-	cpuCore := runtime.NumCPU() / 2
+	cpuCore := runtime.NumCPU() * 8 / 10
 	if cpuCore == 0 {
 		cpuCore = 1
 	}

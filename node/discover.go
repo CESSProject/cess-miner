@@ -22,9 +22,100 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
+	peerstore "github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"golang.org/x/time/rate"
 )
+
+func (n *Node) findPeers(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
+	n.Discover("info", ">>>>> start findPeers <<<<<")
+
+	var ok bool
+	var err error
+	var foundPeer peer.AddrInfo
+	var interval time.Duration = 30
+	var findInterval time.Duration = 1
+	var tick = time.NewTicker(time.Second * findInterval)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-tick.C:
+			findInterval += interval
+			if findInterval > 3600 {
+				findInterval = interval
+				err = n.SavePeersToDisk(n.DataDir.PeersFile)
+				if err != nil {
+					n.Discover("err", err.Error())
+				}
+			}
+			tick.Reset(time.Second * findInterval)
+			peerChan, err := n.GetRoutingTable().FindPeers(n.GetCtxQueryFromCtxCancel(), n.GetRendezvousVersion())
+			if err != nil {
+				continue
+			}
+			ok = true
+			for ok {
+				select {
+				case foundPeer, ok = <-peerChan:
+					if !ok {
+						break
+					}
+					if foundPeer.ID == n.ID() {
+						continue
+					}
+					err := n.Connect(n.GetCtxQueryFromCtxCancel(), foundPeer)
+					if err != nil {
+						n.Peerstore().RemovePeer(foundPeer.ID)
+					} else {
+						for _, addr := range foundPeer.Addrs {
+							n.Peerstore().AddAddr(foundPeer.ID, addr, peerstore.AddressTTL)
+						}
+						n.SavePeer(foundPeer.ID.Pretty(), peer.AddrInfo{
+							ID:    foundPeer.ID,
+							Addrs: foundPeer.Addrs,
+						})
+					}
+				}
+			}
+		}
+	}
+}
+
+func (n *Node) recvPeers(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
+	n.Discover("info", ">>>>> start recvPeers <<<<<")
+
+	for {
+		select {
+		case foundPeer := <-n.GetDiscoveredPeers():
+			for _, v := range foundPeer.Responses {
+				if v != nil {
+					if len(v.Addrs) > 0 {
+						n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.AddressTTL)
+						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
+							ID:    v.ID,
+							Addrs: v.Addrs,
+						})
+					}
+				}
+			}
+		}
+	}
+}
 
 func (n *Node) discoverMgt(ch chan<- bool) {
 	defer func() {

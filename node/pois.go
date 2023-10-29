@@ -213,7 +213,6 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-		n.Space("info", fmt.Sprintf("len(Acc): %v, acc: %v", len(n.MinerPoisInfo.Acc), n.MinerPoisInfo.Acc))
 		teePeerIds := n.GetAllTeeWorkPeerIdString()
 		n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
 		for i := 0; i < len(teePeerIds); i++ {
