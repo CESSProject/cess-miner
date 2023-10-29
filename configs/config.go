@@ -13,7 +13,7 @@ const (
 	//
 	TimeFormat = "2006-01-02 15:04:05"
 	// the time to wait for the event, in seconds
-	TimeToWaitEvent = time.Duration(time.Second * 12)
+	TimeToWaitEvent = time.Duration(time.Second * 30)
 	// Default config file
 	DefaultConfigFile = "conf.yaml"
 	//

@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -42,6 +43,7 @@ type Node struct {
 	peersFile     string
 	cpuCore       int
 	sdk.SDK
+	core.P2P
 	confile.Confile
 	logger.Logger
 	cache.Cache
@@ -62,6 +64,9 @@ func New() *Node {
 
 func (n *Node) Run() {
 	var (
+		ch_findPeers = make(chan bool, 1)
+		ch_recvPeers = make(chan bool, 1)
+
 		ch_spaceMgt         = make(chan bool, 1)
 		ch_idlechallenge    = make(chan bool, 1)
 		ch_servicechallenge = make(chan bool, 1)
@@ -70,8 +75,8 @@ func (n *Node) Run() {
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
-		ch_discoverMgt      = make(chan bool, 1)
-		ch_GenIdleFile      = make(chan bool, 1)
+		//ch_discoverMgt      = make(chan bool, 1)
+		ch_GenIdleFile = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
@@ -106,23 +111,28 @@ func (n *Node) Run() {
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
-	go n.watchMem()
-	//go n.restoreMgt(ch_restoreMgt)
-	go n.poisMgt(ch_spaceMgt)
-	//go n.reportLogsMgt(ch_reportLogs)
-	//go n.discoverMgt(ch_discoverMgt)
-
 	n.chalTick = time.NewTicker(time.Minute)
 	defer n.chalTick.Stop()
 
 	n.syncChainStatus()
-	out.Ok("Start successfully")
+
+	// go n.watchMem()
+	go n.restoreMgt(ch_restoreMgt)
+	go n.poisMgt(ch_spaceMgt)
+	//go n.reportLogsMgt(ch_reportLogs)
+
+	go n.findPeers(ch_findPeers)
+	go n.recvPeers(ch_recvPeers)
+	//go n.discoverMgt(ch_discoverMgt)
+
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
 	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 	n.Ichal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
 	n.Ichal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 	n.Schal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
 	n.Schal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
+
+	out.Ok("Start successfully")
 
 	for {
 		select {
@@ -166,8 +176,12 @@ func (n *Node) Run() {
 			go n.poisMgt(ch_spaceMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
-		case <-ch_discoverMgt:
-			go n.discoverMgt(ch_discoverMgt)
+		case <-ch_findPeers:
+			go n.findPeers(ch_findPeers)
+		case <-ch_recvPeers:
+			go n.recvPeers(ch_recvPeers)
+			// case <-ch_discoverMgt:
+			// 	go n.discoverMgt(ch_discoverMgt)
 		}
 	}
 }
@@ -197,10 +211,9 @@ func (n *Node) SetPublickey(pubkey []byte) error {
 }
 
 func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
-	if n.peerLock.TryLock() {
-		n.peers[peerid] = addr
-		n.peerLock.Unlock()
-	}
+	n.peerLock.Lock()
+	n.peers[peerid] = addr
+	n.peerLock.Unlock()
 }
 
 func (n *Node) SaveOrUpdatePeerUnSafe(peerid string, addr peer.AddrInfo) {

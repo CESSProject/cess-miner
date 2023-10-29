@@ -25,9 +25,11 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	cess "github.com/CESSProject/cess-go-sdk"
-	"github.com/CESSProject/cess-go-sdk/config"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	p2pgo "github.com/CESSProject/p2p-go"
+	"github.com/CESSProject/p2p-go/config"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -50,6 +52,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n              = node.New()
 	)
 
+	ctx := context.Background()
 	n.SaveCpuCore(configs.SysInit())
 
 	// parse configuration file
@@ -83,18 +86,26 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	// build client
 	n.SDK, err = cess.New(
-		context.Background(),
-		config.CharacterName_Bucket,
+		ctx,
+		sconfig.CharacterName_Bucket,
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
-		cess.Workspace(n.GetWorkspace()),
-		cess.P2pPort(n.GetServicePort()),
-		cess.Bootnodes(n.GetBootNodes()),
-		cess.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
 		out.Err(fmt.Sprintf("[cess.New] %v", err))
+		os.Exit(1)
+	}
+
+	n.P2P, err = p2pgo.New(
+		ctx,
+		p2pgo.ListenPort(n.GetServicePort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSdkName())),
+		p2pgo.BootPeers(n.GetBootNodes()),
+		p2pgo.ProtocolPrefix(protocolPrefix),
+	)
+	if err != nil {
+		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
 		os.Exit(1)
 	}
 

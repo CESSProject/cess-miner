@@ -161,6 +161,19 @@ func (n *Node) pois() error {
 			time.Sleep(time.Minute)
 		}
 
+		minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+		if err != nil {
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
+
+		if minerInfo.SpaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
+			err = n.Prover.SyncChainRearStatus(int64(minerInfo.SpaceProofInfo.Front), int64(minerInfo.SpaceProofInfo.Rear))
+			if err != nil {
+				return err
+			}
+		}
+
 		n.MinerPoisInfo.Front = n.Prover.GetFront()
 		n.MinerPoisInfo.Rear = n.Prover.GetRear()
 		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
@@ -200,7 +213,6 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-		n.Space("info", fmt.Sprintf("len(Acc): %v, acc: %v", len(n.MinerPoisInfo.Acc), n.MinerPoisInfo.Acc))
 		teePeerIds := n.GetAllTeeWorkPeerIdString()
 		n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
 		for i := 0; i < len(teePeerIds); i++ {
@@ -380,8 +392,16 @@ func (n *Node) pois() error {
 		n.Space("info", "Submit idle space")
 		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
 		if err != nil {
-			n.Prover.AccRollback(false)
-			return errors.Wrapf(err, "[CertIdleSpace]")
+			minerInfo, err1 := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+			if err1 != nil {
+				n.Prover.AccRollback(false)
+				return errors.Wrapf(err, "[CertIdleSpace]")
+			}
+
+			if int64(minerInfo.SpaceProofInfo.Rear) <= n.Prover.GetRear() {
+				n.Prover.AccRollback(false)
+				return errors.Wrapf(err, "[CertIdleSpace]")
+			}
 		}
 
 		n.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
