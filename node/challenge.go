@@ -166,9 +166,13 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 			n.Schal("info", fmt.Sprintf("challenge complete and sleep %ds", ((challVerifyExpiration-latestBlock)*4)))
 			n.chalTick.Reset(time.Second * time.Duration((challVerifyExpiration-latestBlock)*4))
 		} else {
+			n.Ichal("info", "challenge complete")
+			n.Schal("info", "challenge complete")
 			n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
 		}
 	} else {
+		n.Ichal("info", "challenge go on")
+		n.Schal("info", "challenge go on")
 		n.chalTick.Reset(time.Second * time.Duration(6+rand.Intn(30)))
 	}
 }

@@ -10,6 +10,7 @@ package node
 import (
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -45,9 +46,11 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}()
 
 	for {
-		err := n.pois()
-		if err != nil {
-			n.Space("err", err.Error())
+		if n.GetChainState() {
+			err := n.pois()
+			if err != nil {
+				n.Space("err", err.Error())
+			}
 		}
 		time.Sleep(pattern.BlockInterval)
 	}
@@ -238,18 +241,36 @@ func (n *Node) pois() error {
 	}
 
 	n.Space("info", "Verify idle file commits")
-	verifyCommitOrDeletionProof, err := n.PoisVerifyCommitProofP2P(
-		workTeePeerID,
-		n.GetSignatureAccPulickey(),
-		commitProofGroup_pb,
-		accProof_pb,
-		n.Pois.RsaKey.N.Bytes(),
-		n.Pois.RsaKey.G.Bytes(),
-		time.Duration(time.Minute*10),
-	)
-	if err != nil {
-		n.Prover.AccRollback(false)
-		return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
+
+	var tryCount uint8 = 0
+	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
+
+	for {
+		if tryCount >= 100 {
+			n.Prover.AccRollback(false)
+			return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
+		}
+		n.Space("info", fmt.Sprintf("n.Pois.RsaKey.N: %v", n.Pois.RsaKey.N.Bytes()))
+		n.Space("info", fmt.Sprintf("n.Pois.RsaKey.G: %v", n.Pois.RsaKey.G.Bytes()))
+		verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProofP2P(
+			workTeePeerID,
+			n.GetSignatureAccPulickey(),
+			commitProofGroup_pb,
+			accProof_pb,
+			n.Pois.RsaKey.N.Bytes(),
+			n.Pois.RsaKey.G.Bytes(),
+			time.Duration(time.Minute*10),
+		)
+		if err != nil {
+			if strings.Contains(err.Error(), "busy") {
+				tryCount++
+				time.Sleep(time.Minute)
+				continue
+			}
+			n.Prover.AccRollback(false)
+			return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
+		}
+		break
 	}
 
 	// If the challenge is failure, need to roll back the prover to the previous status,

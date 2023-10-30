@@ -234,6 +234,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
 					continue
 				}
+				out.Tip(fmt.Sprintf("Successfully found %s for registration", bootPeerID[i].Pretty()))
 				suc = true
 				break
 			}

@@ -21,6 +21,9 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
+	"golang.org/x/time/rate"
 )
 
 func (n *Node) discoverMgt(ch chan<- bool) {
@@ -37,63 +40,63 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	tickDiscover := time.NewTicker(time.Hour)
 	defer tickDiscover.Stop()
 
-	//var r1 = rate.Every(time.Second * 5)
-	//var limit = rate.NewLimiter(r1, 1)
+	var r1 = rate.Every(time.Second * 5)
+	var limit = rate.NewLimiter(r1, 1)
 
-	//var r2 = rate.Every(time.Minute * 30)
-	//var printLimit = rate.NewLimiter(r2, 1)
+	var r2 = rate.Every(time.Minute * 30)
+	var printLimit = rate.NewLimiter(r2, 1)
 	n.RouteTableFindPeers(0)
 
 	for {
 		select {
-		case _ = <-n.GetDiscoveredPeers():
-			// if limit.Allow() {
-			// 	n.Discover("info", "reset")
-			// 	tickDiscover.Reset(time.Minute)
-			// }
-			// if len(discoveredPeer.Responses) == 0 {
-			// 	break
-			// }
-			// for _, v := range discoveredPeer.Responses {
-			// 	var addrInfo peer.AddrInfo
-			// 	var addrs []multiaddr.Multiaddr
-			// 	if v != nil {
-			// 		for _, addr := range v.Addrs {
-			// 			if !utils.InterfaceIsNIL(addr) {
-			// 				if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
-			// 					if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
-			// 						if !ok {
-			// 							addrs = append(addrs, addr)
-			// 						}
-			// 					}
-			// 				}
-			// 			}
-			// 		}
-			// 	}
-			// 	if len(addrs) > 0 {
-			// 		addrInfo.ID = v.ID
-			// 		addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
-			// 		n.SavePeer(v.ID.Pretty(), addrInfo)
-			// 	}
-			// }
+		case discoveredPeer := <-n.GetDiscoveredPeers():
+			if limit.Allow() {
+				n.Discover("info", "reset")
+				tickDiscover.Reset(time.Minute)
+			}
+			if len(discoveredPeer.Responses) == 0 {
+				break
+			}
+			for _, v := range discoveredPeer.Responses {
+				var addrInfo peer.AddrInfo
+				var addrs []multiaddr.Multiaddr
+				if v != nil {
+					for _, addr := range v.Addrs {
+						if !utils.InterfaceIsNIL(addr) {
+							if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
+								if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
+									if !ok {
+										addrs = append(addrs, addr)
+									}
+								}
+							}
+						}
+					}
+				}
+				if len(addrs) > 0 {
+					addrInfo.ID = v.ID
+					addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
+					n.SavePeer(v.ID.Pretty(), addrInfo)
+				}
+			}
 		case <-tickDiscover.C:
-			// if printLimit.Allow() {
-			// 	n.RemovePeerIntranetAddr()
-			// 	err = n.SavePeersToDisk(n.peersPath)
-			// 	if err != nil {
-			// 		n.Discover("err", err.Error())
-			// 	}
-			// 	allpeer := n.GetAllPeerIdString()
-			// 	for _, v := range allpeer {
-			// 		n.Discover("info", fmt.Sprintf("found %s", v))
-			// 	}
-			// }
-			// n.Discover("info", "RouteTableFindPeers")
-			// _, err := n.RouteTableFindPeers(len(n.peers) + 20)
-			// if err != nil {
-			// 	n.Discover("err", err.Error())
-			// }
-			n.UpdatePeers()
+			if printLimit.Allow() {
+				n.RemovePeerIntranetAddr()
+				err := n.SavePeersToDisk(n.DataDir.PeersFile)
+				if err != nil {
+					n.Discover("err", err.Error())
+				}
+				allpeer := n.GetAllPeerIdString()
+				for _, v := range allpeer {
+					n.Discover("info", fmt.Sprintf("found %s", v))
+				}
+			}
+			n.Discover("info", "RouteTableFindPeers")
+			_, err := n.RouteTableFindPeers(len(n.peers) + 20)
+			if err != nil {
+				n.Discover("err", err.Error())
+			}
+			go n.UpdatePeers()
 		}
 	}
 }

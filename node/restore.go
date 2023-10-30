@@ -33,7 +33,7 @@ func (n *Node) restoreMgt(ch chan bool) {
 
 	n.Restore("info", ">>>>> start restoreMgt <<<<<")
 	for {
-		for n.GetChainState() {
+		if n.GetChainState() {
 			time.Sleep(time.Minute)
 			minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 			if err != nil {
