@@ -106,13 +106,13 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.0/bucket
+wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.3/bucket0.7.3.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
 
 **1) install go**
-CESS-Bucket requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
+CESS-Bucket requires [Go 1.20](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open gomod mode:
 ```
