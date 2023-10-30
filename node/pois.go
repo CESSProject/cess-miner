@@ -395,12 +395,12 @@ func (n *Node) pois() error {
 			minerInfo, err1 := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 			if err1 != nil {
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[CertIdleSpace]")
+				return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
 			}
 
 			if int64(minerInfo.SpaceProofInfo.Rear) <= n.Prover.GetRear() {
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[CertIdleSpace]")
+				return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
 			}
 		}
 

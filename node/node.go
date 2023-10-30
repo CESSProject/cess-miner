@@ -119,7 +119,7 @@ func (n *Node) Run() {
 	// go n.watchMem()
 	go n.restoreMgt(ch_restoreMgt)
 	go n.poisMgt(ch_spaceMgt)
-	//go n.reportLogsMgt(ch_reportLogs)
+	go n.reportLogsMgt(ch_reportLogs)
 
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
