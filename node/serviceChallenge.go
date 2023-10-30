@@ -276,10 +276,10 @@ func (n *Node) calcSigma(
 
 		for _, segment := range fmeta.SegmentList {
 			for _, fragment := range segment.FragmentList {
-				// if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
-				// 	// os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
-				// 	continue
-				// }
+				if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+					// os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
+					continue
+				}
 				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
 				serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, string(fragment.Hash[:])+".tag")
 				buf, err := os.ReadFile(serviceTagPath)
