@@ -14,5 +14,7 @@ EarningsAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
 Workspace: /
 # Service listening port
 Port: 4001
-# Maximum space used, the unit is GIB
+# Maximum space used, the unit is GiB
 UseSpace: 2000
+# Number of cpu's used, 0 means use all
+UseCpu: 0

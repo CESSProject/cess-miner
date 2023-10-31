@@ -53,7 +53,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	)
 
 	ctx := context.Background()
-	n.SaveCpuCore(configs.SysInit())
 
 	// parse configuration file
 	n.Confile, err = buildConfigFile(cmd, 0)
@@ -61,6 +60,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
 		os.Exit(1)
 	}
+
+	n.SaveCpuCore(configs.SysInit(n.GetUseCpu()))
 
 	out.Tip(fmt.Sprintf("Rpc addresses: %v", n.GetRpcAddr()))
 
