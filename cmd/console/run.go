@@ -226,7 +226,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				break
 			}
 			for i := 0; i < len(bootPeerID); i++ {
-				out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
+				out.Tip(fmt.Sprintf("Will request miner init param to %v ...", bootPeerID[i]))
 				responseMinerInitParam, err := n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
 				if err != nil {
 					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))

@@ -173,10 +173,10 @@ func (n *Node) pois() error {
 				return err
 			}
 		}
-
-		n.MinerPoisInfo.Front = n.Prover.GetFront()
-		n.MinerPoisInfo.Rear = n.Prover.GetRear()
-		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
+		n.MinerPoisInfo.Front = int64(minerInfo.SpaceProofInfo.Front)
+		n.MinerPoisInfo.Rear = int64(minerInfo.SpaceProofInfo.Rear)
+		n.MinerPoisInfo.Acc = []byte(string(minerInfo.SpaceProofInfo.Accumulator[:]))
+		n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
 
 		n.Space("info", "Get idle file commits")
 		commits, err := n.Prover.GetIdleFileSetCommits()
