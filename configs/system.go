@@ -26,17 +26,23 @@ const (
 )
 
 // system init
-func SysInit() int {
-	cpuCore := runtime.NumCPU() * 8 / 10
-	if cpuCore == 0 {
-		cpuCore = 1
-	}
-	runtime.GOMAXPROCS(cpuCore)
+func SysInit(cpus uint8) int {
 	if !RunOnLinuxSystem() {
 		out.Err("Please run on a linux system")
 		os.Exit(1)
 	}
-	return cpuCore
+	return SetCpuNumber(cpus)
+}
+
+func SetCpuNumber(cpus uint8) int {
+	actualUseCpus := runtime.NumCPU()
+	if cpus == 0 || int(cpus) > actualUseCpus {
+		runtime.GOMAXPROCS(actualUseCpus)
+		return actualUseCpus
+	}
+	actualUseCpus = int(cpus)
+	runtime.GOMAXPROCS(actualUseCpus)
+	return actualUseCpus
 }
 
 func RunOnLinuxSystem() bool {

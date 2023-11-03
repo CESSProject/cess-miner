@@ -39,7 +39,9 @@ Workspace: /
 # P2P communication port
 Port: 4001
 # Maximum space used, the unit is GiB
-UseSpace: 2000`
+UseSpace: 2000
+# Number of cpu's used, 0 means use all
+UseCpu: 0`
 
 type Confile interface {
 	Parse(fpath string, port int) error
@@ -53,6 +55,7 @@ type Confile interface {
 	GetStakingPublickey() []byte
 	GetStakingAcc() string
 	SetEarningsAcc(earnings string) error
+	GetUseCpu() uint8
 }
 
 type confile struct {
@@ -63,6 +66,7 @@ type confile struct {
 	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
 	Port        int      `name:"Port" toml:"Port" yaml:"Port"`
 	UseSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
+	UseCpu      uint8    `name:"UseCpu" toml:"UseCpu" yaml:"UseCpu"`
 }
 
 func NewConfigfile() *confile {
@@ -103,9 +107,11 @@ func (c *confile) Parse(fpath string, port int) error {
 	if port != 0 {
 		c.Port = port
 	}
+
 	if c.Port < 1024 {
 		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
 	}
+
 	if c.Port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
@@ -239,4 +245,8 @@ func (c *confile) GetStakingAcc() string {
 
 func (c *confile) GetUseSpace() uint64 {
 	return c.UseSpace
+}
+
+func (c *confile) GetUseCpu() uint8 {
+	return c.UseCpu
 }
