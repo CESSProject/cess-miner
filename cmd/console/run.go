@@ -296,6 +296,40 @@ func runCmd(cmd *cobra.Command, args []string) {
 			KeyG:          []byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:])),
 			StatusTeeSign: []byte(string(minerInfo_V2.TeeSignature[:])),
 		}
+		token = n.GetUseSpace() / pattern.SIZE_1KiB
+		if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
+			token += 1
+		}
+		token *= pattern.StakingStakePerTiB
+		newToken, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+		if newToken.Uint64() > minerInfo_V2.Collaterals.Uint64() {
+			if newToken.Uint64()-minerInfo_V2.Collaterals.Uint64() >= pattern.StakingStakePerTiB {
+				accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
+				if err != nil {
+					if err.Error() != pattern.ERR_Empty {
+						out.Err("Invalid chain node: rpc service failure")
+						os.Exit(1)
+					}
+					out.Err("Account does not exist or balance is empty")
+					os.Exit(1)
+				}
+				stakes, ok := new(big.Int).SetString(fmt.Sprintf("%d", newToken.Uint64()-minerInfo_V2.Collaterals.Uint64()), 10)
+				if !ok {
+					out.Err(fmt.Sprintf("Failed to calculate staking"))
+					os.Exit(1)
+				}
+				if accInfo.Data.Free.CmpAbs(stakes) < 0 {
+					out.Err(fmt.Sprintf("Account balance less than %d %s, unable to staking.", (token - minerInfo_V2.Collaterals.Uint64()), n.GetTokenSymbol()))
+					os.Exit(1)
+				}
+				txhash, err := n.IncreaseStakingAmount(stakes)
+				if err != nil {
+					out.Err(fmt.Sprintf("[%s] Invalid chain node: rpc service failure", txhash))
+					os.Exit(0)
+				}
+			}
+		}
+
 		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
 		if err != nil {
 			out.Err(fmt.Sprintf("Update failed: %v", err))
