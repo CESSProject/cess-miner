@@ -232,10 +232,12 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 				n.Pnc(utils.RecoverError(err))
 			}
 		}()
-		time.Sleep(time.Second * time.Duration(rand.Intn(300)))
+		time.Sleep(time.Second * time.Duration(rand.Intn(600)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "space.log"))
+		time.Sleep(time.Second * time.Duration(rand.Intn(60)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "schal.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "ichal.log"))
+		time.Sleep(time.Second * time.Duration(rand.Intn(60)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
 	}
@@ -289,7 +291,6 @@ func (n *Node) ReportLogs(file string) {
 	client.Transport = utils.GlobalTransport
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	defer resp.Body.Close()
