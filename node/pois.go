@@ -166,17 +166,19 @@ func (n *Node) pois() error {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-
-		if minerInfo.SpaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
-			err = n.Prover.SyncChainRearStatus(int64(minerInfo.SpaceProofInfo.Front), int64(minerInfo.SpaceProofInfo.Rear))
-			if err != nil {
-				return err
+		if minerInfo.SpaceProofInfo.HasValue() {
+			_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
+			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
+				err = n.Prover.SyncChainRearStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+				if err != nil {
+					return err
+				}
 			}
+			n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
+			n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
+			n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
 		}
-
-		n.MinerPoisInfo.Front = n.Prover.GetFront()
-		n.MinerPoisInfo.Rear = n.Prover.GetRear()
-		n.MinerPoisInfo.Acc = n.Prover.AccManager.GetSnapshot().Accs.Value
 
 		n.Space("info", "Get idle file commits")
 		commits, err := n.Prover.GetIdleFileSetCommits()
@@ -392,15 +394,19 @@ func (n *Node) pois() error {
 		n.Space("info", "Submit idle space")
 		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
 		if err != nil {
+			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval)
 			minerInfo, err1 := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 			if err1 != nil {
 				n.Prover.AccRollback(false)
 				return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
 			}
-
-			if int64(minerInfo.SpaceProofInfo.Rear) <= n.Prover.GetRear() {
-				n.Prover.AccRollback(false)
-				return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
+			if minerInfo.SpaceProofInfo.HasValue() {
+				_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
+				if int64(spaceProofInfo.Rear) < n.Prover.GetRear() {
+					n.Prover.AccRollback(false)
+					return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
+				}
 			}
 		}
 
