@@ -35,6 +35,7 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58/base58"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	var (
 		firstReg       bool
 		err            error
-		earnings       string
 		bootEnv        string
 		token          uint64
 		protocolPrefix string
@@ -156,7 +156,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	minerInfo_V2, err := n.QueryStorageMiner(n.GetStakingPublickey())
+	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			firstReg = true
@@ -220,8 +220,28 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	teelist, err := n.QueryTeeWorkerList()
+	if err != nil {
+		out.Err(fmt.Sprintf("[QueryTeeWorkerList] %v", err))
+		os.Exit(1)
+	}
+
+	var teemap = make(map[string]string, 0)
+	for _, v := range teelist {
+		teemap[base58.Encode(v.Peer_id)] = v.Controller_account
+	}
+
 	var suc bool
 	if firstReg {
+		txhash, err := n.RegisterSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
+		if err != nil {
+			out.Err(fmt.Sprintf("[%s] Register failed: %v", txhash, err))
+			os.Exit(1)
+		}
+		n.SetEarningsAcc(n.GetEarningsAcc())
+		n.RebuildDirs()
+		time.Sleep(pattern.BlockInterval)
+		var useTee string
 		for j := 0; j < 10; j++ {
 			if suc {
 				break
@@ -241,6 +261,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 					KeyG:          responseMinerInitParam.KeyG,
 					StatusTeeSign: responseMinerInitParam.Signature,
 				}
+				useTee = bootPeerID[i].Pretty()
 				suc = true
 				break
 			}
@@ -267,35 +288,159 @@ func runCmd(cmd *cobra.Command, args []string) {
 		for i := 0; i < len(n.MinerPoisInfo.KeyN); i++ {
 			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 		}
+
+		if _, ok := teemap[useTee]; !ok {
+			out.Err(fmt.Sprintf("Unregistered tee: %v", useTee))
+			os.Exit(1)
+		}
+		pubkey, err := sutils.ParsingPublickey(teemap[useTee])
+		if err != nil {
+			out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
+			os.Exit(1)
+		}
+		teeAcc, err := types.NewAccountID(pubkey)
+		if err != nil {
+			out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
+			os.Exit(1)
+		}
+		key.Acc = *teeAcc
 		var sign pattern.TeeSignature
-		if len(n.MinerPoisInfo.StatusTeeSign) != len(pattern.TeeSignature{}) {
+		if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSignatureLen {
 			out.Err("invalid tee signature")
 			os.Exit(1)
 		}
 		for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
 			sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 		}
-
-		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), token, key, sign)
+		txhash, err = n.RegisterSminerPOISKey(key, sign)
 		if err != nil {
-			out.Err(fmt.Sprintf("Register failed: %v", err))
+			out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 			os.Exit(1)
 		}
-		n.SetEarningsAcc(earnings)
-		n.RebuildDirs()
 		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(n.MinerPoisInfo.KeyN), *new(big.Int).SetBytes(n.MinerPoisInfo.KeyG))
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
 			os.Exit(1)
 		}
 	} else {
+		var spaceProofInfo pattern.SpaceProofInfo
+		var teeSign []byte
+		var earningsAcc string
+		var peerid []byte
+		if !minerInfo.SpaceProofInfo.HasValue() {
+			var useTee string
+			for j := 0; j < 10; j++ {
+				if suc {
+					break
+				}
+				for i := 0; i < len(bootPeerID); i++ {
+					out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
+					responseMinerInitParam, err := n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
+					if err != nil {
+						out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
+						continue
+					}
+					n.MinerPoisInfo = &pb.MinerPoisInfo{
+						Acc:           responseMinerInitParam.Acc,
+						Front:         responseMinerInitParam.Front,
+						Rear:          responseMinerInitParam.Rear,
+						KeyN:          responseMinerInitParam.KeyN,
+						KeyG:          responseMinerInitParam.KeyG,
+						StatusTeeSign: responseMinerInitParam.Signature,
+					}
+					useTee = bootPeerID[i].Pretty()
+					suc = true
+					break
+				}
+			}
+
+			if !suc {
+				out.Err("All trusted nodes are busy, program exits.")
+				os.Exit(1)
+			}
+
+			var key pattern.PoISKeyInfo
+			if len(n.MinerPoisInfo.KeyG) != len(pattern.PoISKey_G{}) {
+				out.Err("invalid tee key_g")
+				os.Exit(1)
+			}
+
+			if len(n.MinerPoisInfo.KeyN) != len(pattern.PoISKey_N{}) {
+				out.Err("invalid tee key_n")
+				os.Exit(1)
+			}
+			for i := 0; i < len(n.MinerPoisInfo.KeyG); i++ {
+				key.G[i] = types.U8(n.MinerPoisInfo.KeyG[i])
+			}
+			for i := 0; i < len(n.MinerPoisInfo.KeyN); i++ {
+				key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
+			}
+
+			if _, ok := teemap[useTee]; !ok {
+				out.Err(fmt.Sprintf("Unregistered tee: %v", useTee))
+				os.Exit(1)
+			}
+			pubkey, err := sutils.ParsingPublickey(teemap[useTee])
+			if err != nil {
+				out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
+				os.Exit(1)
+			}
+			teeAcc, err := types.NewAccountID(pubkey)
+			if err != nil {
+				out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
+				os.Exit(1)
+			}
+			key.Acc = *teeAcc
+			var sign pattern.TeeSignature
+			if len(n.MinerPoisInfo.StatusTeeSign) != len(pattern.TeeSignature{}) {
+				out.Err("invalid tee signature")
+				os.Exit(1)
+			}
+			for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
+				sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
+			}
+			txhash, err := n.RegisterSminerPOISKey(key, sign)
+			if err != nil {
+				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
+				os.Exit(1)
+			}
+			time.Sleep(pattern.BlockInterval)
+			var count uint8 = 0
+			for {
+				count++
+				if count > 5 {
+					out.Err("Invalid chain node: rpc service failure")
+					os.Exit(1)
+				}
+				minerInfo, err = n.QueryStorageMiner(n.GetStakingPublickey())
+				if err != nil {
+					time.Sleep(pattern.BlockInterval)
+					continue
+				}
+				if !minerInfo.SpaceProofInfo.HasValue() {
+					time.Sleep(pattern.BlockInterval)
+					continue
+				}
+				_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
+				teeSign = []byte(string(minerInfo.TeeSignature[:]))
+				peerid = []byte(string(minerInfo.PeerId[:]))
+				earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAcc[:])
+				break
+			}
+		} else {
+			_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
+			teeSign = []byte(string(minerInfo.TeeSignature[:]))
+			peerid = []byte(string(minerInfo.PeerId[:]))
+			earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAcc[:])
+		}
+
 		n.MinerPoisInfo = &pb.MinerPoisInfo{
-			Acc:           []byte(string(minerInfo_V2.SpaceProofInfo.Accumulator[:])),
-			Front:         int64(minerInfo_V2.SpaceProofInfo.Front),
-			Rear:          int64(minerInfo_V2.SpaceProofInfo.Rear),
-			KeyN:          []byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:])),
-			KeyG:          []byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:])),
-			StatusTeeSign: []byte(string(minerInfo_V2.TeeSignature[:])),
+			Acc:           []byte(string(spaceProofInfo.Accumulator[:])),
+			Front:         int64(spaceProofInfo.Front),
+			Rear:          int64(spaceProofInfo.Rear),
+			KeyN:          []byte(string(spaceProofInfo.PoisKey.N[:])),
+			KeyG:          []byte(string(spaceProofInfo.PoisKey.G[:])),
+			StatusTeeSign: teeSign,
 		}
 		token = n.GetUseSpace() / pattern.SIZE_1KiB
 		if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
@@ -303,8 +448,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		token *= pattern.StakingStakePerTiB
 		newToken, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
-		if newToken.Uint64() > minerInfo_V2.Collaterals.Uint64() {
-			if newToken.Uint64()-minerInfo_V2.Collaterals.Uint64() >= pattern.StakingStakePerTiB {
+		if newToken.Uint64() > minerInfo.Collaterals.Uint64() {
+			if newToken.Uint64()-minerInfo.Collaterals.Uint64() >= pattern.StakingStakePerTiB {
 				accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
 				if err != nil {
 					if err.Error() != pattern.ERR_Empty {
@@ -314,29 +459,52 @@ func runCmd(cmd *cobra.Command, args []string) {
 					out.Err("Account does not exist or balance is empty")
 					os.Exit(1)
 				}
-				stakes, ok := new(big.Int).SetString(fmt.Sprintf("%d", newToken.Uint64()-minerInfo_V2.Collaterals.Uint64()), 10)
+				stakes, ok := new(big.Int).SetString(fmt.Sprintf("%d", newToken.Uint64()-minerInfo.Collaterals.Uint64()), 10)
 				if !ok {
 					out.Err(fmt.Sprintf("Failed to calculate staking"))
 					os.Exit(1)
 				}
 				if accInfo.Data.Free.CmpAbs(stakes) < 0 {
-					out.Err(fmt.Sprintf("Account balance less than %d %s, unable to staking.", (token - minerInfo_V2.Collaterals.Uint64()), n.GetTokenSymbol()))
+					out.Err(fmt.Sprintf("Account balance less than %d %s, unable to staking.", (token - minerInfo.Collaterals.Uint64()), n.GetTokenSymbol()))
 					os.Exit(1)
 				}
 				txhash, err := n.IncreaseStakingAmount(stakes)
 				if err != nil {
 					out.Err(fmt.Sprintf("[%s] Invalid chain node: rpc service failure", txhash))
-					os.Exit(0)
+					os.Exit(1)
 				}
 			}
 		}
-		_, earnings, err = n.RegisterOrUpdateSminer_V2(n.GetPeerPublickey(), n.GetEarningsAcc(), 0, pattern.PoISKeyInfo{}, pattern.TeeSignature{})
-		if err != nil {
-			out.Err(fmt.Sprintf("Update failed: %v", err))
-			os.Exit(1)
+
+		if earningsAcc != n.GetEarningsAcc() {
+			txhash, err := n.UpdateEarningsAccount(n.GetEarningsAcc())
+			if err != nil {
+				out.Err(fmt.Sprintf("[%s] UpdateEarningsAccount: %v", txhash, err))
+				os.Exit(1)
+			}
 		}
-		n.SetEarningsAcc(earnings)
-		err = n.InitPois(int64(minerInfo_V2.SpaceProofInfo.Front), int64(minerInfo_V2.SpaceProofInfo.Rear), int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.N[:]))), *new(big.Int).SetBytes([]byte(string(minerInfo_V2.SpaceProofInfo.PoisKey.G[:]))))
+
+		if !sutils.CompareSlice(peerid, n.GetPeerPublickey()) {
+			var peeridChain pattern.PeerId
+			pids := n.GetPeerPublickey()
+			for i := 0; i < len(pids); i++ {
+				peeridChain[i] = types.U8(pids[i])
+			}
+			txhash, err := n.UpdateSminerPeerId(peeridChain)
+			if err != nil {
+				out.Err(fmt.Sprintf("[%s] UpdateSminerPeerId: %v", txhash, err))
+				os.Exit(1)
+			}
+		}
+		n.SetEarningsAcc(n.GetEarningsAcc())
+		err = n.InitPois(
+			int64(spaceProofInfo.Front),
+			int64(spaceProofInfo.Rear),
+			int64(n.GetUseSpace()*1024),
+			32,
+			*new(big.Int).SetBytes([]byte(string(spaceProofInfo.PoisKey.N[:]))),
+			*new(big.Int).SetBytes([]byte(string(spaceProofInfo.PoisKey.G[:]))),
+		)
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois-2] %v", err))
 			os.Exit(1)
