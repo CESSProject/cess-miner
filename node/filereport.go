@@ -15,6 +15,7 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/mr-tron/base58"
 )
 
 func (n *Node) reportFiles(ch chan<- bool) {
@@ -33,10 +34,34 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		metadata     pattern.FileMetadata
 		storageorder pattern.StorageOrder
 	)
+
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs] %v", err))
 		return
+	}
+
+	teelist, err := n.QueryTeeWorkerList()
+	if err != nil {
+		n.Report("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
+		return
+	}
+	utils.RandSlice(teelist)
+	var tees = make([]string, 0)
+	for _, v := range teelist {
+		teePeerId := base58.Encode(v.Peer_id)
+		addr, ok := n.GetPeer(teePeerId)
+		if !ok {
+			continue
+		}
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		if err != nil {
+			continue
+		}
+		tees = append(tees, v.Controller_account)
+		if len(tees) >= 3 {
+			break
+		}
 	}
 
 	for _, v := range roothashs {
@@ -114,7 +139,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		}
 
 		n.Report("info", fmt.Sprintf("Will report %s", roothash))
-		txhash, _, err = n.ReportFiles(roothash)
+		txhash, err = n.ReportFile(roothash, tees)
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
 			continue
