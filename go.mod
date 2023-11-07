@@ -3,7 +3,7 @@ module github.com/CESSProject/cess-bucket
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231106065343-5634b9c65b04
+	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231107093552-741d1c28e744
 	github.com/CESSProject/cess_pois v0.4.7
 	github.com/CESSProject/p2p-go v0.2.5
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce

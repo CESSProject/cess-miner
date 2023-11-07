@@ -15,7 +15,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/mr-tron/base58"
 )
 
 func (n *Node) reportFiles(ch chan<- bool) {
@@ -28,7 +27,6 @@ func (n *Node) reportFiles(ch chan<- bool) {
 
 	var (
 		reReport     bool
-		failfile     bool
 		roothash     string
 		txhash       string
 		metadata     pattern.FileMetadata
@@ -41,31 +39,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		return
 	}
 
-	teelist, err := n.QueryTeeWorkerList()
-	if err != nil {
-		n.Report("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
-		return
-	}
-	utils.RandSlice(teelist)
-	var tees = make([]string, 0)
-	for _, v := range teelist {
-		teePeerId := base58.Encode(v.Peer_id)
-		addr, ok := n.GetPeer(teePeerId)
-		if !ok {
-			continue
-		}
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
-		if err != nil {
-			continue
-		}
-		tees = append(tees, v.Controller_account)
-		if len(tees) >= 3 {
-			break
-		}
-	}
-
 	for _, v := range roothashs {
-		failfile = false
 		roothash = filepath.Base(v)
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
@@ -107,39 +81,35 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			continue
 		}
 
-		var assignedFragmentHash = make([]string, 0)
-		for i := 0; i < len(storageorder.AssignedMiner); i++ {
-			if sutils.CompareSlice(storageorder.AssignedMiner[i].Account[:], n.GetSignatureAccPulickey()) {
-				for j := 0; j < len(storageorder.AssignedMiner[i].Hash); j++ {
-					assignedFragmentHash = append(assignedFragmentHash, string(storageorder.AssignedMiner[i].Hash[j][:]))
-				}
-			}
-		}
-
-		if len(assignedFragmentHash) == 0 {
-			continue
-		}
-
-		failfile = false
-		for i := 0; i < len(assignedFragmentHash); i++ {
-			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
-			if err != nil {
-				failfile = true
-				break
-			} else {
-				if fstat.Size() != pattern.FragmentSize {
-					failfile = true
+		var sucCount uint8
+		var index uint8
+		for i := 0; i < len(storageorder.MinerTaskList); i++ {
+			sucCount = 0
+			for j := 0; j < len(storageorder.MinerTaskList[i].FragmentList); j++ {
+				if storageorder.MinerTaskList[i].Miner.HasValue() {
 					break
 				}
+				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, string(storageorder.MinerTaskList[i].FragmentList[j][:])))
+				if err != nil {
+					break
+				}
+				if fstat.Size() != pattern.FragmentSize {
+					break
+				}
+				index = uint8(storageorder.MinerTaskList[i].Index)
+				sucCount++
+			}
+			if sucCount >= (pattern.DataShards + pattern.ParShards) {
+				break
 			}
 		}
 
-		if failfile {
+		if sucCount < (pattern.DataShards + pattern.ParShards) {
 			continue
 		}
 
 		n.Report("info", fmt.Sprintf("Will report %s", roothash))
-		txhash, err = n.ReportFile(roothash, tees)
+		txhash, err = n.ReportFile(index, roothash)
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
 			continue
