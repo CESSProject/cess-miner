@@ -35,7 +35,6 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/mr-tron/base58/base58"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
@@ -220,17 +219,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	teelist, err := n.QueryTeeWorkerList()
-	if err != nil {
-		out.Err(fmt.Sprintf("[QueryTeeWorkerList] %v", err))
-		os.Exit(1)
-	}
-
-	var teemap = make(map[string]string, 0)
-	for _, v := range teelist {
-		teemap[base58.Encode(v.Peer_id)] = v.Controller_account
-	}
-
 	var suc bool
 	if firstReg {
 		txhash, err := n.RegisterSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
@@ -241,7 +229,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetEarningsAcc(n.GetEarningsAcc())
 		n.RebuildDirs()
 		time.Sleep(pattern.BlockInterval)
-		var useTee string
 		for j := 0; j < 10; j++ {
 			if suc {
 				break
@@ -261,7 +248,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 					KeyG:          responseMinerInitParam.KeyG,
 					StatusTeeSign: responseMinerInitParam.Signature,
 				}
-				useTee = bootPeerID[i].Pretty()
 				suc = true
 				break
 			}
@@ -289,21 +275,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 		}
 
-		if _, ok := teemap[useTee]; !ok {
-			out.Err(fmt.Sprintf("Unregistered tee: %v", useTee))
-			os.Exit(1)
-		}
-		pubkey, err := sutils.ParsingPublickey(teemap[useTee])
-		if err != nil {
-			out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
-			os.Exit(1)
-		}
-		teeAcc, err := types.NewAccountID(pubkey)
-		if err != nil {
-			out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
-			os.Exit(1)
-		}
-		key.Acc = *teeAcc
 		var sign pattern.TeeSignature
 		if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSignatureLen {
 			out.Err("invalid tee signature")
@@ -328,7 +299,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		var earningsAcc string
 		var peerid []byte
 		if !minerInfo.SpaceProofInfo.HasValue() {
-			var useTee string
 			for j := 0; j < 10; j++ {
 				if suc {
 					break
@@ -348,7 +318,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 						KeyG:          responseMinerInitParam.KeyG,
 						StatusTeeSign: responseMinerInitParam.Signature,
 					}
-					useTee = bootPeerID[i].Pretty()
 					suc = true
 					break
 				}
@@ -376,21 +345,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 				key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 			}
 
-			if _, ok := teemap[useTee]; !ok {
-				out.Err(fmt.Sprintf("Unregistered tee: %v", useTee))
-				os.Exit(1)
-			}
-			pubkey, err := sutils.ParsingPublickey(teemap[useTee])
-			if err != nil {
-				out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
-				os.Exit(1)
-			}
-			teeAcc, err := types.NewAccountID(pubkey)
-			if err != nil {
-				out.Err(fmt.Sprintf("Invalid account: %s", teemap[useTee]))
-				os.Exit(1)
-			}
-			key.Acc = *teeAcc
 			var sign pattern.TeeSignature
 			if len(n.MinerPoisInfo.StatusTeeSign) != len(pattern.TeeSignature{}) {
 				out.Err("invalid tee signature")

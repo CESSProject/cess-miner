@@ -27,12 +27,12 @@ func (n *Node) reportFiles(ch chan<- bool) {
 
 	var (
 		reReport     bool
-		failfile     bool
 		roothash     string
 		txhash       string
 		metadata     pattern.FileMetadata
 		storageorder pattern.StorageOrder
 	)
+
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs] %v", err))
@@ -40,7 +40,6 @@ func (n *Node) reportFiles(ch chan<- bool) {
 	}
 
 	for _, v := range roothashs {
-		failfile = false
 		roothash = filepath.Base(v)
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
@@ -82,39 +81,35 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			continue
 		}
 
-		var assignedFragmentHash = make([]string, 0)
-		for i := 0; i < len(storageorder.AssignedMiner); i++ {
-			if sutils.CompareSlice(storageorder.AssignedMiner[i].Account[:], n.GetSignatureAccPulickey()) {
-				for j := 0; j < len(storageorder.AssignedMiner[i].Hash); j++ {
-					assignedFragmentHash = append(assignedFragmentHash, string(storageorder.AssignedMiner[i].Hash[j][:]))
-				}
-			}
-		}
-
-		if len(assignedFragmentHash) == 0 {
-			continue
-		}
-
-		failfile = false
-		for i := 0; i < len(assignedFragmentHash); i++ {
-			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, assignedFragmentHash[i]))
-			if err != nil {
-				failfile = true
-				break
-			} else {
-				if fstat.Size() != pattern.FragmentSize {
-					failfile = true
+		var sucCount uint8
+		var index uint8
+		for i := 0; i < len(storageorder.MinerTaskList); i++ {
+			sucCount = 0
+			for j := 0; j < len(storageorder.MinerTaskList[i].FragmentList); j++ {
+				if storageorder.MinerTaskList[i].Miner.HasValue() {
 					break
 				}
+				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, string(storageorder.MinerTaskList[i].FragmentList[j][:])))
+				if err != nil {
+					break
+				}
+				if fstat.Size() != pattern.FragmentSize {
+					break
+				}
+				index = uint8(storageorder.MinerTaskList[i].Index)
+				sucCount++
+			}
+			if sucCount >= (pattern.DataShards + pattern.ParShards) {
+				break
 			}
 		}
 
-		if failfile {
+		if sucCount < (pattern.DataShards + pattern.ParShards) {
 			continue
 		}
 
 		n.Report("info", fmt.Sprintf("Will report %s", roothash))
-		txhash, _, err = n.ReportFiles(roothash)
+		txhash, err = n.ReportFile(index, roothash)
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
 			continue
