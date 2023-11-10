@@ -13,10 +13,10 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
-	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -49,7 +49,7 @@ const (
 func (n *Node) connectBoot() {
 	boots := n.GetBootNodes()
 	for _, b := range boots {
-		multiaddr, err := sutils.ParseMultiaddrs(b)
+		multiaddr, err := core.ParseMultiaddrs(b)
 		if err != nil {
 			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
 			continue
