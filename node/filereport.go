@@ -71,8 +71,8 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			continue
 		}
 		reReport = true
-		for _, completeMiner := range storageorder.CompleteList {
-			if sutils.CompareSlice(completeMiner[:], n.GetSignatureAccPulickey()) {
+		for _, completeMiner := range storageorder.CompleteInfo {
+			if sutils.CompareSlice(completeMiner.Miner[:], n.GetSignatureAccPulickey()) {
 				reReport = false
 			}
 		}
@@ -80,41 +80,44 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		if !reReport {
 			continue
 		}
-
 		var sucCount uint8
-		var index uint8
-		for i := 0; i < len(storageorder.MinerTaskList); i++ {
+		var sucIndex = make([]uint8, 0)
+		for idx := uint8(0); idx < uint8(pattern.DataShards+pattern.ParShards); idx++ {
 			sucCount = 0
-			for j := 0; j < len(storageorder.MinerTaskList[i].FragmentList); j++ {
-				if storageorder.MinerTaskList[i].Miner.HasValue() {
-					break
+			for i := 0; i < len(storageorder.SegmentList); i++ {
+				for j := 0; j < len(storageorder.SegmentList[i].FragmentHash); j++ {
+					if j == int(idx) {
+						fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, string(storageorder.SegmentList[i].FragmentHash[j][:])))
+						if err != nil {
+							break
+						}
+						if fstat.Size() != pattern.FragmentSize {
+							break
+						}
+						sucCount++
+						break
+					}
 				}
-				fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, string(storageorder.MinerTaskList[i].FragmentList[j][:])))
-				if err != nil {
-					break
-				}
-				if fstat.Size() != pattern.FragmentSize {
-					break
-				}
-				index = uint8(storageorder.MinerTaskList[i].Index)
-				sucCount++
 			}
 			if sucCount >= (pattern.DataShards + pattern.ParShards) {
-				break
+				sucIndex = append(sucIndex, idx+1)
 			}
 		}
 
-		if sucCount < (pattern.DataShards + pattern.ParShards) {
+		if len(sucIndex) == 0 {
 			continue
 		}
 
 		n.Report("info", fmt.Sprintf("Will report %s", roothash))
-		txhash, err = n.ReportFile(index, roothash)
-		if err != nil {
-			n.Report("err", fmt.Sprintf("[ReportFiles %s] %v", roothash, err))
-			continue
+		for _, v := range sucIndex {
+			txhash, err = n.ReportFile(v, roothash)
+			if err != nil {
+				n.Report("err", fmt.Sprintf("[%s] File transfer report failed: [%s] %v", roothash, txhash, err))
+				continue
+			}
+			n.Report("info", fmt.Sprintf("[%s] File transfer reported successfully: %s", roothash, txhash))
+			break
 		}
-		n.Report("info", fmt.Sprintf("Report file [%s] suc: %s", roothash, txhash))
 	}
 }
 

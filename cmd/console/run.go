@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -30,11 +31,11 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/config"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
-	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
@@ -199,7 +200,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	var bootPeerID []peer.ID
 	for _, b := range boots {
-		multiaddr, err := sutils.ParseMultiaddrs(b)
+		multiaddr, err := core.ParseMultiaddrs(b)
 		if err != nil {
 			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
 			continue

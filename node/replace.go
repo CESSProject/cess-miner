@@ -12,13 +12,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"google.golang.org/protobuf/proto"
 )
