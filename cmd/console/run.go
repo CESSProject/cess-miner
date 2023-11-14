@@ -38,6 +38,8 @@ import (
 	"github.com/howeyc/gopass"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // runCmd is used to start the service
@@ -63,7 +65,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	n.SaveCpuCore(configs.SysInit(n.GetUseCpu()))
 
-	out.Tip(fmt.Sprintf("Rpc addresses: %v", n.GetRpcAddr()))
+	out.Tip(fmt.Sprintf("RPC addresses: %v", n.GetRpcAddr()))
 
 	boots := n.GetBootNodes()
 	for _, v := range boots {
@@ -113,6 +115,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().Pretty()))
 	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
+	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCore()))
+	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
 
 	if strings.Contains(bootEnv, "test") {
 		if !strings.Contains(n.GetNetworkEnv(), "test") {
@@ -154,6 +158,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err("Invalid chain node: rpc service failure")
 		}
 		os.Exit(1)
+	}
+
+	var teeEndPoints = make([]string, 0)
+	for {
+		teeList, err := n.QueryTeeWorkerList()
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				out.Err("No TEE information was found, waiting for the next query...")
+				time.Sleep(time.Minute)
+				continue
+			}
+			out.Err("Invalid chain node: rpc service failure")
+			os.Exit(1)
+		}
+		for _, v := range teeList {
+			teeEndPoints = append(teeEndPoints, v.End_point)
+		}
+		break
 	}
 
 	minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
@@ -221,6 +243,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	var suc bool
+	var responseMinerInitParam *pb.ResponseMinerInitParam
+	var delay time.Duration
 	if firstReg {
 		txhash, err := n.RegisterSminer(n.GetPeerPublickey(), n.GetEarningsAcc(), token)
 		if err != nil {
@@ -230,17 +254,29 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetEarningsAcc(n.GetEarningsAcc())
 		n.RebuildDirs()
 		time.Sleep(pattern.BlockInterval)
-		for j := 0; j < 10; j++ {
-			if suc {
+		for i := 0; i < len(teeEndPoints); i++ {
+			delay = 30
+			suc = false
+			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
+				out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
+				responseMinerInitParam, err = n.PoisGetMinerInitParam(
+					teeEndPoints[i],
+					n.GetSignatureAccPulickey(),
+					time.Duration(time.Second*delay),
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				)
+				if err != nil {
+					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+						delay += 120
+						continue
+					}
+					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
+					break
+				}
+				suc = true
 				break
 			}
-			for i := 0; i < len(bootPeerID); i++ {
-				out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
-				responseMinerInitParam, err := n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
-				if err != nil {
-					out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
-					continue
-				}
+			if suc {
 				n.MinerPoisInfo = &pb.MinerPoisInfo{
 					Acc:           responseMinerInitParam.Acc,
 					Front:         responseMinerInitParam.Front,
@@ -249,13 +285,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 					KeyG:          responseMinerInitParam.KeyG,
 					StatusTeeSign: responseMinerInitParam.Signature,
 				}
-				suc = true
 				break
 			}
 		}
 
 		if !suc {
-			out.Err("All trusted nodes are busy, program exits.")
+			out.Err("All tee nodes are busy or unavailable, program exits.")
 			os.Exit(1)
 		}
 
@@ -289,7 +324,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 			os.Exit(1)
 		}
-		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(n.MinerPoisInfo.KeyN), *new(big.Int).SetBytes(n.MinerPoisInfo.KeyG))
+		err = n.InitPois(
+			firstReg,
+			0,
+			0,
+			int64(n.GetUseSpace()*1024),
+			32,
+			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyN),
+			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyG),
+		)
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
 			os.Exit(1)
@@ -300,17 +343,30 @@ func runCmd(cmd *cobra.Command, args []string) {
 		var earningsAcc string
 		var peerid []byte
 		if !minerInfo.SpaceProofInfo.HasValue() {
-			for j := 0; j < 10; j++ {
-				if suc {
+			firstReg = true
+			for i := 0; i < len(teeEndPoints); i++ {
+				delay = 30
+				suc = false
+				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
+					out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPoints[i]))
+					responseMinerInitParam, err = n.PoisGetMinerInitParam(
+						teeEndPoints[i],
+						n.GetSignatureAccPulickey(),
+						time.Duration(time.Second*delay),
+						grpc.WithTransportCredentials(insecure.NewCredentials()),
+					)
+					if err != nil {
+						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+							delay += 120
+							continue
+						}
+						out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
+						break
+					}
+					suc = true
 					break
 				}
-				for i := 0; i < len(bootPeerID); i++ {
-					out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
-					responseMinerInitParam, err := n.PoisGetMinerInitParamP2P(bootPeerID[i], n.GetSignatureAccPulickey(), time.Duration(time.Second*30))
-					if err != nil {
-						out.Err(fmt.Sprintf("[PoisGetMinerInitParamP2P] %v", err))
-						continue
-					}
+				if suc {
 					n.MinerPoisInfo = &pb.MinerPoisInfo{
 						Acc:           responseMinerInitParam.Acc,
 						Front:         responseMinerInitParam.Front,
@@ -319,13 +375,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 						KeyG:          responseMinerInitParam.KeyG,
 						StatusTeeSign: responseMinerInitParam.Signature,
 					}
-					suc = true
 					break
 				}
 			}
 
 			if !suc {
-				out.Err("All trusted nodes are busy, program exits.")
+				out.Err("All tee nodes are busy or unavailable, program exits.")
 				os.Exit(1)
 			}
 
@@ -383,6 +438,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				break
 			}
 		} else {
+			firstReg = false
 			_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
 			teeSign = []byte(string(minerInfo.TeeSignature[:]))
 			peerid = []byte(string(minerInfo.PeerId[:]))
@@ -420,7 +476,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 					os.Exit(1)
 				}
 				if accInfo.Data.Free.CmpAbs(stakes) < 0 {
-					out.Err(fmt.Sprintf("Account balance less than %d %s, unable to staking.", (token - minerInfo.Collaterals.Uint64()), n.GetTokenSymbol()))
+					out.Err(fmt.Sprintf("Account balance less than %d %s, unable to staking.",
+						(token - minerInfo.Collaterals.Uint64()), n.GetTokenSymbol()))
 					os.Exit(1)
 				}
 				txhash, err := n.IncreaseStakingAmount(stakes)
@@ -453,6 +510,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		n.SetEarningsAcc(n.GetEarningsAcc())
 		err = n.InitPois(
+			firstReg,
 			int64(spaceProofInfo.Front),
 			int64(spaceProofInfo.Rear),
 			int64(n.GetUseSpace()*1024),
@@ -938,6 +996,11 @@ func buildDir(workspace string) (*node.DataDir, error) {
 
 	dir.SpaceDir = filepath.Join(workspace, configs.SpaceDir)
 	if err := os.MkdirAll(dir.SpaceDir, pattern.DirMode); err != nil {
+		return dir, err
+	}
+
+	dir.TagDir = filepath.Join(workspace, configs.TagDir)
+	if err := os.MkdirAll(dir.TagDir, pattern.DirMode); err != nil {
 		return dir, err
 	}
 	dir.PeersFile = filepath.Join(workspace, configs.PeersFile)

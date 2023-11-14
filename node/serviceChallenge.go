@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
@@ -23,8 +22,9 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type serviceProofInfo struct {
@@ -144,20 +144,17 @@ func (n *Node) serviceChallenge(
 		return
 	}
 
-	teePeerIdPubkey, _ := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
-
-	teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+	teeEndPoint, ok := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
 	if !ok {
-		n.Schal("err", fmt.Sprintf("Not discovered tee peer: %s", base58.Encode(teePeerIdPubkey)))
-		return
+		teeEndPoint, err = n.QueryTeeEndPoint(serviceProofRecord.AllocatedTeeAccountId)
+		if err != nil {
+			n.Schal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+			return
+		}
+		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
 
-	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-	}
-
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeAddrInfo, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
@@ -281,7 +278,7 @@ func (n *Node) calcSigma(
 					continue
 				}
 				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
-				serviceTagPath := filepath.Join(n.GetDirs().ServiceTagDir, string(fragment.Hash[:])+".tag")
+				serviceTagPath := filepath.Join(n.DataDir.TagDir, string(fragment.Hash[:])+".tag")
 				buf, err := os.ReadFile(serviceTagPath)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
@@ -428,18 +425,17 @@ func (n *Node) checkServiceProofRecord(
 		break
 	}
 
-	teePeerIdPubkey, _ := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
-
-	teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+	teeEndPoint, ok := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
 	if !ok {
-		n.Schal("err", fmt.Sprintf("Not discovered tee peer: %s", base58.Encode(teePeerIdPubkey)))
-		return nil
+		teeEndPoint, err = n.QueryTeeEndPoint(serviceProofRecord.AllocatedTeeAccountId)
+		if err != nil {
+			n.Schal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+			return err
+		}
+		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
-	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-	}
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeAddrInfo, serviceProofRecord)
+
+	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
 	if err != nil {
 		return nil
 	}
@@ -487,7 +483,7 @@ func (n *Node) saveServiceProofRecord(serviceProofRecord serviceProofInfo) {
 func (n *Node) batchVerify(
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
-	teeAddrInfo peer.AddrInfo,
+	teeEndPoint string,
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {
 	var randomIndexList_pb = make([]uint32, len(randomIndexList))
@@ -513,21 +509,25 @@ func (n *Node) batchVerify(
 		return nil, nil, nil, false, err
 	}
 
-	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeAddrInfo.ID.Pretty()))
-	batchVerify, err := n.PoisServiceRequestBatchVerifyP2P(
-		teeAddrInfo.ID,
-		serviceProofRecord.Names,
-		serviceProofRecord.Us,
-		serviceProofRecord.Mus,
-		serviceProofRecord.Sigma,
+	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
+	var batchVerifyParam = &pb.RequestBatchVerify_BatchVerifyParam{
+		Names: serviceProofRecord.Names,
+		Us:    serviceProofRecord.Us,
+		Mus:   serviceProofRecord.Mus,
+		Sigma: serviceProofRecord.Sigma,
+	}
+	batchVerify, err := n.PoisServiceRequestBatchVerify(
+		teeEndPoint,
 		n.GetPeerPublickey(),
 		n.GetSignatureAccPulickey(),
 		peeridSign,
+		batchVerifyParam,
 		qslice_pb,
 		time.Duration(time.Minute*10),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerifyP2P] %v", err))
+		n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
 		return nil, nil, nil, false, err
 	}
 	return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, nil

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
@@ -21,6 +21,8 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -47,6 +49,9 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}()
 
 	for {
+		if n.state.Load() == configs.State_Offline {
+			return
+		}
 		err := n.pois()
 		if err != nil {
 			n.Space("err", err.Error())
@@ -55,7 +60,7 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.Int) error {
+func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key_n, key_g big.Int) error {
 	var err error
 	if n.Pois == nil {
 		expendersInfo := n.ExpendersInfo
@@ -99,7 +104,7 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 		return err
 	}
 
-	if n.front == 0 && n.rear == 0 {
+	if firstflag {
 		//Please initialize prover for the first time
 		err = n.Prover.Init(*n.Pois.RsaKey, cfg)
 		if err != nil {
@@ -123,6 +128,10 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
 
 	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
 	if err != nil {
@@ -169,7 +178,7 @@ func (n *Node) pois() error {
 		if minerInfo.SpaceProofInfo.HasValue() {
 			_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
 			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
-				err = n.Prover.SyncChainRearStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+				err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 				if err != nil {
 					return err
 				}
@@ -193,7 +202,6 @@ func (n *Node) pois() error {
 		}
 
 		var chall_pb *pb.Challenge
-		var workTeePeerID peer.ID
 		var commitGenChall = &pb.RequestMinerCommitGenChall{
 			MinerId:  n.GetSignatureAccPulickey(),
 			Commit:   commit_pb,
@@ -215,30 +223,27 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-		teePeerIds := n.GetAllTeeWorkPeerIdString()
-		n.Space("info", fmt.Sprintf("All tees: %v", teePeerIds))
-		for i := 0; i < len(teePeerIds); i++ {
-			n.Space("info", fmt.Sprintf("Will use tee: %v", teePeerIds[i]))
-			addrInfo, ok := n.GetPeer(teePeerIds[i])
-			if !ok {
-				n.Space("err", fmt.Sprintf("Not found tee: %s", teePeerIds[i]))
-				continue
-			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addrInfo)
+
+		teeEndPoints := n.GetAllTeeWorkEndPoint()
+		var workTeeEndPoint string
+		n.Space("info", fmt.Sprintf("All tees: %v", teeEndPoints))
+		for i := 0; i < len(teeEndPoints); i++ {
+			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
+			chall_pb, err = n.PoisMinerCommitGenChall(
+				teeEndPoints[i],
+				commitGenChall,
+				time.Duration(time.Minute*5),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			)
 			if err != nil {
-				n.Space("err", fmt.Sprintf("Connect %s err: %v", teePeerIds[i], err))
+				n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChall] %v", err))
 				continue
 			}
-			chall_pb, err = n.PoisMinerCommitGenChallP2P(addrInfo.ID, commitGenChall, time.Duration(time.Minute*5))
-			if err != nil {
-				n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChallP2P] %v", err))
-				continue
-			}
-			workTeePeerID = addrInfo.ID
+			workTeeEndPoint = teeEndPoints[i]
 			break
 		}
 
-		if workTeePeerID.Pretty() == "" {
+		if workTeeEndPoint == "" {
 			n.Prover.CommitRollback()
 			return errors.New("no worked tee")
 		}
@@ -248,7 +253,7 @@ func (n *Node) pois() error {
 			chals[i] = chall_pb.Rows[i].Values
 		}
 
-		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeePeerID.Pretty()))
+		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeeEndPoint))
 
 		commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 		if err != nil {
@@ -339,12 +344,13 @@ func (n *Node) pois() error {
 		for {
 			if tryCount >= 100 {
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
+				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
 			}
-			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProofP2P(
-				workTeePeerID,
+			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProof(
+				workTeeEndPoint,
 				requestVerifyCommitAndAccProof,
 				time.Duration(time.Minute*10),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			if err != nil {
 				if strings.Contains(err.Error(), "busy") {
@@ -353,7 +359,7 @@ func (n *Node) pois() error {
 					continue
 				}
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[PoisVerifyCommitProofP2P]")
+				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
 			}
 			break
 		}

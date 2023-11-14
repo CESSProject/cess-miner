@@ -30,9 +30,18 @@ const (
 )
 
 const (
+	State_Offline = "offline"
+)
+
+const (
+	Err_ctx_exceeded = "context deadline exceeded"
+)
+
+const (
 	DbDir            = "db"
 	LogDir           = "log"
 	SpaceDir         = "space"
+	TagDir           = "tag"
 	PoisDir          = "pois"
 	AccDir           = "acc"
 	RandomDir        = "random"

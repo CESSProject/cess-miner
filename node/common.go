@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -24,6 +25,7 @@ type DataDir struct {
 	DbDir     string
 	LogDir    string
 	SpaceDir  string
+	TagDir    string
 	PoisDir   string
 	AccDir    string
 	RandomDir string
@@ -47,6 +49,10 @@ const (
 )
 
 func (n *Node) connectBoot() {
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
+
 	boots := n.GetBootNodes()
 	for _, b := range boots {
 		multiaddr, err := core.ParseMultiaddrs(b)
@@ -74,6 +80,7 @@ func (n *Node) connectBoot() {
 
 func (n *Node) connectChain() error {
 	var err error
+
 	if !n.GetChainState() {
 		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
@@ -98,8 +105,14 @@ func (n *Node) syncChainStatus() {
 		n.Log("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
 	} else {
 		for i := 0; i < len(teelist); i++ {
-			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].Peer_id)
+			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].End_point)
 		}
+	}
+	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+	if err != nil {
+		n.Log("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+	} else {
+		n.state.Store(string(minerInfo.State))
 	}
 }
 

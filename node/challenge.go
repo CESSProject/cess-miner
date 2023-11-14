@@ -10,11 +10,16 @@ package node
 import (
 	"fmt"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
+
 	haveChall, challenge, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {

@@ -21,8 +21,9 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -257,33 +258,31 @@ func (n *Node) idleChallenge(
 			return
 		}
 
-		teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-
-		teeAddrInfo, ok := n.GetPeer(base58.Encode(teePeerIdPubkey))
+		teeEndPoint, ok := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
 		if !ok {
-			n.Ichal("err", fmt.Sprintf("Not found peer: %s", base58.Encode(teePeerIdPubkey)))
-			return
+			teeEndPoint, err = n.QueryTeeEndPoint(idleProofRecord.AllocatedTeeAccountId)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+				return
+			}
+			n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
 		}
 
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
-		}
-
-		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlockP2P to tee: %s", teeAddrInfo.ID.Pretty()))
+		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlockP2P to tee: %s", teeEndPoint))
 
 		for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
-			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlockP2P(
-				teeAddrInfo.ID,
+			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
+				teeEndPoint,
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.ChallRandom,
 				minerPoisInfo,
 				idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 				idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 				time.Duration(time.Minute*3),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
+				n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlock] %v", err))
 				return
 			}
 			var block = &pb.BlocksProof{
@@ -300,9 +299,19 @@ func (n *Node) idleChallenge(
 		idleProofRecord.BlocksProof = blocksProof
 		n.saveidleProofRecord(idleProofRecord)
 
-		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(teeAddrInfo.ID, n.GetSignatureAccPulickey(), blocksProof, minerChallFront, minerChallRear, acc, challRandom, time.Duration(time.Minute*3))
+		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
+			teeEndPoint,
+			n.GetSignatureAccPulickey(),
+			blocksProof,
+			minerChallFront,
+			minerChallRear,
+			acc,
+			challRandom,
+			time.Duration(time.Minute*3),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
+			n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
 			return
 		}
 
@@ -427,23 +436,21 @@ func (n *Node) checkIdleProofRecord(
 		break
 	}
 
-	teePeerIdPubkey, _ := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-	peerid_str := base58.Encode(teePeerIdPubkey)
-	n.Ichal("info", fmt.Sprintf("Allocated tee peer id: %v", peerid_str))
-	teeAddrInfo, ok := n.GetPeer(peerid_str)
+	teeEndPoint, ok := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
 	if !ok {
-		n.Ichal("err", fmt.Sprintf("Not discovered the tee peer: %s", peerid_str))
-		return nil
-	}
-	err = n.Connect(n.GetCtxQueryFromCtxCancel(), teeAddrInfo)
-	if err != nil {
-		n.Ichal("err", fmt.Sprintf("Connect tee peer err: %v", err))
+		teeEndPoint, err = n.QueryTeeEndPoint(idleProofRecord.AllocatedTeeAccountId)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+			return err
+		}
+		n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
 
+	n.Ichal("info", fmt.Sprintf("Allocated tee: %v", teeEndPoint))
 	for {
 		if idleProofRecord.BlocksProof != nil {
-			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(
-				teeAddrInfo.ID,
+			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
+				teeEndPoint,
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.BlocksProof,
 				minerChallFront,
@@ -451,9 +458,10 @@ func (n *Node) checkIdleProofRecord(
 				acc,
 				idleProofRecord.ChallRandom,
 				time.Duration(time.Minute*10),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
+				n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
 				break
 			}
 			idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
@@ -494,17 +502,18 @@ func (n *Node) checkIdleProofRecord(
 
 	var blocksProof = make([]*pb.BlocksProof, 0)
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
-		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlockP2P(
-			teeAddrInfo.ID,
+		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
+			teeEndPoint,
 			n.GetSignatureAccPulickey(),
 			idleProofRecord.ChallRandom,
 			minerPoisInfo,
 			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
 			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
 			time.Duration(time.Minute*3),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlockP2P] %v", err))
+			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlock] %v", err))
 			return nil
 		}
 		var block = &pb.BlocksProof{
@@ -521,8 +530,8 @@ func (n *Node) checkIdleProofRecord(
 	idleProofRecord.BlocksProof = blocksProof
 	n.saveidleProofRecord(idleProofRecord)
 
-	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotalP2P(
-		teeAddrInfo.ID,
+	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
+		teeEndPoint,
 		n.GetSignatureAccPulickey(),
 		blocksProof,
 		minerChallFront,
@@ -530,9 +539,10 @@ func (n *Node) checkIdleProofRecord(
 		acc,
 		idleProofRecord.ChallRandom,
 		time.Duration(time.Minute*10),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotalP2P] %v", err))
+		n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
 		return nil
 	}
 
