@@ -24,6 +24,7 @@ type DataDir struct {
 	DbDir     string
 	LogDir    string
 	SpaceDir  string
+	TagDir    string
 	PoisDir   string
 	AccDir    string
 	RandomDir string
@@ -98,7 +99,7 @@ func (n *Node) syncChainStatus() {
 		n.Log("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
 	} else {
 		for i := 0; i < len(teelist); i++ {
-			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].Peer_id)
+			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].End_point)
 		}
 	}
 }

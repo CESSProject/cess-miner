@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
+	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	peerstore "github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"golang.org/x/time/rate"
 )

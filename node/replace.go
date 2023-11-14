@@ -12,14 +12,14 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
-	"github.com/mr-tron/base58"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -110,35 +110,25 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}
 	requestVerifyDeletionProof.MinerSign = signData
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
-	var workTeePeerID peer.ID
-	tees := n.GetAllTeeWorkPeerId()
-	utils.RandSlice(tees)
-	for _, t := range tees {
-		teePeerId := base58.Encode(t)
-		addr, ok := n.GetPeer(teePeerId)
-		if !ok {
-			n.Replace("err", fmt.Sprintf("Not found tee: %s", teePeerId))
-			continue
-		}
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
-		if err != nil {
-			n.Replace("err", fmt.Sprintf("Connect %s err: %v", addr.ID.Pretty(), err))
-			continue
-		}
-		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProofP2P(
-			addr.ID,
+	var workTeeEndPoint string
+	teeEndPoints := n.GetAllTeeWorkEndPoint()
+	utils.RandSlice(teeEndPoints)
+	for _, t := range teeEndPoints {
+		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
+			t,
 			requestVerifyDeletionProof,
 			time.Duration(time.Minute*10),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {
-			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProofP2P] %v", err))
+			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
 			continue
 		}
-		workTeePeerID = addr.ID
+		workTeeEndPoint = t
 		break
 	}
 
-	if workTeePeerID.String() == "" {
+	if workTeeEndPoint == "" {
 		n.AccRollback(true)
 		return
 	}

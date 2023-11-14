@@ -27,7 +27,6 @@ import (
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
-	"github.com/mr-tron/base58"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -39,7 +38,7 @@ type Node struct {
 	DataDir       *DataDir
 	MinerPoisInfo *pb.MinerPoisInfo
 	peers         map[string]peer.AddrInfo
-	teeWorkers    map[string][]byte
+	teeWorkers    map[string]string
 	peersFile     string
 	cpuCore       int
 	sdk.SDK
@@ -57,7 +56,7 @@ func New() *Node {
 		peerLock:   new(sync.RWMutex),
 		teeLock:    new(sync.RWMutex),
 		peers:      make(map[string]peer.AddrInfo, 0),
-		teeWorkers: make(map[string][]byte, 10),
+		teeWorkers: make(map[string]string, 10),
 		Pois:       &Pois{},
 	}
 }
@@ -318,13 +317,13 @@ func (n *Node) LoadPeersFromDisk(path string) error {
 
 // tee peers
 
-func (n *Node) SaveTeeWork(account string, peerid []byte) {
+func (n *Node) SaveTeeWork(account, endpoint string) {
 	n.teeLock.Lock()
-	n.teeWorkers[account] = peerid
+	n.teeWorkers[account] = endpoint
 	n.teeLock.Unlock()
 }
 
-func (n *Node) GetTeeWork(account string) ([]byte, bool) {
+func (n *Node) GetTeeWork(account string) (string, bool) {
 	n.teeLock.RLock()
 	result, ok := n.teeWorkers[account]
 	n.teeLock.RUnlock()
@@ -343,8 +342,8 @@ func (n *Node) GetAllTeeWorkAccount() []string {
 	return result
 }
 
-func (n *Node) GetAllTeeWorkPeerId() [][]byte {
-	var result = make([][]byte, len(n.teeWorkers))
+func (n *Node) GetAllTeeWorkEndPoint() []string {
+	var result = make([]string, len(n.teeWorkers))
 	n.teeLock.RLock()
 	defer n.teeLock.RUnlock()
 	var i int
@@ -355,31 +354,19 @@ func (n *Node) GetAllTeeWorkPeerId() [][]byte {
 	return result
 }
 
-func (n *Node) GetAllTeeWorkPeerIdString() []string {
-	var result = make([]string, len(n.teeWorkers))
-	n.teeLock.RLock()
-	defer n.teeLock.RUnlock()
-	var i int
-	for _, v := range n.teeWorkers {
-		result[i] = base58.Encode(v)
-		i++
-	}
-	return result
-}
-
 func (n *Node) RebuildDirs() {
 	os.RemoveAll(n.GetDirs().FileDir)
-	os.RemoveAll(n.GetDirs().ServiceTagDir)
 	os.RemoveAll(n.GetDirs().TmpDir)
 	os.RemoveAll(n.DataDir.DbDir)
 	os.RemoveAll(n.DataDir.LogDir)
 	os.RemoveAll(n.DataDir.SpaceDir)
+	os.RemoveAll(n.DataDir.TagDir)
 	os.RemoveAll(n.DataDir.AccDir)
 	os.RemoveAll(n.DataDir.PoisDir)
 	os.RemoveAll(n.DataDir.RandomDir)
 	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
 	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().ServiceTagDir, pattern.DirMode)
+	os.MkdirAll(n.DataDir.TagDir, pattern.DirMode)
 	os.MkdirAll(n.DataDir.DbDir, pattern.DirMode)
 	os.MkdirAll(n.DataDir.LogDir, pattern.DirMode)
 	os.MkdirAll(n.DataDir.SpaceDir, pattern.DirMode)
