@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -28,6 +29,10 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
 
 	var fragmentHash string
 	var err error

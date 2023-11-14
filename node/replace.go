@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
@@ -30,6 +31,10 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
 
 	replaceSize, err := n.QueryPendingReplacements_V2(n.GetStakingPublickey())
 	if err != nil {
@@ -75,6 +80,25 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	if delProof.Roots == nil || delProof.AccPath == nil || delProof.WitChain == nil {
 		n.Replace("err", "delProof have nil field")
 		return
+	}
+
+	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+	if err != nil {
+		n.Replace("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+		return
+	}
+	if minerInfo.SpaceProofInfo.HasValue() {
+		_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
+		if spaceProofInfo.Front > types.U64(n.Prover.GetFront()) {
+			err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+			if err != nil {
+				return
+			}
+		}
+		n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
+		n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
+		n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+		n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
 	}
 
 	var witChain = &pb.AccWitnessNode{

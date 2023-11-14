@@ -48,6 +48,9 @@ func (n *Node) findPeers(ch chan<- bool) {
 	for {
 		select {
 		case <-tick.C:
+			if n.state.Load() == configs.State_Offline {
+				return
+			}
 			findInterval += interval
 			if findInterval > 3600 {
 				findInterval = interval
@@ -193,6 +196,9 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 }
 
 func (n *Node) UpdatePeers() {
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
 	time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
 	if err != nil {
@@ -224,6 +230,10 @@ func (n *Node) UpdatePeerFirst() {
 }
 
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
+
 	if len(reportTaskCh) > 0 {
 		_ = <-reportTaskCh
 		defer func() {

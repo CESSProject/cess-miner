@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
@@ -48,6 +49,9 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}()
 
 	for {
+		if n.state.Load() == configs.State_Offline {
+			return
+		}
 		err := n.pois()
 		if err != nil {
 			n.Space("err", err.Error())
@@ -56,7 +60,7 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}
 }
 
-func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.Int) error {
+func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key_n, key_g big.Int) error {
 	var err error
 	if n.Pois == nil {
 		expendersInfo := n.ExpendersInfo
@@ -100,7 +104,7 @@ func (n *Node) InitPois(front, rear, freeSpace, count int64, key_n, key_g big.In
 		return err
 	}
 
-	if n.front == 0 && n.rear == 0 {
+	if firstflag {
 		//Please initialize prover for the first time
 		err = n.Prover.Init(*n.Pois.RsaKey, cfg)
 		if err != nil {
@@ -124,6 +128,10 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	if n.state.Load() == configs.State_Offline {
+		return
+	}
 
 	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
 	if err != nil {
@@ -170,7 +178,7 @@ func (n *Node) pois() error {
 		if minerInfo.SpaceProofInfo.HasValue() {
 			_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
 			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
-				err = n.Prover.SyncChainRearStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+				err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 				if err != nil {
 					return err
 				}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -34,6 +35,9 @@ func (n *Node) restoreMgt(ch chan bool) {
 	n.Restore("info", ">>>>> start restoreMgt <<<<<")
 	for {
 		for n.GetChainState() {
+			if n.state.Load() == configs.State_Offline {
+				return
+			}
 			time.Sleep(time.Minute)
 			minerInfo, err := n.QueryStorageMiner(n.GetStakingPublickey())
 			if err != nil {

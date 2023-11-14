@@ -30,6 +30,10 @@ const (
 )
 
 const (
+	State_Offline = "offline"
+)
+
+const (
 	Err_ctx_exceeded = "context deadline exceeded"
 )
 

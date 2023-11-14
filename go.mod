@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
 	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231114061951-fc77d8141ff0
-	github.com/CESSProject/cess_pois v0.4.7
+	github.com/CESSProject/cess_pois v0.4.9
 	github.com/CESSProject/p2p-go v0.2.6-0.20231113160441-df1867d0ef84
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
@@ -156,7 +156,7 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/vedhavyas/go-subkey v1.0.4 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
-	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect

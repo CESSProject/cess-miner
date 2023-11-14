@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
@@ -40,6 +41,7 @@ type Node struct {
 	peers         map[string]peer.AddrInfo
 	teeWorkers    map[string]string
 	peersFile     string
+	state         atomic.Value
 	cpuCore       int
 	sdk.SDK
 	core.P2P

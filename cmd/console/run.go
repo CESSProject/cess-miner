@@ -324,7 +324,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 			os.Exit(1)
 		}
-		err = n.InitPois(0, 0, int64(n.GetUseSpace()*1024), 32, *new(big.Int).SetBytes(n.MinerPoisInfo.KeyN), *new(big.Int).SetBytes(n.MinerPoisInfo.KeyG))
+		err = n.InitPois(
+			firstReg,
+			0,
+			0,
+			int64(n.GetUseSpace()*1024),
+			32,
+			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyN),
+			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyG),
+		)
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
 			os.Exit(1)
@@ -335,6 +343,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		var earningsAcc string
 		var peerid []byte
 		if !minerInfo.SpaceProofInfo.HasValue() {
+			firstReg = true
 			for i := 0; i < len(teeEndPoints); i++ {
 				delay = 30
 				suc = false
@@ -429,6 +438,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				break
 			}
 		} else {
+			firstReg = false
 			_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
 			teeSign = []byte(string(minerInfo.TeeSignature[:]))
 			peerid = []byte(string(minerInfo.PeerId[:]))
@@ -500,6 +510,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 		n.SetEarningsAcc(n.GetEarningsAcc())
 		err = n.InitPois(
+			firstReg,
 			int64(spaceProofInfo.Front),
 			int64(spaceProofInfo.Rear),
 			int64(n.GetUseSpace()*1024),
