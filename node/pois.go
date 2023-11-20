@@ -230,7 +230,7 @@ func (n *Node) pois() error {
 		for i := 0; i < len(teeEndPoints); i++ {
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
 			chall_pb, err = n.PoisMinerCommitGenChall(
-				teeEndPoints[i],
+				strings.TrimPrefix(teeEndPoints[i], "http://"),
 				commitGenChall,
 				time.Duration(time.Minute*5),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -347,7 +347,7 @@ func (n *Node) pois() error {
 				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
 			}
 			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProof(
-				workTeeEndPoint,
+				strings.TrimPrefix(workTeeEndPoint, "http://"),
 				requestVerifyCommitAndAccProof,
 				time.Duration(time.Minute*10),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -425,9 +425,6 @@ func (n *Node) pois() error {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
 		n.Space("info", "update pois status")
-
-		n.Space("info", fmt.Sprintf("local acc: %v", n.Prover.GetAccValue()))
-		n.Space("info", fmt.Sprintf("tee acc: %v", verifyCommitOrDeletionProof.PoisStatus.Acc))
 		n.MinerPoisInfo.Front = verifyCommitOrDeletionProof.PoisStatus.Front
 		n.MinerPoisInfo.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
 		n.MinerPoisInfo.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc

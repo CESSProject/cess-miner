@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
-	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/multiformats/go-multiaddr"
@@ -37,56 +36,48 @@ func (n *Node) findPeers(ch chan<- bool) {
 
 	n.Discover("info", ">>>>> start findPeers <<<<<")
 
-	var ok bool
 	var err error
 	var foundPeer peer.AddrInfo
-	var interval time.Duration = 30
 	var findInterval time.Duration = 1
-	var tick = time.NewTicker(time.Second * findInterval)
-	defer tick.Stop()
 
 	for {
-		select {
-		case <-tick.C:
-			if n.state.Load() == configs.State_Offline {
-				return
-			}
-			findInterval += interval
-			if findInterval > 3600 {
-				findInterval = interval
-				err = n.SavePeersToDisk(n.DataDir.PeersFile)
-				if err != nil {
-					n.Discover("err", err.Error())
-				}
-			}
-			tick.Reset(time.Second * findInterval)
-			peerChan, err := n.GetRoutingTable().FindPeers(n.GetCtxQueryFromCtxCancel(), n.GetRendezvousVersion())
+		time.Sleep(time.Second)
+		if n.state.Load() == configs.State_Offline {
+			time.Sleep(time.Minute)
+			continue
+		}
+		findInterval++
+		if findInterval >= 3600 {
+			findInterval = 1
+			err = n.SavePeersToDisk(n.DataDir.PeersFile)
 			if err != nil {
+				n.Discover("err", err.Error())
+			}
+		}
+		peerChan, err := n.GetRoutingTable().FindPeers(n.GetCtxQueryFromCtxCancel(), n.GetRendezvousVersion())
+		if err != nil {
+			n.Discover("err", err.Error())
+			time.Sleep(time.Minute)
+			continue
+		}
+
+		for onePeer := range peerChan {
+			if onePeer.ID == n.ID() {
 				continue
 			}
-			ok = true
-			for ok {
-				select {
-				case foundPeer, ok = <-peerChan:
-					if !ok {
-						break
-					}
-					if foundPeer.ID == n.ID() {
-						continue
-					}
-					err := n.Connect(n.GetCtxQueryFromCtxCancel(), foundPeer)
-					if err != nil {
-						n.Peerstore().RemovePeer(foundPeer.ID)
-					} else {
-						for _, addr := range foundPeer.Addrs {
-							n.Peerstore().AddAddr(foundPeer.ID, addr, peerstore.AddressTTL)
-						}
-						n.SavePeer(foundPeer.ID.Pretty(), peer.AddrInfo{
-							ID:    foundPeer.ID,
-							Addrs: foundPeer.Addrs,
-						})
-					}
-				}
+			err := n.Connect(n.GetCtxQueryFromCtxCancel(), onePeer)
+			if err != nil {
+				// n.Peerstore().RemovePeer(onePeer.ID)
+				n.GetDht().RoutingTable().RemovePeer(onePeer.ID)
+			} else {
+				n.GetDht().RoutingTable().TryAddPeer(onePeer.ID, true, true)
+				n.SavePeer(foundPeer.ID.Pretty(), peer.AddrInfo{
+					ID:    foundPeer.ID,
+					Addrs: foundPeer.Addrs,
+				})
+				// for _, addr := range onePeer.Addrs {
+				// 	n.Peerstore().AddAddr(onePeer.ID, addr, peerstore.TempAddrTTL)
+				// }
 			}
 		}
 	}
@@ -108,11 +99,13 @@ func (n *Node) recvPeers(ch chan<- bool) {
 			for _, v := range foundPeer.Responses {
 				if v != nil {
 					if len(v.Addrs) > 0 {
-						n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.AddressTTL)
 						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
 							ID:    v.ID,
 							Addrs: v.Addrs,
 						})
+						n.GetDht().RoutingTable().TryAddPeer(v.ID, true, true)
+						// n.Peerstore().AddAddr(addrInfo.ID, maAddr, peerstore.PermanentAddrTTL)
+						// n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.TempAddrTTL)
 					}
 				}
 			}

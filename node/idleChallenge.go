@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -272,7 +273,7 @@ func (n *Node) idleChallenge(
 
 		for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
-				teeEndPoint,
+				strings.TrimPrefix(teeEndPoint, "http://"),
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.ChallRandom,
 				minerPoisInfo,
@@ -300,7 +301,7 @@ func (n *Node) idleChallenge(
 		n.saveidleProofRecord(idleProofRecord)
 
 		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-			teeEndPoint,
+			strings.TrimPrefix(teeEndPoint, "http://"),
 			n.GetSignatureAccPulickey(),
 			blocksProof,
 			minerChallFront,
@@ -450,7 +451,7 @@ func (n *Node) checkIdleProofRecord(
 	for {
 		if idleProofRecord.BlocksProof != nil {
 			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-				teeEndPoint,
+				strings.TrimPrefix(teeEndPoint, "http://"),
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.BlocksProof,
 				minerChallFront,
@@ -503,7 +504,7 @@ func (n *Node) checkIdleProofRecord(
 	var blocksProof = make([]*pb.BlocksProof, 0)
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
-			teeEndPoint,
+			strings.TrimPrefix(teeEndPoint, "http://"),
 			n.GetSignatureAccPulickey(),
 			idleProofRecord.ChallRandom,
 			minerPoisInfo,
@@ -531,7 +532,7 @@ func (n *Node) checkIdleProofRecord(
 	n.saveidleProofRecord(idleProofRecord)
 
 	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-		teeEndPoint,
+		strings.TrimPrefix(teeEndPoint, "http://"),
 		n.GetSignatureAccPulickey(),
 		blocksProof,
 		minerChallFront,
