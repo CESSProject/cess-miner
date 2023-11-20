@@ -5,8 +5,8 @@ go 1.20
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
 	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231114061951-fc77d8141ff0
-	github.com/CESSProject/cess_pois v0.4.9
-	github.com/CESSProject/p2p-go v0.2.6-0.20231113160441-df1867d0ef84
+	github.com/CESSProject/cess_pois v0.4.11
+	github.com/CESSProject/p2p-go v0.2.6-0.20231117060004-cbb4a2e1792e
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
@@ -27,8 +27,8 @@ require (
 )
 
 require (
-	github.com/AstaFrode/boxo v0.12.1-0.20231113152810-b03c5bbc92c0 // indirect
-	github.com/AstaFrode/go-libp2p-kad-dht v0.23.1-0.20231113152435-ca99e70b9955 // indirect
+	github.com/AstaFrode/boxo v0.12.1-0.20231117024608-7d5a75b69cdd // indirect
+	github.com/AstaFrode/go-libp2p-kad-dht v0.23.1-0.20231117020818-8d3fc0a486ad // indirect
 	github.com/AstaFrode/go-libp2p-kbucket v0.5.1-0.20231113151623-a45fff026283 // indirect
 	github.com/AstaFrode/go-libp2p-record v0.2.1-0.20231113144445-2b6ba1a2d403 // indirect
 	github.com/AstaFrode/go-peertaskqueue v0.8.2-0.20231108073729-990e433425a4 // indirect
@@ -53,7 +53,6 @@ require (
 	github.com/ethereum/go-ethereum v1.10.20 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
-	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -89,6 +88,7 @@ require (
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
+	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
@@ -134,6 +134,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
 	github.com/pierrec/xxHash v0.1.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/polydawn/refmt v0.89.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect

@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -516,8 +517,10 @@ func (n *Node) batchVerify(
 		Mus:   serviceProofRecord.Mus,
 		Sigma: serviceProofRecord.Sigma,
 	}
+	teeIp := strings.TrimPrefix(teeEndPoint, "http://")
+	n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", teeIp))
 	batchVerify, err := n.PoisServiceRequestBatchVerify(
-		teeEndPoint,
+		teeIp,
 		n.GetPeerPublickey(),
 		n.GetSignatureAccPulickey(),
 		peeridSign,

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
+	"github.com/AstaFrode/go-libp2p/core/peerstore"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -117,6 +118,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
 	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCore()))
 	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
+	out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
+	out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
+	out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
+	out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
 
 	if strings.Contains(bootEnv, "test") {
 		if !strings.Contains(n.GetNetworkEnv(), "test") {
@@ -220,11 +225,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.UpdatePeerFirst()
 	}
 
-	var bootPeerID []peer.ID
 	for _, b := range boots {
 		multiaddr, err := core.ParseMultiaddrs(b)
 		if err != nil {
-			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+			out.Err(fmt.Sprintf("[ParseMultiaddrs] %v", err))
 			continue
 		}
 		for _, v := range multiaddr {
@@ -236,8 +240,17 @@ func runCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				continue
 			}
-			n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-			bootPeerID = append(bootPeerID, addrInfo.ID)
+			if addrInfo.ID == n.ID() {
+				continue
+			}
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+			if err != nil {
+				out.Err(fmt.Sprintf("Failed to connect to %s: %v", addrInfo.ID.Pretty(), err))
+			} else {
+				out.Tip(fmt.Sprintf("Connected to %s successfully", addrInfo.ID.Pretty()))
+			}
+			n.GetDht().RoutingTable().TryAddPeer(addrInfo.ID, true, true)
+			n.Peerstore().AddAddr(addrInfo.ID, maAddr, peerstore.PermanentAddrTTL)
 			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 		}
 	}
@@ -258,9 +271,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 			delay = 30
 			suc = false
 			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
-				out.Tip(fmt.Sprintf("Will request miner init param to %v", bootPeerID[i]))
+				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPoints[i]))
 				responseMinerInitParam, err = n.PoisGetMinerInitParam(
-					teeEndPoints[i],
+					strings.TrimPrefix(teeEndPoints[i], "http://"),
 					n.GetSignatureAccPulickey(),
 					time.Duration(time.Second*delay),
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -350,10 +363,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 					out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPoints[i]))
 					responseMinerInitParam, err = n.PoisGetMinerInitParam(
-						teeEndPoints[i],
+						strings.TrimPrefix(teeEndPoints[i], "http://"),
 						n.GetSignatureAccPulickey(),
 						time.Duration(time.Second*delay),
 						grpc.WithTransportCredentials(insecure.NewCredentials()),
+						grpc.WithBlock(),
 					)
 					if err != nil {
 						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {

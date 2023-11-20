@@ -10,6 +10,7 @@ package node
 import (
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -139,7 +140,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	utils.RandSlice(teeEndPoints)
 	for _, t := range teeEndPoints {
 		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
-			t,
+			strings.TrimPrefix(t, "http://"),
 			requestVerifyDeletionProof,
 			time.Duration(time.Minute*10),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),

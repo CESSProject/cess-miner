@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -31,6 +32,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 	}()
 
 	if n.state.Load() == configs.State_Offline {
+		time.Sleep(time.Minute)
 		return
 	}
 
@@ -83,7 +85,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			for i := 0; i < len(teeEndPoints); i++ {
 				n.Stag("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
 				genTag, err := n.PoisServiceRequestGenTag(
-					teeEndPoints[i],
+					strings.TrimPrefix(teeEndPoints[i], "http://"),
 					buf[:pattern.FragmentSize],
 					filepath.Base(f),
 					"",
