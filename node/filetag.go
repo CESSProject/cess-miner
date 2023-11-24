@@ -78,22 +78,31 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			}
 
 			if len(buf) < pattern.FragmentSize {
-				n.Stag("err", fmt.Sprintf("Fragment Size: %d < 8388608", len(buf)))
+				n.Stag("err", fmt.Sprintf("Fragment Size: %d < %d", len(buf), pattern.FragmentSize))
 				continue
 			}
 			utils.RandSlice(teeEndPoints)
 			for i := 0; i < len(teeEndPoints); i++ {
+				n.Stag("info", fmt.Sprintf("Will calc file tag: %v", fragmentHash))
+				n.Stag("info", fmt.Sprintf("Will calc file tag roothash: %v", filepath.Base(fileDir)))
 				n.Stag("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
 				genTag, err := n.PoisServiceRequestGenTag(
 					strings.TrimPrefix(teeEndPoints[i], "http://"),
 					buf[:pattern.FragmentSize],
-					filepath.Base(f),
+					filepath.Base(fileDir),
+					fragmentHash,
 					"",
 					time.Duration(time.Minute*10),
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
 				)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
+					_, err = n.ClaimRestoralOrder(fragmentHash)
+					if err != nil {
+						n.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
+						continue
+					}
+					n.Put([]byte(Cach_prefix_recovery+fragmentHash), []byte(fragmentHash))
 					continue
 				}
 				buf, err = json.Marshal(genTag.Tag)

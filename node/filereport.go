@@ -38,14 +38,18 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		storageorder pattern.StorageOrder
 	)
 
+	n.Report("info", ">>>>> start reportFiles <<<<<")
+
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs] %v", err))
 		return
 	}
+	n.Report("info", fmt.Sprintf("roothashs: %v", roothashs))
 
 	for _, v := range roothashs {
 		roothash = filepath.Base(v)
+		n.Report("info", fmt.Sprintf("roothash: %v", roothash))
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
@@ -86,6 +90,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			continue
 		}
 		var sucCount uint8
+
 		var sucIndex = make([]uint8, 0)
 		for idx := uint8(0); idx < uint8(pattern.DataShards+pattern.ParShards); idx++ {
 			sucCount = 0
@@ -104,7 +109,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 					}
 				}
 			}
-			if sucCount >= (pattern.DataShards + pattern.ParShards) {
+			if sucCount > 0 {
 				sucIndex = append(sucIndex, idx+1)
 			}
 		}

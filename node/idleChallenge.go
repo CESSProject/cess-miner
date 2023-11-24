@@ -269,7 +269,7 @@ func (n *Node) idleChallenge(
 			n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
 		}
 
-		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlockP2P to tee: %s", teeEndPoint))
+		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
 
 		for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(

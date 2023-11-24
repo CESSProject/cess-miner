@@ -225,6 +225,7 @@ func (n *Node) pois() error {
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
 
 		teeEndPoints := n.GetAllTeeWorkEndPoint()
+		utils.RandSlice(teeEndPoints)
 		var workTeeEndPoint string
 		n.Space("info", fmt.Sprintf("All tees: %v", teeEndPoints))
 		for i := 0; i < len(teeEndPoints); i++ {
