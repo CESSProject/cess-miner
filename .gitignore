@@ -24,6 +24,7 @@
 ## Binaries for programs and plugins
 main
 bucket*
+sm*
 *.exe
 *.dll
 *.so

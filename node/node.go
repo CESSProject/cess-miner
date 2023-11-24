@@ -76,14 +76,12 @@ func (n *Node) Run() {
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
-		//ch_discoverMgt      = make(chan bool, 1)
-		ch_GenIdleFile = make(chan bool, 1)
+		ch_GenIdleFile      = make(chan bool, 1)
 	)
 
 	ch_idlechallenge <- true
 	ch_servicechallenge <- true
 	ch_reportfiles <- true
-	ch_calctag <- true
 	ch_replace <- true
 	ch_reportLogs <- true
 	ch_GenIdleFile <- true
@@ -121,10 +119,10 @@ func (n *Node) Run() {
 	go n.restoreMgt(ch_restoreMgt)
 	go n.poisMgt(ch_spaceMgt)
 	go n.reportLogsMgt(ch_reportLogs)
+	go n.serviceTag(ch_calctag)
 
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
-	//go n.discoverMgt(ch_discoverMgt)
 
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
 	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
@@ -152,6 +150,14 @@ func (n *Node) Run() {
 
 		case <-task_Minute.C:
 			n.syncChainStatus()
+			if len(ch_findPeers) > 0 {
+				_ = <-ch_findPeers
+				go n.findPeers(ch_findPeers)
+			}
+			if len(ch_recvPeers) > 0 {
+				_ = <-ch_recvPeers
+				go n.recvPeers(ch_recvPeers)
+			}
 			if len(ch_GenIdleFile) > 0 {
 				_ = <-ch_GenIdleFile
 				go n.genIdlefile(ch_GenIdleFile)
@@ -177,12 +183,6 @@ func (n *Node) Run() {
 			go n.poisMgt(ch_spaceMgt)
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
-		case <-ch_findPeers:
-			go n.findPeers(ch_findPeers)
-		case <-ch_recvPeers:
-			go n.recvPeers(ch_recvPeers)
-			// case <-ch_discoverMgt:
-			// 	go n.discoverMgt(ch_discoverMgt)
 		}
 	}
 }
