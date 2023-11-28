@@ -36,6 +36,7 @@ func (n *Node) restoreMgt(ch chan bool) {
 	for {
 		for n.GetChainState() {
 			if n.state.Load() == configs.State_Offline {
+				time.Sleep(time.Minute)
 				return
 			}
 			time.Sleep(time.Minute)

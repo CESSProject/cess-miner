@@ -35,13 +35,12 @@ type Node struct {
 	key           *proof.RSAKeyPair
 	peerLock      *sync.RWMutex
 	teeLock       *sync.RWMutex
-	chalTick      *time.Ticker
 	DataDir       *DataDir
 	MinerPoisInfo *pb.MinerPoisInfo
 	peers         map[string]peer.AddrInfo
 	teeWorkers    map[string]string
 	peersFile     string
-	state         atomic.Value
+	state         *atomic.Value
 	cpuCore       int
 	sdk.SDK
 	core.P2P
@@ -57,6 +56,7 @@ func New() *Node {
 		key:        proof.NewKey(),
 		peerLock:   new(sync.RWMutex),
 		teeLock:    new(sync.RWMutex),
+		state:      new(atomic.Value),
 		peers:      make(map[string]peer.AddrInfo, 0),
 		teeWorkers: make(map[string]string, 10),
 		Pois:       &Pois{},
@@ -101,17 +101,17 @@ func (n *Node) Run() {
 		break
 	}
 
-	task_18S := time.NewTicker(time.Duration(time.Second * 18))
-	defer task_18S.Stop()
+	task_10S := time.NewTicker(time.Duration(time.Second * 10))
+	defer task_10S.Stop()
+
+	task_30S := time.NewTicker(time.Duration(time.Second * 30))
+	defer task_30S.Stop()
 
 	task_Minute := time.NewTicker(time.Minute)
 	defer task_Minute.Stop()
 
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
-
-	n.chalTick = time.NewTicker(time.Minute)
-	defer n.chalTick.Stop()
 
 	n.syncChainStatus()
 
@@ -135,10 +135,7 @@ func (n *Node) Run() {
 
 	for {
 		select {
-		case <-n.chalTick.C:
-			n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
-
-		case <-task_18S.C:
+		case <-task_10S.C:
 			err := n.connectChain()
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
@@ -148,8 +145,23 @@ func (n *Node) Run() {
 				break
 			}
 
+		case <-task_30S.C:
+			if len(ch_reportfiles) > 0 {
+				_ = <-ch_reportfiles
+				go n.reportFiles(ch_reportfiles)
+			}
+			if len(ch_calctag) > 0 {
+				_ = <-ch_calctag
+				go n.serviceTag(ch_calctag)
+			}
+
 		case <-task_Minute.C:
 			n.syncChainStatus()
+
+			if len(ch_idlechallenge) > 0 || len(ch_servicechallenge) > 0 {
+				go n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
+			}
+
 			if len(ch_findPeers) > 0 {
 				_ = <-ch_findPeers
 				go n.findPeers(ch_findPeers)
@@ -162,14 +174,6 @@ func (n *Node) Run() {
 				_ = <-ch_GenIdleFile
 				go n.genIdlefile(ch_GenIdleFile)
 			}
-			if len(ch_reportfiles) > 0 {
-				_ = <-ch_reportfiles
-				go n.reportFiles(ch_reportfiles)
-			}
-			if len(ch_calctag) > 0 {
-				_ = <-ch_calctag
-				go n.serviceTag(ch_calctag)
-			}
 			if len(ch_replace) > 0 {
 				_ = <-ch_replace
 				go n.replaceIdle(ch_replace)
@@ -177,10 +181,12 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			go n.connectBoot()
-			go n.UpdatePeers()
+			// go n.UpdatePeers()
 			go n.reportLogsMgt(ch_reportLogs)
+
 		case <-ch_spaceMgt:
 			go n.poisMgt(ch_spaceMgt)
+
 		case <-ch_restoreMgt:
 			go n.restoreMgt(ch_restoreMgt)
 		}
