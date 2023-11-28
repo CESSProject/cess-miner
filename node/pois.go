@@ -50,6 +50,7 @@ func (n *Node) poisMgt(ch chan<- bool) {
 
 	for {
 		if n.state.Load() == configs.State_Offline {
+			time.Sleep(time.Minute)
 			return
 		}
 		err := n.pois()

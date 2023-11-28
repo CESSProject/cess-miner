@@ -32,7 +32,6 @@ func (n *Node) serviceTag(ch chan<- bool) {
 	}()
 
 	if n.state.Load() == configs.State_Offline {
-		time.Sleep(time.Minute)
 		return
 	}
 
@@ -57,6 +56,31 @@ func (n *Node) serviceTag(ch chan<- bool) {
 	}
 
 	for _, fileDir := range roothashs {
+		metadata, err := n.QueryFileMetadata(filepath.Base(fileDir))
+		if err != nil {
+			if err.Error() != pattern.ERR_Empty {
+				n.Report("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
+				continue
+			}
+		} else {
+			var deletedFrgmentList []string
+			var savedFrgmentList = make(map[string]struct{}, 0)
+			for _, segment := range metadata.SegmentList {
+				for _, fragment := range segment.FragmentList {
+					if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+						deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
+					} else {
+						savedFrgmentList[string(fragment.Hash[:])] = struct{}{}
+					}
+				}
+			}
+			for _, d := range deletedFrgmentList {
+				if _, ok := savedFrgmentList[d]; ok {
+					continue
+				}
+				os.Remove(filepath.Join(fileDir, d))
+			}
+		}
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
@@ -97,12 +121,14 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
-					_, err = n.ClaimRestoralOrder(fragmentHash)
-					if err != nil {
-						n.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
-						continue
+					if strings.Contains(err.Error(), "no such file") {
+						_, err = n.GenerateRestoralOrder(filepath.Base(fileDir), fragmentHash)
+						if err != nil {
+							n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))
+							continue
+						}
+						n.Put([]byte(Cach_prefix_MyLost+fragmentHash), nil)
 					}
-					n.Put([]byte(Cach_prefix_recovery+fragmentHash), []byte(fragmentHash))
 					continue
 				}
 				buf, err = json.Marshal(genTag.Tag)

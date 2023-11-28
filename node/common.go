@@ -69,11 +69,8 @@ func (n *Node) connectBoot() {
 			if err != nil {
 				continue
 			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-			if err != nil {
-				continue
-			}
-			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+			n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+			n.GetDht().RoutingTable().TryAddPeer(addrInfo.ID, true, true)
 		}
 	}
 }
@@ -110,6 +107,7 @@ func (n *Node) syncChainStatus() {
 	}
 	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 	if err != nil {
+		n.state.Store(configs.State_Offline)
 		n.Log("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
 	} else {
 		n.state.Store(string(minerInfo.State))

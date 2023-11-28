@@ -118,10 +118,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
 	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCore()))
 	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
-	out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
-	out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
-	out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
-	out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
+	//out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
+	//out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
+	//out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
+	//out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
 
 	if strings.Contains(bootEnv, "test") {
 		if !strings.Contains(n.GetNetworkEnv(), "test") {

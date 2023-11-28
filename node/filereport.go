@@ -57,6 +57,23 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				return
 			}
 		} else {
+			var deletedFrgmentList []string
+			var savedFrgmentList = make(map[string]struct{}, 0)
+			for _, segment := range metadata.SegmentList {
+				for _, fragment := range segment.FragmentList {
+					if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+						deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
+					} else {
+						savedFrgmentList[string(fragment.Hash[:])] = struct{}{}
+					}
+				}
+			}
+			for _, d := range deletedFrgmentList {
+				if _, ok := savedFrgmentList[d]; ok {
+					continue
+				}
+				os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
+			}
 			if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
 				err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
 				if err != nil {
@@ -74,8 +91,6 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
 				return
 			}
-			n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
-			n.Report("err", fmt.Sprintf("[%s] will delete files", roothash))
 			//os.RemoveAll(v)
 			continue
 		}
