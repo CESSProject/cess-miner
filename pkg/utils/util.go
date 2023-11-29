@@ -284,3 +284,11 @@ func InterfaceIsNIL(i interface{}) bool {
 	}
 	return ret
 }
+
+var ipRegex = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+
+func ContainsIpv4(str string) bool {
+	matches := ipRegex.FindString(str)
+	ipAddr := net.ParseIP(matches)
+	return ipAddr != nil && strings.Contains(matches, ".")
+}

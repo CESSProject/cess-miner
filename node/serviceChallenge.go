@@ -154,7 +154,9 @@ func (n *Node) serviceChallenge(
 		}
 		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
-
+	if utils.ContainsIpv4(teeEndPoint) {
+		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+	}
 	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
@@ -517,10 +519,10 @@ func (n *Node) batchVerify(
 		Mus:   serviceProofRecord.Mus,
 		Sigma: serviceProofRecord.Sigma,
 	}
-	teeIp := strings.TrimPrefix(teeEndPoint, "http://")
-	n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", teeIp))
+
+	n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", teeEndPoint))
 	batchVerify, err := n.PoisServiceRequestBatchVerify(
-		teeIp,
+		teeEndPoint,
 		n.GetPeerPublickey(),
 		n.GetSignatureAccPulickey(),
 		peeridSign,

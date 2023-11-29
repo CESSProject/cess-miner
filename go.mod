@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
-	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231114061951-fc77d8141ff0
+	github.com/CESSProject/cess-go-sdk v0.4.0
 	github.com/CESSProject/cess_pois v0.4.11
-	github.com/CESSProject/p2p-go v0.2.6-0.20231127085809-61bf3338888b
+	github.com/CESSProject/p2p-go v0.2.6
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef

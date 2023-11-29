@@ -224,15 +224,22 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-
-		teeEndPoints := n.GetAllTeeWorkEndPoint()
+		var teeEndPoints = make([]string, 0)
+		teeList := n.GetAllTeeWorkEndPoint()
+		for _, v := range teeList {
+			if utils.ContainsIpv4(v) {
+				teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v, "http://"))
+			} else {
+				teeEndPoints = append(teeEndPoints, v)
+			}
+		}
 		utils.RandSlice(teeEndPoints)
 		var workTeeEndPoint string
 		n.Space("info", fmt.Sprintf("All tees: %v", teeEndPoints))
 		for i := 0; i < len(teeEndPoints); i++ {
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
 			chall_pb, err = n.PoisMinerCommitGenChall(
-				strings.TrimPrefix(teeEndPoints[i], "http://"),
+				teeEndPoints[i],
 				commitGenChall,
 				time.Duration(time.Minute*5),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -349,7 +356,7 @@ func (n *Node) pois() error {
 				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
 			}
 			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProof(
-				strings.TrimPrefix(workTeeEndPoint, "http://"),
+				workTeeEndPoint,
 				requestVerifyCommitAndAccProof,
 				time.Duration(time.Minute*10),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
