@@ -136,11 +136,19 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	requestVerifyDeletionProof.MinerSign = signData
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
 	var workTeeEndPoint string
-	teeEndPoints := n.GetAllTeeWorkEndPoint()
+	var teeEndPoints = make([]string, 0)
+	teeList := n.GetAllTeeWorkEndPoint()
+	for _, v := range teeList {
+		if utils.ContainsIpv4(v) {
+			teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v, "http://"))
+		} else {
+			teeEndPoints = append(teeEndPoints, v)
+		}
+	}
 	utils.RandSlice(teeEndPoints)
 	for _, t := range teeEndPoints {
 		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
-			strings.TrimPrefix(t, "http://"),
+			t,
 			requestVerifyDeletionProof,
 			time.Duration(time.Minute*10),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),

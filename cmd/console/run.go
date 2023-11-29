@@ -178,7 +178,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		for _, v := range teeList {
-			teeEndPoints = append(teeEndPoints, v.End_point)
+			if utils.ContainsIpv4(v.End_point) {
+				teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v.End_point, "http://"))
+			} else {
+				teeEndPoints = append(teeEndPoints, v.End_point)
+			}
 		}
 		break
 	}
@@ -220,10 +224,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// load peers
-	err = n.LoadPeersFromDisk(n.DataDir.PeersFile)
-	if err != nil {
-		n.UpdatePeerFirst()
-	}
+	// err = n.LoadPeersFromDisk(n.DataDir.PeersFile)
+	// if err != nil {
+	// 	n.UpdatePeerFirst()
+	// }
 
 	for _, b := range boots {
 		multiaddr, err := core.ParseMultiaddrs(b)
@@ -273,7 +277,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPoints[i]))
 				responseMinerInitParam, err = n.PoisGetMinerInitParam(
-					strings.TrimPrefix(teeEndPoints[i], "http://"),
+					teeEndPoints[i],
 					n.GetSignatureAccPulickey(),
 					time.Duration(time.Second*delay),
 					grpc.WithTransportCredentials(insecure.NewCredentials()),

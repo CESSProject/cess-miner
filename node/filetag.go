@@ -52,7 +52,11 @@ func (n *Node) serviceTag(ch chan<- bool) {
 		return
 	}
 	for _, v := range teeList {
-		teeEndPoints = append(teeEndPoints, v.End_point)
+		if utils.ContainsIpv4(v.End_point) {
+			teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v.End_point, "http://"))
+		} else {
+			teeEndPoints = append(teeEndPoints, v.End_point)
+		}
 	}
 
 	for _, fileDir := range roothashs {
@@ -110,8 +114,9 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				n.Stag("info", fmt.Sprintf("Will calc file tag: %v", fragmentHash))
 				n.Stag("info", fmt.Sprintf("Will calc file tag roothash: %v", filepath.Base(fileDir)))
 				n.Stag("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
+
 				genTag, err := n.PoisServiceRequestGenTag(
-					strings.TrimPrefix(teeEndPoints[i], "http://"),
+					teeEndPoints[i],
 					buf[:pattern.FragmentSize],
 					filepath.Base(fileDir),
 					fragmentHash,

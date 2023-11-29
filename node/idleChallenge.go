@@ -268,12 +268,14 @@ func (n *Node) idleChallenge(
 			}
 			n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
 		}
-
+		if utils.ContainsIpv4(teeEndPoint) {
+			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+		}
 		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
 
 		for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
-				strings.TrimPrefix(teeEndPoint, "http://"),
+				teeEndPoint,
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.ChallRandom,
 				minerPoisInfo,
@@ -301,7 +303,7 @@ func (n *Node) idleChallenge(
 		n.saveidleProofRecord(idleProofRecord)
 
 		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-			strings.TrimPrefix(teeEndPoint, "http://"),
+			teeEndPoint,
 			n.GetSignatureAccPulickey(),
 			blocksProof,
 			minerChallFront,
@@ -446,12 +448,14 @@ func (n *Node) checkIdleProofRecord(
 		}
 		n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
-
+	if utils.ContainsIpv4(teeEndPoint) {
+		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+	}
 	n.Ichal("info", fmt.Sprintf("Allocated tee: %v", teeEndPoint))
 	for {
 		if idleProofRecord.BlocksProof != nil {
 			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-				strings.TrimPrefix(teeEndPoint, "http://"),
+				teeEndPoint,
 				n.GetSignatureAccPulickey(),
 				idleProofRecord.BlocksProof,
 				minerChallFront,
@@ -504,7 +508,7 @@ func (n *Node) checkIdleProofRecord(
 	var blocksProof = make([]*pb.BlocksProof, 0)
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
-			strings.TrimPrefix(teeEndPoint, "http://"),
+			teeEndPoint,
 			n.GetSignatureAccPulickey(),
 			idleProofRecord.ChallRandom,
 			minerPoisInfo,
@@ -532,7 +536,7 @@ func (n *Node) checkIdleProofRecord(
 	n.saveidleProofRecord(idleProofRecord)
 
 	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-		strings.TrimPrefix(teeEndPoint, "http://"),
+		teeEndPoint,
 		n.GetSignatureAccPulickey(),
 		blocksProof,
 		minerChallFront,

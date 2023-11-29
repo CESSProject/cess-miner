@@ -1,9 +1,9 @@
-# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md) [![build](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
+# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md) [![build](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
 ## 📝 Reporting a Vulnerability
-If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
+If you find any system errors or you have better suggestions, please submit an issue or submit a pull request. You can also join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📢 Announcement
 **CESS test network rpc endpoints**
@@ -14,7 +14,7 @@ wss://testnet-rpc2.cess.cloud/ws/
 ```
 **CESS test network bootstrap node**
 ```
-_dnsaddr.boot-kldr-testnet.cess.cloud
+_dnsaddr.boot-bucket-testnet.cess.cloud
 ```
 
 ## 🚰 CESS test network faucet
@@ -106,7 +106,7 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.3/bucket0.7.3.linux-amd64.tar.gz
+wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.6/bucket0.7.6.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
