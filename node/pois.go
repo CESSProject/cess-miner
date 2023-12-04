@@ -419,7 +419,8 @@ func (n *Node) pois() error {
 
 		n.Space("info", "Submit idle space")
 		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
-		if err != nil {
+
+		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)
 			time.Sleep(pattern.BlockInterval)
@@ -430,14 +431,16 @@ func (n *Node) pois() error {
 			}
 			if minerInfo.SpaceProofInfo.HasValue() {
 				_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
-				if int64(spaceProofInfo.Rear) < n.Prover.GetRear() {
+				if int64(spaceProofInfo.Rear) <= n.Prover.GetRear() {
 					n.Prover.AccRollback(false)
 					return fmt.Errorf("AccRollbak: [%v] < [%v]", int64(spaceProofInfo.Rear), n.Prover.GetRear())
 				}
 			}
 		}
 
-		n.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
+		if txhash != "" {
+			n.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
+		}
 
 		// If the challenge is successful, update the prover status, fileNum is challenged files number,
 		// the second parameter represents whether it is a delete operation, and the commit proofs should belong to the joining files, so it is false
