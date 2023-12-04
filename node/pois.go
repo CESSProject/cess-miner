@@ -419,6 +419,7 @@ func (n *Node) pois() error {
 
 		n.Space("info", "Submit idle space")
 		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
+
 		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)
