@@ -125,7 +125,15 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				}
 			}
 			if sucCount > 0 {
-				sucIndex = append(sucIndex, idx+1)
+				for _, v := range storageorder.CompleteInfo {
+					if uint8(v.Index) == uint8(idx+1) {
+						sucCount = 0
+						break
+					}
+				}
+				if sucCount > 0 {
+					sucIndex = append(sucIndex, idx+1)
+				}
 			}
 		}
 
@@ -137,10 +145,10 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		for _, v := range sucIndex {
 			txhash, err = n.ReportFile(v, roothash)
 			if err != nil {
-				n.Report("err", fmt.Sprintf("[%s] File transfer report failed: [%s] %v", roothash, txhash, err))
+				n.Report("err", fmt.Sprintf("[%s] File reporting failed: [%s] %v", roothash, txhash, err))
 				continue
 			}
-			n.Report("info", fmt.Sprintf("[%s] File transfer reported successfully: %s", roothash, txhash))
+			n.Report("info", fmt.Sprintf("[%s] File reported successfully: %s", roothash, txhash))
 			break
 		}
 	}

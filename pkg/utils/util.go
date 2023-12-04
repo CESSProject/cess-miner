@@ -112,9 +112,8 @@ func RandSlice(slice interface{}) {
 	}
 
 	swap := reflect.Swapper(slice)
-	rand.Seed(time.Now().Unix())
 	for i := length - 1; i >= 0; i-- {
-		j := rand.Intn(length)
+		j := rand.New(rand.NewSource(time.Now().Unix())).Intn(length)
 		swap(i, j)
 	}
 	return

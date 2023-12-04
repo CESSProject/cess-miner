@@ -32,7 +32,7 @@ const helpInfo string = `help information:
   --cpu       Set cpu number
   --tee       Used tee addr
   --pubkey    Set public key
-  --workspace Set work space, default .
+  --workspace Put the file and the corresponding tag here, the tag file is saved as <filename>.tag
 `
 
 func main() {
@@ -83,7 +83,7 @@ func main() {
 		context.Background(),
 		p2pgo.ListenPort(port),
 		p2pgo.Workspace(workspace),
-		p2pgo.BootPeers(n.GetBootNodes()),
+		//p2pgo.BootPeers(n.GetBootNodes()),
 		p2pgo.PublicIpv4(publicip),
 		p2pgo.ProtocolPrefix("/devnet"),
 	)
@@ -135,7 +135,7 @@ func main() {
 			if strings.Contains(serviceFiles[i], ".tag") {
 				continue
 			}
-			log.Println("file hash: ", filepath.Base(serviceFiles[i]))
+			log.Println("file: ", filepath.Base(serviceFiles[i]))
 			serviceTagPath := serviceFiles[i] + ".tag"
 			buf, err := os.ReadFile(serviceTagPath)
 			if err != nil {

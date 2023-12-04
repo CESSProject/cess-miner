@@ -35,6 +35,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 		return
 	}
 
+	var hasOrder bool
 	var fragmentHash string
 	var err error
 
@@ -85,6 +86,21 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				os.Remove(filepath.Join(fileDir, d))
 			}
 		}
+
+		sorder, err := n.QueryStorageOrder(filepath.Base(fileDir))
+		if err != nil {
+			if err.Error() != pattern.ERR_Empty {
+				n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
+				continue
+			}
+			hasOrder = false
+		} else {
+			hasOrder = true
+			if uint8(sorder.Stage) != configs.OrserState_CalcTag {
+				continue
+			}
+		}
+
 		files, err := utils.DirFiles(fileDir, 0)
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[DirFiles] %v", err))
@@ -96,6 +112,16 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			serviceTagPath := filepath.Join(n.DataDir.TagDir, fragmentHash+".tag")
 			_, err = os.Stat(serviceTagPath)
 			if err == nil {
+				continue
+			}
+
+			if !hasOrder {
+				_, err = n.GenerateRestoralOrder(filepath.Base(fileDir), fragmentHash)
+				if err != nil {
+					n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))
+					continue
+				}
+				n.Put([]byte(Cach_prefix_MyLost+fragmentHash), nil)
 				continue
 			}
 

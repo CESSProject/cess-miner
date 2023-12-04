@@ -155,6 +155,17 @@ func runCmd(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
+	sysVersion, err := n.SysVersion()
+	if err != nil {
+		out.Err("[SysVersion] Invalid chain node: rpc service failure")
+		os.Exit(1)
+	}
+
+	if !strings.Contains(sysVersion, configs.ChainVersion) {
+		out.Err(fmt.Sprintf("The chain version is not %v", configs.ChainVersion))
+		os.Exit(1)
+	}
+
 	n.ExpendersInfo, err = n.Expenders()
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {

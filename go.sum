@@ -60,8 +60,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/CESSProject/cess-go-sdk v0.4.0 h1:W8JhFpdR2zQdGU36aMMghClbvKIZ+GlKl3ZCbd9K91E=
 github.com/CESSProject/cess-go-sdk v0.4.0/go.mod h1:KWlHxDKfinyfEI3w7BqMqgo+oi7grsUVayDw/2NYSks=
-github.com/CESSProject/cess_pois v0.4.11 h1:6WroKzBNhLIfeQ2w6j4NCXPwR4LWMotHf5e9kxQDbM8=
-github.com/CESSProject/cess_pois v0.4.11/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
+github.com/CESSProject/cess_pois v0.4.15 h1:HGvd3z1rsXXiVfO8dVxSROdph65NF7uE50pUMN9dObc=
+github.com/CESSProject/cess_pois v0.4.15/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
 github.com/CESSProject/p2p-go v0.2.6 h1:wc911BeCamDQhq434JvG8XKcxh28h3xRI10qV6ABaCE=

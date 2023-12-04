@@ -68,7 +68,7 @@ func main() {
 		context.Background(),
 		p2pgo.ListenPort(port),
 		p2pgo.Workspace(workspace),
-		p2pgo.BootPeers(n.GetBootNodes()),
+		//p2pgo.BootPeers(n.GetBootNodes()),
 		p2pgo.PublicIpv4(publicip),
 		p2pgo.ProtocolPrefix("/devnet"),
 	)
