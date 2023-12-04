@@ -438,6 +438,10 @@ func (n *Node) checkServiceProofRecord(
 		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
 	}
 
+	if utils.ContainsIpv4(teeEndPoint) {
+		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+	}
+
 	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
 	if err != nil {
 		return nil
