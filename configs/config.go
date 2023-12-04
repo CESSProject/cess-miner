@@ -34,6 +34,10 @@ const (
 )
 
 const (
+	OrserState_CalcTag uint8 = 2
+)
+
+const (
 	Err_ctx_exceeded = "context deadline exceeded"
 )
 

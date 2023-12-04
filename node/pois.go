@@ -115,7 +115,14 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
 		err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "read element data") {
+				err = n.Prover.CheckAndRestoreSubAccFiles(front, rear)
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 	}
 	n.Prover.AccManager.GetSnapshot()
@@ -169,18 +176,22 @@ func (n *Node) pois() error {
 				break
 			}
 			time.Sleep(time.Minute)
+			n.Space("info", "No commits")
 		}
 
 		minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 		if err != nil {
+			n.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
+
 		if minerInfo.SpaceProofInfo.HasValue() {
 			_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
 			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
 				err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 				if err != nil {
+					n.Space("err", fmt.Sprintf("[SyncChainPoisStatus] %v", err))
 					return err
 				}
 			}
@@ -409,18 +420,19 @@ func (n *Node) pois() error {
 		n.Space("info", "Submit idle space")
 		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
 		if err != nil {
+			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)
 			time.Sleep(pattern.BlockInterval)
-			minerInfo, err1 := n.QueryStorageMiner(n.GetSignatureAccPulickey())
-			if err1 != nil {
+			minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+			if err != nil {
 				n.Prover.AccRollback(false)
-				return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
+				return fmt.Errorf("QueryStorageMiner err:[%v]", err)
 			}
 			if minerInfo.SpaceProofInfo.HasValue() {
 				_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
 				if int64(spaceProofInfo.Rear) < n.Prover.GetRear() {
 					n.Prover.AccRollback(false)
-					return fmt.Errorf("[%v] CertIdleSpace err:[%v]", txhash, err)
+					return fmt.Errorf("AccRollbak: [%v] < [%v]", int64(spaceProofInfo.Rear), n.Prover.GetRear())
 				}
 			}
 		}
