@@ -161,9 +161,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if !strings.Contains(sysVersion, configs.ChainVersion) {
-		out.Err(fmt.Sprintf("The chain version is not %v", configs.ChainVersion))
-		os.Exit(1)
+	if strings.Contains(n.GetNetworkEnv(), "test") {
+		if !strings.Contains(sysVersion, configs.ChainVersion) {
+			out.Err(fmt.Sprintf("The chain version is not %v", configs.ChainVersion))
+			os.Exit(1)
+		}
 	}
 
 	n.ExpendersInfo, err = n.Expenders()
