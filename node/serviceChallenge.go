@@ -253,6 +253,19 @@ func (n *Node) calcSigma(
 		qslice[k].V = new(big.Int).SetBytes(b).String()
 	}
 
+	var teeEndPoints = make([]string, 0)
+
+	teeList, err := n.QueryTeeWorkerList()
+	if err == nil {
+		for _, v := range teeList {
+			if utils.ContainsIpv4(v.End_point) {
+				teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v.End_point, "http://"))
+			} else {
+				teeEndPoints = append(teeEndPoints, v.End_point)
+			}
+		}
+	}
+	utils.RandSlice(teeEndPoints)
 	serviceRoothashDir, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[Dirs] %v", err))
@@ -280,11 +293,77 @@ func (n *Node) calcSigma(
 					// os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
 					continue
 				}
+				if !fragment.Avail {
+					continue
+				}
 				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
 				serviceTagPath := filepath.Join(n.DataDir.TagDir, string(fragment.Hash[:])+".tag")
 				buf, err := os.ReadFile(serviceTagPath)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
+					sorder, err := n.QueryStorageOrder(roothash)
+					if err != nil {
+						if err.Error() != pattern.ERR_Empty {
+							n.Schal("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
+							continue
+						} else {
+							_, err = n.QueryRestoralOrder(string(fragment.Hash[:]))
+							if err == nil {
+								continue
+							} else {
+								if !strings.Contains(err.Error(), pattern.ERR_Empty) {
+									continue
+								}
+							}
+							_, err = n.GenerateRestoralOrder(roothash, string(fragment.Hash[:]))
+							if err != nil {
+								n.Schal("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))
+								continue
+							}
+							n.Put([]byte(Cach_prefix_MyLost+string(fragment.Hash[:])), nil)
+							continue
+						}
+					} else {
+						if uint8(sorder.Stage) != configs.OrserState_CalcTag {
+							continue
+						} else {
+							for i := 0; i < len(teeEndPoints); i++ {
+								genTag, err := n.PoisServiceRequestGenTag(
+									teeEndPoints[i],
+									buf[:pattern.FragmentSize],
+									roothash,
+									string(fragment.Hash[:]),
+									"",
+									time.Duration(time.Minute*10),
+									grpc.WithTransportCredentials(insecure.NewCredentials()),
+								)
+								if err != nil {
+									n.Schal("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
+									continue
+								}
+								buf, err = json.Marshal(genTag.Tag)
+								if err != nil {
+									n.Schal("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+									continue
+								}
+								ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
+								if err != nil {
+									n.Schal("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
+									continue
+								}
+								if !ok {
+									n.Schal("err", "VerifyAttest is false")
+									continue
+								}
+								err = sutils.WriteBufToFile(buf, filepath.Join(n.DataDir.TagDir, roothash+".tag"))
+								if err != nil {
+									n.Schal("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
+									continue
+								}
+								n.Schal("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, roothash+".tag")))
+							}
+						}
+					}
 					return names, us, mus, sigma, err
 				}
 				var tag pb.Tag

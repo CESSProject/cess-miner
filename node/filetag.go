@@ -116,6 +116,15 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			}
 
 			if !hasOrder {
+				_, err = n.QueryRestoralOrder(fragmentHash)
+				if err == nil {
+					continue
+				} else {
+					if !strings.Contains(err.Error(), pattern.ERR_Empty) {
+						continue
+					}
+				}
+
 				_, err = n.GenerateRestoralOrder(filepath.Base(fileDir), fragmentHash)
 				if err != nil {
 					n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))
@@ -153,6 +162,14 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
 					if strings.Contains(err.Error(), "no such file") {
+						_, err = n.QueryRestoralOrder(fragmentHash)
+						if err == nil {
+							continue
+						} else {
+							if !strings.Contains(err.Error(), pattern.ERR_Empty) {
+								continue
+							}
+						}
 						_, err = n.GenerateRestoralOrder(filepath.Base(fileDir), fragmentHash)
 						if err != nil {
 							n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))

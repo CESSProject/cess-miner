@@ -176,7 +176,6 @@ func (n *Node) pois() error {
 				break
 			}
 			time.Sleep(time.Minute)
-			n.Space("info", "No commits")
 		}
 
 		minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())

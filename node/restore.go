@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -151,6 +152,19 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 			}
 		}
 	}
+
+	recoverCid, err := n.FidToCid(framentHash)
+	if err == nil {
+		ctx, _ := context.WithTimeout(context.Background(), time.Minute*3)
+		data, err := n.GetDataFromBlock(ctx, recoverCid)
+		if err == nil {
+			err = os.WriteFile(filepath.Join(n.GetDirs().FileDir, roothash, framentHash), data, os.ModePerm)
+			if err == nil {
+				return nil
+			}
+		}
+	}
+
 	var canRestore int
 	var recoverList = make([]string, len(segement.FragmentList))
 	for k, v := range segement.FragmentList {
@@ -274,14 +288,25 @@ func (n *Node) claimRestoreOrder() error {
 		n.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
 		return err
 	}
-	blockHeight, err := n.QueryBlockHeight("")
-	if err != nil {
-		n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-		return err
-	}
+	// blockHeight, err := n.QueryBlockHeight("")
+	// if err != nil {
+	// 	n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+	// 	return err
+	// }
 	utils.RandSlice(restoreOrderList)
 	for _, v := range restoreOrderList {
-		if blockHeight <= uint32(v.Deadline) {
+		time.Sleep(time.Second * time.Duration(utils.RandomInRange(1, 100)*6))
+		rsOrder, err := n.QueryRestoralOrder(string(v.FragmentHash[:]))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
+			continue
+		}
+		blockHeight, err := n.QueryBlockHeight("")
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+			continue
+		}
+		if (blockHeight + 30) <= uint32(rsOrder.Deadline) {
 			continue
 		}
 		_, err = n.ClaimRestoralOrder(string(v.FragmentHash[:]))
