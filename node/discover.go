@@ -10,7 +10,9 @@ package node
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -141,11 +143,14 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 		}()
 		time.Sleep(time.Second * time.Duration(rand.Intn(600)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "space.log"))
-		time.Sleep(time.Second * time.Duration(rand.Intn(60)))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "stag.log"))
+		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "schal.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "ichal.log"))
-		time.Sleep(time.Second * time.Duration(rand.Intn(60)))
+		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "restore.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
+		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
 	}
 }
@@ -202,4 +207,30 @@ func (n *Node) ReportLogs(file string) {
 	}
 	defer resp.Body.Close()
 	return
+}
+
+func (n *Node) GetFragmentFromOss(fid string) ([]byte, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println(utils.RecoverError(err))
+		}
+	}()
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://deoss-pub-gateway.cess.cloud/%s", fid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Account", n.GetSignatureAcc())
+	req.Header.Set("Operation", "download")
+
+	client := &http.Client{}
+	client.Transport = utils.GlobalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	return data, err
 }

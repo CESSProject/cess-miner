@@ -120,6 +120,10 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 				if err != nil {
 					return err
 				}
+				err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
+				if err != nil {
+					return err
+				}
 			} else {
 				return err
 			}

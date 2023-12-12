@@ -10,7 +10,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
-	"github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -81,7 +81,7 @@ func main() {
 		log.Println("[ReadFile] ", err)
 		os.Exit(1)
 	}
-	hash, err := utils.CalcSHA256(buf)
+	hash, err := sutils.CalcSHA256(buf)
 	if err != nil {
 		log.Println("[CalcSHA256] ", err)
 		os.Exit(1)

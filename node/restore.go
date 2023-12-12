@@ -8,7 +8,6 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -108,7 +107,7 @@ func (n *Node) inspector() error {
 					if err != nil {
 						err = n.restoreFragment(roothashes, roothash, string(fragment.Hash[:]), segment)
 						if err != nil {
-							os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(fragment.Hash[:])))
+							//os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(fragment.Hash[:])))
 							n.Restore("err", fmt.Sprintf("[restoreFragment %v] %v", roothash, err))
 							if ok, err := n.Has([]byte(Cach_prefix_MyLost + string(fragment.Hash[:]))); !ok {
 								txhash, err = n.GenerateRestoralOrder(roothash, string(fragment.Hash[:]))
@@ -153,15 +152,11 @@ func (n *Node) restoreFragment(roothashes []string, roothash, framentHash string
 		}
 	}
 
-	recoverCid, err := n.FidToCid(framentHash)
+	data, err := n.GetFragmentFromOss(framentHash)
 	if err == nil {
-		ctx, _ := context.WithTimeout(context.Background(), time.Minute*3)
-		data, err := n.GetDataFromBlock(ctx, recoverCid)
+		err = os.WriteFile(filepath.Join(n.GetDirs().FileDir, roothash, framentHash), data, os.ModePerm)
 		if err == nil {
-			err = os.WriteFile(filepath.Join(n.GetDirs().FileDir, roothash, framentHash), data, os.ModePerm)
-			if err == nil {
-				return nil
-			}
+			return nil
 		}
 	}
 

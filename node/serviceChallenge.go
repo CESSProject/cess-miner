@@ -293,9 +293,9 @@ func (n *Node) calcSigma(
 					// os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
 					continue
 				}
-				if !fragment.Avail {
-					continue
-				}
+				// if !fragment.Avail {
+				// 	continue
+				// }
 				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
 				serviceTagPath := filepath.Join(n.DataDir.TagDir, string(fragment.Hash[:])+".tag")
 				buf, err := os.ReadFile(serviceTagPath)

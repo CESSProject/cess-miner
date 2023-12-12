@@ -49,7 +49,7 @@ func DirSize(path string) (uint64, error) {
 // Get the total size of all files in a directory and subdirectories
 func Dirs(path string) ([]string, error) {
 	var dirs = make([]string, 0)
-	result, err := filepath.Glob(path + "/*")
+	result, err := filepath.Glob(filepath.Join(path, "*"))
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func Dirs(path string) ([]string, error) {
 // Get the total size of all files in a directory and subdirectories
 func DirFiles(path string, count uint32) ([]string, error) {
 	var files = make([]string, 0)
-	result, err := filepath.Glob(path + "/*")
+	result, err := filepath.Glob(filepath.Join(path, "*"))
 	if err != nil {
 		return nil, err
 	}
