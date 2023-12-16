@@ -24,13 +24,9 @@ const (
 	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
 	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
 	//
-	DefaultBootNodeAddr = "_dnsaddr.boot-kldr-testnet.cess.cloud"
+	DefaultBootNodeAddr = "_dnsaddr.boot-bucket-testnet.cess.cloud"
 	//
 	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
-)
-
-const (
-	State_Offline = "offline"
 )
 
 const (
@@ -38,7 +34,8 @@ const (
 )
 
 const (
-	Err_ctx_exceeded = "context deadline exceeded"
+	Err_ctx_exceeded   = "context deadline exceeded"
+	Err_file_not_fount = "no such file"
 )
 
 const (

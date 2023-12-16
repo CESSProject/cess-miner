@@ -3,12 +3,16 @@ Rpc:
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
   - "wss://testnet-rpc2.cess.cloud/ws/"
-# Bootstrap Nodes
+# Bootstrap nodes
 Boot:
-  - "_dnsaddr.boot-kldr-testnet.cess.cloud" 
+  - "_dnsaddr.boot-bucket-testnet.cess.cloud" 
 # Signature account mnemonic
-Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
-# Income account
+Mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+# Staking account
+# If you fill in the staking account, the staking will be paid by the staking account,
+# otherwise the staking will be paid by the signature account.
+StakingAcc: "cXgaee2N8E77JJv9gdsGAckv1Qsf3hqWYf7NL4q6ZuQzuAUtB"
+# Earnings account
 EarningsAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
 # Service workspace
 Workspace: /
@@ -16,5 +20,9 @@ Workspace: /
 Port: 4001
 # Maximum space used, the unit is GiB
 UseSpace: 2000
-# Number of cpu's used, 0 means use all
+# Number of cpus used, 0 means use all
 UseCpu: 0
+# Priority tee list address
+TeeList:
+  - "127.0.0.1:8080"
+  - "127.0.0.1:8081"

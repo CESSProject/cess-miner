@@ -36,7 +36,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	//Build client
 	n.SDK, err = cess.New(
 		context.Background(),
-		config.CharacterName_Bucket,
+		cess.Name(config.CharacterName_Bucket),
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),

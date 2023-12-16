@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
-	github.com/CESSProject/cess-go-sdk v0.4.0
+	github.com/CESSProject/cess-go-sdk v0.4.10
 	github.com/CESSProject/cess_pois v0.4.20
 	github.com/CESSProject/p2p-go v0.2.6
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -35,7 +35,6 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cbergoon/merkletree v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect

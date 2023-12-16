@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,6 @@ func (n *Node) serviceChallenge(
 		return
 	}
 
-	var found bool
 	var serviceProofRecord serviceProofInfo
 	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList, teeAcc)
 	if err == nil {
@@ -95,7 +95,10 @@ func (n *Node) serviceChallenge(
 
 	serviceProofRecord = serviceProofInfo{}
 	serviceProofRecord.Start = uint32(challStart)
-	serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
+	serviceProofRecord.Names,
+		serviceProofRecord.Us,
+		serviceProofRecord.Mus,
+		serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 		return
@@ -117,47 +120,32 @@ func (n *Node) serviceChallenge(
 
 	time.Sleep(pattern.BlockInterval * 2)
 
-	found = false
-	teeAccounts := n.GetAllTeeWorkAccount()
-	for _, v := range teeAccounts {
-		if found {
-			break
-		}
-
-		publickey, _ := sutils.ParsingPublickey(v)
-		serviceProofInfos, err := n.QueryUnverifiedServiceProof(publickey)
-		if err != nil {
-			continue
-		}
-
-		for i := 0; i < len(serviceProofInfos); i++ {
-			if sutils.CompareSlice(serviceProofInfos[i].MinerSnapShot.Miner[:], n.GetSignatureAccPulickey()) {
-				serviceProofRecord.AllocatedTeeAccount = v
-				serviceProofRecord.AllocatedTeeAccountId = publickey
-				found = true
-				break
-			}
-		}
+	_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
+	if err != nil {
+		n.Schal("err", err.Error())
+		return
 	}
-
-	if !found {
-		n.Schal("err", "No tee found to verify service files prove")
+	ok := chall.ProveInfo.ServiceProve.HasValue()
+	if ok {
+		_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
+		serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
+		serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+	} else {
 		return
 	}
 
-	teeEndPoint, ok := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
-	if !ok {
-		teeEndPoint, err = n.QueryTeeEndPoint(serviceProofRecord.AllocatedTeeAccountId)
-		if err != nil {
-			n.Schal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
-			return
-		}
-		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
+	n.saveServiceProofRecord(serviceProofRecord)
+
+	teeInfo, err := n.GetTee(serviceProofRecord.AllocatedTeeAccount)
+	if err != nil {
+		n.Schal("info", fmt.Sprintf("[%s] Not found tee", serviceProofRecord.AllocatedTeeAccount))
+		return
 	}
-	if utils.ContainsIpv4(teeEndPoint) {
-		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
-	}
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
+
+	serviceProofRecord.ServiceBloomFilter,
+		serviceProofRecord.TeeAccountId,
+		serviceProofRecord.Signature,
+		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
@@ -185,7 +173,12 @@ func (n *Node) serviceChallenge(
 
 	n.saveServiceProofRecord(serviceProofRecord)
 
-	txhash, err = n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
+	txhash, err = n.SubmitServiceProofResult(
+		types.Bool(serviceProofRecord.ServiceResult),
+		signature,
+		bloomFilter,
+		serviceProofRecord.AllocatedTeeAccountId,
+	)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
 		return
@@ -238,7 +231,11 @@ func (n *Node) calcSigma(
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
 ) ([]string, []string, []string, string, error) {
+	var ok bool
+	var recover bool
 	var sigma string
+	var roothash string
+	var fragmentHash string
 	var proveResponse proof.GenProofResponse
 	var names = make([]string, 0)
 	var us = make([]string, 0)
@@ -253,19 +250,6 @@ func (n *Node) calcSigma(
 		qslice[k].V = new(big.Int).SetBytes(b).String()
 	}
 
-	var teeEndPoints = make([]string, 0)
-
-	teeList, err := n.QueryTeeWorkerList()
-	if err == nil {
-		for _, v := range teeList {
-			if utils.ContainsIpv4(v.End_point) {
-				teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v.End_point, "http://"))
-			} else {
-				teeEndPoints = append(teeEndPoints, v.End_point)
-			}
-		}
-	}
-	utils.RandSlice(teeEndPoints)
 	serviceRoothashDir, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[Dirs] %v", err))
@@ -276,130 +260,101 @@ func (n *Node) calcSigma(
 	defer timeout.Stop()
 
 	for i := int(0); i < len(serviceRoothashDir); i++ {
-		roothash := filepath.Base(serviceRoothashDir[i])
-		n.Schal("info", fmt.Sprintf("calc file: %v", roothash))
-		fmeta, err := n.QueryFileMetadataByBlock(roothash, uint64(challStart))
+		roothash = filepath.Base(serviceRoothashDir[i])
+		fragments, err := utils.DirFiles(serviceRoothashDir[i], 0)
 		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
-				n.Schal("err", fmt.Sprintf("[QueryFileMetadata(%s)] %v", roothash, err.Error()))
+			n.Schal("err", fmt.Sprintf("DirFiles(%s) %v", serviceRoothashDir[i], err))
+			return names, us, mus, sigma, err
+		}
+		for j := 0; j < len(fragments); j++ {
+			recover = false
+			fragmentHash = filepath.Base(fragments[j])
+			ok, err = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
 				return names, us, mus, sigma, err
 			}
-			continue
-		}
-
-		for _, segment := range fmeta.SegmentList {
-			for _, fragment := range segment.FragmentList {
-				if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
-					// os.Remove(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])))
-					continue
-				}
-				// if !fragment.Avail {
-				// 	continue
-				// }
-				n.Schal("info", fmt.Sprintf("fragment hash: %v", string(fragment.Hash[:])))
-				serviceTagPath := filepath.Join(n.DataDir.TagDir, string(fragment.Hash[:])+".tag")
-				buf, err := os.ReadFile(serviceTagPath)
-				if err != nil {
-					n.Schal("err", fmt.Sprintf("Servicetag not found: %v", serviceTagPath))
-					sorder, err := n.QueryStorageOrder(roothash)
-					if err != nil {
-						if err.Error() != pattern.ERR_Empty {
-							n.Schal("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
-							continue
-						} else {
-							_, err = n.QueryRestoralOrder(string(fragment.Hash[:]))
-							if err == nil {
-								continue
-							} else {
-								if !strings.Contains(err.Error(), pattern.ERR_Empty) {
-									continue
-								}
-							}
-							_, err = n.GenerateRestoralOrder(roothash, string(fragment.Hash[:]))
-							if err != nil {
-								n.Schal("err", fmt.Sprintf("[GenerateRestoralOrder] %v", err))
-								continue
-							}
-							n.Put([]byte(Cach_prefix_MyLost+string(fragment.Hash[:])), nil)
-							continue
-						}
-					} else {
-						if uint8(sorder.Stage) != configs.OrserState_CalcTag {
-							continue
-						} else {
-							for i := 0; i < len(teeEndPoints); i++ {
-								genTag, err := n.PoisServiceRequestGenTag(
-									teeEndPoints[i],
-									buf[:pattern.FragmentSize],
-									roothash,
-									string(fragment.Hash[:]),
-									"",
-									time.Duration(time.Minute*10),
-									grpc.WithTransportCredentials(insecure.NewCredentials()),
-								)
-								if err != nil {
-									n.Schal("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
-									continue
-								}
-								buf, err = json.Marshal(genTag.Tag)
-								if err != nil {
-									n.Schal("err", fmt.Sprintf("[json.Marshal] err: %s", err))
-									continue
-								}
-								ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
-								if err != nil {
-									n.Schal("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
-									continue
-								}
-								if !ok {
-									n.Schal("err", "VerifyAttest is false")
-									continue
-								}
-								err = sutils.WriteBufToFile(buf, filepath.Join(n.DataDir.TagDir, roothash+".tag"))
-								if err != nil {
-									n.Schal("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
-									continue
-								}
-								n.Schal("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, roothash+".tag")))
-							}
-						}
-					}
-					return names, us, mus, sigma, err
-				}
-				var tag pb.Tag
-				err = json.Unmarshal(buf, &tag)
-				if err != nil {
-					n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
-					return names, us, mus, sigma, err
-				}
-				matrix, _, err := proof.SplitByN(filepath.Join(serviceRoothashDir[i], string(fragment.Hash[:])), int64(len(tag.T.Phi)))
-				if err != nil {
-					n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
-					return names, us, mus, sigma, err
-				}
-
-				proveResponseCh := n.key.GenProof(qslice, nil, tag.T.Phi, matrix)
-				timeout.Reset(time.Minute)
-				select {
-				case proveResponse = <-proveResponseCh:
-				case <-timeout.C:
-					proveResponse.StatueMsg.StatusCode = 0
-				}
-
-				if proveResponse.StatueMsg.StatusCode != proof.Success {
-					n.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
-					return names, us, mus, sigma, err
-				}
-
-				sigmaTemp, ok := n.key.AggrAppendProof(sigma, qslice, tag.T.Phi)
-				if !ok {
-					return names, us, mus, sigma, errors.New("AggrAppendProof failed")
-				}
-				sigma = sigmaTemp
-				names = append(names, tag.T.Name)
-				us = append(us, tag.T.U)
-				mus = append(mus, proveResponse.MU)
+			if !ok {
+				continue
 			}
+			n.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
+			block, err := n.Get([]byte(Cach_prefix_Tag + fragmentHash))
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("Cache.Get(%s.%s): %v", roothash, fragmentHash, err))
+				return names, us, mus, sigma, err
+			}
+			blocknumber, err := strconv.ParseUint(string(block), 10, 32)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("ParseUint(%s): %v", string(block), fragmentHash, err))
+				return names, us, mus, sigma, err
+			}
+			if blocknumber > uint64(challStart) {
+				continue
+			}
+			serviceTagPath := filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))
+			buf, err := os.ReadFile(serviceTagPath)
+			if err != nil {
+				if strings.Contains(err.Error(), configs.Err_file_not_fount) {
+					recover = true
+				} else {
+					n.Schal("err", fmt.Sprintf("[%s] ReadFile(%s): %v", roothash, fmt.Sprintf("%s.tag", fragmentHash), err))
+					return names, us, mus, sigma, err
+				}
+			}
+			if len(buf) < pattern.FragmentSize {
+				recover = true
+				n.Schal("err", fmt.Sprintf("[%s.%s] File fragment size [%d] is not equal to %d", roothash, fragmentHash, len(buf), pattern.FragmentSize))
+			}
+			if recover {
+				buf, err = n.GetFragmentFromOss(fragmentHash)
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("Recovering fragment from cess gateway failed: %v", err))
+					return names, us, mus, sigma, err
+				}
+				if len(buf) < pattern.FragmentSize {
+					n.Schal("err", fmt.Sprintf("[%s.%s] Fragment size [%d] received from CESS gateway is wrong", roothash, fragmentHash, len(buf)))
+					return names, us, mus, sigma, err
+				}
+				err = os.WriteFile(serviceTagPath, buf, os.ModePerm)
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("[%s] [WriteFile(%s)]: %v", roothash, fragmentHash, err))
+					return names, us, mus, sigma, err
+				}
+			}
+			var tag pb.Tag
+			err = json.Unmarshal(buf, &tag)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
+				return names, us, mus, sigma, err
+			}
+			matrix, _, err := proof.SplitByN(filepath.Join(roothash, fragmentHash), int64(len(tag.T.Phi)))
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
+				return names, us, mus, sigma, err
+			}
+
+			proveResponseCh := n.GenProof(qslice, nil, tag.T.Phi, matrix)
+			timeout.Reset(time.Minute)
+			select {
+			case proveResponse = <-proveResponseCh:
+			case <-timeout.C:
+				proveResponse.StatueMsg.StatusCode = 0
+			}
+
+			if proveResponse.StatueMsg.StatusCode != proof.Success {
+				n.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
+				return names, us, mus, sigma, err
+			}
+
+			sigmaTemp, ok := n.AggrAppendProof(sigma, proveResponse.Sigma)
+			if !ok {
+				return names, us, mus, sigma, errors.New("AggrAppendProof failed")
+			}
+			sigma = sigmaTemp
+			names = append(names, tag.T.Name)
+			us = append(us, tag.T.U)
+			mus = append(mus, proveResponse.MU)
+			break
 		}
 	}
 	return names, us, mus, sigma, nil
@@ -434,7 +389,10 @@ func (n *Node) checkServiceProofRecord(
 		if serviceProofRecord.Names == nil ||
 			serviceProofRecord.Us == nil ||
 			serviceProofRecord.Mus == nil {
-			serviceProofRecord.Names, serviceProofRecord.Us, serviceProofRecord.Mus, serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
+			serviceProofRecord.Names,
+				serviceProofRecord.Us,
+				serviceProofRecord.Mus,
+				serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil
@@ -465,8 +423,23 @@ func (n *Node) checkServiceProofRecord(
 			return errors.New("chall.ProveInfo.ServiceProve is empty")
 		}
 	} else {
-		serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
-		serviceProofRecord.AllocatedTeeAccountId = teeAcc[:]
+		serviceProofRecord.AllocatedTeeAccount, err = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
+		if err != nil {
+			_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
+			if err != nil {
+				return err
+			}
+			ok := chall.ProveInfo.ServiceProve.HasValue()
+			if ok {
+				_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
+				serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
+				serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+			} else {
+				return errors.New("chall.ProveInfo.ServiceProve is empty")
+			}
+		} else {
+			serviceProofRecord.AllocatedTeeAccountId = teeAcc[:]
+		}
 	}
 
 	for {
@@ -507,21 +480,16 @@ func (n *Node) checkServiceProofRecord(
 		break
 	}
 
-	teeEndPoint, ok := n.GetTeeWork(serviceProofRecord.AllocatedTeeAccount)
-	if !ok {
-		teeEndPoint, err = n.QueryTeeEndPoint(serviceProofRecord.AllocatedTeeAccountId)
-		if err != nil {
-			n.Schal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
-			return err
-		}
-		n.SaveTeeWork(serviceProofRecord.AllocatedTeeAccount, teeEndPoint)
+	teeInfo, err := n.GetTee(serviceProofRecord.AllocatedTeeAccount)
+	if err != nil {
+		n.Schal("err", err.Error())
+		return err
 	}
 
-	if utils.ContainsIpv4(teeEndPoint) {
-		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
-	}
-
-	serviceProofRecord.ServiceBloomFilter, serviceProofRecord.TeeAccountId, serviceProofRecord.Signature, serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeEndPoint, serviceProofRecord)
+	serviceProofRecord.ServiceBloomFilter,
+		serviceProofRecord.TeeAccountId,
+		serviceProofRecord.Signature,
+		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
 	if err != nil {
 		return nil
 	}
@@ -595,28 +563,39 @@ func (n *Node) batchVerify(
 		return nil, nil, nil, false, err
 	}
 
-	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
 	var batchVerifyParam = &pb.RequestBatchVerify_BatchVerifyParam{
 		Names: serviceProofRecord.Names,
 		Us:    serviceProofRecord.Us,
 		Mus:   serviceProofRecord.Mus,
 		Sigma: serviceProofRecord.Sigma,
 	}
-
-	n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", teeEndPoint))
-	batchVerify, err := n.PoisServiceRequestBatchVerify(
-		teeEndPoint,
-		n.GetPeerPublickey(),
-		n.GetSignatureAccPulickey(),
-		peeridSign,
-		batchVerifyParam,
-		qslice_pb,
-		time.Duration(time.Minute*10),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
-		return nil, nil, nil, false, err
+	var batchVerify *pb.ResponseBatchVerify
+	var timeoutStep time.Duration = 10
+	var timeout time.Duration
+	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
+	for i := 0; i < 3; i++ {
+		timeout = time.Minute * timeoutStep
+		batchVerify, err = n.PoisServiceRequestBatchVerify(
+			teeEndPoint,
+			n.GetPeerPublickey(),
+			n.GetSignatureAccPulickey(),
+			peeridSign,
+			batchVerifyParam,
+			qslice_pb,
+			timeout,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+				n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
+				timeoutStep += 10
+				time.Sleep(time.Minute)
+				continue
+			}
+			n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
+			return nil, nil, nil, false, err
+		}
+		return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, err
 	}
-	return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, nil
+	return nil, nil, nil, false, err
 }

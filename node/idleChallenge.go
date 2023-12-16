@@ -126,7 +126,7 @@ func (n *Node) idleChallenge(
 
 	var rear int64
 	var blocksProof = make([]*pb.BlocksProof, 0)
-
+	var teeEndPoint string
 	n.Ichal("info", "start calc challenge...")
 	idleProofRecord.FileBlockProofInfo = make([]fileBlockProofInfo, 0)
 	var idleproof = make([]byte, 0)
@@ -259,14 +259,17 @@ func (n *Node) idleChallenge(
 			return
 		}
 
-		teeEndPoint, ok := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-		if !ok {
-			teeEndPoint, err = n.QueryTeeEndPoint(idleProofRecord.AllocatedTeeAccountId)
+		teeInfoType, err := n.GetTee(idleProofRecord.AllocatedTeeAccount)
+		if err != nil {
+			teeInfo, err := n.QueryTeeInfo(idleProofRecord.AllocatedTeeAccountId)
 			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+				n.Ichal("err", err.Error())
 				return
 			}
-			n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
+			teeEndPoint = teeInfo.EndPoint
+			n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
+		} else {
+			teeEndPoint = teeInfoType.EndPoint
 		}
 		if utils.ContainsIpv4(teeEndPoint) {
 			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
@@ -368,6 +371,7 @@ func (n *Node) checkIdleProofRecord(
 	teeSign pattern.TeeSignature,
 	teeAcc types.AccountID,
 ) error {
+	var teeEndPoint string
 	var idleProofRecord idleProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.IdleProofFile))
 	if err != nil {
@@ -439,14 +443,17 @@ func (n *Node) checkIdleProofRecord(
 		break
 	}
 
-	teeEndPoint, ok := n.GetTeeWork(idleProofRecord.AllocatedTeeAccount)
-	if !ok {
-		teeEndPoint, err = n.QueryTeeEndPoint(idleProofRecord.AllocatedTeeAccountId)
+	teeInfoType, err := n.GetTee(idleProofRecord.AllocatedTeeAccount)
+	if err != nil {
+		teeInfo, err := n.QueryTeeInfo(idleProofRecord.AllocatedTeeAccountId)
 		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[QueryTeeEndPoint] %v", err))
+			n.Ichal("err", err.Error())
 			return err
 		}
-		n.SaveTeeWork(idleProofRecord.AllocatedTeeAccount, teeEndPoint)
+		teeEndPoint = teeInfo.EndPoint
+		n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
+	} else {
+		teeEndPoint = teeInfoType.EndPoint
 	}
 	if utils.ContainsIpv4(teeEndPoint) {
 		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")

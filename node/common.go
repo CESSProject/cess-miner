@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
-	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -40,16 +40,26 @@ const (
 )
 
 const (
-	Cach_prefix_metadata    = "metadata:"
+	// Record the fid of stored files
+	Cach_prefix_File = "file:"
+	// Record the block of reported tags
+	Cach_prefix_Tag = "tag:"
+
 	Cach_prefix_MyLost      = "mylost:"
 	Cach_prefix_recovery    = "recovery:"
 	Cach_prefix_TargetMiner = "targetminer:"
-	Cach_prefix_File        = "file:"
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
 func (n *Node) connectBoot() {
-	if n.state.Load() == configs.State_Offline {
+	chainSt := n.GetChainState()
+	if chainSt {
+		return
+	}
+
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
 		return
 	}
 
@@ -75,42 +85,70 @@ func (n *Node) connectBoot() {
 	}
 }
 
-func (n *Node) connectChain() error {
-	var err error
+func (n *Node) connectChain(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 
-	if !n.GetChainState() {
+	chainSt := n.GetChainState()
+	if chainSt {
+		return
+	}
+
+	minerSt := n.GetMinerState()
+	if minerSt == pattern.MINER_STATE_EXIT ||
+		minerSt == pattern.MINER_STATE_OFFLINE {
+		return
+	}
+
+	n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	err := n.ReconnectRPC()
+	if err != nil {
 		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		err = n.Reconnect()
-		if err != nil {
-			return err
-		}
-		out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.SetChainState(true)
+		return
 	}
-	return nil
+	n.SetChainState(true)
+	out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 }
 
-func (n *Node) syncChainStatus() {
-	teelist, err := n.QueryTeeWorkerList()
+func (n *Node) syncChainStatus(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+	teelist, err := n.QueryAllTeeInfo()
 	if err != nil {
-		n.Log("err", fmt.Sprintf("[QueryTeeWorkerList] %v", err))
+		n.Log("err", err.Error())
 	} else {
 		for i := 0; i < len(teelist); i++ {
-			n.SaveTeeWork(teelist[i].Controller_account, teelist[i].End_point)
+			err = n.SaveTee(teelist[i].WorkAccount, teelist[i].EndPoint, teelist[i].TeeType)
+			if err != nil {
+				n.Log("err", err.Error())
+			}
 		}
 	}
 	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 	if err != nil {
-		n.state.Store(configs.State_Offline)
-		n.Log("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+		n.Log("err", err.Error())
 	} else {
-		n.state.Store(string(minerInfo.State))
+		err = n.SaveMinerState(string(minerInfo.State))
+		if err != nil {
+			n.Log("err", err.Error())
+		}
 	}
 }
 

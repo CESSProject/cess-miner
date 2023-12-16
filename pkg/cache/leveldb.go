@@ -135,10 +135,10 @@ func (db *LevelDB) QueryPrefixKeyList(prefix string) ([]string, error) {
 	db.l.RLock()
 	defer db.l.RUnlock()
 	iter := db.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+	defer iter.Release()
 	for iter.Next() {
 		result = append(result, strings.TrimPrefix(string(iter.Key()), prefix))
 	}
-	iter.Release()
 	return result, iter.Error()
 }
 

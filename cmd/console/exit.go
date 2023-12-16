@@ -53,7 +53,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	//Build client
 	n.SDK, err = cess.New(
 		context.Background(),
-		config.CharacterName_Bucket,
+		cess.Name(config.CharacterName_Bucket),
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
@@ -63,7 +63,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.ExitSminer()
+	txhash, err := n.ExitSminer(n.GetSignatureAcc())
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

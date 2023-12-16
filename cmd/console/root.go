@@ -44,11 +44,14 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "", "custom configuration file")
 	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint list")
 	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
+	rootCmd.PersistentFlags().StringP("staking", "", "", "staking account")
 	rootCmd.PersistentFlags().StringP("earnings", "", "", "earnings account")
 	rootCmd.PersistentFlags().IntP("port", "", 0, "listening port")
+	rootCmd.PersistentFlags().IntP("cpu", "", 0, "number of cpus used, 0 means use all")
 	rootCmd.PersistentFlags().Uint64P("space", "", 0, "maximum space used (GiB)")
 	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap node list")
 	rootCmd.PersistentFlags().StringP("mnemonic", "m", "", "staking account mnemonic")
+	rootCmd.PersistentFlags().StringSliceP("tees", "", nil, "priority tee list address")
 }
 
 func Command_Version() *cobra.Command {

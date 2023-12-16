@@ -10,13 +10,19 @@ package node
 import (
 	"fmt"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
-	if n.state.Load() == configs.State_Offline {
+	chainSt := n.GetChainState()
+	if chainSt {
+		return
+	}
+
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
 		return
 	}
 
