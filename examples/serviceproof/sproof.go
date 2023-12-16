@@ -168,7 +168,7 @@ func main() {
 				continue
 			}
 
-			sigmaTemp, ok := n.GetPodr2Key().AggrAppendProof(sigma, qslice, tag.T.Phi)
+			sigmaTemp, ok := n.GetPodr2Key().AggrAppendProof(sigma, proveResponse.Sigma)
 			if !ok {
 				log.Println("AggrAppendProof failed")
 				continue

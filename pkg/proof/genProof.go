@@ -102,7 +102,7 @@ func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {
 	return sigma.String()
 }
 
-func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, QSlice []QElement, Phi []string) (string, bool) {
+func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, aSigma string) (string, bool) {
 	if AggrSigma == "" {
 		AggrSigma = "1"
 	}
@@ -111,26 +111,45 @@ func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, QSlice []QElement, P
 	if !ok {
 		return "", false
 	}
-
-	for _, q := range QSlice {
-		vi, ok := new(big.Int).SetString(q.V, 10)
-		if !ok {
-			return "", false
-		}
-
-		//σ =∏ σi^vi ∈ G (i ∈ [1, n])
-		sigma_i, ok := new(big.Int).SetString(Phi[q.I], 10)
-		if !ok {
-			return "", false
-		}
-
-		sigma_i.Exp(sigma_i, vi, keyPair.Spk.N)
-		sigma.Mul(sigma, sigma_i)
+	subSigma, ok := new(big.Int).SetString(aSigma, 10)
+	if !ok {
+		return "", false
 	}
+	sigma.Mul(sigma, subSigma)
 	sigma.Mod(sigma, keyPair.Spk.N)
 
 	return sigma.String(), true
 }
+
+// func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, QSlice []QElement, Phi []string) (string, bool) {
+// 	if AggrSigma == "" {
+// 		AggrSigma = "1"
+// 	}
+
+// 	sigma, ok := new(big.Int).SetString(AggrSigma, 10)
+// 	if !ok {
+// 		return "", false
+// 	}
+
+// 	for _, q := range QSlice {
+// 		vi, ok := new(big.Int).SetString(q.V, 10)
+// 		if !ok {
+// 			return "", false
+// 		}
+
+// 		//σ =∏ σi^vi ∈ G (i ∈ [1, n])
+// 		sigma_i, ok := new(big.Int).SetString(Phi[q.I], 10)
+// 		if !ok {
+// 			return "", false
+// 		}
+
+// 		sigma_i.Exp(sigma_i, vi, keyPair.Spk.N)
+// 		sigma.Mul(sigma, sigma_i)
+// 	}
+// 	sigma.Mod(sigma, keyPair.Spk.N)
+
+// 	return sigma.String(), true
+// }
 
 func SplitByN(filePath string, N int64) (Data [][]byte, sep int64, err error) {
 	file, err := os.Open(filePath)

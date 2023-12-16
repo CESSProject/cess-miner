@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -29,9 +30,13 @@ Rpc:
   - "wss://testnet-rpc2.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
-# Staking account mnemonic
+  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
+# Signature account mnemonic
 Mnemonic: "xxx xxx ... xxx"
+# Staking account
+# If you fill in the staking account, the staking will be paid by the staking account,
+# otherwise the staking will be paid by the signature account.
+StakingAcc: "cXxxx...xxx"
 # earnings account
 EarningsAcc: cXxxx...xxx
 # Service workspace
@@ -41,7 +46,11 @@ Port: 4001
 # Maximum space used, the unit is GiB
 UseSpace: 2000
 # Number of cpu's used, 0 means use all
-UseCpu: 0`
+UseCpu: 0
+# Priority tee list address
+TeeList:
+  - "127.0.0.1:8080"
+  - "127.0.0.1:8081"`
 
 type Confile interface {
 	Parse(fpath string, port int) error
@@ -50,24 +59,29 @@ type Confile interface {
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
+	GetStakingAcc() string
 	GetEarningsAcc() string
 	GetUseSpace() uint64
-	GetStakingPublickey() []byte
-	GetStakingAcc() string
-	SetEarningsAcc(earnings string) error
+	GetSignaturePublickey() []byte
+	GetSignatureAccount() string
 	GetUseCpu() uint8
+	GetPriorityTeeList() []string
 }
 
 type confile struct {
 	Rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
 	Boot        []string `name:"Boot" toml:"Boot" yaml:"Boot"`
 	Mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
+	StakingAcc  string   `name:"StakingAcc" toml:"StakingAcc" yaml:"StakingAcc"`
 	EarningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
 	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
 	Port        int      `name:"Port" toml:"Port" yaml:"Port"`
 	UseSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
 	UseCpu      uint8    `name:"UseCpu" toml:"UseCpu" yaml:"UseCpu"`
+	TeeList     []string `name:"TeeList" toml:"TeeList" yaml:"TeeList"`
 }
+
+var _ Confile = (*confile)(nil)
 
 func NewConfigfile() *confile {
 	return &confile{}
@@ -116,6 +130,11 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
+	err = sutils.VerityAddress(c.StakingAcc, sutils.CessPrefix)
+	if err != nil {
+		return errors.New("invalid staking account")
+	}
+
 	err = sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)
 	if err != nil {
 		return errors.New("invalid earnings account")
@@ -131,6 +150,18 @@ func (c *confile) Parse(fpath string, port int) error {
 		if !fstat.IsDir() {
 			return errors.Errorf("The '%v' is not a directory", c.Workspace)
 		}
+	}
+
+	if len(c.TeeList) > 0 {
+		var teeList = make([]string, len(c.TeeList))
+		for i := 0; i < len(c.TeeList); i++ {
+			if utils.ContainsIpv4(c.TeeList[i]) {
+				teeList[i] = strings.TrimPrefix(c.TeeList[i], "http://")
+			} else {
+				teeList[i] = c.TeeList[i]
+			}
+		}
+		c.TeeList = teeList
 	}
 
 	// dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
@@ -188,18 +219,6 @@ func (c *confile) SetWorkspace(workspace string) error {
 	return nil
 }
 
-func (c *confile) SetEarningsAcc(earnings string) error {
-	var err error
-	if earnings != "" {
-		err = sutils.VerityAddress(earnings, sutils.CessPrefix)
-		if err != nil {
-			return err
-		}
-	}
-	c.EarningsAcc = earnings
-	return nil
-}
-
 func (c *confile) SetMnemonic(mnemonic string) error {
 	_, err := signature.KeyringPairFromSecret(mnemonic, 0)
 	if err != nil {
@@ -208,6 +227,21 @@ func (c *confile) SetMnemonic(mnemonic string) error {
 	c.Mnemonic = mnemonic
 	return nil
 }
+
+func (c *confile) SetEarningsAcc(earningsAcc string) error {
+	err := sutils.VerityAddress(earningsAcc, sutils.CessPrefix)
+	if err != nil {
+		return err
+	}
+	c.EarningsAcc = earningsAcc
+	return nil
+}
+
+func (c *confile) SetPriorityTeeList(tees []string) {
+	c.TeeList = tees
+}
+
+/////////////////////////////////////////////
 
 func (c *confile) GetRpcAddr() []string {
 	return c.Rpc
@@ -229,17 +263,21 @@ func (c *confile) GetMnemonic() string {
 	return c.Mnemonic
 }
 
+func (c *confile) GetStakingAcc() string {
+	return c.StakingAcc
+}
+
 func (c *confile) GetEarningsAcc() string {
 	return c.EarningsAcc
 }
 
-func (c *confile) GetStakingPublickey() []byte {
+func (c *confile) GetSignaturePublickey() []byte {
 	key, _ := signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	return key.PublicKey
 }
 
-func (c *confile) GetStakingAcc() string {
-	acc, _ := sutils.EncodePublicKeyAsCessAccount(c.GetStakingPublickey())
+func (c *confile) GetSignatureAccount() string {
+	acc, _ := sutils.EncodePublicKeyAsCessAccount(c.GetSignaturePublickey())
 	return acc
 }
 
@@ -249,4 +287,8 @@ func (c *confile) GetUseSpace() uint64 {
 
 func (c *confile) GetUseCpu() uint8 {
 	return c.UseCpu
+}
+
+func (c *confile) GetPriorityTeeList() []string {
+	return c.TeeList
 }

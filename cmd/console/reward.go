@@ -57,7 +57,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	//Build client
 	n.SDK, err = cess.New(
 		context.Background(),
-		config.CharacterName_Bucket,
+		cess.Name(config.CharacterName_Bucket),
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
@@ -67,7 +67,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	rewardInfo, err := n.QuaryStorageNodeRewardInfo(n.GetStakingPublickey())
+	rewardInfo, err := n.QueryRewards(n.GetSignaturePublickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())

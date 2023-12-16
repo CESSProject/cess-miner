@@ -33,11 +33,18 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		}
 	}()
 
-	if n.state.Load() == configs.State_Offline {
+	chainSt := n.GetChainState()
+	if chainSt {
 		return
 	}
 
-	replaceSize, err := n.QueryPendingReplacements_V2(n.GetStakingPublickey())
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
+		return
+	}
+
+	replaceSize, err := n.QueryPendingReplacements(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			n.Replace("err", err.Error())
@@ -135,34 +142,46 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}
 	requestVerifyDeletionProof.MinerSign = signData
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
-	var workTeeEndPoint string
-	var teeEndPoints = make([]string, 0)
-	teeList := n.GetAllTeeWorkEndPoint()
-	for _, v := range teeList {
-		if utils.ContainsIpv4(v) {
-			teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v, "http://"))
-		} else {
-			teeEndPoints = append(teeEndPoints, v)
-		}
-	}
-	utils.RandSlice(teeEndPoints)
+	var usedTeeEndPoint string
+	var usedTeeWorkAccount string
+	var timeout time.Duration
+	var timeoutStep time.Duration = 3
+	teeEndPoints := n.GetPriorityTeeList()
+	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 	for _, t := range teeEndPoints {
-		verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
-			t,
-			requestVerifyDeletionProof,
-			time.Duration(time.Minute*10),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
-			continue
+		timeout = time.Duration(time.Minute * timeoutStep)
+		n.Space("info", fmt.Sprintf("Will use tee: %v", t))
+		for try := 2; try <= 6; try += 2 {
+			verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
+				t,
+				requestVerifyDeletionProof,
+				time.Duration(timeout),
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+			)
+			if err != nil {
+				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+					timeoutStep += 2
+					time.Sleep(time.Minute)
+					continue
+				}
+				n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
+				break
+			}
+			usedTeeEndPoint = t
+			usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
+			if err != nil {
+				n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
+			}
+			break
 		}
-		workTeeEndPoint = t
-		break
+		if usedTeeEndPoint != "" && usedTeeWorkAccount != "" {
+			break
+		}
 	}
 
-	if workTeeEndPoint == "" {
+	if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
 		n.AccRollback(true)
+		n.Replace("err", "No available tee")
 		return
 	}
 
@@ -189,8 +208,8 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}
 
 	//
-	txhash, err := n.ReplaceIdleSpace(idleSignInfo, sign)
-	if err != nil {
+	txhash, err := n.ReplaceIdleSpace(idleSignInfo, sign, usedTeeWorkAccount)
+	if err != nil || txhash == "" {
 		n.AccRollback(true)
 		n.Replace("err", err.Error())
 		return

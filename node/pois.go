@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -49,13 +50,20 @@ func (n *Node) poisMgt(ch chan<- bool) {
 	}()
 
 	for {
-		if n.state.Load() == configs.State_Offline {
-			time.Sleep(time.Minute)
+		chainSt := n.GetChainState()
+		if chainSt {
 			return
 		}
-		err := n.pois()
+
+		minerSt := n.GetMinerState()
+		if minerSt != pattern.MINER_STATE_POSITIVE &&
+			minerSt != pattern.MINER_STATE_FROZEN {
+			return
+		}
+		err := n.certifiedSpace()
 		if err != nil {
 			n.Space("err", err.Error())
+			time.Sleep(time.Minute)
 		}
 		time.Sleep(pattern.BlockInterval)
 	}
@@ -141,7 +149,14 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 		}
 	}()
 
-	if n.state.Load() == configs.State_Offline {
+	chainSt := n.GetChainState()
+	if chainSt {
+		return
+	}
+
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
 		return
 	}
 
@@ -153,6 +168,7 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	}
 
 	if dirfreeSpace < minSpace {
+		out.Err(fmt.Sprintf("The workspace capacity is less than %dG", minSpace/pattern.SIZE_1GiB))
 		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
 		return
@@ -161,13 +177,19 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	n.Space("info", "Start generating idle files")
 	err = n.Prover.GenerateIdleFileSet()
 	if err != nil {
-		n.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
+		if strings.Contains(err.Error(), "not enough space") {
+			out.Err("Your workspace is out of capacity")
+			n.Space("err", "workspace is out of capacity")
+		} else {
+			n.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
+		}
+		time.Sleep(time.Minute * 10)
 		return
 	}
 	n.Space("info", "generate a idle file")
 }
 
-func (n *Node) pois() error {
+func (n *Node) certifiedSpace() error {
 	defer func() {
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
@@ -238,35 +260,45 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-		var teeEndPoints = make([]string, 0)
-		teeList := n.GetAllTeeWorkEndPoint()
-		for _, v := range teeList {
-			if utils.ContainsIpv4(v) {
-				teeEndPoints = append(teeEndPoints, strings.TrimPrefix(v, "http://"))
-			} else {
-				teeEndPoints = append(teeEndPoints, v)
-			}
-		}
-		utils.RandSlice(teeEndPoints)
-		var workTeeEndPoint string
-		n.Space("info", fmt.Sprintf("All tees: %v", teeEndPoints))
+
+		teeEndPoints := n.GetPriorityTeeList()
+		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+
+		var usedTeeEndPoint string
+		var usedTeeWorkAccount string
+		var timeout time.Duration
+		var timeoutStep = 0
 		for i := 0; i < len(teeEndPoints); i++ {
+			timeout = time.Duration(time.Minute * 3)
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
-			chall_pb, err = n.PoisMinerCommitGenChall(
-				teeEndPoints[i],
-				commitGenChall,
-				time.Duration(time.Minute*5),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-			)
-			if err != nil {
-				n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChall] %v", err))
-				continue
+			for try := 2; try <= 6; try += 2 {
+				chall_pb, err = n.PoisMinerCommitGenChall(
+					teeEndPoints[i],
+					commitGenChall,
+					time.Duration(timeout),
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				)
+				if err != nil {
+					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+						timeout = time.Duration(time.Minute * time.Duration(3+try))
+						continue
+					}
+					n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChall] %v", err))
+					break
+				}
+				usedTeeEndPoint = teeEndPoints[i]
+				usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
+				if err != nil {
+					n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
+				}
+				break
 			}
-			workTeeEndPoint = teeEndPoints[i]
-			break
+			if usedTeeEndPoint != "" && usedTeeWorkAccount != "" {
+				break
+			}
 		}
 
-		if workTeeEndPoint == "" {
+		if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
 			n.Prover.CommitRollback()
 			return errors.New("no worked tee")
 		}
@@ -276,7 +308,7 @@ func (n *Node) pois() error {
 			chals[i] = chall_pb.Rows[i].Values
 		}
 
-		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", workTeeEndPoint))
+		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", usedTeeEndPoint))
 
 		commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
 		if err != nil {
@@ -363,20 +395,27 @@ func (n *Node) pois() error {
 		n.Space("info", "Verify idle file commits")
 		var tryCount uint8
 		var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
-
+		timeoutStep = 10
 		for {
-			if tryCount >= 100 {
+			timeout = time.Minute * time.Duration(timeoutStep)
+			if tryCount >= 5 {
 				n.Prover.AccRollback(false)
 				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
 			}
 			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProof(
-				workTeeEndPoint,
+				usedTeeEndPoint,
 				requestVerifyCommitAndAccProof,
-				time.Duration(time.Minute*10),
+				time.Duration(timeout),
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 			)
 			if err != nil {
 				if strings.Contains(err.Error(), "busy") {
+					tryCount++
+					time.Sleep(time.Minute)
+					continue
+				}
+				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+					timeoutStep += 3
 					tryCount++
 					time.Sleep(time.Minute)
 					continue
@@ -421,8 +460,7 @@ func (n *Node) pois() error {
 		}
 
 		n.Space("info", "Submit idle space")
-		txhash, err := n.CertIdleSpace(idleSignInfo, sign)
-
+		txhash, err := n.CertIdleSpace(idleSignInfo, sign, usedTeeWorkAccount)
 		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)

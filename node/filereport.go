@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -26,11 +26,19 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		}
 	}()
 
-	if n.state.Load() == configs.State_Offline {
+	chainSt := n.GetChainState()
+	if chainSt {
+		return
+	}
+
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
 		return
 	}
 
 	var (
+		ok           bool
 		reReport     bool
 		roothash     string
 		txhash       string
@@ -38,23 +46,30 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		storageorder pattern.StorageOrder
 	)
 
-	n.Report("info", ">>>>> start reportFiles <<<<<")
-
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
-		n.Report("err", fmt.Sprintf("[Dirs] %v", err))
+		n.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))
 		return
 	}
-	n.Report("info", fmt.Sprintf("roothashs: %v", roothashs))
 
 	for _, v := range roothashs {
 		roothash = filepath.Base(v)
-		n.Report("info", fmt.Sprintf("roothash: %v", roothash))
+
+		ok, err = n.Has([]byte(Cach_prefix_File + roothash))
+		if err == nil {
+			if ok {
+				continue
+			}
+		} else {
+			n.Report("err", err.Error())
+		}
+
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				n.Report("err", fmt.Sprintf("[QueryFileMetadata] %v", err))
-				return
+				n.Report("err", err.Error())
+				time.Sleep(pattern.BlockInterval)
+				continue
 			}
 		} else {
 			var deletedFrgmentList []string
@@ -68,34 +83,43 @@ func (n *Node) reportFiles(ch chan<- bool) {
 					}
 				}
 			}
-			for _, d := range deletedFrgmentList {
-				if _, ok := savedFrgmentList[d]; ok {
-					continue
-				}
-				os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
-			}
-			if _, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash)); err == nil {
-				err = RenameDir(filepath.Join(n.GetDirs().TmpDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+			if len(savedFrgmentList) == 1 {
+				err = os.Mkdir(filepath.Join(n.GetDirs().FileDir, roothash), os.ModeDir)
 				if err != nil {
-					n.Report("err", fmt.Sprintf("[RenameDir %s] %v", roothash, err))
+					n.Report("err", fmt.Sprintf("[Mkdir.FileDir(%s)] %v", roothash, err))
 					continue
 				}
-				n.Put([]byte(Cach_prefix_metadata+roothash), []byte(fmt.Sprintf("%v", metadata.Completion)))
+				for _, d := range deletedFrgmentList {
+					if _, ok := savedFrgmentList[d]; ok {
+						err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, d),
+							filepath.Join(n.GetDirs().FileDir, roothash, d))
+						n.Put([]byte(Cach_prefix_File+roothash), []byte(d))
+						if err != nil {
+							n.Report("err", fmt.Sprintf("[Remove TmpDir to FileDir (%s.%s)] %v", roothash, d, err))
+							continue
+						}
+						continue
+					}
+					err = os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
+					if err != nil {
+						n.Report("err", fmt.Sprintf("[Delete TmpFile (%s.%s)] %v", roothash, d, err))
+					}
+				}
 			}
+
 			continue
 		}
 
 		storageorder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				n.Report("err", fmt.Sprintf("[QueryStorageOrder] %v", err))
-				return
+				n.Report("err", err.Error())
 			}
-			//os.RemoveAll(v)
 			continue
 		}
+
 		reReport = true
-		for _, completeMiner := range storageorder.CompleteInfo {
+		for _, completeMiner := range storageorder.CompleteList {
 			if sutils.CompareSlice(completeMiner.Miner[:], n.GetSignatureAccPulickey()) {
 				reReport = false
 			}
@@ -112,7 +136,12 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			for i := 0; i < len(storageorder.SegmentList); i++ {
 				for j := 0; j < len(storageorder.SegmentList[i].FragmentHash); j++ {
 					if j == int(idx) {
-						fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, string(storageorder.SegmentList[i].FragmentHash[j][:])))
+						fstat, err := os.Stat(
+							filepath.Join(
+								n.GetDirs().TmpDir, roothash,
+								string(storageorder.SegmentList[i].FragmentHash[j][:]),
+							),
+						)
 						if err != nil {
 							break
 						}
@@ -125,7 +154,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				}
 			}
 			if sucCount > 0 {
-				for _, v := range storageorder.CompleteInfo {
+				for _, v := range storageorder.CompleteList {
 					if uint8(v.Index) == uint8(idx+1) {
 						sucCount = 0
 						break
@@ -152,31 +181,4 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			break
 		}
 	}
-}
-
-func RenameDir(oldDir, newDir string) error {
-	files, err := utils.DirFiles(oldDir, 0)
-	if err != nil {
-		return err
-	}
-	fstat, err := os.Stat(newDir)
-	if err != nil {
-		err = os.MkdirAll(newDir, pattern.DirMode)
-		if err != nil {
-			return err
-		}
-	} else {
-		if !fstat.IsDir() {
-			return fmt.Errorf("%s not a dir", newDir)
-		}
-	}
-
-	for _, v := range files {
-		name := filepath.Base(v)
-		err = os.Rename(filepath.Join(oldDir, name), filepath.Join(newDir, name))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

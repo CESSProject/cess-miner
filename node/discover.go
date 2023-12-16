@@ -23,6 +23,8 @@ import (
 	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/pkg/errors"
 )
 
 func (n *Node) findPeers(ch chan<- bool) {
@@ -32,6 +34,12 @@ func (n *Node) findPeers(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
+		return
+	}
 
 	err := n.findpeer()
 	if err != nil {
@@ -55,7 +63,7 @@ func (n *Node) recvPeers(ch chan<- bool) {
 			for _, v := range foundPeer.Responses {
 				if v != nil {
 					if len(v.Addrs) > 0 {
-						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
+						n.SavePeer(peer.AddrInfo{
 							ID:    v.ID,
 							Addrs: v.Addrs,
 						})
@@ -85,7 +93,7 @@ func (n *Node) findpeer() error {
 			n.GetDht().RoutingTable().RemovePeer(onePeer.ID)
 		} else {
 			n.GetDht().RoutingTable().TryAddPeer(onePeer.ID, true, true)
-			n.SavePeer(onePeer.ID.Pretty(), peer.AddrInfo{
+			n.SavePeer(peer.AddrInfo{
 				ID:    onePeer.ID,
 				Addrs: onePeer.Addrs,
 			})
@@ -94,42 +102,28 @@ func (n *Node) findpeer() error {
 	return nil
 }
 
-func (n *Node) UpdatePeers() {
-	if n.state.Load() == configs.State_Offline {
-		return
-	}
-	time.Sleep(time.Second * time.Duration(rand.Intn(120)))
+func (n *Node) QueryPeerFromOss(peerid string) (peer.AddrInfo, error) {
 	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
 	if err != nil {
-		n.Discover("err", err.Error())
-	} else {
-		err = json.Unmarshal(data, &n.peers)
-		if err != nil {
-			n.Discover("err", err.Error())
-		} else {
-			err = n.SavePeersToDisk(n.DataDir.PeersFile)
-			if err != nil {
-				n.Discover("err", err.Error())
-			}
+		return peer.AddrInfo{}, err
+	}
+	var peers = make(map[string]peer.AddrInfo, 0)
+	err = json.Unmarshal(data, &peers)
+	if err != nil {
+		return peer.AddrInfo{}, err
+	}
+	for k, v := range peers {
+		if k == peerid {
+			return v, nil
 		}
 	}
-}
-
-func (n *Node) UpdatePeerFirst() {
-	time.Sleep(time.Second * time.Duration(rand.Intn(30)))
-	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(data, &n.peers)
-	if err != nil {
-		return
-	}
-	n.SavePeersToDisk(n.DataDir.PeersFile)
+	return peer.AddrInfo{}, errors.New("not found")
 }
 
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
-	if n.state.Load() == configs.State_Offline {
+	minerSt := n.GetMinerState()
+	if minerSt != pattern.MINER_STATE_POSITIVE &&
+		minerSt != pattern.MINER_STATE_FROZEN {
 		return
 	}
 
@@ -191,7 +185,7 @@ func (n *Node) ReportLogs(file string) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPost, "http://deoss-pub-gateway.cess.cloud/feedback/log", body)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%sfeedback/log", configs.DefaultDeossAddr), body)
 	if err != nil {
 		return
 	}
@@ -216,7 +210,7 @@ func (n *Node) GetFragmentFromOss(fid string) ([]byte, error) {
 		}
 	}()
 
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://deoss-pub-gateway.cess.cloud/%s", fid), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", configs.DefaultDeossAddr, fid), nil)
 	if err != nil {
 		return nil, err
 	}
