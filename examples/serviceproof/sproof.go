@@ -208,20 +208,29 @@ func main() {
 		}
 
 		n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", tee))
-		batchVerify, err := n.PoisServiceRequestBatchVerify(
+		var requestBatchVerify = &pb.RequestBatchVerify{
+			AggProof:        batchVerifyParam,
+			PeerId:          nil,
+			MinerPbk:        nil,
+			MinerPeerIdSign: nil,
+			Qslices:         qslice_pb,
+			USig:            nil,
+		}
+		var dialOptions []grpc.DialOption
+		if !strings.Contains(tee, "https://") {
+			dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+		batchVerify, err := n.RequestBatchVerify(
 			tee,
-			nil,
-			nil,
-			nil,
-			batchVerifyParam,
-			qslice_pb,
+			requestBatchVerify,
 			time.Duration(time.Minute*10),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			dialOptions,
+			nil,
 		)
 		if err != nil {
-			log.Println("PoisServiceRequestBatchVerify err: ", err)
+			log.Println("RequestBatchVerify err: ", err)
 			continue
 		}
-		log.Println("PoisServiceRequestBatchVerify result: ", batchVerify.BatchVerifyResult)
+		log.Println("RequestBatchVerify result: ", batchVerify.BatchVerifyResult)
 	}
 }

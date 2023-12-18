@@ -282,6 +282,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	var suc bool
+	var dialOptions []grpc.DialOption
 	var responseMinerInitParam *pb.ResponseMinerInitParam
 	var delay time.Duration
 	if firstReg {
@@ -312,23 +313,30 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.RebuildDirs()
 
 		time.Sleep(pattern.BlockInterval)
+
 		for i := 0; i < len(teeEndPointList); i++ {
 			delay = 20
 			suc = false
 			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-				responseMinerInitParam, err = n.PoisGetMinerInitParam(
+				if !strings.Contains(teeEndPointList[i], "https://") {
+					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+				} else {
+					dialOptions = nil
+				}
+				responseMinerInitParam, err = n.RequestMinerGetNewKey(
 					teeEndPointList[i],
 					n.GetSignatureAccPulickey(),
 					time.Duration(time.Second*delay),
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
+					dialOptions,
+					nil,
 				)
 				if err != nil {
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						delay += 30
 						continue
 					}
-					out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
+					out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
 					break
 				}
 				suc = true
@@ -411,12 +419,17 @@ func runCmd(cmd *cobra.Command, args []string) {
 				suc = false
 				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 					out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-					responseMinerInitParam, err = n.PoisGetMinerInitParam(
+					if !strings.Contains(teeEndPointList[i], "https://") {
+						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+					} else {
+						dialOptions = nil
+					}
+					responseMinerInitParam, err = n.RequestMinerGetNewKey(
 						teeEndPointList[i],
 						n.GetSignatureAccPulickey(),
 						time.Duration(time.Second*delay),
-						grpc.WithTransportCredentials(insecure.NewCredentials()),
-						grpc.WithBlock(),
+						dialOptions,
+						nil,
 					)
 					if err != nil {
 						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {

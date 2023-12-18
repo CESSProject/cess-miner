@@ -146,17 +146,24 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	var usedTeeWorkAccount string
 	var timeout time.Duration
 	var timeoutStep time.Duration = 3
+	var dialOptions []grpc.DialOption
 	teeEndPoints := n.GetPriorityTeeList()
 	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 	for _, t := range teeEndPoints {
 		timeout = time.Duration(time.Minute * timeoutStep)
 		n.Space("info", fmt.Sprintf("Will use tee: %v", t))
+		if !strings.Contains(t, "https://") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = nil
+		}
 		for try := 2; try <= 6; try += 2 {
-			verifyCommitOrDeletionProof, err = n.PoisRequestVerifyDeletionProof(
+			verifyCommitOrDeletionProof, err = n.RequestVerifyDeletionProof(
 				t,
 				requestVerifyDeletionProof,
 				time.Duration(timeout),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				dialOptions,
+				nil,
 			)
 			if err != nil {
 				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
@@ -164,7 +171,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 					time.Sleep(time.Minute)
 					continue
 				}
-				n.Replace("err", fmt.Sprintf("[PoisRequestVerifyDeletionProof] %v", err))
+				n.Replace("err", fmt.Sprintf("[RequestVerifyDeletionProof] %v", err))
 				break
 			}
 			usedTeeEndPoint = t

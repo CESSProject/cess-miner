@@ -130,6 +130,12 @@ func (n *Node) idleChallenge(
 	n.Ichal("info", "start calc challenge...")
 	idleProofRecord.FileBlockProofInfo = make([]fileBlockProofInfo, 0)
 	var idleproof = make([]byte, 0)
+	var dialOptions []grpc.DialOption
+	var timeout time.Duration
+	var requestSpaceProofVerify *pb.RequestSpaceProofVerify
+	var requestSpaceProofVerifyTotal *pb.RequestSpaceProofVerifyTotal
+	var spaceProofVerify *pb.ResponseSpaceProofVerify
+	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
 	if minerChallFront != minerChallRear {
 		for front := (minerChallFront + 1); front <= (minerChallRear + 1); {
 			var fileBlockProofInfoEle fileBlockProofInfo
@@ -267,29 +273,46 @@ func (n *Node) idleChallenge(
 				return
 			}
 			teeEndPoint = teeInfo.EndPoint
+			if utils.ContainsIpv4(teeEndPoint) {
+				teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+			}
 			n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 		} else {
 			teeEndPoint = teeInfoType.EndPoint
 		}
-		if utils.ContainsIpv4(teeEndPoint) {
-			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
-		}
-		n.Ichal("info", fmt.Sprintf("PoisSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
 
+		if !strings.Contains(teeEndPoint, "https://") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = nil
+		}
+
+		n.Ichal("info", fmt.Sprintf("RequestSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
+		requestSpaceProofVerify = &pb.RequestSpaceProofVerify{
+			SpaceChals: idleProofRecord.ChallRandom,
+			MinerId:    n.GetSignatureAccPulickey(),
+			PoisInfo:   minerPoisInfo,
+		}
 		for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
-			spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
-				teeEndPoint,
-				n.GetSignatureAccPulickey(),
-				idleProofRecord.ChallRandom,
-				minerPoisInfo,
-				idleProofRecord.FileBlockProofInfo[i].SpaceProof,
-				idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
-				time.Duration(time.Minute*3),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-			)
-			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlock] %v", err))
-				return
+			timeout = time.Minute * 3
+			requestSpaceProofVerify.Proof = idleProofRecord.FileBlockProofInfo[i].SpaceProof
+			requestSpaceProofVerify.MinerSpaceProofHashPolkadotSig = idleProofRecord.FileBlockProofInfo[i].ProofHashSign
+			for try := 2; try < 6; try += 2 {
+				spaceProofVerify, err = n.RequestSpaceProofVerifySingleBlock(
+					teeEndPoint,
+					requestSpaceProofVerify,
+					time.Duration(timeout),
+					dialOptions,
+					nil,
+				)
+				if err != nil {
+					n.Ichal("err", fmt.Sprintf("[RequestSpaceProofVerifySingleBlock] %v", err))
+					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+						timeout = time.Minute * time.Duration(3+try)
+						continue
+					}
+					return
+				}
 			}
 			var block = &pb.BlocksProof{
 				ProofHashAndLeftRight: &pb.ProofHashAndLeftRight{
@@ -304,23 +327,33 @@ func (n *Node) idleChallenge(
 
 		idleProofRecord.BlocksProof = blocksProof
 		n.saveidleProofRecord(idleProofRecord)
-
-		spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-			teeEndPoint,
-			n.GetSignatureAccPulickey(),
-			blocksProof,
-			minerChallFront,
-			minerChallRear,
-			acc,
-			challRandom,
-			time.Duration(time.Minute*3),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
-			return
+		requestSpaceProofVerifyTotal = &pb.RequestSpaceProofVerifyTotal{
+			MinerId:    n.GetSignatureAccPulickey(),
+			ProofList:  blocksProof,
+			Front:      minerChallFront,
+			Rear:       minerChallRear,
+			Acc:        acc,
+			SpaceChals: challRandom,
 		}
 
+		timeout = time.Minute * 10
+		for try := 10; try < 30; try += 10 {
+			spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
+				teeEndPoint,
+				requestSpaceProofVerifyTotal,
+				time.Duration(timeout),
+				dialOptions,
+				nil,
+			)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
+				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+					timeout = time.Minute * time.Duration(10+try)
+					continue
+				}
+				return
+			}
+		}
 		n.Ichal("info", fmt.Sprintf("spaceProofVerifyTotal.IdleResult is %v", spaceProofVerifyTotal.IdleResult))
 
 		var teeSignature pattern.TeeSignature
@@ -371,8 +404,13 @@ func (n *Node) checkIdleProofRecord(
 	teeSign pattern.TeeSignature,
 	teeAcc types.AccountID,
 ) error {
+	var timeout time.Duration
 	var teeEndPoint string
 	var idleProofRecord idleProofInfo
+	var dialOptions []grpc.DialOption
+	var requestSpaceProofVerify *pb.RequestSpaceProofVerify
+	var requestSpaceProofVerifyTotal *pb.RequestSpaceProofVerifyTotal
+	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.IdleProofFile))
 	if err != nil {
 		return err
@@ -393,8 +431,23 @@ func (n *Node) checkIdleProofRecord(
 		return errors.New("Idle proof not submited")
 	}
 
-	idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
-	idleProofRecord.AllocatedTeeAccountId = teeAcc[:]
+	idleProofRecord.AllocatedTeeAccount, err = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
+	if err != nil {
+		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
+		if err != nil {
+			return err
+		}
+		ok := chall.ProveInfo.IdleProve.HasValue()
+		if ok {
+			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
+			idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
+			idleProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		} else {
+			return errors.New("The chain has not yet allocated a tee to verify the idle proof.")
+		}
+	} else {
+		idleProofRecord.AllocatedTeeAccountId = teeAcc[:]
+	}
 
 	var acc = make([]byte, len(pattern.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
@@ -451,30 +504,47 @@ func (n *Node) checkIdleProofRecord(
 			return err
 		}
 		teeEndPoint = teeInfo.EndPoint
+		if utils.ContainsIpv4(teeEndPoint) {
+			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+		}
 		n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 	} else {
 		teeEndPoint = teeInfoType.EndPoint
 	}
-	if utils.ContainsIpv4(teeEndPoint) {
-		teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
-	}
+
 	n.Ichal("info", fmt.Sprintf("Allocated tee: %v", teeEndPoint))
+	requestSpaceProofVerifyTotal = &pb.RequestSpaceProofVerifyTotal{
+		MinerId:    n.GetSignatureAccPulickey(),
+		ProofList:  idleProofRecord.BlocksProof,
+		Front:      minerChallFront,
+		Rear:       minerChallRear,
+		Acc:        acc,
+		SpaceChals: idleProofRecord.ChallRandom,
+	}
+	if !strings.Contains(teeEndPoint, "https://") {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	} else {
+		dialOptions = nil
+	}
 	for {
 		if idleProofRecord.BlocksProof != nil {
-			spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-				teeEndPoint,
-				n.GetSignatureAccPulickey(),
-				idleProofRecord.BlocksProof,
-				minerChallFront,
-				minerChallRear,
-				acc,
-				idleProofRecord.ChallRandom,
-				time.Duration(time.Minute*10),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-			)
-			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
-				break
+			timeout = time.Minute * 10
+			for try := 10; try < 30; try += 10 {
+				spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
+					teeEndPoint,
+					requestSpaceProofVerifyTotal,
+					time.Duration(timeout),
+					dialOptions,
+					nil,
+				)
+				if err != nil {
+					n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
+					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+						timeout = time.Minute * time.Duration(10+try)
+						continue
+					}
+					break
+				}
 			}
 			idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
 			idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
@@ -513,19 +583,23 @@ func (n *Node) checkIdleProofRecord(
 	}
 
 	var blocksProof = make([]*pb.BlocksProof, 0)
+	requestSpaceProofVerify = &pb.RequestSpaceProofVerify{
+		SpaceChals: idleProofRecord.ChallRandom,
+		MinerId:    n.GetSignatureAccPulickey(),
+		PoisInfo:   minerPoisInfo,
+	}
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
-		spaceProofVerify, err := n.PoisSpaceProofVerifySingleBlock(
+		requestSpaceProofVerify.Proof = idleProofRecord.FileBlockProofInfo[i].SpaceProof
+		requestSpaceProofVerify.MinerSpaceProofHashPolkadotSig = idleProofRecord.FileBlockProofInfo[i].ProofHashSign
+		spaceProofVerify, err := n.RequestSpaceProofVerifySingleBlock(
 			teeEndPoint,
-			n.GetSignatureAccPulickey(),
-			idleProofRecord.ChallRandom,
-			minerPoisInfo,
-			idleProofRecord.FileBlockProofInfo[i].SpaceProof,
-			idleProofRecord.FileBlockProofInfo[i].ProofHashSign,
+			requestSpaceProofVerify,
 			time.Duration(time.Minute*3),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			dialOptions,
+			nil,
 		)
 		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[PoisSpaceProofVerifySingleBlock] %v", err))
+			n.Ichal("err", fmt.Sprintf("[RequestSpaceProofVerifySingleBlock] %v", err))
 			return nil
 		}
 		var block = &pb.BlocksProof{
@@ -541,21 +615,31 @@ func (n *Node) checkIdleProofRecord(
 
 	idleProofRecord.BlocksProof = blocksProof
 	n.saveidleProofRecord(idleProofRecord)
-
-	spaceProofVerifyTotal, err := n.PoisRequestVerifySpaceTotal(
-		teeEndPoint,
-		n.GetSignatureAccPulickey(),
-		blocksProof,
-		minerChallFront,
-		minerChallRear,
-		acc,
-		idleProofRecord.ChallRandom,
-		time.Duration(time.Minute*10),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[PoisRequestVerifySpaceTotal] %v", err))
-		return nil
+	requestSpaceProofVerifyTotal = &pb.RequestSpaceProofVerifyTotal{
+		MinerId:    n.GetSignatureAccPulickey(),
+		ProofList:  blocksProof,
+		Front:      minerChallFront,
+		Rear:       minerChallRear,
+		Acc:        acc,
+		SpaceChals: idleProofRecord.ChallRandom,
+	}
+	timeout = time.Minute * 10
+	for try := 10; try < 30; try += 10 {
+		spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
+			teeEndPoint,
+			requestSpaceProofVerifyTotal,
+			time.Duration(timeout),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
+			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+				timeout = time.Minute * time.Duration(10+try)
+				continue
+			}
+			return nil
+		}
 	}
 
 	var teeSignature pattern.TeeSignature

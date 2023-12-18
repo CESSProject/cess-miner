@@ -33,6 +33,7 @@ type serviceProofInfo struct {
 	Names                 []string `json:"names"`
 	Us                    []string `json:"us"`
 	Mus                   []string `json:"mus"`
+	Usig                  [][]byte `json:"usig"`
 	ServiceBloomFilter    []uint64 `json:"serviceBloomFilter"`
 	TeeAccountId          []byte   `json:"teeAccountId"`
 	Signature             []byte   `json:"signature"`
@@ -98,7 +99,8 @@ func (n *Node) serviceChallenge(
 	serviceProofRecord.Names,
 		serviceProofRecord.Us,
 		serviceProofRecord.Mus,
-		serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
+		serviceProofRecord.Sigma,
+		serviceProofRecord.Usig, err = n.calcSigma(challStart, randomIndexList, randomList)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 		return
@@ -230,9 +232,10 @@ func (n *Node) calcSigma(
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
-) ([]string, []string, []string, string, error) {
+) ([]string, []string, []string, string, [][]byte, error) {
 	var ok bool
 	var recover bool
+	var isChall bool
 	var sigma string
 	var roothash string
 	var fragmentHash string
@@ -240,6 +243,7 @@ func (n *Node) calcSigma(
 	var names = make([]string, 0)
 	var us = make([]string, 0)
 	var mus = make([]string, 0)
+	var usig = make([][]byte, 0)
 	var qslice = make([]proof.QElement, len(randomIndexList))
 	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
@@ -253,7 +257,7 @@ func (n *Node) calcSigma(
 	serviceRoothashDir, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[Dirs] %v", err))
-		return names, us, mus, sigma, err
+		return names, us, mus, sigma, usig, err
 	}
 
 	timeout := time.NewTicker(time.Duration(time.Minute))
@@ -264,32 +268,71 @@ func (n *Node) calcSigma(
 		fragments, err := utils.DirFiles(serviceRoothashDir[i], 0)
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("DirFiles(%s) %v", serviceRoothashDir[i], err))
-			return names, us, mus, sigma, err
+			return names, us, mus, sigma, usig, err
 		}
 		for j := 0; j < len(fragments); j++ {
 			recover = false
+			isChall = true
 			fragmentHash = filepath.Base(fragments[j])
 			ok, err = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
-				return names, us, mus, sigma, err
+				return names, us, mus, sigma, usig, err
 			}
 			if !ok {
-				continue
-			}
-			n.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
-			block, err := n.Get([]byte(Cach_prefix_Tag + fragmentHash))
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("Cache.Get(%s.%s): %v", roothash, fragmentHash, err))
-				return names, us, mus, sigma, err
-			}
-			blocknumber, err := strconv.ParseUint(string(block), 10, 32)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("ParseUint(%s): %v", string(block), fragmentHash, err))
-				return names, us, mus, sigma, err
-			}
-			if blocknumber > uint64(challStart) {
-				continue
+				n.Schal("err", fmt.Sprintf("Cache.NotFound(%s.%s)", roothash, fragmentHash))
+				fmeta, err := n.QueryFileMetadata(roothash)
+				if err != nil {
+					if !strings.Contains(err.Error(), pattern.ERR_Empty) {
+						n.Schal("err", fmt.Sprintf("QueryFileMetadata(%s): %v", roothash, err))
+						return names, us, mus, sigma, usig, err
+					}
+					continue
+				}
+				for _, segment := range fmeta.SegmentList {
+					for _, fragment := range segment.FragmentList {
+						if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+							if fragmentHash == string(fragment.Hash[:]) {
+								if fragment.Tag.HasValue() {
+									ok, block := fragment.Tag.Unwrap()
+									if !ok {
+										n.Schal("err", fmt.Sprintf("fragment.Tag.Unwrap(%s.%s): %v", roothash, fragmentHash, err))
+										return names, us, mus, sigma, usig, err
+									}
+									err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+									if err != nil {
+										n.Schal("err", fmt.Sprintf("Cache.Put(%s.%s)(%s): %v", roothash, fragmentHash, fmt.Sprintf("%d", block), err))
+									}
+									if uint32(block) > challStart {
+										isChall = false
+										break
+									}
+								}
+							}
+						}
+					}
+					if !isChall {
+						break
+					}
+				}
+				if !isChall {
+					continue
+				}
+			} else {
+				n.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
+				block, err := n.Get([]byte(Cach_prefix_Tag + fragmentHash))
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("Cache.Get(%s.%s): %v", roothash, fragmentHash, err))
+					return names, us, mus, sigma, usig, err
+				}
+				blocknumber, err := strconv.ParseUint(string(block), 10, 32)
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("ParseUint(%s): %v", string(block), err))
+					return names, us, mus, sigma, usig, err
+				}
+				if blocknumber > uint64(challStart) {
+					continue
+				}
 			}
 			serviceTagPath := filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))
 			buf, err := os.ReadFile(serviceTagPath)
@@ -298,7 +341,7 @@ func (n *Node) calcSigma(
 					recover = true
 				} else {
 					n.Schal("err", fmt.Sprintf("[%s] ReadFile(%s): %v", roothash, fmt.Sprintf("%s.tag", fragmentHash), err))
-					return names, us, mus, sigma, err
+					return names, us, mus, sigma, usig, err
 				}
 			}
 			if len(buf) < pattern.FragmentSize {
@@ -309,31 +352,31 @@ func (n *Node) calcSigma(
 				buf, err = n.GetFragmentFromOss(fragmentHash)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("Recovering fragment from cess gateway failed: %v", err))
-					return names, us, mus, sigma, err
+					return names, us, mus, sigma, usig, err
 				}
 				if len(buf) < pattern.FragmentSize {
 					n.Schal("err", fmt.Sprintf("[%s.%s] Fragment size [%d] received from CESS gateway is wrong", roothash, fragmentHash, len(buf)))
-					return names, us, mus, sigma, err
+					return names, us, mus, sigma, usig, err
 				}
 				err = os.WriteFile(serviceTagPath, buf, os.ModePerm)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("[%s] [WriteFile(%s)]: %v", roothash, fragmentHash, err))
-					return names, us, mus, sigma, err
+					return names, us, mus, sigma, usig, err
 				}
 			}
-			var tag pb.Tag
+			var tag pb.ResponseGenTag
 			err = json.Unmarshal(buf, &tag)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
-				return names, us, mus, sigma, err
+				return names, us, mus, sigma, usig, err
 			}
-			matrix, _, err := proof.SplitByN(filepath.Join(roothash, fragmentHash), int64(len(tag.T.Phi)))
+			matrix, _, err := proof.SplitByN(filepath.Join(roothash, fragmentHash), int64(len(tag.Tag.T.Phi)))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
-				return names, us, mus, sigma, err
+				return names, us, mus, sigma, usig, err
 			}
 
-			proveResponseCh := n.GenProof(qslice, nil, tag.T.Phi, matrix)
+			proveResponseCh := n.GenProof(qslice, nil, tag.Tag.T.Phi, matrix)
 			timeout.Reset(time.Minute)
 			select {
 			case proveResponse = <-proveResponseCh:
@@ -343,21 +386,22 @@ func (n *Node) calcSigma(
 
 			if proveResponse.StatueMsg.StatusCode != proof.Success {
 				n.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
-				return names, us, mus, sigma, err
+				return names, us, mus, sigma, usig, err
 			}
 
 			sigmaTemp, ok := n.AggrAppendProof(sigma, proveResponse.Sigma)
 			if !ok {
-				return names, us, mus, sigma, errors.New("AggrAppendProof failed")
+				return names, us, mus, sigma, usig, errors.New("AggrAppendProof failed")
 			}
 			sigma = sigmaTemp
-			names = append(names, tag.T.Name)
-			us = append(us, tag.T.U)
+			names = append(names, tag.Tag.T.Name)
+			us = append(us, tag.Tag.T.U)
 			mus = append(mus, proveResponse.MU)
+			usig = append(usig, tag.USig)
 			break
 		}
 	}
-	return names, us, mus, sigma, nil
+	return names, us, mus, sigma, usig, nil
 }
 
 func (n *Node) checkServiceProofRecord(
@@ -392,7 +436,8 @@ func (n *Node) checkServiceProofRecord(
 			serviceProofRecord.Names,
 				serviceProofRecord.Us,
 				serviceProofRecord.Mus,
-				serviceProofRecord.Sigma, err = n.calcSigma(challStart, randomIndexList, randomList)
+				serviceProofRecord.Sigma,
+				serviceProofRecord.Usig, err = n.calcSigma(challStart, randomIndexList, randomList)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil
@@ -572,27 +617,38 @@ func (n *Node) batchVerify(
 	var batchVerify *pb.ResponseBatchVerify
 	var timeoutStep time.Duration = 10
 	var timeout time.Duration
+	var requestBatchVerify = &pb.RequestBatchVerify{
+		AggProof:        batchVerifyParam,
+		PeerId:          n.GetPeerPublickey(),
+		MinerPbk:        n.GetSignatureAccPulickey(),
+		MinerPeerIdSign: peeridSign,
+		Qslices:         qslice_pb,
+		//USig: ,
+	}
+	var dialOptions []grpc.DialOption
+	if !strings.Contains(teeEndPoint, "https://") {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	} else {
+		dialOptions = nil
+	}
 	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
 	for i := 0; i < 3; i++ {
 		timeout = time.Minute * timeoutStep
-		batchVerify, err = n.PoisServiceRequestBatchVerify(
+		batchVerify, err = n.RequestBatchVerify(
 			teeEndPoint,
-			n.GetPeerPublickey(),
-			n.GetSignatureAccPulickey(),
-			peeridSign,
-			batchVerifyParam,
-			qslice_pb,
+			requestBatchVerify,
 			timeout,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			dialOptions,
+			nil,
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
-				n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
+				n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 				timeoutStep += 10
 				time.Sleep(time.Minute)
 				continue
 			}
-			n.Schal("err", fmt.Sprintf("[PoisServiceRequestBatchVerify] %v", err))
+			n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 			return nil, nil, nil, false, err
 		}
 		return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, err

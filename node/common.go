@@ -110,10 +110,10 @@ func (n *Node) connectChain(ch chan<- bool) {
 	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	err := n.ReconnectRPC()
 	if err != nil {
-		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		n.Log("err", "All RPCs failed to reconnect")
+		n.Ichal("err", "All RPCs failed to reconnect")
+		n.Schal("err", "All RPCs failed to reconnect")
+		out.Err("All RPCs failed to reconnect")
 		return
 	}
 	n.SetChainState(true)
