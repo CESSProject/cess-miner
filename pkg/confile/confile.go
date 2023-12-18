@@ -130,9 +130,11 @@ func (c *confile) Parse(fpath string, port int) error {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
-	err = sutils.VerityAddress(c.StakingAcc, sutils.CessPrefix)
-	if err != nil {
-		return errors.New("invalid staking account")
+	if c.StakingAcc != "" {
+		err = sutils.VerityAddress(c.StakingAcc, sutils.CessPrefix)
+		if err != nil {
+			return errors.New("invalid staking account")
+		}
 	}
 
 	err = sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)

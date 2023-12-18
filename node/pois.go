@@ -210,9 +210,13 @@ func (n *Node) certifiedSpace() error {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-
+		var ok bool
+		var spaceProofInfo pattern.SpaceProofInfo
 		if minerInfo.SpaceProofInfo.HasValue() {
-			_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
+			ok, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
+			if !ok {
+				return errors.New("minerInfo.SpaceProofInfo.Unwrap() failed")
+			}
 			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
 				err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 				if err != nil {
@@ -220,10 +224,6 @@ func (n *Node) certifiedSpace() error {
 					return err
 				}
 			}
-			n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
-			n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
-			n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
 		}
 
 		n.Space("info", "Get idle file commits")
@@ -240,9 +240,8 @@ func (n *Node) certifiedSpace() error {
 
 		var chall_pb *pb.Challenge
 		var commitGenChall = &pb.RequestMinerCommitGenChall{
-			MinerId:  n.GetSignatureAccPulickey(),
-			Commit:   commit_pb,
-			PoisInfo: n.MinerPoisInfo,
+			MinerId: n.GetSignatureAccPulickey(),
+			Commit:  commit_pb,
 		}
 
 		buf, err := proto.Marshal(commitGenChall)
@@ -268,22 +267,29 @@ func (n *Node) certifiedSpace() error {
 		var usedTeeWorkAccount string
 		var timeout time.Duration
 		var timeoutStep = 0
+		var dialOptions []grpc.DialOption
 		for i := 0; i < len(teeEndPoints); i++ {
 			timeout = time.Duration(time.Minute * 3)
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
+			if !strings.Contains(teeEndPoints[i], "https://") {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			} else {
+				dialOptions = nil
+			}
 			for try := 2; try <= 6; try += 2 {
-				chall_pb, err = n.PoisMinerCommitGenChall(
+				chall_pb, err = n.RequestMinerCommitGenChall(
 					teeEndPoints[i],
 					commitGenChall,
 					time.Duration(timeout),
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
+					dialOptions,
+					nil,
 				)
 				if err != nil {
+					n.Space("err", fmt.Sprintf("[RequestMinerCommitGenChall] %v", err))
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						timeout = time.Duration(time.Minute * time.Duration(3+try))
 						continue
 					}
-					n.Space("err", fmt.Sprintf("[PoisMinerCommitGenChall] %v", err))
 					break
 				}
 				usedTeeEndPoint = teeEndPoints[i]
@@ -319,6 +325,30 @@ func (n *Node) certifiedSpace() error {
 		if err == nil && commitProofs == nil && accProof == nil {
 			n.Prover.AccRollback(false)
 			return errors.New("other programs are updating the data of the prover object")
+		}
+
+		if spaceProofInfo.Front == types.U64(n.Prover.GetFront()) {
+			n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
+			n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
+			n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
+		} else {
+			minerInfo, err = n.QueryStorageMiner(n.GetSignatureAccPulickey())
+			if err != nil {
+				n.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+				time.Sleep(pattern.BlockInterval)
+				return err
+			}
+			if minerInfo.SpaceProofInfo.HasValue() {
+				ok, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
+				if !ok {
+					return errors.New("minerInfo.SpaceProofInfo.Unwrap() failed")
+				}
+				n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
+				n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
+				n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+				n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
+			}
 		}
 
 		var commitProofGroupInner = make([]*pb.CommitProofGroupInner, len(commitProofs))
@@ -376,6 +406,7 @@ func (n *Node) certifiedSpace() error {
 			CommitProofGroup: commitProofGroup_pb,
 			AccProof:         accProof_pb,
 			MinerId:          n.GetSignatureAccPulickey(),
+			PoisInfo:         n.MinerPoisInfo,
 		}
 
 		buf, err = proto.Marshal(requestVerifyCommitAndAccProof)
@@ -400,13 +431,14 @@ func (n *Node) certifiedSpace() error {
 			timeout = time.Minute * time.Duration(timeoutStep)
 			if tryCount >= 5 {
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
+				return errors.Wrapf(err, "[RequestVerifyCommitProof]")
 			}
-			verifyCommitOrDeletionProof, err = n.PoisVerifyCommitProof(
+			verifyCommitOrDeletionProof, err = n.RequestVerifyCommitProof(
 				usedTeeEndPoint,
 				requestVerifyCommitAndAccProof,
 				time.Duration(timeout),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				dialOptions,
+				nil,
 			)
 			if err != nil {
 				if strings.Contains(err.Error(), "busy") {
@@ -421,7 +453,7 @@ func (n *Node) certifiedSpace() error {
 					continue
 				}
 				n.Prover.AccRollback(false)
-				return errors.Wrapf(err, "[PoisVerifyCommitProof]")
+				return errors.Wrapf(err, "[RequestVerifyCommitProof]")
 			}
 			break
 		}

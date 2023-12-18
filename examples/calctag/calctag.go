@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
+	"github.com/CESSProject/p2p-go/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -86,11 +88,21 @@ func main() {
 		log.Println("[CalcSHA256] ", err)
 		os.Exit(1)
 	}
-	_, err = n.PoisServiceRequestGenTag(tee, buf, "", hash, "", time.Duration(time.Minute*10), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	var requestGenTag = &pb.RequestGenTag{
+		FragmentData: buf,
+		FragmentName: "",
+		CustomData:   hash,
+		FileName:     "",
+	}
+	var dialOptions []grpc.DialOption
+	if !strings.Contains(tee, "https://") {
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	_, err = n.RequestGenTag(tee, requestGenTag, time.Duration(time.Minute*10), dialOptions, nil)
 	if err != nil {
-		log.Println("[PoisServiceRequestGenTag] ", err)
+		log.Println("[RequestGenTag] ", err)
 		os.Exit(1)
 	}
 
-	log.Println("[PoisServiceRequestGenTag] suc")
+	log.Println("[RequestGenTag] suc")
 }

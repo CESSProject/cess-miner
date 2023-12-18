@@ -18,6 +18,8 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/pb"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -43,8 +45,14 @@ func (n *Node) serviceTag(ch chan<- bool) {
 
 	var ok bool
 	var recover bool
+	var blocknumber uint32
+	var txhash string
 	var fid string
 	var fragmentHash string
+	var requestGenTag *pb.RequestGenTag
+	var dialOptions []grpc.DialOption
+	var teeSign pattern.TeeSignature
+	var tagSigInfo pattern.TagSigInfo
 
 	roothashs, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
@@ -115,24 +123,43 @@ func (n *Node) serviceTag(ch chan<- bool) {
 					continue
 				}
 			}
-
+			requestGenTag = &pb.RequestGenTag{
+				FragmentData: buf[:pattern.FragmentSize],
+				FragmentName: fid,
+				CustomData:   "",
+				FileName:     fragmentHash,
+			}
 			for i := 0; i < len(teeEndPoints); i++ {
-				n.Stag("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
-				n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
-				genTag, err := n.PoisServiceRequestGenTag(
-					teeEndPoints[i],
-					buf[:pattern.FragmentSize],
-					filepath.Base(fileDir),
-					fragmentHash,
-					"",
-					time.Duration(time.Minute*10),
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
-				)
+				teeAcc, err := n.GetTeeWorkAccount(teeEndPoints[i])
 				if err != nil {
-					n.Stag("err", fmt.Sprintf("[PoisServiceRequestGenTag] %v", err))
+					n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[i], err))
 					continue
 				}
-				buf, err = json.Marshal(genTag.Tag)
+				n.Stag("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
+				n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
+				if !strings.Contains(teeEndPoints[i], "https://") {
+					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+				} else {
+					dialOptions = nil
+				}
+				genTag, err := n.RequestGenTag(
+					teeEndPoints[i],
+					requestGenTag,
+					time.Duration(time.Minute*10),
+					dialOptions,
+					nil,
+				)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[RequestGenTag] %v", err))
+					continue
+				}
+
+				if len(genTag.USig) != pattern.TeeSignatureLen {
+					n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
+					continue
+				}
+
+				buf, err = json.Marshal(genTag)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
 					continue
@@ -151,10 +178,36 @@ func (n *Node) serviceTag(ch chan<- bool) {
 					n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
 					continue
 				}
+
 				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))))
-				//TODO: Wait for the tee to complete the tag calculation interface
-				// n.ReportTagCalculated()
-				// n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(blocknumber))
+
+				for j := 0; j < pattern.TeeSignatureLen; j++ {
+					teeSign[j] = types.U8(genTag.USig[j])
+				}
+				for j := 0; j < pattern.FileHashLen; j++ {
+					tagSigInfo.Filehash[j] = types.U8(fid[j])
+				}
+				tagSigInfo.Miner = types.AccountID(n.GetSignatureAccPulickey())
+				teeAccountID, _ := sutils.ParsingPublickey(teeAcc)
+				tagSigInfo.TeeAcc = types.AccountID(teeAccountID)
+				for j := 0; j < 10; j++ {
+					txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
+					if err != nil || txhash == "" {
+						n.Stag("err", err.Error())
+						time.Sleep(time.Minute)
+						continue
+					}
+					blocknumber, err = n.QueryBlockHeight(txhash)
+					if err != nil {
+						n.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
+						break
+					}
+					err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
+					if err != nil {
+						n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
+						break
+					}
+				}
 				break
 			}
 		}
