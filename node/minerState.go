@@ -15,9 +15,7 @@ import (
 )
 
 type MinerState interface {
-	// SaveTee saves or updates tee information
 	SaveMinerState(state string) error
-	//
 	GetMinerState() string
 }
 

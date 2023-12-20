@@ -36,7 +36,7 @@ func (n *Node) restoreMgt(ch chan bool) {
 
 	n.Restore("info", ">>>>> start restoreMgt <<<<<")
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 

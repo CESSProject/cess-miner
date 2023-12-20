@@ -55,7 +55,7 @@ func init() {
 func updateEarningsAccount(cmd *cobra.Command) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	if len(os.Args) < 3 {

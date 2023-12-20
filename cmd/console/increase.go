@@ -38,7 +38,7 @@ func init() {
 func Command_Increase_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	if len(os.Args) < 3 {

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -33,7 +34,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 	}()
 
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 
@@ -53,6 +54,9 @@ func (n *Node) serviceTag(ch chan<- bool) {
 	var dialOptions []grpc.DialOption
 	var teeSign pattern.TeeSignature
 	var tagSigInfo pattern.TagSigInfo
+
+	n.SetCalcTagFlag(true)
+	defer n.SetCalcTagFlag(false)
 
 	roothashs, err := utils.Dirs(n.GetDirs().FileDir)
 	if err != nil {
@@ -137,10 +141,10 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				}
 				n.Stag("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
 				n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
-				if !strings.Contains(teeEndPoints[i], "https://") {
+				if !strings.Contains(teeEndPoints[i], "443") {
 					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 				} else {
-					dialOptions = nil
+					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 				}
 				genTag, err := n.RequestGenTag(
 					teeEndPoints[i],

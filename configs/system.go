@@ -8,10 +8,14 @@
 package configs
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/CESSProject/p2p-go/out"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -27,10 +31,16 @@ const (
 	ChainVersion = "0.7.5"
 )
 
+var cp *x509.CertPool
+
 // system init
 func SysInit(cpus uint8) int {
 	if !RunOnLinuxSystem() {
 		out.Err("Please run on a linux system")
+		os.Exit(1)
+	}
+	if err := initCert(); err != nil {
+		out.Err("Invalid certificate, please check configs/.pem")
 		os.Exit(1)
 	}
 	return SetCpuNumber(cpus)
@@ -49,4 +59,16 @@ func SetCpuNumber(cpus uint8) int {
 
 func RunOnLinuxSystem() bool {
 	return runtime.GOOS == "linux"
+}
+
+func initCert() error {
+	cp = x509.NewCertPool()
+	if !cp.AppendCertsFromPEM([]byte(pem)) {
+		return fmt.Errorf("credentials: failed to append certificates")
+	}
+	return nil
+}
+
+func GetCert() credentials.TransportCredentials {
+	return credentials.NewTLS(&tls.Config{ServerName: "", RootCAs: cp})
 }

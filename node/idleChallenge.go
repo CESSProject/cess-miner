@@ -272,19 +272,22 @@ func (n *Node) idleChallenge(
 				n.Ichal("err", err.Error())
 				return
 			}
+			n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 			teeEndPoint = teeInfo.EndPoint
 			if utils.ContainsIpv4(teeEndPoint) {
 				teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+			} else {
+				teeEndPoint = strings.TrimSuffix(teeEndPoint, "/")
+				teeEndPoint = teeEndPoint + ":443"
 			}
-			n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 		} else {
 			teeEndPoint = teeInfoType.EndPoint
 		}
 
-		if !strings.Contains(teeEndPoint, "https://") {
+		if !strings.Contains(teeEndPoint, "443") {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 		} else {
-			dialOptions = nil
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 		}
 
 		n.Ichal("info", fmt.Sprintf("RequestSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
@@ -503,11 +506,14 @@ func (n *Node) checkIdleProofRecord(
 			n.Ichal("err", err.Error())
 			return err
 		}
+		n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 		teeEndPoint = teeInfo.EndPoint
 		if utils.ContainsIpv4(teeEndPoint) {
 			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
+		} else {
+			teeEndPoint = strings.TrimSuffix(teeEndPoint, "/")
+			teeEndPoint = teeEndPoint + ":443"
 		}
-		n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
 	} else {
 		teeEndPoint = teeInfoType.EndPoint
 	}
@@ -521,10 +527,10 @@ func (n *Node) checkIdleProofRecord(
 		Acc:        acc,
 		SpaceChals: idleProofRecord.ChallRandom,
 	}
-	if !strings.Contains(teeEndPoint, "https://") {
+	if !strings.Contains(teeEndPoint, "443") {
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	} else {
-		dialOptions = nil
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 	}
 	for {
 		if idleProofRecord.BlocksProof != nil {

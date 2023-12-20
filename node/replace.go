@@ -34,7 +34,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}()
 
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 
@@ -152,10 +152,10 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	for _, t := range teeEndPoints {
 		timeout = time.Duration(time.Minute * timeoutStep)
 		n.Space("info", fmt.Sprintf("Will use tee: %v", t))
-		if !strings.Contains(t, "https://") {
+		if !strings.Contains(t, "443") {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 		} else {
-			dialOptions = nil
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 		}
 		for try := 2; try <= 6; try += 2 {
 			verifyCommitOrDeletionProof, err = n.RequestVerifyDeletionProof(
