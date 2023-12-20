@@ -27,7 +27,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 	}()
 
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 
@@ -45,6 +45,9 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		metadata     pattern.FileMetadata
 		storageorder pattern.StorageOrder
 	)
+
+	n.SetReportFileFlag(true)
+	defer n.SetReportFileFlag(false)
 
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {

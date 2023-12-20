@@ -56,17 +56,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		syncSt         pattern.SysSyncState
 		n              = node.New()
 	)
-
+	n.SetInitStage(node.Stage_Startup, "Program startup")
 	ctx := context.Background()
-
+	n.ListenLocal()
+	n.SetInitStage(node.Stage_ReadConfig, "Reading configuration...")
 	// parse configuration file
 	n.Confile, err = buildConfigFile(cmd, 0)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
+		n.SetInitStage(node.Stage_ReadConfig, fmt.Sprintf("[err] %v", err))
 		os.Exit(1)
 	}
-
-	n.SaveCpuCore(configs.SysInit(n.GetUseCpu()))
+	n.SetInitStage(node.Stage_ReadConfig, "[ok] Read configuration file")
+	n.SetCpuCores(configs.SysInit(n.GetUseCpu()))
 
 	out.Tip(fmt.Sprintf("RPC addresses: %v", n.GetRpcAddr()))
 
@@ -90,6 +92,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	out.Tip(fmt.Sprintf("Bootnodes: %v", boots))
 
+	n.SetInitStage(node.Stage_ConnectRpc, "Connecting to rpc...")
 	// build client
 	n.SDK, err = cess.New(
 		ctx,
@@ -100,9 +103,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 	)
 	if err != nil {
 		out.Err(fmt.Sprintf("[cess.New] %v", err))
+		n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[err] %v", err))
 		os.Exit(1)
 	}
+	n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[ok] Connect rpc: %s", n.GetCurrentRpcAddr()))
 
+	n.SetInitStage(node.Stage_CreateP2p, "Create p2p node...")
 	n.P2P, err = p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(n.GetServicePort()),
@@ -112,13 +118,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 	)
 	if err != nil {
 		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+		n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[err] %v", err))
 		os.Exit(1)
 	}
+	n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create p2p node: %s", n.ID().Pretty()))
 
 	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().Pretty()))
 	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
-	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCore()))
+	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCores()))
 	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
 	//
 	out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
@@ -144,10 +152,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	n.SetInitStage(node.Stage_SyncBlock, "Sync block...")
 	for {
 		syncSt, err = n.SyncState()
 		if err != nil {
 			out.Err("Invalid chain node: rpc service failure")
+			n.SetInitStage(node.Stage_SyncBlock, fmt.Sprintf("[err] %v", err))
 			os.Exit(1)
 		}
 		if syncSt.CurrentBlock == syncSt.HighestBlock {
@@ -157,7 +167,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
-
+	n.SetInitStage(node.Stage_SyncBlock, fmt.Sprintf("[ok] Latest block: %d", syncSt.HighestBlock))
+	n.SetInitStage(node.Stage_QueryChain, "Querying chain...")
 	chainVersion, err := n.ChainVersion()
 	if err != nil {
 		out.Err("[SysVersion] Invalid chain node: rpc service failure")
@@ -193,25 +204,24 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
+
 		for _, v := range teeList {
-			var teeEndPoint string
-			if utils.ContainsIpv4(v.EndPoint) {
-				teeEndPoint = strings.TrimPrefix(v.EndPoint, "http://")
-			}
-			teeEndPointList = append(teeEndPointList, teeEndPoint)
-			err = n.SaveTee(v.WorkAccount, teeEndPoint, v.TeeType)
+			err = n.SaveTee(v.WorkAccount, v.EndPoint, v.TeeType)
 			if err != nil {
 				out.Err(fmt.Sprintf("[SaveTee] %v", err))
-				os.Exit(1)
+				continue
 			}
 		}
 		break
 	}
+	teeEndPointList = n.GetPriorityTeeList()
+	teeEndPointList = append(teeEndPointList, n.GetAllTeeEndpoint()...)
 
 	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			firstReg = true
+			n.SetInitStage(node.Stage_QueryChain, "[ok] Complete query")
 			token = n.GetUseSpace() / pattern.SIZE_1KiB
 			if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
 				token += 1
@@ -227,24 +237,30 @@ func runCmd(cmd *cobra.Command, args []string) {
 				out.Err("Account does not exist or balance is empty")
 				os.Exit(1)
 			}
-			token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
-			if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
-				out.Err(fmt.Sprintf("Account balance less than %d %s", token, n.GetTokenSymbol()))
-				os.Exit(1)
+			if n.GetStakingAcc() == "" {
+				token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+				if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
+					out.Err(fmt.Sprintf("Account balance less than %d %s", token, n.GetTokenSymbol()))
+					os.Exit(1)
+				}
 			}
 		} else {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
 			os.Exit(1)
 		}
+	} else {
+		n.SetInitStage(node.Stage_QueryChain, "[ok] Complete query")
 	}
 
+	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory...")
 	// build data directory
 	n.DataDir, err = buildDir(n.Workspace())
 	if err != nil {
+		n.SetInitStage(node.Stage_BuildDir, fmt.Sprintf("[err] %v", err))
 		out.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
-
+	n.SetInitStage(node.Stage_BuildDir, "[ok] Build completed")
 	// load peers
 	// err = n.LoadPeersFromDisk(n.DataDir.PeersFile)
 	// if err != nil {
@@ -286,6 +302,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	var responseMinerInitParam *pb.ResponseMinerInitParam
 	var delay time.Duration
 	if firstReg {
+		n.SetInitStage(node.Stage_Register, "[ok] Registering...")
 		stakingAcc := n.GetStakingAcc()
 		if stakingAcc != "" {
 			out.Ok(fmt.Sprintf("Specify staking account: %s", stakingAcc))
@@ -309,7 +326,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			}
 			out.Ok(fmt.Sprintf("Storage node registration successful: %s", txhash))
 		}
-
+		n.SetInitStage(node.Stage_Register, "[ok] Registration is complete")
 		n.RebuildDirs()
 
 		time.Sleep(pattern.BlockInterval)
@@ -319,10 +336,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 			suc = false
 			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-				if !strings.Contains(teeEndPointList[i], "https://") {
+				if !strings.Contains(teeEndPointList[i], "443") {
 					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 				} else {
-					dialOptions = nil
+					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 				}
 				responseMinerInitParam, err = n.RequestMinerGetNewKey(
 					teeEndPointList[i],
@@ -408,6 +425,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	} else {
+		n.SetInitStage(node.Stage_Register, "[ok] Registered")
 		var spaceProofInfo pattern.SpaceProofInfo
 		var teeSign []byte
 		var earningsAcc string
@@ -419,10 +437,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 				suc = false
 				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 					out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-					if !strings.Contains(teeEndPointList[i], "https://") {
+					if !strings.Contains(teeEndPointList[i], "443") {
 						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 					} else {
-						dialOptions = nil
+						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 					}
 					responseMinerInitParam, err = n.RequestMinerGetNewKey(
 						teeEndPointList[i],
@@ -436,7 +454,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 							delay += 50
 							continue
 						}
-						out.Err(fmt.Sprintf("[PoisGetMinerInitParam] %v", err))
+						out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
 						break
 					}
 					suc = true
@@ -622,22 +640,26 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	n.SetInitStage(node.Stage_BuildCache, "[ok] Building cache...")
 	// build cache instance
 	n.Cache, err = buildCache(n.DataDir.DbDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
+	n.SetInitStage(node.Stage_BuildCache, "[ok] Build cache completed")
 
+	n.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
 	// build log instance
 	n.Logger, err = buildLogs(n.DataDir.LogDir)
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
-
+	n.SetInitStage(node.Stage_BuildLog, "[ok] Build log completed")
 	out.Tip(fmt.Sprintf("Workspace: %v", n.Workspace()))
 
+	n.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
 	// run
 	n.Run()
 }

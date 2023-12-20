@@ -22,6 +22,8 @@ import (
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 type Node struct {
@@ -30,25 +32,32 @@ type Node struct {
 	confile.Confile
 	logger.Logger
 	cache.Cache
-	TeeRecord
 	MinerState
+	TeeRecord
 	PeerRecord
+	RunningRecord
+	*gin.Engine
 	*proof.RSAKeyPair
 	*pb.MinerPoisInfo
 	*DataDir
 	*Pois
-	peersFile string
-	cpuCore   int
+}
+
+// New is used to build a empty node instance
+func NewEmptyNode() *Node {
+	return &Node{}
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		RSAKeyPair: proof.NewKey(),
-		TeeRecord:  NewTeeRecord(),
-		MinerState: NewMinerState(),
-		PeerRecord: NewPeerRecord(),
-		Pois:       &Pois{},
+		Engine:        gin.Default(),
+		RSAKeyPair:    proof.NewKey(),
+		TeeRecord:     NewTeeRecord(),
+		MinerState:    NewMinerState(),
+		PeerRecord:    NewPeerRecord(),
+		RunningRecord: NewRunningRecord(),
+		Pois:          &Pois{},
 	}
 }
 
@@ -114,11 +123,11 @@ func (n *Node) Run() {
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
 
-	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
 	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
-	n.Ichal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Ichal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
 	n.Ichal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
-	n.Schal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCore()))
+	n.Schal("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
 	n.Schal("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
 
 	out.Ok("Start successfully")
@@ -126,12 +135,15 @@ func (n *Node) Run() {
 	for {
 		select {
 		case <-task_10S.C:
+			n.SetTaskPeriod("10s")
 			if len(ch_ConnectChain) > 0 {
 				_ = <-ch_ConnectChain
 				go n.connectChain(ch_ConnectChain)
 			}
+			n.SetTaskPeriod("10s-end")
 
 		case <-task_30S.C:
+			n.SetTaskPeriod("30s")
 			if len(ch_reportfiles) > 0 {
 				_ = <-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
@@ -140,8 +152,10 @@ func (n *Node) Run() {
 				_ = <-ch_calctag
 				go n.serviceTag(ch_calctag)
 			}
+			n.SetTaskPeriod("30s-end")
 
 		case <-task_Minute.C:
+			n.SetTaskPeriod("1m")
 			if len(ch_syncChainStatus) > 0 {
 				_ = <-ch_syncChainStatus
 				go n.syncChainStatus(ch_syncChainStatus)
@@ -180,22 +194,18 @@ func (n *Node) Run() {
 				_ = <-ch_restoreMgt
 				go n.restoreMgt(ch_restoreMgt)
 			}
+			n.SetTaskPeriod("1m-end")
+
 		case <-task_Hour.C:
+			n.SetTaskPeriod("1h")
 			go n.connectBoot()
 			// go n.UpdatePeers()
 			go n.reportLogsMgt(ch_reportLogs)
+			n.SetTaskPeriod("1h-end")
 		default:
 			time.Sleep(time.Second)
 		}
 	}
-}
-
-func (n *Node) SaveCpuCore(cores int) {
-	n.cpuCore = cores
-}
-
-func (n *Node) GetCpuCore() int {
-	return n.cpuCore
 }
 
 func (n *Node) GetPodr2Key() *proof.RSAKeyPair {
@@ -233,4 +243,51 @@ func (n *Node) RebuildDirs() {
 	os.MkdirAll(n.DataDir.AccDir, pattern.DirMode)
 	os.MkdirAll(n.DataDir.PoisDir, pattern.DirMode)
 	os.MkdirAll(n.DataDir.RandomDir, pattern.DirMode)
+}
+
+func (n *Node) ListenLocal() {
+	var port uint32 = 6000
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET"}
+	n.Engine.Use(cors.New(config))
+	for {
+		if !core.FreeLocalPort(port) {
+			port++
+		} else {
+			break
+		}
+	}
+	n.Engine.GET("/status", n.getStatusHandle)
+	go n.Engine.Run(fmt.Sprintf(":%d", port))
+	time.Sleep(time.Second)
+	if !core.FreeLocalPort(port) {
+		out.Tip(fmt.Sprintf("Listening on port: %d", port))
+	}
+}
+
+// getStatusHandle
+func (n *Node) getStatusHandle(c *gin.Context) {
+	var msg string = fmt.Sprintf("Init Stage: \n")
+	initStage := n.GetInitStage()
+	for i := 0; i < len(initStage); i++ {
+		msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
+	}
+	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
+
+	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
+
+	msg += fmt.Sprintf("RPC Connection: %v\n", n.GetChainState())
+
+	msg += fmt.Sprintf("Reconnecting RPC: %v\n", n.GetReconnectRpc())
+
+	msg += fmt.Sprintf("Calculate Tag: %v\n", n.GetCalcTagFlag())
+
+	msg += fmt.Sprintf("Report file: %v\n", n.GetReportFileFlag())
+
+	msg += fmt.Sprintf("Generate idle: %v\n", n.GetGenIdleFlag())
+
+	msg += fmt.Sprintf("Report idle: %v\n", n.GetAuthIdleFlag())
+
+	c.Data(200, "application/octet-stream", []byte(msg))
 }

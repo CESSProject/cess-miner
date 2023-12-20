@@ -155,15 +155,25 @@ func (c *confile) Parse(fpath string, port int) error {
 	}
 
 	if len(c.TeeList) > 0 {
-		var teeList = make([]string, len(c.TeeList))
 		for i := 0; i < len(c.TeeList); i++ {
-			if utils.ContainsIpv4(c.TeeList[i]) {
-				teeList[i] = strings.TrimPrefix(c.TeeList[i], "http://")
+			if strings.HasPrefix(c.TeeList[i], "http://") {
+				c.TeeList[i] = strings.TrimPrefix(c.TeeList[i], "http://")
+				c.TeeList[i] = strings.TrimSuffix(c.TeeList[i], "/")
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":80"
+				}
+			} else if strings.HasPrefix(c.TeeList[i], "https://") {
+				c.TeeList[i] = strings.TrimPrefix(c.TeeList[i], "https://")
+				c.TeeList[i] = strings.TrimSuffix(c.TeeList[i], "/")
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":443"
+				}
 			} else {
-				teeList[i] = c.TeeList[i]
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":80"
+				}
 			}
 		}
-		c.TeeList = teeList
 	}
 
 	// dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)

@@ -48,19 +48,21 @@ func (n *Node) poisMgt(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
+	var err error
+	var chainSt bool
+	var minerSt string
 	for {
-		chainSt := n.GetChainState()
-		if chainSt {
+		chainSt = n.GetChainState()
+		if !chainSt {
 			return
 		}
 
-		minerSt := n.GetMinerState()
+		minerSt = n.GetMinerState()
 		if minerSt != pattern.MINER_STATE_POSITIVE &&
 			minerSt != pattern.MINER_STATE_FROZEN {
 			return
 		}
-		err := n.certifiedSpace()
+		err = n.certifiedSpace()
 		if err != nil {
 			n.Space("err", err.Error())
 			time.Sleep(time.Minute)
@@ -96,7 +98,7 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 		AccPath:        n.DataDir.PoisDir,
 		IdleFilePath:   n.DataDir.SpaceDir,
 		ChallAccPath:   n.DataDir.AccDir,
-		MaxProofThread: n.GetCpuCore(),
+		MaxProofThread: n.GetCpuCores(),
 	}
 
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
@@ -150,7 +152,7 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	}()
 
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 
@@ -175,7 +177,9 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	}
 
 	n.Space("info", "Start generating idle files")
+	n.SetGenIdleFlag(true)
 	err = n.Prover.GenerateIdleFileSet()
+	n.SetGenIdleFlag(false)
 	if err != nil {
 		if strings.Contains(err.Error(), "not enough space") {
 			out.Err("Your workspace is out of capacity")
@@ -201,9 +205,10 @@ func (n *Node) certifiedSpace() error {
 			if n.Prover.CommitDataIsReady() {
 				break
 			}
-			time.Sleep(time.Minute)
+			n.SetAuthIdleFlag(false)
+			time.Sleep(pattern.BlockInterval)
 		}
-
+		n.SetAuthIdleFlag(true)
 		minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 		if err != nil {
 			n.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
@@ -271,10 +276,10 @@ func (n *Node) certifiedSpace() error {
 		for i := 0; i < len(teeEndPoints); i++ {
 			timeout = time.Duration(time.Minute * 3)
 			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
-			if !strings.Contains(teeEndPoints[i], "https://") {
+			if !strings.Contains(teeEndPoints[i], "443") {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 			} else {
-				dialOptions = nil
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 			}
 			for try := 2; try <= 6; try += 2 {
 				chall_pb, err = n.RequestMinerCommitGenChall(

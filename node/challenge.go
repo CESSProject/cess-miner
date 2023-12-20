@@ -16,7 +16,7 @@ import (
 
 func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 

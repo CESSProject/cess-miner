@@ -626,10 +626,10 @@ func (n *Node) batchVerify(
 		//USig: ,
 	}
 	var dialOptions []grpc.DialOption
-	if !strings.Contains(teeEndPoint, "https://") {
+	if !strings.Contains(teeEndPoint, "443") {
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	} else {
-		dialOptions = nil
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 	}
 	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
 	for i := 0; i < 3; i++ {

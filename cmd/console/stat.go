@@ -31,7 +31,7 @@ import (
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	// Build profile instances
@@ -55,7 +55,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	// query your own information on the chain
-	minerInfo, err := n.QueryStorageMiner(n.GetSignaturePublickey())
+	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())

@@ -217,8 +217,10 @@ func main() {
 			USig:            nil,
 		}
 		var dialOptions []grpc.DialOption
-		if !strings.Contains(tee, "https://") {
-			dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if !strings.Contains(tee, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 		}
 		batchVerify, err := n.RequestBatchVerify(
 			tee,

@@ -40,7 +40,7 @@ func init() {
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	// Build profile instances

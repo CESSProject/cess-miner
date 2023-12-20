@@ -53,7 +53,7 @@ const (
 
 func (n *Node) connectBoot() {
 	chainSt := n.GetChainState()
-	if chainSt {
+	if !chainSt {
 		return
 	}
 
@@ -108,14 +108,17 @@ func (n *Node) connectChain(ch chan<- bool) {
 	n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	n.SetReconnectRpc(true)
 	err := n.ReconnectRPC()
 	if err != nil {
+		n.SetReconnectRpc(false)
 		n.Log("err", "All RPCs failed to reconnect")
 		n.Ichal("err", "All RPCs failed to reconnect")
 		n.Schal("err", "All RPCs failed to reconnect")
 		out.Err("All RPCs failed to reconnect")
 		return
 	}
+	n.SetReconnectRpc(false)
 	n.SetChainState(true)
 	out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
@@ -65,11 +64,30 @@ func (t *TeeRecordType) SaveTee(workAccount, endPoint string, teeType uint8) err
 	if teeType > pattern.TeeType_Marker {
 		return errors.New("invalid tee type")
 	}
-	if utils.ContainsIpv4(endPoint) {
-		endPoint = strings.TrimPrefix(endPoint, "http://")
+	var teeEndPoint string
+
+	if strings.HasPrefix(endPoint, "http://") {
+		teeEndPoint = strings.TrimPrefix(endPoint, "http://")
+		teeEndPoint = strings.TrimSuffix(teeEndPoint, "/")
+		if !strings.Contains(teeEndPoint, ":") {
+			teeEndPoint = teeEndPoint + ":80"
+		}
+	} else if strings.HasPrefix(endPoint, "https://") {
+		teeEndPoint = strings.TrimPrefix(endPoint, "https://")
+		teeEndPoint = strings.TrimSuffix(teeEndPoint, "/")
+		if !strings.Contains(teeEndPoint, ":") {
+			teeEndPoint = teeEndPoint + ":443"
+		}
+	} else {
+		if !strings.Contains(endPoint, ":") {
+			teeEndPoint = endPoint + ":80"
+		} else {
+			teeEndPoint = endPoint
+		}
 	}
+
 	var data = TeeInfoType{
-		EndPoint: endPoint,
+		EndPoint: teeEndPoint,
 		Type:     teeType,
 	}
 	t.lock.Lock()
