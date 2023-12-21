@@ -57,6 +57,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n              = node.New()
 	)
 	n.SetInitStage(node.Stage_Startup, "Program startup")
+	n.SetPID(int32(os.Getpid()))
 	ctx := context.Background()
 	n.ListenLocal()
 	n.SetInitStage(node.Stage_ReadConfig, "Reading configuration...")
@@ -129,10 +130,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCores()))
 	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
 	//
-	out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
-	out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
-	out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
-	out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
+	// out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
+	// out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
+	// out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
+	// out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
 
 	if strings.Contains(bootEnv, "test") {
 		if !strings.Contains(n.GetNetworkEnv(), "test") {
@@ -192,6 +193,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	var teeAcc string
 	var teeEndPointList = make([]string, 0)
 	for {
 		teeList, err := n.QueryAllTeeInfo()
@@ -253,19 +255,13 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 
 	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory...")
-	// build data directory
 	n.DataDir, err = buildDir(n.Workspace())
 	if err != nil {
 		n.SetInitStage(node.Stage_BuildDir, fmt.Sprintf("[err] %v", err))
 		out.Err(fmt.Sprintf("[buildDir] %v", err))
 		os.Exit(1)
 	}
-	n.SetInitStage(node.Stage_BuildDir, "[ok] Build completed")
-	// load peers
-	// err = n.LoadPeersFromDisk(n.DataDir.PeersFile)
-	// if err != nil {
-	// 	n.UpdatePeerFirst()
-	// }
+	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory completed")
 
 	for _, b := range boots {
 		multiaddr, err := core.ParseMultiaddrs(b)
@@ -356,6 +352,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 					out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
 					break
 				}
+				teeAcc, _ = n.GetTeeWorkAccount(teeEndPointList[i])
 				suc = true
 				break
 			}
@@ -366,7 +363,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 					Rear:          responseMinerInitParam.Rear,
 					KeyN:          responseMinerInitParam.KeyN,
 					KeyG:          responseMinerInitParam.KeyG,
-					StatusTeeSign: responseMinerInitParam.Signature,
+					StatusTeeSign: responseMinerInitParam.StatusTeeSign,
 				}
 				break
 			}
@@ -399,10 +396,18 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err("invalid tee signature")
 			os.Exit(1)
 		}
-		for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
+		for i := 0; i < pattern.TeeSignatureLen; i++ {
 			sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 		}
-		txhash, err := n.RegisterSminerPOISKey(key, sign)
+		var signWithAcc pattern.TeeSignature
+		if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSignatureLen {
+			out.Err("invalid tee SignatureWithTeeController")
+			os.Exit(1)
+		}
+		for i := 0; i < pattern.TeeSignatureLen; i++ {
+			signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
+		}
+		txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teeAcc)
 		if err != nil {
 			if txhash != "" {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
@@ -457,6 +462,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 						out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
 						break
 					}
+					teeAcc, _ = n.GetTeeWorkAccount(teeEndPointList[i])
 					suc = true
 					break
 				}
@@ -467,7 +473,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 						Rear:          responseMinerInitParam.Rear,
 						KeyN:          responseMinerInitParam.KeyN,
 						KeyG:          responseMinerInitParam.KeyG,
-						StatusTeeSign: responseMinerInitParam.Signature,
+						StatusTeeSign: responseMinerInitParam.StatusTeeSign,
 					}
 					break
 				}
@@ -503,7 +509,15 @@ func runCmd(cmd *cobra.Command, args []string) {
 			for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
 				sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 			}
-			txhash, err := n.RegisterSminerPOISKey(key, sign)
+			var signWithAcc pattern.TeeSignature
+			if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSignatureLen {
+				out.Err("invalid tee SignatureWithTeeController")
+				os.Exit(1)
+			}
+			for i := 0; i < pattern.TeeSignatureLen; i++ {
+				signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
+			}
+			txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teeAcc)
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 				os.Exit(1)

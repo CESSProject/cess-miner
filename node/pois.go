@@ -466,15 +466,20 @@ func (n *Node) certifiedSpace() error {
 		// If the challenge is failure, need to roll back the prover to the previous status,
 		// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
-		if len(verifyCommitOrDeletionProof.SignatureAbove) != len(pattern.TeeSignature{}) {
+		if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSignatureLen ||
+			len(verifyCommitOrDeletionProof.SignatureWithTeeController) != len(pattern.TeeSignature{}) {
 			n.Prover.AccRollback(false)
-			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.SignatureAbove length err]")
+			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.Sign length err]")
 		}
 
 		var idleSignInfo pattern.SpaceProofInfo
 		var sign pattern.TeeSignature
-		for i := 0; i < len(verifyCommitOrDeletionProof.SignatureAbove); i++ {
-			sign[i] = types.U8(verifyCommitOrDeletionProof.SignatureAbove[i])
+		for i := 0; i < pattern.TeeSignatureLen; i++ {
+			sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
+		}
+		var signWithAcc pattern.TeeSignature
+		for i := 0; i < pattern.TeeSignatureLen; i++ {
+			signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 		}
 		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
 			n.Prover.AccRollback(false)
@@ -497,7 +502,7 @@ func (n *Node) certifiedSpace() error {
 		}
 
 		n.Space("info", "Submit idle space")
-		txhash, err := n.CertIdleSpace(idleSignInfo, sign, usedTeeWorkAccount)
+		txhash, err := n.CertIdleSpace(idleSignInfo, signWithAcc, sign, usedTeeWorkAccount)
 		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)
@@ -530,6 +535,6 @@ func (n *Node) certifiedSpace() error {
 		n.MinerPoisInfo.Front = verifyCommitOrDeletionProof.PoisStatus.Front
 		n.MinerPoisInfo.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
 		n.MinerPoisInfo.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc
-		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.SignatureAbove
+		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.StatusTeeSign
 	}
 }
