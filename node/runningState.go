@@ -41,6 +41,7 @@ type SetStatus interface {
 	SetInitStage(st uint8, msg string)
 	SetTaskPeriod(msg string)
 	SetCpuCores(num int)
+	SetPID(pid int32)
 	SetReconnectRpc(value bool)
 	SetCalcTagFlag(flag bool)
 	SetReportFileFlag(flag bool)
@@ -52,6 +53,7 @@ type GetStatus interface {
 	GetInitStage() [Stage_Complete + 1]string
 	GetTaskPeriod() string
 	GetCpuCores() int
+	GetPID() int32
 	GetReconnectRpc() bool
 	GetCalcTagFlag() bool
 	GetReportFileFlag() bool
@@ -64,6 +66,7 @@ type RunningRecordType struct {
 	initStageMsg   [Stage_Complete + 1]string
 	taskPeriod     string
 	cpuCores       int
+	pid            int32
 	workStage      uint8
 	reconnectRpc   bool
 	calcTagFlag    bool
@@ -119,6 +122,16 @@ func (s *RunningRecordType) GetReconnectRpc() bool {
 func (s *RunningRecordType) SetCpuCores(num int) {
 	s.lock.Lock()
 	s.cpuCores = num
+	s.lock.Unlock()
+}
+
+func (s *RunningRecordType) GetPID() int32 {
+	return s.pid
+}
+
+func (s *RunningRecordType) SetPID(pid int32) {
+	s.lock.Lock()
+	s.pid = pid
 	s.lock.Unlock()
 }
 

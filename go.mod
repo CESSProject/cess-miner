@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
-	github.com/CESSProject/cess-go-sdk v0.4.11
+	github.com/CESSProject/cess-go-sdk v0.4.13
 	github.com/CESSProject/cess_pois v0.4.21
-	github.com/CESSProject/p2p-go v0.2.8
+	github.com/CESSProject/p2p-go v0.2.9
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
 	github.com/gin-contrib/cors v1.5.0
@@ -168,6 +168,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
+	github.com/tklauser/go-sysconf v0.3.5 // indirect
+	github.com/tklauser/numcpus v0.2.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/vedhavyas/go-subkey v1.0.4 // indirect

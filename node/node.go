@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -24,6 +25,7 @@ import (
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	sprocess "github.com/shirou/gopsutil/process"
 )
 
 type Node struct {
@@ -273,6 +275,9 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 	for i := 0; i < len(initStage); i++ {
 		msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
 	}
+
+	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
+
 	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
 
 	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
@@ -289,5 +294,23 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 
 	msg += fmt.Sprintf("Report idle: %v\n", n.GetAuthIdleFlag())
 
+	msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
+
+	msg += fmt.Sprintf("Memory usage: %d", getMemUsage())
+
 	c.Data(200, "application/octet-stream", []byte(msg))
+}
+func getCpuUsage(pid int32) float64 {
+	p, _ := sprocess.NewProcess(pid)
+	cpuPercent, err := p.Percent(time.Second)
+	if err != nil {
+		return 0
+	}
+	return cpuPercent / float64(runtime.NumCPU())
+}
+
+func getMemUsage() uint64 {
+	memSt := &runtime.MemStats{}
+	runtime.ReadMemStats(memSt)
+	return memSt.Sys
 }

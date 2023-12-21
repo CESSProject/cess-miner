@@ -197,6 +197,14 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	idleSignInfo.Miner = *minerAcc
 	idleSignInfo.Front = types.U64(verifyCommitOrDeletionProof.PoisStatus.Front)
 	idleSignInfo.Rear = types.U64(verifyCommitOrDeletionProof.PoisStatus.Rear)
+
+	if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSignatureLen ||
+		len(verifyCommitOrDeletionProof.SignatureWithTeeController) != pattern.TeeSignatureLen {
+		n.AccRollback(true)
+		n.Replace("err", "invalid tee sign length")
+		return
+	}
+
 	for i := 0; i < len(verifyCommitOrDeletionProof.PoisStatus.Acc); i++ {
 		idleSignInfo.Accumulator[i] = types.U8(verifyCommitOrDeletionProof.PoisStatus.Acc[i])
 	}
@@ -210,12 +218,16 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	}
 
 	var sign pattern.TeeSignature
-	for i := 0; i < len(verifyCommitOrDeletionProof.SignatureAbove); i++ {
-		sign[i] = types.U8(verifyCommitOrDeletionProof.SignatureAbove[i])
+	for i := 0; i < pattern.TeeSignatureLen; i++ {
+		sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
+	}
+	var signWithAcc pattern.TeeSignature
+	for i := 0; i < pattern.TeeSignatureLen; i++ {
+		signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 	}
 
 	//
-	txhash, err := n.ReplaceIdleSpace(idleSignInfo, sign, usedTeeWorkAccount)
+	txhash, err := n.ReplaceIdleSpace(idleSignInfo, signWithAcc, sign, usedTeeWorkAccount)
 	if err != nil || txhash == "" {
 		n.AccRollback(true)
 		n.Replace("err", err.Error())
