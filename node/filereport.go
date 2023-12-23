@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
 func (n *Node) reportFiles(ch chan<- bool) {
@@ -48,19 +50,19 @@ func (n *Node) reportFiles(ch chan<- bool) {
 
 	n.SetReportFileFlag(true)
 	defer n.SetReportFileFlag(false)
-
+	n.Report("info", "enter")
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))
 		return
 	}
-
 	for _, v := range roothashs {
 		roothash = filepath.Base(v)
-
+		n.Report("info", fmt.Sprintf("fid: %v", roothash))
 		ok, err = n.Has([]byte(Cach_prefix_File + roothash))
 		if err == nil {
 			if ok {
+				n.Report("info", fmt.Sprintf("Cach.Has: %v", roothash))
 				continue
 			}
 		} else {
@@ -69,6 +71,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 
 		metadata, err = n.QueryFileMetadata(roothash)
 		if err != nil {
+			n.Report("err", fmt.Sprintf("QueryFileMetadata: %v", err))
 			if err.Error() != pattern.ERR_Empty {
 				n.Report("err", err.Error())
 				time.Sleep(pattern.BlockInterval)
@@ -76,35 +79,40 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			}
 		} else {
 			var deletedFrgmentList []string
-			var savedFrgmentList = make(map[string]struct{}, 0)
+			var savedFrgment string
 			for _, segment := range metadata.SegmentList {
 				for _, fragment := range segment.FragmentList {
 					if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 						deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
-					} else {
-						savedFrgmentList[string(fragment.Hash[:])] = struct{}{}
+						continue
 					}
+					savedFrgment = string(fragment.Hash[:])
 				}
 			}
-			if len(savedFrgmentList) == 1 {
+
+			n.Report("info", fmt.Sprintf("Save: %v", savedFrgment))
+			if _, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash)); err != nil {
 				err = os.Mkdir(filepath.Join(n.GetDirs().FileDir, roothash), os.ModeDir)
 				if err != nil {
 					n.Report("err", fmt.Sprintf("[Mkdir.FileDir(%s)] %v", roothash, err))
 					continue
 				}
-				for _, d := range deletedFrgmentList {
-					if _, ok := savedFrgmentList[d]; ok {
-						err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, d),
-							filepath.Join(n.GetDirs().FileDir, roothash, d))
-						n.Put([]byte(Cach_prefix_File+roothash), []byte(d))
-						if err != nil {
-							n.Report("err", fmt.Sprintf("[Remove TmpDir to FileDir (%s.%s)] %v", roothash, d, err))
-							continue
-						}
-						continue
-					}
-					err = os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
-					if err != nil {
+			}
+			err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment),
+				filepath.Join(n.GetDirs().FileDir, roothash, savedFrgment))
+			if err != nil {
+				n.Report("err", fmt.Sprintf("[Remove TmpDir to FileDir (%s.%s)] %v", roothash, savedFrgment, err))
+				continue
+			}
+			err = n.Put([]byte(Cach_prefix_File+roothash), []byte(savedFrgment))
+			if err != nil {
+				n.Report("err", fmt.Sprintf("[Cach.Put(%s.%s)] %v", roothash, savedFrgment, err))
+			}
+
+			for _, d := range deletedFrgmentList {
+				err = os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
+				if err != nil {
+					if !strings.Contains(err.Error(), configs.Err_file_not_fount) {
 						n.Report("err", fmt.Sprintf("[Delete TmpFile (%s.%s)] %v", roothash, d, err))
 					}
 				}

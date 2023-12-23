@@ -18,7 +18,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"google.golang.org/grpc"
@@ -129,14 +129,20 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			}
 			requestGenTag = &pb.RequestGenTag{
 				FragmentData: buf[:pattern.FragmentSize],
-				FragmentName: fid,
+				FragmentName: fragmentHash,
 				CustomData:   "",
-				FileName:     fragmentHash,
+				FileName:     fid,
+				MinerId:      n.GetSignatureAccPulickey(),
 			}
 			for i := 0; i < len(teeEndPoints); i++ {
 				teeAcc, err := n.GetTeeWorkAccount(teeEndPoints[i])
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[i], err))
+					continue
+				}
+				teeAccountID, err := sutils.ParsingPublickey(teeAcc)
+				if err != nil {
+					n.Stag("err", fmt.Sprintf("[ParsingPublickey] err: %s", err))
 					continue
 				}
 				n.Stag("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
@@ -149,7 +155,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				genTag, err := n.RequestGenTag(
 					teeEndPoints[i],
 					requestGenTag,
-					time.Duration(time.Minute*10),
+					time.Duration(time.Minute*20),
 					dialOptions,
 					nil,
 				)
@@ -163,6 +169,14 @@ func (n *Node) serviceTag(ch chan<- bool) {
 					continue
 				}
 
+				if len(genTag.TagSigInfo) != pattern.TeeSignatureLen {
+					n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.TagSigInfo)))
+					continue
+				}
+				for j := 0; j < pattern.TeeSignatureLen; j++ {
+					teeSign[j] = types.U8(genTag.TagSigInfo[j])
+				}
+				genTag.TagSigInfo = nil
 				buf, err = json.Marshal(genTag)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
@@ -185,19 +199,19 @@ func (n *Node) serviceTag(ch chan<- bool) {
 
 				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))))
 
-				for j := 0; j < pattern.TeeSignatureLen; j++ {
-					teeSign[j] = types.U8(genTag.USig[j])
-				}
 				for j := 0; j < pattern.FileHashLen; j++ {
 					tagSigInfo.Filehash[j] = types.U8(fid[j])
 				}
 				tagSigInfo.Miner = types.AccountID(n.GetSignatureAccPulickey())
-				teeAccountID, _ := sutils.ParsingPublickey(teeAcc)
 				tagSigInfo.TeeAcc = types.AccountID(teeAccountID)
 				for j := 0; j < 10; j++ {
 					txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
 					if err != nil || txhash == "" {
 						n.Stag("err", err.Error())
+						if (j + 1) >= 10 {
+							os.Remove(filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))
+							break
+						}
 						time.Sleep(time.Minute)
 						continue
 					}

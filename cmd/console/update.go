@@ -15,7 +15,7 @@ import (
 	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )

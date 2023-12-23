@@ -15,7 +15,7 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
