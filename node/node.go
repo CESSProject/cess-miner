@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -270,21 +271,26 @@ func (n *Node) ListenLocal() {
 
 // getStatusHandle
 func (n *Node) getStatusHandle(c *gin.Context) {
-	var msg string = fmt.Sprintf("Init Stage: \n")
+	var msg string
 	initStage := n.GetInitStage()
-	for i := 0; i < len(initStage); i++ {
-		msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
+	if !strings.Contains(initStage[Stage_Complete], "[ok]") {
+		msg += fmt.Sprintf("Init Stage: \n")
+		for i := 0; i < len(initStage); i++ {
+			msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
+		}
 	}
-
 	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
 
 	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
 
 	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
 
-	msg += fmt.Sprintf("RPC Connection: %v\n", n.GetChainState())
-
-	msg += fmt.Sprintf("Reconnecting RPC: %v\n", n.GetReconnectRpc())
+	if n.GetChainState() {
+		msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpcAddr())
+	} else {
+		msg += fmt.Sprintf("RPC Connection: [fail] %v\n", n.GetCurrentRpcAddr())
+	}
+	msg += fmt.Sprintf("Last reconnection: %v\n", n.GetLastReconnectRpcTime())
 
 	msg += fmt.Sprintf("Calculate Tag: %v\n", n.GetCalcTagFlag())
 
@@ -312,5 +318,5 @@ func getCpuUsage(pid int32) float64 {
 func getMemUsage() uint64 {
 	memSt := &runtime.MemStats{}
 	runtime.ReadMemStats(memSt)
-	return memSt.Sys
+	return memSt.HeapSys + memSt.StackSys
 }

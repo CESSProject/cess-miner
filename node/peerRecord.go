@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
 type PeerRecord interface {

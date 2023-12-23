@@ -98,7 +98,7 @@ Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Cr
 
 **2) Recharge your staking account**
 
-The staking amount is calculated based on the space you configure. The minimum staking amount is 2000CESS, and an additional 2000CESS staking is required for each additional 1TiB of space.
+The staking amount is calculated based on the space you configure. The minimum staking amount is 4000CESS, and an additional 4000CESS staking is required for each additional 1TiB of space.
 
 If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
@@ -106,13 +106,13 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.6/bucket0.7.6.linux-amd64.tar.gz
+wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.8/bucket0.7.8.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
 
 **1) install go**
-CESS-Bucket requires [Go 1.20](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
+CESS-Bucket requires [Go 1.20](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open gomod mode:
 ```
@@ -177,7 +177,7 @@ The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` 
 ## 🟢 Start mining
 The bucket program has two running modes: foreground and background.
 
-> :warning: If you are not running the bucket program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your staking account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
+> :warning: If you are not running the bucket program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your signature account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
 ```
 chown -R  user:user /cess/cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y/
 ```
@@ -252,17 +252,18 @@ nohup ./bucket run &
 ./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
-+------------------+------------------------------------------------------+
-| role             | storage node                                         |
-| peer id          | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
-| state            | positive                                             |
-| staking amount   | 2400 TCESS                                           |
-| validated space  | 1.00 GiB                                             |
-| used space       | 25.00 MiB                                            |
-| locked space     | 0 bytes                                              |
-| staking account  | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
-| earnings account | cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y    |
-+------------------+------------------------------------------------------+
++-------------------+------------------------------------------------------+
+| role              | storage node                                         |
+| peer id           | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
+| state             | positive                                             |
+| staking amount    | 2400 TCESS                                           |
+| validated space   | 1.00 GiB                                             |
+| used space        | 25.00 MiB                                            |
+| locked space      | 0 bytes                                              |
+| signature account | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
+| staking account   |                                                      |
+| earnings account  | cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y    |
++-------------------+------------------------------------------------------+
 ```
 
 - increase
@@ -284,7 +285,7 @@ OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
 - version
 ```shell
 ./bucket version
-bucket v0.6.0
+bucket v0.7.8
 ```
 
 - exit

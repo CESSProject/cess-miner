@@ -214,7 +214,7 @@ func main() {
 			MinerPbk:        nil,
 			MinerPeerIdSign: nil,
 			Qslices:         qslice_pb,
-			USig:            nil,
+			USigs:           nil,
 		}
 		var dialOptions []grpc.DialOption
 		if !strings.Contains(tee, "443") {

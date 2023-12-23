@@ -42,7 +42,7 @@ type SetStatus interface {
 	SetTaskPeriod(msg string)
 	SetCpuCores(num int)
 	SetPID(pid int32)
-	SetReconnectRpc(value bool)
+	SetLastReconnectRpcTime(t string)
 	SetCalcTagFlag(flag bool)
 	SetReportFileFlag(flag bool)
 	SetGenIdleFlag(flag bool)
@@ -54,7 +54,7 @@ type GetStatus interface {
 	GetTaskPeriod() string
 	GetCpuCores() int
 	GetPID() int32
-	GetReconnectRpc() bool
+	GetLastReconnectRpcTime() string
 	GetCalcTagFlag() bool
 	GetReportFileFlag() bool
 	GetGenIdleFlag() bool
@@ -62,17 +62,17 @@ type GetStatus interface {
 }
 
 type RunningRecordType struct {
-	lock           *sync.RWMutex
-	initStageMsg   [Stage_Complete + 1]string
-	taskPeriod     string
-	cpuCores       int
-	pid            int32
-	workStage      uint8
-	reconnectRpc   bool
-	calcTagFlag    bool
-	reportFileFlag bool
-	genIdleFlag    bool
-	authIdleFlag   bool
+	lock                 *sync.RWMutex
+	initStageMsg         [Stage_Complete + 1]string
+	taskPeriod           string
+	cpuCores             int
+	pid                  int32
+	workStage            uint8
+	lastReconnectRpcTime string
+	calcTagFlag          bool
+	reportFileFlag       bool
+	genIdleFlag          bool
+	authIdleFlag         bool
 }
 
 var _ RunningRecord = (*RunningRecordType)(nil)
@@ -107,16 +107,16 @@ func (s *RunningRecordType) GetTaskPeriod() string {
 	return s.taskPeriod
 }
 
-func (s *RunningRecordType) SetReconnectRpc(value bool) {
+func (s *RunningRecordType) SetLastReconnectRpcTime(t string) {
 	s.lock.Lock()
-	s.reconnectRpc = value
+	s.lastReconnectRpcTime = t
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetReconnectRpc() bool {
+func (s *RunningRecordType) GetLastReconnectRpcTime() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.reconnectRpc
+	return s.lastReconnectRpcTime
 }
 
 func (s *RunningRecordType) SetCpuCores(num int) {

@@ -19,7 +19,7 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -82,6 +82,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"validated space", fmt.Sprintf("%s", unitConversion(minerInfo.IdleSpace))},
 		{"used space", fmt.Sprintf("%s", unitConversion(minerInfo.ServiceSpace))},
 		{"locked space", fmt.Sprintf("%s", unitConversion(minerInfo.LockSpace))},
+		{"signature account", n.GetSignatureAcc()},
 		{"staking account", n.GetStakingAcc()},
 		{"earnings account", beneficiaryAcc},
 	}

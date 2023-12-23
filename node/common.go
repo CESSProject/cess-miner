@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
@@ -108,17 +109,16 @@ func (n *Node) connectChain(ch chan<- bool) {
 	n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-	n.SetReconnectRpc(true)
 	err := n.ReconnectRPC()
 	if err != nil {
-		n.SetReconnectRpc(false)
+		n.SetLastReconnectRpcTime(time.Now().Format(configs.TimeFormat))
 		n.Log("err", "All RPCs failed to reconnect")
 		n.Ichal("err", "All RPCs failed to reconnect")
 		n.Schal("err", "All RPCs failed to reconnect")
 		out.Err("All RPCs failed to reconnect")
 		return
 	}
-	n.SetReconnectRpc(false)
+	n.SetLastReconnectRpcTime(time.Now().Format(configs.TimeFormat))
 	n.SetChainState(true)
 	out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
