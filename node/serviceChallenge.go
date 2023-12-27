@@ -614,7 +614,7 @@ func (n *Node) batchVerify(
 		Mus:   serviceProofRecord.Mus,
 		Sigma: serviceProofRecord.Sigma,
 	}
-	var batchVerify *pb.ResponseBatchVerify
+	var batchVerifyResult *pb.ResponseBatchVerify
 	var timeoutStep time.Duration = 10
 	var timeout time.Duration
 	var requestBatchVerify = &pb.RequestBatchVerify{
@@ -634,7 +634,7 @@ func (n *Node) batchVerify(
 	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
 	for i := 0; i < 3; i++ {
 		timeout = time.Minute * timeoutStep
-		batchVerify, err = n.RequestBatchVerify(
+		batchVerifyResult, err = n.RequestBatchVerify(
 			teeEndPoint,
 			requestBatchVerify,
 			timeout,
@@ -651,7 +651,7 @@ func (n *Node) batchVerify(
 			n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 			return nil, nil, nil, false, err
 		}
-		return batchVerify.ServiceBloomFilter, batchVerify.TeeAccountId, batchVerify.Signature, batchVerify.BatchVerifyResult, err
+		return batchVerifyResult.ServiceBloomFilter, batchVerifyResult.TeeAccountId, batchVerifyResult.Signature, batchVerifyResult.BatchVerifyResult, err
 	}
 	return nil, nil, nil, false, err
 }

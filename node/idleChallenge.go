@@ -338,7 +338,7 @@ func (n *Node) idleChallenge(
 			Acc:        acc,
 			SpaceChals: challRandom,
 		}
-
+		n.Ichal("info", fmt.Sprintf("RequestVerifySpaceTotal to tee: %s", teeEndPoint))
 		timeout = time.Minute * 10
 		for try := 10; try < 30; try += 10 {
 			spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
@@ -356,6 +356,7 @@ func (n *Node) idleChallenge(
 				}
 				return
 			}
+			break
 		}
 		n.Ichal("info", fmt.Sprintf("spaceProofVerifyTotal.IdleResult is %v", spaceProofVerifyTotal.IdleResult))
 
@@ -535,6 +536,7 @@ func (n *Node) checkIdleProofRecord(
 	for {
 		if idleProofRecord.BlocksProof != nil {
 			timeout = time.Minute * 10
+			n.Ichal("info", fmt.Sprintf("RequestVerifySpaceTotal to tee: %s", teeEndPoint))
 			for try := 10; try < 30; try += 10 {
 				spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
 					teeEndPoint,
@@ -547,10 +549,11 @@ func (n *Node) checkIdleProofRecord(
 					n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						timeout = time.Minute * time.Duration(10+try)
-						continue
 					}
-					break
+					time.Sleep(time.Minute)
+					continue
 				}
+				break
 			}
 			idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
 			idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
@@ -594,6 +597,7 @@ func (n *Node) checkIdleProofRecord(
 		MinerId:    n.GetSignatureAccPulickey(),
 		PoisInfo:   minerPoisInfo,
 	}
+	n.Ichal("info", fmt.Sprintf("RequestSpaceProofVerifySingleBlock to tee: %s", teeEndPoint))
 	for i := 0; i < len(idleProofRecord.FileBlockProofInfo); i++ {
 		requestSpaceProofVerify.Proof = idleProofRecord.FileBlockProofInfo[i].SpaceProof
 		requestSpaceProofVerify.MinerSpaceProofHashPolkadotSig = idleProofRecord.FileBlockProofInfo[i].ProofHashSign
@@ -630,6 +634,7 @@ func (n *Node) checkIdleProofRecord(
 		SpaceChals: idleProofRecord.ChallRandom,
 	}
 	timeout = time.Minute * 10
+	n.Ichal("info", fmt.Sprintf("RequestVerifySpaceTotal to tee: %s", teeEndPoint))
 	for try := 10; try < 30; try += 10 {
 		spaceProofVerifyTotal, err = n.RequestVerifySpaceTotal(
 			teeEndPoint,
@@ -646,6 +651,7 @@ func (n *Node) checkIdleProofRecord(
 			}
 			return nil
 		}
+		break
 	}
 
 	var teeSignature pattern.TeeSignature
