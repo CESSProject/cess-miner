@@ -25,6 +25,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type TagFileType struct {
+	Tag  *pb.Tag `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	USig []byte  `protobuf:"bytes,2,opt,name=u_sig,json=uSig,proto3" json:"u_sig,omitempty"`
+}
+
 func (n *Node) serviceTag(ch chan<- bool) {
 	defer func() {
 		ch <- true
@@ -46,6 +51,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 
 	var ok bool
 	var recover bool
+	var onChainFlag bool
 	var blocknumber uint32
 	var txhash string
 	var fid string
@@ -92,6 +98,30 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			fragmentHash = filepath.Base(f)
 			_, err = os.Stat(filepath.Join(n.DataDir.TagDir, fragmentHash+".tag"))
 			if err == nil {
+				ok, _ = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
+				if !ok {
+					fmeta, err := n.QueryFileMetadata(fid)
+					if err == nil {
+						for _, segment := range fmeta.SegmentList {
+							for _, fragment := range segment.FragmentList {
+								if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+									if fragment.Tag.HasValue() {
+										ok, block := fragment.Tag.Unwrap()
+										if ok {
+											err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+											if err != nil {
+												n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block), err))
+											} else {
+												n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block)))
+											}
+											break
+										}
+									}
+								}
+							}
+						}
+					}
+				}
 				continue
 			}
 
@@ -134,6 +164,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				FileName:     fid,
 				MinerId:      n.GetSignatureAccPulickey(),
 			}
+			onChainFlag = false
 			for i := 0; i < len(teeEndPoints); i++ {
 				teeAcc, err := n.GetTeeWorkAccount(teeEndPoints[i])
 				if err != nil {
@@ -176,8 +207,12 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				for j := 0; j < pattern.TeeSignatureLen; j++ {
 					teeSign[j] = types.U8(genTag.TagSigInfo[j])
 				}
-				genTag.TagSigInfo = nil
-				buf, err = json.Marshal(genTag)
+
+				var tfile = &TagFileType{
+					Tag:  genTag.Tag,
+					USig: genTag.USig,
+				}
+				buf, err = json.Marshal(tfile)
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
 					continue
@@ -207,6 +242,35 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				for j := 0; j < 10; j++ {
 					txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
 					if err != nil || txhash == "" {
+						time.Sleep(pattern.BlockInterval)
+						fmeta, err := n.QueryFileMetadata(fid)
+						if err == nil {
+							for _, segment := range fmeta.SegmentList {
+								for _, fragment := range segment.FragmentList {
+									if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+										if fragment.Tag.HasValue() {
+											ok, block := fragment.Tag.Unwrap()
+											if ok {
+												onChainFlag = true
+												err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+												if err != nil {
+													n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block), err))
+												} else {
+													n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block)))
+												}
+												break
+											}
+										}
+									}
+								}
+								if onChainFlag {
+									break
+								}
+							}
+						}
+						if onChainFlag {
+							break
+						}
 						n.Stag("err", err.Error())
 						if (j + 1) >= 10 {
 							os.Remove(filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))

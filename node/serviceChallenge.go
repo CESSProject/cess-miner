@@ -234,7 +234,6 @@ func (n *Node) calcSigma(
 	randomList []pattern.Random,
 ) ([]string, []string, []string, string, [][]byte, error) {
 	var ok bool
-	var recover bool
 	var isChall bool
 	var sigma string
 	var roothash string
@@ -271,13 +270,11 @@ func (n *Node) calcSigma(
 			return names, us, mus, sigma, usig, err
 		}
 		for j := 0; j < len(fragments); j++ {
-			recover = false
 			isChall = true
 			fragmentHash = filepath.Base(fragments[j])
 			ok, err = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
-				return names, us, mus, sigma, usig, err
 			}
 			if !ok {
 				n.Schal("err", fmt.Sprintf("Cache.NotFound(%s.%s)", roothash, fragmentHash))
@@ -337,18 +334,22 @@ func (n *Node) calcSigma(
 			serviceTagPath := filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))
 			buf, err := os.ReadFile(serviceTagPath)
 			if err != nil {
-				if strings.Contains(err.Error(), configs.Err_file_not_fount) {
-					recover = true
-				} else {
-					n.Schal("err", fmt.Sprintf("[%s] ReadFile(%s): %v", roothash, fmt.Sprintf("%s.tag", fragmentHash), err))
+				err = n.calcFragmentTag(roothash, fragments[j])
+				if err != nil {
+					n.Schal("err", fmt.Sprintf("calcFragmentTag %v err: %v", fragments[j], err))
 					return names, us, mus, sigma, usig, err
 				}
 			}
-			if len(buf) < pattern.FragmentSize {
-				recover = true
-				n.Schal("err", fmt.Sprintf("[%s.%s] File fragment size [%d] is not equal to %d", roothash, fragmentHash, len(buf), pattern.FragmentSize))
+
+			var tag = &TagFileType{}
+			err = json.Unmarshal(buf, tag)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
+				os.Remove(serviceTagPath)
+				return names, us, mus, sigma, usig, err
 			}
-			if recover {
+			_, err = os.Stat(fragments[j])
+			if err != nil {
 				buf, err = n.GetFragmentFromOss(fragmentHash)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("Recovering fragment from cess gateway failed: %v", err))
@@ -358,19 +359,13 @@ func (n *Node) calcSigma(
 					n.Schal("err", fmt.Sprintf("[%s.%s] Fragment size [%d] received from CESS gateway is wrong", roothash, fragmentHash, len(buf)))
 					return names, us, mus, sigma, usig, err
 				}
-				err = os.WriteFile(serviceTagPath, buf, os.ModePerm)
+				err = os.WriteFile(fragments[j], buf, os.ModePerm)
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("[%s] [WriteFile(%s)]: %v", roothash, fragmentHash, err))
 					return names, us, mus, sigma, usig, err
 				}
 			}
-			var tag pb.ResponseGenTag
-			err = json.Unmarshal(buf, &tag)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
-				return names, us, mus, sigma, usig, err
-			}
-			matrix, _, err := proof.SplitByN(filepath.Join(roothash, fragmentHash), int64(len(tag.Tag.T.Phi)))
+			matrix, _, err := proof.SplitByN(fragments[j], int64(len(tag.Tag.T.Phi)))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
 				return names, us, mus, sigma, usig, err
@@ -623,7 +618,7 @@ func (n *Node) batchVerify(
 		MinerPbk:        n.GetSignatureAccPulickey(),
 		MinerPeerIdSign: peeridSign,
 		Qslices:         qslice_pb,
-		//USig: ,
+		USigs:           serviceProofRecord.Usig,
 	}
 	var dialOptions []grpc.DialOption
 	if !strings.Contains(teeEndPoint, "443") {
@@ -645,7 +640,7 @@ func (n *Node) batchVerify(
 			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 				n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 				timeoutStep += 10
-				time.Sleep(time.Minute)
+				time.Sleep(time.Minute * 3)
 				continue
 			}
 			n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))

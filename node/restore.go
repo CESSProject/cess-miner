@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -22,8 +23,12 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/p2p-go/pb"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (n *Node) restoreMgt(ch chan bool) {
@@ -285,6 +290,10 @@ func (n *Node) claimRestoreOrder() error {
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(b), v, err))
 			continue
+		}
+		err = n.calcFragmentTag(string(b), filepath.Join(n.GetDirs().FileDir, string(b), v))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[calcFragmentTag %s-%s] %v", string(b), v, err))
 		}
 		n.Restore("info", fmt.Sprintf("[RestoralComplete %s-%s] %s", string(b), v, txhash))
 		n.Delete([]byte(Cach_prefix_recovery + v))
@@ -597,4 +606,86 @@ func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
 		break
 	}
 	return ok
+}
+
+func (n *Node) calcFragmentTag(fid, fragment string) error {
+	buf, err := os.ReadFile(fragment)
+	if err != nil {
+		return err
+	}
+	if len(buf) != pattern.FragmentSize {
+		return errors.New("invalid fragment size")
+	}
+	fragmentHash := filepath.Base(fragment)
+	teeEndPoints := n.GetPriorityTeeList()
+	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+	requestGenTag := &pb.RequestGenTag{
+		FragmentData: buf[:pattern.FragmentSize],
+		FragmentName: fragmentHash,
+		CustomData:   "",
+		FileName:     fid,
+		MinerId:      n.GetSignatureAccPulickey(),
+	}
+	var dialOptions []grpc.DialOption
+	var teeSign pattern.TeeSignature
+	for i := 0; i < len(teeEndPoints); i++ {
+		n.Restore("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
+		n.Restore("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
+		if !strings.Contains(teeEndPoints[i], "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
+		genTag, err := n.RequestGenTag(
+			teeEndPoints[i],
+			requestGenTag,
+			time.Duration(time.Minute*20),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[RequestGenTag] %v", err))
+			continue
+		}
+
+		if len(genTag.USig) != pattern.TeeSignatureLen {
+			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
+			continue
+		}
+
+		if len(genTag.TagSigInfo) != pattern.TeeSignatureLen {
+			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.TagSigInfo)))
+			continue
+		}
+		for j := 0; j < pattern.TeeSignatureLen; j++ {
+			teeSign[j] = types.U8(genTag.TagSigInfo[j])
+		}
+		genTag.TagSigInfo = nil
+		var tfile = &TagFileType{
+			Tag:  genTag.Tag,
+			USig: genTag.USig,
+		}
+		buf, err = json.Marshal(tfile)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[json.Marshal] err: %s", err))
+			continue
+		}
+		ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
+			continue
+		}
+		if !ok {
+			n.Restore("err", "VerifyAttest is false")
+			continue
+		}
+		err = sutils.WriteBufToFile(buf, filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
+			continue
+		}
+		n.Restore("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))))
+		break
+	}
+	return nil
 }
