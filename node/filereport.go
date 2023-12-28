@@ -50,7 +50,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 
 	n.SetReportFileFlag(true)
 	defer n.SetReportFileFlag(false)
-	n.Report("info", "enter")
+
 	roothashs, err := utils.Dirs(n.GetDirs().TmpDir)
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))

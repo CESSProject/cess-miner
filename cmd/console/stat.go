@@ -74,6 +74,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		name = "storage miner"
 	}
 
+	var stakingAcc = n.GetStakingAcc()
+	if stakingAcc == "" {
+		stakingAcc = n.GetSignatureAcc()
+	}
 	var tableRows = []table.Row{
 		{"name", name},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
@@ -83,7 +87,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"used space", fmt.Sprintf("%s", unitConversion(minerInfo.ServiceSpace))},
 		{"locked space", fmt.Sprintf("%s", unitConversion(minerInfo.LockSpace))},
 		{"signature account", n.GetSignatureAcc()},
-		{"staking account", n.GetStakingAcc()},
+		{"staking account", stakingAcc},
 		{"earnings account", beneficiaryAcc},
 	}
 	tw := table.NewWriter()
