@@ -122,6 +122,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						}
 					}
 				}
+				n.Stag("info", fmt.Sprintf("[Cache.Has(%s, %s)", fid, Cach_prefix_Tag+fragmentHash))
 				continue
 			}
 
@@ -239,9 +240,11 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				}
 				tagSigInfo.Miner = types.AccountID(n.GetSignatureAccPulickey())
 				tagSigInfo.TeeAcc = types.AccountID(teeAccountID)
+				n.Stag("info", fmt.Sprintf("Will report tag: %s.%s", fid, fragmentHash))
 				for j := 0; j < 10; j++ {
 					txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
 					if err != nil || txhash == "" {
+						n.Stag("err", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s] %v", fid, fragmentHash, txhash, err))
 						time.Sleep(pattern.BlockInterval)
 						fmeta, err := n.QueryFileMetadata(fid)
 						if err == nil {
@@ -279,6 +282,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						time.Sleep(time.Minute)
 						continue
 					}
+					n.Stag("info", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s]", fid, fragmentHash, txhash))
 					blocknumber, err = n.QueryBlockHeight(txhash)
 					if err != nil {
 						n.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
@@ -289,6 +293,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
 						break
 					}
+					n.Stag("info", fmt.Sprintf("Cach.Put[%s.%s]: [%d]", fid, fragmentHash, blocknumber))
 				}
 				break
 			}

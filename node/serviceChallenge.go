@@ -315,6 +315,7 @@ func (n *Node) calcSigma(
 				if !isChall {
 					continue
 				}
+				n.Schal("info", fmt.Sprintf("chall go on: %s.%s", roothash, fragmentHash))
 			} else {
 				n.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
 				block, err := n.Get([]byte(Cach_prefix_Tag + fragmentHash))
@@ -340,7 +341,7 @@ func (n *Node) calcSigma(
 					return names, us, mus, sigma, usig, err
 				}
 			}
-
+			n.Schal("info", fmt.Sprintf("[%s] Read tag file: %s", roothash, serviceTagPath))
 			var tag = &TagFileType{}
 			err = json.Unmarshal(buf, tag)
 			if err != nil {
