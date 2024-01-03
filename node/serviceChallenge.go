@@ -272,7 +272,7 @@ func (n *Node) calcSigma(
 		for j := 0; j < len(fragments); j++ {
 			isChall = true
 			fragmentHash = filepath.Base(fragments[j])
-			ok, err = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
+			ok, err = n.Has([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
 			}
@@ -296,7 +296,7 @@ func (n *Node) calcSigma(
 										n.Schal("err", fmt.Sprintf("fragment.Tag.Unwrap(%s.%s): %v", roothash, fragmentHash, err))
 										return names, us, mus, sigma, usig, err
 									}
-									err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+									err = n.Put([]byte(Cach_prefix_Tag+roothash+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
 									if err != nil {
 										n.Schal("err", fmt.Sprintf("Cache.Put(%s.%s)(%s): %v", roothash, fragmentHash, fmt.Sprintf("%d", block), err))
 									}
@@ -318,7 +318,7 @@ func (n *Node) calcSigma(
 				n.Schal("info", fmt.Sprintf("chall go on: %s.%s", roothash, fragmentHash))
 			} else {
 				n.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
-				block, err := n.Get([]byte(Cach_prefix_Tag + fragmentHash))
+				block, err := n.Get([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("Cache.Get(%s.%s): %v", roothash, fragmentHash, err))
 					return names, us, mus, sigma, usig, err
@@ -332,7 +332,7 @@ func (n *Node) calcSigma(
 					continue
 				}
 			}
-			serviceTagPath := filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))
+			serviceTagPath := fmt.Sprintf("%s.tag", fragments[j])
 			buf, err := os.ReadFile(serviceTagPath)
 			if err != nil {
 				err = n.calcFragmentTag(roothash, fragments[j])

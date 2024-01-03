@@ -94,11 +94,14 @@ func (n *Node) serviceTag(ch chan<- bool) {
 		}
 
 		for _, f := range files {
+			if strings.Contains(f, ".tag") {
+				continue
+			}
 			recover = false
 			fragmentHash = filepath.Base(f)
-			_, err = os.Stat(filepath.Join(n.DataDir.TagDir, fragmentHash+".tag"))
+			_, err = os.Stat(f + ".tag")
 			if err == nil {
-				ok, _ = n.Has([]byte(Cach_prefix_Tag + fragmentHash))
+				ok, _ = n.Has([]byte(Cach_prefix_Tag + fid + "." + fragmentHash))
 				if !ok {
 					fmeta, err := n.QueryFileMetadata(fid)
 					if err == nil {
@@ -108,21 +111,23 @@ func (n *Node) serviceTag(ch chan<- bool) {
 									if fragment.Tag.HasValue() {
 										ok, block := fragment.Tag.Unwrap()
 										if ok {
-											err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+											err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
 											if err != nil {
-												n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block), err))
+												n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block), err))
 											} else {
-												n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block)))
+												n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block)))
 											}
 											break
 										}
+									} else {
+										os.Remove(f + ".tag")
 									}
 								}
 							}
 						}
 					}
 				}
-				n.Stag("info", fmt.Sprintf("[Cache.Has(%s, %s)", fid, Cach_prefix_Tag+fragmentHash))
+				n.Stag("info", fmt.Sprintf("[Cache.Has(%s)", Cach_prefix_Tag+fid+"."+fragmentHash))
 				continue
 			}
 
@@ -227,13 +232,13 @@ func (n *Node) serviceTag(ch chan<- bool) {
 					n.Stag("err", "VerifyAttest is false")
 					continue
 				}
-				err = sutils.WriteBufToFile(buf, filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))
+				err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", f))
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
 					continue
 				}
 
-				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))))
+				n.Stag("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", f)))
 
 				for j := 0; j < pattern.FileHashLen; j++ {
 					tagSigInfo.Filehash[j] = types.U8(fid[j])
@@ -255,11 +260,11 @@ func (n *Node) serviceTag(ch chan<- bool) {
 											ok, block := fragment.Tag.Unwrap()
 											if ok {
 												onChainFlag = true
-												err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+												err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
 												if err != nil {
-													n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block), err))
+													n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block), err))
 												} else {
-													n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", block)))
+													n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block)))
 												}
 												break
 											}
@@ -276,7 +281,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						}
 						n.Stag("err", err.Error())
 						if (j + 1) >= 10 {
-							os.Remove(filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))
+							os.Remove(fmt.Sprintf("%s.tag", f))
 							break
 						}
 						time.Sleep(time.Minute)
@@ -288,9 +293,9 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						n.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
 						break
 					}
-					err = n.Put([]byte(Cach_prefix_Tag+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
+					err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
 					if err != nil {
-						n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
+						n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
 						break
 					}
 					n.Stag("info", fmt.Sprintf("Cach.Put[%s.%s]: [%d]", fid, fragmentHash, blocknumber))
