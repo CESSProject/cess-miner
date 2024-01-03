@@ -679,12 +679,12 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 			n.Restore("err", "VerifyAttest is false")
 			continue
 		}
-		err = sutils.WriteBufToFile(buf, filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash)))
+		err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", fragment))
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
 			continue
 		}
-		n.Restore("info", fmt.Sprintf("Calc a service tag: %s", filepath.Join(n.DataDir.TagDir, fmt.Sprintf("%s.tag", fragmentHash))))
+		n.Restore("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragment)))
 		break
 	}
 	return nil

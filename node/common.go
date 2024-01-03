@@ -26,7 +26,6 @@ type DataDir struct {
 	DbDir     string
 	LogDir    string
 	SpaceDir  string
-	TagDir    string
 	PoisDir   string
 	AccDir    string
 	RandomDir string

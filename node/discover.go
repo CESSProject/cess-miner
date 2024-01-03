@@ -31,7 +31,7 @@ func (n *Node) findPeers(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
+			 n.Pnc(utils.RecoverError(err))
 		}
 	}()
 

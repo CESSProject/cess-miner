@@ -1172,10 +1172,6 @@ func buildDir(workspace string) (*node.DataDir, error) {
 		return dir, err
 	}
 
-	dir.TagDir = filepath.Join(workspace, configs.TagDir)
-	if err := os.MkdirAll(dir.TagDir, pattern.DirMode); err != nil {
-		return dir, err
-	}
 	dir.PeersFile = filepath.Join(workspace, configs.PeersFile)
 	return dir, nil
 }

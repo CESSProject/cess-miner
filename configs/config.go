@@ -42,7 +42,6 @@ const (
 	DbDir            = "db"
 	LogDir           = "log"
 	SpaceDir         = "space"
-	TagDir           = "tag"
 	PoisDir          = "pois"
 	AccDir           = "acc"
 	RandomDir        = "random"
