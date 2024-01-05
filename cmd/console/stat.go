@@ -74,6 +74,16 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		name = "storage miner"
 	}
 
+	startBlock, err := n.QueryStorageMinerStakingStartBlock(n.GetSignatureAccPulickey())
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+		} else {
+			out.Err("You are not a storage node")
+		}
+		os.Exit(1)
+	}
+
 	var stakingAcc = n.GetStakingAcc()
 	if stakingAcc == "" {
 		stakingAcc = n.GetSignatureAcc()
@@ -83,9 +93,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
-		{"validated space", fmt.Sprintf("%s", unitConversion(minerInfo.IdleSpace))},
-		{"used space", fmt.Sprintf("%s", unitConversion(minerInfo.ServiceSpace))},
-		{"locked space", fmt.Sprintf("%s", unitConversion(minerInfo.LockSpace))},
+		{"staking start", startBlock},
+		{"validated space", unitConversion(minerInfo.IdleSpace)},
+		{"used space", unitConversion(minerInfo.ServiceSpace)},
+		{"locked space", unitConversion(minerInfo.LockSpace)},
 		{"signature account", n.GetSignatureAcc()},
 		{"staking account", stakingAcc},
 		{"earnings account", beneficiaryAcc},
