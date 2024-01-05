@@ -170,8 +170,8 @@ func (n *Node) serviceTag(ch chan<- bool) {
 				FileName:     fid,
 				MinerId:      n.GetSignatureAccPulickey(),
 			}
-			onChainFlag = false
 			for i := 0; i < len(teeEndPoints); i++ {
+				onChainFlag = false
 				teeAcc, err := n.GetTeeWorkAccount(teeEndPoints[i])
 				if err != nil {
 					n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[i], err))
@@ -210,8 +210,8 @@ func (n *Node) serviceTag(ch chan<- bool) {
 					n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.TagSigInfo)))
 					continue
 				}
-				for j := 0; j < pattern.TeeSignatureLen; j++ {
-					teeSign[j] = types.U8(genTag.TagSigInfo[j])
+				for k := 0; k < pattern.TeeSignatureLen; k++ {
+					teeSign[k] = types.U8(genTag.TagSigInfo[k])
 				}
 
 				var tfile = &TagFileType{
@@ -287,6 +287,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						time.Sleep(time.Minute)
 						continue
 					}
+					onChainFlag = true
 					n.Stag("info", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s]", fid, fragmentHash, txhash))
 					blocknumber, err = n.QueryBlockHeight(txhash)
 					if err != nil {
@@ -299,9 +300,78 @@ func (n *Node) serviceTag(ch chan<- bool) {
 						break
 					}
 					n.Stag("info", fmt.Sprintf("Cach.Put[%s.%s]: [%d]", fid, fragmentHash, blocknumber))
+					break
 				}
-				break
+				if onChainFlag {
+					break
+				}
 			}
 		}
 	}
 }
+
+// func (n *Node) reportTagCalculated(teeSign pattern.TeeSignature, tagSigInfo pattern.TagSigInfo) (uint32, error) {
+// 	var err error
+// 	var txhash string
+// 	var fid = string(tagSigInfo.Filehash[:])
+// 	for j := 0; j < 10; j++ {
+// 		txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
+// 		if err != nil || txhash == "" {
+// 			//n.Stag("err", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s] %v", fid, fragmentHash, txhash, err))
+// 			time.Sleep(pattern.BlockInterval)
+// 			fmeta, err := n.QueryFileMetadata(fid)
+// 			if err != nil{
+
+// 			}
+
+// 			if err == nil {
+// 				for _, segment := range fmeta.SegmentList {
+// 					for _, fragment := range segment.FragmentList {
+// 						if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+// 							if fragment.Tag.HasValue() {
+// 								ok, block := fragment.Tag.Unwrap()
+// 								if ok {
+// 									onChainFlag = true
+// 									err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+// 									if err != nil {
+// 										n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block), err))
+// 									} else {
+// 										n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block)))
+// 									}
+// 									break
+// 								}
+// 							}
+// 						}
+// 					}
+// 					if onChainFlag {
+// 						break
+// 					}
+// 				}
+// 			}
+// 			if onChainFlag {
+// 				break
+// 			}
+// 			n.Stag("err", err.Error())
+// 			if (j + 1) >= 10 {
+// 				os.Remove(fmt.Sprintf("%s.tag", f))
+// 				break
+// 			}
+// 			time.Sleep(time.Minute)
+// 			continue
+// 		}
+// 		onChainFlag = true
+// 		n.Stag("info", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s]", fid, fragmentHash, txhash))
+// 		blocknumber, err = n.QueryBlockHeight(txhash)
+// 		if err != nil {
+// 			n.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
+// 			break
+// 		}
+// 		err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
+// 		if err != nil {
+// 			n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
+// 			break
+// 		}
+// 		n.Stag("info", fmt.Sprintf("Cach.Put[%s.%s]: [%d]", fid, fragmentHash, blocknumber))
+// 	}
+// 	return nil
+// }
