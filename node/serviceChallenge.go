@@ -186,7 +186,6 @@ func (n *Node) serviceChallenge(
 		return
 	}
 	n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
-	return
 }
 
 // save challenge random number
@@ -264,6 +263,14 @@ func (n *Node) calcSigma(
 
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		roothash = filepath.Base(serviceRoothashDir[i])
+		_, err = n.QueryFileMetadata(roothash)
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				n.Schal("info", fmt.Sprintf("QueryFileMetadata(%s) is empty", roothash))
+				continue
+			}
+		}
+
 		fragments, err := utils.DirFiles(serviceRoothashDir[i], 0)
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("DirFiles(%s) %v", serviceRoothashDir[i], err))

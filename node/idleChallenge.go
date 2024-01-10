@@ -552,9 +552,12 @@ func (n *Node) checkIdleProofRecord(
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						timeout = time.Minute * time.Duration(10+try)
 					}
-					time.Sleep(time.Minute)
+					time.Sleep(time.Minute * 2)
 					continue
 				}
+				break
+			}
+			if err != nil || spaceProofVerifyTotal == nil {
 				break
 			}
 			idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature

@@ -39,7 +39,6 @@ func (n *Node) restoreMgt(ch chan bool) {
 		}
 	}()
 
-	n.Restore("info", ">>>>> start restoreMgt <<<<<")
 	chainSt := n.GetChainState()
 	if !chainSt {
 		return
@@ -346,9 +345,24 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	n.Restore("info", fmt.Sprintf("[%s] Restore path: %s", roothash, recoveryPath))
 	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
 	if err != nil {
-		os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+		err = os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: [MkdirAll] %v", roothash, framentHash, err))
+			return err
+		}
 	}
-	roothashes, err := utils.Dirs(n.GetDirs().FileDir)
+
+	if framentHash == core.ZeroFileHash_16M {
+		err = os.WriteFile(recoveryPath, make([]byte, pattern.FragmentSize), os.ModePerm)
+		if err != nil {
+			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, framentHash, err))
+		} else {
+			n.Restore("info", fmt.Sprintf("[%s.%s] Successfully restored fragment", roothash, framentHash))
+		}
+		return err
+	}
+
+	roothashes, _ := utils.Dirs(n.GetDirs().FileDir)
 	for _, v := range roothashes {
 		_, err = os.Stat(filepath.Join(v, framentHash))
 		if err == nil {
@@ -363,8 +377,15 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		}
 	}
 
-	var canRestore int
+	data, err := n.GetFragmentFromOss(framentHash)
+	if err == nil {
+		err = os.WriteFile(recoveryPath, data, os.ModePerm)
+		if err == nil {
+			return nil
+		}
+	}
 
+	var canRestore int
 	var dstSegement pattern.SegmentInfo
 	fmeta, err := n.QueryFileMetadata(roothash)
 	if err != nil {
@@ -463,7 +484,6 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 }
 
 func (n *Node) claimNoExitOrder() error {
-	var ok bool
 	var roothash string
 	var fmeta pattern.FileMetadata
 	var miner string
@@ -487,7 +507,7 @@ func (n *Node) claimNoExitOrder() error {
 		for _, v := range filelist {
 			roothashs[v] = struct{}{}
 		}
-		for v, _ := range roothashs {
+		for v := range roothashs {
 			roothash = v
 			n.Restore("info", fmt.Sprintf("check file: %s", roothash))
 			fmeta, err = n.QueryFileMetadata(roothash)
@@ -503,7 +523,7 @@ func (n *Node) claimNoExitOrder() error {
 						continue
 					}
 					if miner == targetMiner[0] {
-						if ok, err = n.Has([]byte(Cach_prefix_recovery + string(fragment.Hash[:]))); ok {
+						if ok, _ := n.Has([]byte(Cach_prefix_recovery + string(fragment.Hash[:]))); ok {
 							continue
 						}
 
@@ -579,34 +599,34 @@ func (n *Node) claimNoExitOrder() error {
 	return nil
 }
 
-func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
-	var err error
-	var ok bool
-	var id peer.ID
-	peers := n.GetAllPeerId()
+// func (n *Node) fetchFile(roothash, fragmentHash, path string) bool {
+// 	var err error
+// 	var ok bool
+// 	var id peer.ID
+// 	peers := n.GetAllPeerId()
 
-	for _, v := range peers {
-		id, err = peer.Decode(v)
-		if err != nil {
-			continue
-		}
-		addr, err := n.GetPeer(v)
-		if err != nil {
-			continue
-		}
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
-		if err != nil {
-			continue
-		}
-		err = n.ReadFileAction(id, roothash, fragmentHash, path, pattern.FragmentSize)
-		if err != nil {
-			continue
-		}
-		ok = true
-		break
-	}
-	return ok
-}
+// 	for _, v := range peers {
+// 		id, err = peer.Decode(v)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		addr, err := n.GetPeer(v)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		err = n.ReadFileAction(id, roothash, fragmentHash, path, pattern.FragmentSize)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		ok = true
+// 		break
+// 	}
+// 	return ok
+// }
 
 func (n *Node) calcFragmentTag(fid, fragment string) error {
 	buf, err := os.ReadFile(fragment)

@@ -53,6 +53,7 @@ func NewEmptyNode() *Node {
 
 // New is used to build a node instance
 func New() *Node {
+	gin.SetMode(gin.ReleaseMode)
 	return &Node{
 		Engine:        gin.Default(),
 		RSAKeyPair:    proof.NewKey(),
@@ -140,7 +141,7 @@ func (n *Node) Run() {
 		case <-task_10S.C:
 			n.SetTaskPeriod("10s")
 			if len(ch_ConnectChain) > 0 {
-				_ = <-ch_ConnectChain
+				<-ch_ConnectChain
 				go n.connectChain(ch_ConnectChain)
 			}
 			n.SetTaskPeriod("10s-end")
@@ -148,11 +149,11 @@ func (n *Node) Run() {
 		case <-task_30S.C:
 			n.SetTaskPeriod("30s")
 			if len(ch_reportfiles) > 0 {
-				_ = <-ch_reportfiles
+				<-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
 			}
 			if len(ch_calctag) > 0 {
-				_ = <-ch_calctag
+				<-ch_calctag
 				go n.serviceTag(ch_calctag)
 			}
 			n.SetTaskPeriod("30s-end")
@@ -160,7 +161,7 @@ func (n *Node) Run() {
 		case <-task_Minute.C:
 			n.SetTaskPeriod("1m")
 			if len(ch_syncChainStatus) > 0 {
-				_ = <-ch_syncChainStatus
+				<-ch_syncChainStatus
 				go n.syncChainStatus(ch_syncChainStatus)
 			}
 
@@ -169,32 +170,32 @@ func (n *Node) Run() {
 			}
 
 			if len(ch_findPeers) > 0 {
-				_ = <-ch_findPeers
+				<-ch_findPeers
 				go n.findPeers(ch_findPeers)
 			}
 
 			if len(ch_recvPeers) > 0 {
-				_ = <-ch_recvPeers
+				<-ch_recvPeers
 				go n.recvPeers(ch_recvPeers)
 			}
 
 			if len(ch_GenIdleFile) > 0 {
-				_ = <-ch_GenIdleFile
+				<-ch_GenIdleFile
 				go n.genIdlefile(ch_GenIdleFile)
 			}
 
 			if len(ch_replace) > 0 {
-				_ = <-ch_replace
+				<-ch_replace
 				go n.replaceIdle(ch_replace)
 			}
 
 			if len(ch_spaceMgt) > 0 {
-				_ = <-ch_spaceMgt
+				<-ch_spaceMgt
 				go n.poisMgt(ch_spaceMgt)
 			}
 
 			if len(ch_restoreMgt) > 0 {
-				_ = <-ch_restoreMgt
+				<-ch_restoreMgt
 				go n.restoreMgt(ch_restoreMgt)
 			}
 			n.SetTaskPeriod("1m-end")
