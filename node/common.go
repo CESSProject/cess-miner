@@ -146,6 +146,12 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
 	if err != nil {
 		n.Log("err", err.Error())
+		if err.Error() == pattern.ERR_Empty {
+			err = n.SaveMinerState(pattern.MINER_STATE_OFFLINE)
+			if err != nil {
+				n.Log("err", err.Error())
+			}
+		}
 	} else {
 		err = n.SaveMinerState(string(minerInfo.State))
 		if err != nil {
