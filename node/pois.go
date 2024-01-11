@@ -162,6 +162,26 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 		return
 	}
 
+	decSpace, validSpace, usedSpace, lockSpace := n.GetMinerSpaceInfo()
+	if (validSpace + usedSpace + lockSpace) >= decSpace {
+		n.Space("info", "The declared space has been authenticated")
+		time.Sleep(time.Minute * 10)
+		return
+	}
+
+	configSpace := n.GetUseSpace() * pattern.SIZE_1GiB
+	if configSpace < minSpace {
+		n.Space("err", "The configured space is less than the minimum space requirement")
+		time.Sleep(time.Minute * 10)
+		return
+	}
+
+	if (validSpace + usedSpace + lockSpace) > (configSpace - minSpace) {
+		n.Space("info", "The space for authentication has reached the configured space size")
+		time.Sleep(time.Hour)
+		return
+	}
+
 	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
 	if err != nil {
 		n.Space("err", fmt.Sprintf("[GetDirFreeSpace] %v", err))
@@ -170,7 +190,6 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	}
 
 	if dirfreeSpace < minSpace {
-		out.Err(fmt.Sprintf("The workspace capacity is less than %dG", minSpace/pattern.SIZE_1GiB))
 		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
 		return

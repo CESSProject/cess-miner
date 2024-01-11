@@ -494,6 +494,7 @@ func (n *Node) checkIdleProofRecord(
 			)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+				time.Sleep(time.Minute)
 				break
 			}
 			n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
@@ -588,6 +589,7 @@ func (n *Node) checkIdleProofRecord(
 			)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+				time.Sleep(time.Minute)
 				break
 			}
 			n.Ichal("info", fmt.Sprintf("SubmitIdleProofResult: %s", txHash))
@@ -696,6 +698,7 @@ func (n *Node) checkIdleProofRecord(
 	)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+		time.Sleep(time.Minute)
 		return nil
 	}
 	n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))

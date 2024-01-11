@@ -15,13 +15,22 @@ import (
 )
 
 type MinerState interface {
+	// set
 	SaveMinerState(state string) error
+	SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64)
+
+	//get
 	GetMinerState() string
+	GetMinerSpaceInfo() (uint64, uint64, uint64, uint64)
 }
 
 type MinerStateType struct {
-	lock  *sync.RWMutex
-	state string
+	lock        *sync.RWMutex
+	state       string
+	decSpace    uint64
+	validSpace  uint64
+	usedSpace   uint64
+	lockedSpace uint64
 }
 
 var _ MinerState = (*MinerStateType)(nil)
@@ -58,9 +67,28 @@ func (m *MinerStateType) SaveMinerState(state string) error {
 	return nil
 }
 
+func (m *MinerStateType) SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64) {
+	m.lock.Lock()
+	m.decSpace = decSpace
+	m.validSpace = validSpace
+	m.usedSpace = usedSpace
+	m.lockedSpace = lockedSpace
+	m.lock.Unlock()
+}
+
 func (m *MinerStateType) GetMinerState() string {
 	m.lock.RLock()
 	result := m.state
 	m.lock.RUnlock()
 	return result
+}
+
+func (m *MinerStateType) GetMinerSpaceInfo() (uint64, uint64, uint64, uint64) {
+	m.lock.RLock()
+	decSpace := m.decSpace
+	validSpace := m.validSpace
+	usedSpace := m.usedSpace
+	lockedSpace := m.lockedSpace
+	m.lock.RUnlock()
+	return decSpace, validSpace, usedSpace, lockedSpace
 }

@@ -21,14 +21,14 @@ import (
 )
 
 const update_cmd = "update"
-const update_cmd_use = "update"
+const update_cmd_use = update_cmd
 const update_cmd_short = "update inforation"
 const update_earnings_cmd = "earnings"
 const update_earnings_cmd_use = update_earnings_cmd
 const update_earnings_cmd_short = "update earnings account"
 
 var updateCmd = &cobra.Command{
-	Use:   update_cmd,
+	Use:   update_cmd_use,
 	Short: update_cmd_short,
 	Run: func(cmd *cobra.Command, args []string) {
 		updateEarningsAccount(cmd)

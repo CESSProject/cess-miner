@@ -252,6 +252,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		n.SetInitStage(node.Stage_QueryChain, "[ok] Complete query")
+		err = n.SaveMinerState(string(minerInfo.State))
+		if err != nil {
+			out.Err(err.Error())
+		}
+		n.SaveMinerSpaceInfo(
+			minerInfo.DeclarationSpace.Uint64(),
+			minerInfo.IdleSpace.Uint64(),
+			minerInfo.ServiceSpace.Uint64(),
+			minerInfo.LockSpace.Uint64(),
+		)
 	}
 
 	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory...")
@@ -674,6 +684,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("Workspace: %v", n.Workspace()))
 
 	n.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
+
+	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
+	if err == nil {
+		if dirfreeSpace < pattern.SIZE_1GiB*32 {
+			out.Warn("The workspace capacity is less than 32G")
+		}
+	}
+
 	// run
 	n.Run()
 }
