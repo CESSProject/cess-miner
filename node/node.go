@@ -273,7 +273,7 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 	var msg string
 	initStage := n.GetInitStage()
 	if !strings.Contains(initStage[Stage_Complete], "[ok]") {
-		msg += fmt.Sprintf("Init Stage: \n")
+		msg += fmt.Sprintf("init stage: \n")
 		for i := 0; i < len(initStage); i++ {
 			msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
 		}

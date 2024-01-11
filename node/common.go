@@ -157,6 +157,12 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 		if err != nil {
 			n.Log("err", err.Error())
 		}
+		n.SaveMinerSpaceInfo(
+			minerInfo.DeclarationSpace.Uint64(),
+			minerInfo.IdleSpace.Uint64(),
+			minerInfo.ServiceSpace.Uint64(),
+			minerInfo.LockSpace.Uint64(),
+		)
 	}
 }
 

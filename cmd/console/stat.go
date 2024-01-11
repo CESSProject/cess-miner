@@ -88,12 +88,15 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	if stakingAcc == "" {
 		stakingAcc = n.GetSignatureAcc()
 	}
+
 	var tableRows = []table.Row{
 		{"name", name},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
 		{"staking start", startBlock},
+		{"debt amount", fmt.Sprintf("%v %s", minerInfo.Debt, n.GetTokenSymbol())},
+		{"declaration space", unitConversion(minerInfo.DeclarationSpace)},
 		{"validated space", unitConversion(minerInfo.IdleSpace)},
 		{"used space", unitConversion(minerInfo.ServiceSpace)},
 		{"locked space", unitConversion(minerInfo.LockSpace)},

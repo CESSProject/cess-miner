@@ -168,7 +168,8 @@ The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` 
 | stat     |            | Query storage miner information                |
 | run      |            | Automatically register and run                 |
 | exit     |            | Unregister the storage miner role              |
-| increase |            | Increase the stakes of storage miner           |
+| increase | staking    | Increase the staking                           |
+| increase | space      | Increase the declaration space                 |
 | withdraw |            | Withdraw stakes                                |
 | update   | earnings   | Update earnings account                        |
 | reward   |            | Query reward information                       |
@@ -253,22 +254,33 @@ nohup ./bucket run &
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +-------------------+------------------------------------------------------+
-| role              | storage node                                         |
+| name              | storage miner                                        |
 | peer id           | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
 | state             | positive                                             |
 | staking amount    | 2400 TCESS                                           |
+| staking start     | 3123                                                 |
+| debt amount       | 0 TCESS                                              |
+| declaration space | 1.00 TiB                                             |
 | validated space   | 1.00 GiB                                             |
 | used space        | 25.00 MiB                                            |
 | locked space      | 0 bytes                                              |
 | signature account | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
-| staking account   |                                                      |
-| earnings account  | cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y    |
+| staking account   | cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw    |
+| earnings account  | cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV    |
 +-------------------+------------------------------------------------------+
 ```
 
-- increase
+- increase staking
 ```shell
-./bucket increase 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./bucket increase staking 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+>> Please enter the mnemonic of the staking account:
+*******************************************************************************
+OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
+```
+
+- increase space
+```shell
+./bucket increase space 10 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
