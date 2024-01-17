@@ -635,7 +635,7 @@ func (n *Node) batchVerify(
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 	}
 	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; {
 		timeout = time.Minute * timeoutStep
 		batchVerifyResult, err = n.RequestBatchVerify(
 			teeEndPoint,
@@ -646,8 +646,14 @@ func (n *Node) batchVerify(
 		)
 		if err != nil {
 			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+				i++
 				n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 				timeoutStep += 10
+				time.Sleep(time.Minute * 3)
+				continue
+			}
+			if strings.Contains(err.Error(), configs.Err_tee_Busy) {
+				n.Schal("err", fmt.Sprintf("[RequestBatchVerify] %v", err))
 				time.Sleep(time.Minute * 3)
 				continue
 			}
