@@ -78,10 +78,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+			os.Exit(1)
 		} else {
-			out.Err("You are not a storage node")
+			out.Err("your staking starting block is not found")
 		}
-		os.Exit(1)
 	}
 
 	var stakingAcc = n.GetStakingAcc()
