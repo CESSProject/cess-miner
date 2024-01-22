@@ -90,7 +90,21 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				}
 			}
 
-			n.Report("info", fmt.Sprintf("Save: %v", savedFrgment))
+			if savedFrgment == "" {
+				for _, d := range deletedFrgmentList {
+					_, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, d))
+					if err != nil {
+						continue
+					}
+					err = os.Remove(filepath.Join(n.GetDirs().TmpDir, roothash, d))
+					if err != nil {
+						if !strings.Contains(err.Error(), configs.Err_file_not_fount) {
+							n.Report("err", fmt.Sprintf("[Delete TmpFile (%s.%s)] %v", roothash, d, err))
+						}
+					}
+				}
+				continue
+			}
 			if _, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash)); err != nil {
 				err = os.Mkdir(filepath.Join(n.GetDirs().FileDir, roothash), os.ModeDir)
 				if err != nil {
