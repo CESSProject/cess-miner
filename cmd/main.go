@@ -26,8 +26,8 @@ func main() {
 func exitHandle(exitCh chan os.Signal) {
 	for {
 		select {
-		case <-exitCh:
-			panic(nil)
+		case sig := <-exitCh:
+			panic(sig.String())
 		}
 	}
 }
