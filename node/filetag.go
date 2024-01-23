@@ -143,6 +143,7 @@ func (n *Node) serviceTag(ch chan<- bool) {
 			} else {
 				if len(buf) != pattern.FragmentSize {
 					recover = true
+					os.Remove(f)
 					n.Stag("err", fmt.Sprintf("[%s.%s] File fragment size [%d] is not equal to %d", fid, fragmentHash, len(buf), pattern.FragmentSize))
 				}
 			}

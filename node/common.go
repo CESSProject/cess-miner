@@ -51,12 +51,13 @@ const (
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
-func (n *Node) connectBoot() {
-	chainSt := n.GetChainState()
-	if !chainSt {
-		return
-	}
-
+func (n *Node) connectBoot(ch chan bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 	minerSt := n.GetMinerState()
 	if minerSt != pattern.MINER_STATE_POSITIVE &&
 		minerSt != pattern.MINER_STATE_FROZEN {
