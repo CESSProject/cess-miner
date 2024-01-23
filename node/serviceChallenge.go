@@ -277,7 +277,7 @@ func (n *Node) calcSigma(
 			return names, us, mus, sigma, usig, err
 		}
 		for j := 0; j < len(fragments); j++ {
-			isChall = true
+			isChall = false
 			fragmentHash = filepath.Base(fragments[j])
 			ok, err = n.Has([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
 			if err != nil {
@@ -296,6 +296,7 @@ func (n *Node) calcSigma(
 				for _, segment := range fmeta.SegmentList {
 					for _, fragment := range segment.FragmentList {
 						if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+							isChall = true
 							if fragmentHash == string(fragment.Hash[:]) {
 								if fragment.Tag.HasValue() {
 									ok, block := fragment.Tag.Unwrap()
@@ -315,7 +316,7 @@ func (n *Node) calcSigma(
 							}
 						}
 					}
-					if !isChall {
+					if isChall {
 						break
 					}
 				}

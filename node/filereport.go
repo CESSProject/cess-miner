@@ -105,12 +105,21 @@ func (n *Node) reportFiles(ch chan<- bool) {
 				}
 				continue
 			}
+
 			if _, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash)); err != nil {
 				err = os.Mkdir(filepath.Join(n.GetDirs().FileDir, roothash), os.ModeDir)
 				if err != nil {
 					n.Report("err", fmt.Sprintf("[Mkdir.FileDir(%s)] %v", roothash, err))
 					continue
 				}
+			}
+			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment))
+			if err != nil {
+				n.Report("err", fmt.Sprintf("[os.Stat(%s)] %v", roothash, err))
+				continue
+			}
+			if fstat.Size() != pattern.FragmentSize {
+				continue
 			}
 			err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment),
 				filepath.Join(n.GetDirs().FileDir, roothash, savedFrgment))

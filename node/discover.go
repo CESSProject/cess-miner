@@ -31,7 +31,7 @@ func (n *Node) findPeers(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			 n.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
@@ -57,18 +57,15 @@ func (n *Node) recvPeers(ch chan<- bool) {
 
 	n.Discover("info", ">>>>> start recvPeers <<<<<")
 
-	for {
-		select {
-		case foundPeer := <-n.GetDiscoveredPeers():
-			for _, v := range foundPeer.Responses {
-				if v != nil {
-					if len(v.Addrs) > 0 {
-						n.SavePeer(peer.AddrInfo{
-							ID:    v.ID,
-							Addrs: v.Addrs,
-						})
-						n.GetDht().RoutingTable().TryAddPeer(v.ID, true, true)
-					}
+	for foundPeer := range n.GetDiscoveredPeers() {
+		for _, v := range foundPeer.Responses {
+			if v != nil {
+				if len(v.Addrs) > 0 {
+					n.SavePeer(peer.AddrInfo{
+						ID:    v.ID,
+						Addrs: v.Addrs,
+					})
+					n.GetDht().RoutingTable().TryAddPeer(v.ID, true, true)
 				}
 			}
 		}

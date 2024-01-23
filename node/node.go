@@ -78,11 +78,13 @@ func (n *Node) Run() {
 		ch_calctag          = make(chan bool, 1)
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
+		ch_connectBoot      = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
 		ch_GenIdleFile      = make(chan bool, 1)
 	)
 	ch_calctag <- true
 	ch_ConnectChain <- true
+	ch_connectBoot <- true
 	ch_idlechallenge <- true
 	ch_servicechallenge <- true
 	ch_reportfiles <- true
@@ -124,7 +126,7 @@ func (n *Node) Run() {
 	}
 
 	go n.poisMgt(ch_spaceMgt)
-	go n.findPeers(ch_findPeers)
+	//go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
 
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
@@ -148,6 +150,10 @@ func (n *Node) Run() {
 
 		case <-task_30S.C:
 			n.SetTaskPeriod("30s")
+			if len(ch_connectBoot) > 0 {
+				<-ch_connectBoot
+				go n.connectBoot(ch_connectBoot)
+			}
 			if len(ch_reportfiles) > 0 {
 				<-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
@@ -171,7 +177,7 @@ func (n *Node) Run() {
 
 			if len(ch_findPeers) > 0 {
 				<-ch_findPeers
-				go n.findPeers(ch_findPeers)
+				//go n.findPeers(ch_findPeers)
 			}
 
 			if len(ch_recvPeers) > 0 {
@@ -202,7 +208,6 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			n.SetTaskPeriod("1h")
-			go n.connectBoot()
 			// go n.UpdatePeers()
 			go n.reportLogsMgt(ch_reportLogs)
 			n.SetTaskPeriod("1h-end")
