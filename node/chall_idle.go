@@ -37,18 +37,17 @@ type fileBlockProofInfo struct {
 }
 
 type idleProofInfo struct {
-	Start                 uint32  `json:"start"`
-	ChainFront            int64   `json:"chainFront"`
-	ChainRear             int64   `json:"chainRear"`
-	IdleResult            bool    `json:"idleResult"`
-	AllocatedTeeAccount   string  `json:"allocatedTeeAccount"`
-	AllocatedTeeAccountId []byte  `json:"allocatedTeeAccountId"`
-	IdleProof             []byte  `json:"idleProof"`
-	Acc                   []byte  `json:"acc"`
-	TotalSignature        []byte  `json:"totalSignature"`
-	ChallRandom           []int64 `json:"challRandom"`
-	FileBlockProofInfo    []fileBlockProofInfo
-	BlocksProof           []*pb.BlocksProof
+	Start               uint32                  `json:"start"`
+	ChainFront          int64                   `json:"chainFront"`
+	ChainRear           int64                   `json:"chainRear"`
+	IdleResult          bool                    `json:"idleResult"`
+	AllocatedTeeWorkpuk pattern.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
+	IdleProof           []byte                  `json:"idleProof"`
+	Acc                 []byte                  `json:"acc"`
+	TotalSignature      []byte                  `json:"totalSignature"`
+	ChallRandom         []int64                 `json:"challRandom"`
+	FileBlockProofInfo  []fileBlockProofInfo
+	BlocksProof         []*pb.BlocksProof
 }
 
 func (n *Node) idleChallenge(
@@ -61,8 +60,8 @@ func (n *Node) idleChallenge(
 	minerChallRear int64,
 	spaceChallengeParam pattern.SpaceChallengeParam,
 	minerAccumulator pattern.Accumulator,
-	teeSign pattern.TeeSignature,
-	teeAcc types.AccountID,
+	teeSign pattern.TeeSig,
+	teePubkey pattern.WorkerPublicKey,
 ) {
 	defer func() {
 		ch <- true
@@ -83,7 +82,7 @@ func (n *Node) idleChallenge(
 		minerChallRear,
 		minerAccumulator,
 		teeSign,
-		teeAcc,
+		teePubkey,
 	)
 	if err == nil {
 		return
@@ -256,24 +255,27 @@ func (n *Node) idleChallenge(
 		if err != nil {
 			return
 		}
-		ok := chall.ProveInfo.IdleProve.HasValue()
-		if ok {
-			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
-			idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
-			idleProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		if chall.ProveInfo.IdleProve.HasValue() {
+			_, iProve := chall.ProveInfo.IdleProve.Unwrap()
+			idleProofRecord.AllocatedTeeWorkpuk = iProve.TeePubkey
 		} else {
 			return
 		}
 
-		teeInfoType, err := n.GetTee(idleProofRecord.AllocatedTeeAccount)
+		teeInfoType, err := n.GetTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]))
 		if err != nil {
-			teeInfo, err := n.QueryTeeInfo(idleProofRecord.AllocatedTeeAccountId)
+			teeInfo, err := n.QueryTeeWorker(idleProofRecord.AllocatedTeeWorkpuk)
 			if err != nil {
 				n.Ichal("err", err.Error())
 				return
 			}
-			n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
-			teeEndPoint = teeInfo.EndPoint
+			endpoint, err := n.QueryTeeWorkEndpoint(teeInfo.Pubkey)
+			if err != nil {
+				n.Ichal("err", err.Error())
+				return
+			}
+			n.SaveTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]), endpoint, uint8(teeInfo.Role))
+			teeEndPoint = endpoint
 			if utils.ContainsIpv4(teeEndPoint) {
 				teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
 			} else {
@@ -362,14 +364,14 @@ func (n *Node) idleChallenge(
 		}
 		n.Ichal("info", fmt.Sprintf("spaceProofVerifyTotal.IdleResult is %v", spaceProofVerifyTotal.IdleResult))
 
-		var teeSignature pattern.TeeSignature
-		if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
+		var teeSig pattern.TeeSig
+		if len(spaceProofVerifyTotal.Signature) != pattern.TeeSigLen {
 			n.Ichal("err", "invalid spaceProofVerifyTotal signature")
 			return
 		}
 
-		for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
-			teeSignature[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+		for i := 0; i < pattern.TeeSigLen; i++ {
+			teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
 		}
 
 		idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
@@ -382,8 +384,8 @@ func (n *Node) idleChallenge(
 			types.U64(idleProofRecord.ChainRear),
 			minerAccumulator,
 			types.Bool(spaceProofVerifyTotal.IdleResult),
-			teeSignature,
-			idleProofRecord.AllocatedTeeAccountId,
+			teeSig,
+			idleProofRecord.AllocatedTeeWorkpuk,
 		)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
@@ -407,8 +409,8 @@ func (n *Node) checkIdleProofRecord(
 	minerChallFront int64,
 	minerChallRear int64,
 	minerAccumulator pattern.Accumulator,
-	teeSign pattern.TeeSignature,
-	teeAcc types.AccountID,
+	teeSign pattern.TeeSig,
+	teePubkey pattern.WorkerPublicKey,
 ) error {
 	var timeout time.Duration
 	var teeEndPoint string
@@ -437,22 +439,19 @@ func (n *Node) checkIdleProofRecord(
 		return errors.New("Idle proof not submited")
 	}
 
-	idleProofRecord.AllocatedTeeAccount, err = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
-	if err != nil {
+	if utils.WorkerPublicKeyAreAllZero(teePubkey) {
 		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 		if err != nil {
 			return err
 		}
-		ok := chall.ProveInfo.IdleProve.HasValue()
-		if ok {
-			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
-			idleProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
-			idleProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		if chall.ProveInfo.IdleProve.HasValue() {
+			_, iProve := chall.ProveInfo.IdleProve.Unwrap()
+			idleProofRecord.AllocatedTeeWorkpuk = iProve.TeePubkey
 		} else {
 			return errors.New("The chain has not yet allocated a tee to verify the idle proof.")
 		}
 	} else {
-		idleProofRecord.AllocatedTeeAccountId = teeAcc[:]
+		idleProofRecord.AllocatedTeeWorkpuk = teePubkey
 	}
 
 	var acc = make([]byte, len(pattern.Accumulator{}))
@@ -475,13 +474,13 @@ func (n *Node) checkIdleProofRecord(
 			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 			}
-			var teeSignature pattern.TeeSignature
-			if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+			var teeSig pattern.TeeSig
+			if len(idleProofRecord.TotalSignature) != pattern.TeeSigLen {
 				n.Ichal("err", "invalid spaceProofVerifyTotal signature")
 				break
 			}
-			for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-				teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+			for i := 0; i < pattern.TeeSigLen; i++ {
+				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
 			txHash, err := n.SubmitIdleProofResult(
 				idleProve,
@@ -489,8 +488,8 @@ func (n *Node) checkIdleProofRecord(
 				types.U64(minerChallRear),
 				minerAccumulator,
 				types.Bool(idleProofRecord.IdleResult),
-				teeSignature,
-				idleProofRecord.AllocatedTeeAccountId,
+				teeSig,
+				idleProofRecord.AllocatedTeeWorkpuk,
 			)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
@@ -503,15 +502,20 @@ func (n *Node) checkIdleProofRecord(
 		break
 	}
 
-	teeInfoType, err := n.GetTee(idleProofRecord.AllocatedTeeAccount)
+	teeInfoType, err := n.GetTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
-		teeInfo, err := n.QueryTeeInfo(idleProofRecord.AllocatedTeeAccountId)
+		teeInfo, err := n.QueryTeeWorker(idleProofRecord.AllocatedTeeWorkpuk)
 		if err != nil {
 			n.Ichal("err", err.Error())
 			return err
 		}
-		n.SaveTee(idleProofRecord.AllocatedTeeAccount, teeInfo.EndPoint, teeInfo.TeeType)
-		teeEndPoint = teeInfo.EndPoint
+		endpoint, err := n.QueryTeeWorkEndpoint(idleProofRecord.AllocatedTeeWorkpuk)
+		if err != nil {
+			n.Ichal("err", err.Error())
+			return err
+		}
+		n.SaveTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]), endpoint, uint8(teeInfo.Role))
+		teeEndPoint = endpoint
 		if utils.ContainsIpv4(teeEndPoint) {
 			teeEndPoint = strings.TrimPrefix(teeEndPoint, "http://")
 		} else {
@@ -568,14 +572,14 @@ func (n *Node) checkIdleProofRecord(
 			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 			}
-			var teeSignature pattern.TeeSignature
-			if len(idleProofRecord.TotalSignature) != len(teeSignature) {
+			var teeSig pattern.TeeSig
+			if len(idleProofRecord.TotalSignature) != pattern.TeeSigLen {
 				n.Ichal("err", "invalid spaceProofVerifyTotal signature")
 				break
 			}
 
-			for i := 0; i < len(idleProofRecord.TotalSignature); i++ {
-				teeSignature[i] = types.U8(idleProofRecord.TotalSignature[i])
+			for i := 0; i < pattern.TeeSigLen; i++ {
+				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
 			n.saveidleProofRecord(idleProofRecord)
 			txHash, err := n.SubmitIdleProofResult(
@@ -584,8 +588,8 @@ func (n *Node) checkIdleProofRecord(
 				types.U64(minerChallRear),
 				minerAccumulator,
 				types.Bool(idleProofRecord.IdleResult),
-				teeSignature,
-				idleProofRecord.AllocatedTeeAccountId,
+				teeSig,
+				idleProofRecord.AllocatedTeeWorkpuk,
 			)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
@@ -670,14 +674,14 @@ func (n *Node) checkIdleProofRecord(
 		break
 	}
 
-	var teeSignature pattern.TeeSignature
-	if len(spaceProofVerifyTotal.Signature) != len(teeSignature) {
+	var teeSig pattern.TeeSig
+	if len(spaceProofVerifyTotal.Signature) != pattern.TeeSigLen {
 		n.Ichal("err", "invalid spaceProofVerifyTotal signature")
 		return nil
 	}
 
-	for i := 0; i < len(spaceProofVerifyTotal.Signature); i++ {
-		teeSignature[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+	for i := 0; i < pattern.TeeSigLen; i++ {
+		teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
 	}
 
 	var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
@@ -693,8 +697,8 @@ func (n *Node) checkIdleProofRecord(
 		types.U64(minerChallRear),
 		minerAccumulator,
 		types.Bool(spaceProofVerifyTotal.IdleResult),
-		teeSignature,
-		idleProofRecord.AllocatedTeeAccountId,
+		teeSig,
+		idleProofRecord.AllocatedTeeWorkpuk,
 	)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))

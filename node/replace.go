@@ -106,7 +106,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
 		n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
 		n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-		n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
+		n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 	}
 
 	var witChain = &pb.AccWitnessNode{
@@ -198,8 +198,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	idleSignInfo.Front = types.U64(verifyCommitOrDeletionProof.PoisStatus.Front)
 	idleSignInfo.Rear = types.U64(verifyCommitOrDeletionProof.PoisStatus.Rear)
 
-	if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSignatureLen ||
-		len(verifyCommitOrDeletionProof.SignatureWithTeeController) != pattern.TeeSignatureLen {
+	if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSigLen {
 		n.AccRollback(true)
 		n.Replace("err", "invalid tee sign length")
 		return
@@ -217,17 +216,21 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 		idleSignInfo.PoisKey.N[i] = types.U8(n_byte[i])
 	}
 
-	var sign pattern.TeeSignature
-	for i := 0; i < pattern.TeeSignatureLen; i++ {
+	var sign pattern.TeeSig
+	for i := 0; i < pattern.TeeSigLen; i++ {
 		sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 	}
-	var signWithAcc pattern.TeeSignature
-	for i := 0; i < pattern.TeeSignatureLen; i++ {
-		signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
-	}
+	// var signWithAcc pattern.TeeSignature
+	// for i := 0; i < pattern.TeeSignatureLen; i++ {
+	// 	signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
+	// }
 
 	//
-	txhash, err := n.ReplaceIdleSpace(idleSignInfo, signWithAcc, sign, usedTeeWorkAccount)
+	var wpuk pattern.WorkerPublicKey
+	for i := 0; i < pattern.TeeSigLen; i++ {
+		wpuk[i] = types.U8(usedTeeWorkAccount[i])
+	}
+	txhash, err := n.ReplaceIdleSpace(idleSignInfo, sign, wpuk)
 	if err != nil || txhash == "" {
 		n.AccRollback(true)
 		n.Replace("err", err.Error())

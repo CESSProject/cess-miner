@@ -209,12 +209,10 @@ func main() {
 
 		n.Schal("info", fmt.Sprintf("req tee ip batch verify: %s", tee))
 		var requestBatchVerify = &pb.RequestBatchVerify{
-			AggProof:        batchVerifyParam,
-			PeerId:          nil,
-			MinerPbk:        nil,
-			MinerPeerIdSign: nil,
-			Qslices:         qslice_pb,
-			USigs:           nil,
+			AggProof: batchVerifyParam,
+			MinerId:  nil,
+			Qslices:  qslice_pb,
+			USigs:    nil,
 		}
 		var dialOptions []grpc.DialOption
 		if !strings.Contains(tee, "443") {

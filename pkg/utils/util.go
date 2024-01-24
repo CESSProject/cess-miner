@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
@@ -290,4 +292,29 @@ func ContainsIpv4(str string) bool {
 	matches := ipRegex.FindString(str)
 	ipAddr := net.ParseIP(matches)
 	return ipAddr != nil && strings.Contains(matches, ".")
+}
+
+func WorkerPublicKeyAreAllZero(puk pattern.WorkerPublicKey) bool {
+	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+		if puk[i] != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func BytesToFileHash(val []byte) pattern.FileHash {
+	var filehash pattern.FileHash
+	for k, v := range val {
+		filehash[k] = types.U8(v)
+	}
+	return filehash
+}
+
+func BytesToWorkPublickey(val []byte) pattern.WorkerPublicKey {
+	var pubkey pattern.WorkerPublicKey
+	for k, v := range val {
+		pubkey[k] = types.U8(v)
+	}
+	return pubkey
 }

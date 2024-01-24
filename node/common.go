@@ -133,12 +133,17 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-	teelist, err := n.QueryAllTeeInfo()
+	teelist, err := n.QueryAllTeeWorkerMap()
 	if err != nil {
 		n.Log("err", err.Error())
 	} else {
 		for i := 0; i < len(teelist); i++ {
-			err = n.SaveTee(teelist[i].WorkAccount, teelist[i].EndPoint, teelist[i].TeeType)
+			endpoint, err := n.QueryTeeWorkEndpoint(teelist[i].Pubkey)
+			if err != nil {
+				n.Log("err", err.Error())
+				continue
+			}
+			err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
 			if err != nil {
 				n.Log("err", err.Error())
 			}

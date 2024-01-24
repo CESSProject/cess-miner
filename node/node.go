@@ -94,7 +94,7 @@ func (n *Node) Run() {
 	ch_restoreMgt <- true
 
 	for {
-		pubkey, err := n.QueryTeePodr2Puk()
+		pubkey, err := n.QueryMasterPublicKey()
 		if err != nil {
 			time.Sleep(pattern.BlockInterval)
 			continue
@@ -160,7 +160,7 @@ func (n *Node) Run() {
 			}
 			if len(ch_calctag) > 0 {
 				<-ch_calctag
-				go n.serviceTag(ch_calctag)
+				go n.calcTag(ch_calctag)
 			}
 			n.SetTaskPeriod("30s-end")
 

@@ -65,7 +65,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	minerInfo.Collaterals.Div(new(big.Int).SetBytes(minerInfo.Collaterals.Bytes()), big.NewInt(1000000000000))
+	minerInfo.Collaterals.Div(new(big.Int).SetBytes(minerInfo.Collaterals.Bytes()), big.NewInt(configs.TokenTCESS))
 
 	beneficiaryAcc, _ := sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
 
