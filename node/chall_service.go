@@ -30,18 +30,16 @@ import (
 )
 
 type serviceProofInfo struct {
-	Names                 []string `json:"names"`
-	Us                    []string `json:"us"`
-	Mus                   []string `json:"mus"`
-	Usig                  [][]byte `json:"usig"`
-	ServiceBloomFilter    []uint64 `json:"serviceBloomFilter"`
-	TeeAccountId          []byte   `json:"teeAccountId"`
-	Signature             []byte   `json:"signature"`
-	AllocatedTeeAccountId []byte   `json:"allocatedTeeAccountId"`
-	AllocatedTeeAccount   string   `json:"allocatedTeeAccount"`
-	Sigma                 string   `json:"sigma"`
-	Start                 uint32   `json:"start"`
-	ServiceResult         bool     `json:"serviceResult"`
+	Names               []string                `json:"names"`
+	Us                  []string                `json:"us"`
+	Mus                 []string                `json:"mus"`
+	Usig                [][]byte                `json:"usig"`
+	ServiceBloomFilter  []uint64                `json:"serviceBloomFilter"`
+	Signature           []byte                  `json:"signature"`
+	AllocatedTeeWorkpuk pattern.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
+	Sigma               string                  `json:"sigma"`
+	Start               uint32                  `json:"start"`
+	ServiceResult       bool                    `json:"serviceResult"`
 }
 
 type RandomList struct {
@@ -57,7 +55,7 @@ func (n *Node) serviceChallenge(
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
-	teeAcc types.AccountID,
+	teePubkey pattern.WorkerPublicKey,
 ) {
 	defer func() {
 		ch <- true
@@ -72,7 +70,7 @@ func (n *Node) serviceChallenge(
 	}
 
 	var serviceProofRecord serviceProofInfo
-	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList, teeAcc)
+	err := n.checkServiceProofRecord(serviceProofSubmited, challStart, randomIndexList, randomList, teePubkey)
 	if err == nil {
 		return
 	}
@@ -127,49 +125,53 @@ func (n *Node) serviceChallenge(
 		n.Schal("err", err.Error())
 		return
 	}
-	ok := chall.ProveInfo.ServiceProve.HasValue()
-	if ok {
+	if chall.ProveInfo.ServiceProve.HasValue() {
 		_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
-		serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
-		serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+		serviceProofRecord.AllocatedTeeWorkpuk = sProve.TeePubkey
 	} else {
 		return
 	}
 
 	n.saveServiceProofRecord(serviceProofRecord)
 
-	teeInfo, err := n.GetTee(serviceProofRecord.AllocatedTeeAccount)
+	teeInfo, err := n.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
-		n.Schal("info", fmt.Sprintf("[%s] Not found tee", serviceProofRecord.AllocatedTeeAccount))
+		n.Schal("info", fmt.Sprintf("Not found tee: %v", serviceProofRecord.AllocatedTeeWorkpuk))
 		return
 	}
-
+	var teeWorkpuk []byte
 	serviceProofRecord.ServiceBloomFilter,
-		serviceProofRecord.TeeAccountId,
+		teeWorkpuk,
 		serviceProofRecord.Signature,
 		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
 	}
-
+	if len(teeWorkpuk) != pattern.WorkerPublicKeyLen {
+		n.Schal("err", fmt.Sprintf("Invalid tee work public key from tee returned: %v", len(teeWorkpuk)))
+		return
+	}
+	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+		serviceProofRecord.AllocatedTeeWorkpuk[i] = types.U8(teeWorkpuk[i])
+	}
 	n.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", serviceProofRecord.ServiceResult))
 
-	var signature pattern.TeeSignature
-	if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
+	var signature pattern.TeeSig
+	if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
 		n.Schal("err", "invalid batchVerify.Signature")
 		return
 	}
-	for i := 0; i < len(serviceProofRecord.Signature); i++ {
+	for i := 0; i < pattern.TeeSigLen; i++ {
 		signature[i] = types.U8(serviceProofRecord.Signature[i])
 	}
 
 	var bloomFilter pattern.BloomFilter
-	if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
+	if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
 		n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 		return
 	}
-	for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
+	for i := 0; i < pattern.BloomFilterLen; i++ {
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
 
@@ -179,7 +181,7 @@ func (n *Node) serviceChallenge(
 		types.Bool(serviceProofRecord.ServiceResult),
 		signature,
 		bloomFilter,
-		serviceProofRecord.AllocatedTeeAccountId,
+		serviceProofRecord.AllocatedTeeWorkpuk,
 	)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
@@ -350,7 +352,7 @@ func (n *Node) calcSigma(
 				}
 			}
 			n.Schal("info", fmt.Sprintf("[%s] Read tag file: %s", roothash, serviceTagPath))
-			var tag = &TagFileType{}
+			var tag = &TagfileType{}
 			err = json.Unmarshal(buf, tag)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
@@ -413,7 +415,7 @@ func (n *Node) checkServiceProofRecord(
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
-	teeAcc types.AccountID,
+	teePubkey pattern.WorkerPublicKey,
 ) error {
 	var serviceProofRecord serviceProofInfo
 	buf, err := os.ReadFile(filepath.Join(n.Workspace(), configs.ServiceProofFile))
@@ -463,53 +465,47 @@ func (n *Node) checkServiceProofRecord(
 		if err != nil {
 			return err
 		}
-		ok := chall.ProveInfo.ServiceProve.HasValue()
-		if ok {
+		if chall.ProveInfo.ServiceProve.HasValue() {
 			_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
-			serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
-			serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+			serviceProofRecord.AllocatedTeeWorkpuk = sProve.TeePubkey
 		} else {
 			return errors.New("chall.ProveInfo.ServiceProve is empty")
 		}
 	} else {
-		serviceProofRecord.AllocatedTeeAccount, err = sutils.EncodePublicKeyAsCessAccount(teeAcc[:])
-		if err != nil {
+		if utils.WorkerPublicKeyAreAllZero(teePubkey) {
 			_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 			if err != nil {
 				return err
 			}
-			ok := chall.ProveInfo.ServiceProve.HasValue()
-			if ok {
+			if chall.ProveInfo.ServiceProve.HasValue() {
 				_, sProve := chall.ProveInfo.ServiceProve.Unwrap()
-				serviceProofRecord.AllocatedTeeAccount, _ = sutils.EncodePublicKeyAsCessAccount(sProve.TeeAcc[:])
-				serviceProofRecord.AllocatedTeeAccountId = sProve.TeeAcc[:]
+				serviceProofRecord.AllocatedTeeWorkpuk = sProve.TeePubkey
 			} else {
 				return errors.New("chall.ProveInfo.ServiceProve is empty")
 			}
 		} else {
-			serviceProofRecord.AllocatedTeeAccountId = teeAcc[:]
+			serviceProofRecord.AllocatedTeeWorkpuk = teePubkey
 		}
 	}
 
 	for {
 		if serviceProofRecord.ServiceBloomFilter != nil &&
-			serviceProofRecord.TeeAccountId != nil &&
 			serviceProofRecord.Signature != nil {
-			var signature pattern.TeeSignature
-			if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
+			var signature pattern.TeeSig
+			if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
 				n.Schal("err", "invalid batchVerify.Signature")
 				break
 			}
-			for i := 0; i < len(serviceProofRecord.Signature); i++ {
+			for i := 0; i < pattern.TeeSigLen; i++ {
 				signature[i] = types.U8(serviceProofRecord.Signature[i])
 			}
 
 			var bloomFilter pattern.BloomFilter
-			if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
+			if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
 				n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 				break
 			}
-			for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
+			for i := 0; i < pattern.BloomFilterLen; i++ {
 				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 			}
 
@@ -517,7 +513,7 @@ func (n *Node) checkServiceProofRecord(
 				types.Bool(serviceProofRecord.ServiceResult),
 				signature,
 				bloomFilter,
-				serviceProofRecord.AllocatedTeeAccountId,
+				serviceProofRecord.AllocatedTeeWorkpuk,
 			)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
@@ -529,42 +525,54 @@ func (n *Node) checkServiceProofRecord(
 		break
 	}
 
-	teeInfo, err := n.GetTee(serviceProofRecord.AllocatedTeeAccount)
+	teeInfo, err := n.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
 		n.Schal("err", err.Error())
 		return err
 	}
-
+	var teeWorkpuk []byte
 	serviceProofRecord.ServiceBloomFilter,
-		serviceProofRecord.TeeAccountId,
+		teeWorkpuk,
 		serviceProofRecord.Signature,
 		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
 	if err != nil {
 		return nil
 	}
+	if len(teeWorkpuk) != pattern.WorkerPublicKeyLen {
+		n.Schal("err", fmt.Sprintf("Invalid tee work public key from tee returned: %v", len(teeWorkpuk)))
+		return nil
+	}
+	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+		serviceProofRecord.AllocatedTeeWorkpuk[i] = types.U8(teeWorkpuk[i])
+	}
 	n.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", serviceProofRecord.ServiceResult))
 
-	var signature pattern.TeeSignature
-	if len(pattern.TeeSignature{}) != len(serviceProofRecord.Signature) {
+	var signature pattern.TeeSig
+	if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
 		n.Schal("err", "invalid batchVerify.Signature")
 		return nil
 	}
-	for i := 0; i < len(serviceProofRecord.Signature); i++ {
+	for i := 0; i < pattern.TeeSigLen; i++ {
 		signature[i] = types.U8(serviceProofRecord.Signature[i])
 	}
 
 	var bloomFilter pattern.BloomFilter
-	if len(pattern.BloomFilter{}) != len(serviceProofRecord.ServiceBloomFilter) {
+	if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
 		n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 		return nil
 	}
-	for i := 0; i < len(serviceProofRecord.ServiceBloomFilter); i++ {
+	for i := 0; i < pattern.BloomFilterLen; i++ {
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
 
 	n.saveServiceProofRecord(serviceProofRecord)
 
-	txhash, err := n.SubmitServiceProofResult(types.Bool(serviceProofRecord.ServiceResult), signature, bloomFilter, serviceProofRecord.AllocatedTeeAccountId)
+	txhash, err := n.SubmitServiceProofResult(
+		types.Bool(serviceProofRecord.ServiceResult),
+		signature,
+		bloomFilter,
+		serviceProofRecord.AllocatedTeeWorkpuk,
+	)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
 		return nil
@@ -589,6 +597,7 @@ func (n *Node) batchVerify(
 	teeEndPoint string,
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {
+	var err error
 	var randomIndexList_pb = make([]uint32, len(randomIndexList))
 	for i := 0; i < len(randomIndexList); i++ {
 		randomIndexList_pb[i] = uint32(randomIndexList[i])
@@ -606,12 +615,6 @@ func (n *Node) batchVerify(
 		RandomList:      randomList_pb,
 	}
 
-	peeridSign, err := n.Sign(n.GetPeerPublickey())
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[Sign] %v", err))
-		return nil, nil, nil, false, err
-	}
-
 	var batchVerifyParam = &pb.RequestBatchVerify_BatchVerifyParam{
 		Names: serviceProofRecord.Names,
 		Us:    serviceProofRecord.Us,
@@ -622,12 +625,10 @@ func (n *Node) batchVerify(
 	var timeoutStep time.Duration = 10
 	var timeout time.Duration
 	var requestBatchVerify = &pb.RequestBatchVerify{
-		AggProof:        batchVerifyParam,
-		PeerId:          n.GetPeerPublickey(),
-		MinerPbk:        n.GetSignatureAccPulickey(),
-		MinerPeerIdSign: peeridSign,
-		Qslices:         qslice_pb,
-		USigs:           serviceProofRecord.Usig,
+		AggProof: batchVerifyParam,
+		MinerId:  n.GetSignatureAccPulickey(),
+		Qslices:  qslice_pb,
+		USigs:    serviceProofRecord.Usig,
 	}
 	var dialOptions []grpc.DialOption
 	if !strings.Contains(teeEndPoint, "443") {

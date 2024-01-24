@@ -355,7 +355,7 @@ func (n *Node) certifiedSpace() error {
 			n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
 			n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
 			n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
+			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 		} else {
 			minerInfo, err = n.QueryStorageMiner(n.GetSignatureAccPulickey())
 			if err != nil {
@@ -371,7 +371,7 @@ func (n *Node) certifiedSpace() error {
 				n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
 				n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
 				n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-				n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSignature[:]))
+				n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 			}
 		}
 
@@ -485,21 +485,20 @@ func (n *Node) certifiedSpace() error {
 		// If the challenge is failure, need to roll back the prover to the previous status,
 		// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
-		if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSignatureLen ||
-			len(verifyCommitOrDeletionProof.SignatureWithTeeController) != len(pattern.TeeSignature{}) {
+		if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSigLen {
 			n.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.Sign length err]")
 		}
 
 		var idleSignInfo pattern.SpaceProofInfo
-		var sign pattern.TeeSignature
-		for i := 0; i < pattern.TeeSignatureLen; i++ {
+		var sign pattern.TeeSig
+		for i := 0; i < pattern.TeeSigLen; i++ {
 			sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 		}
-		var signWithAcc pattern.TeeSignature
-		for i := 0; i < pattern.TeeSignatureLen; i++ {
-			signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
-		}
+		//var signWithAcc pattern.TeeSignature
+		// for i := 0; i < pattern.TeeSignatureLen; i++ {
+		// 	signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
+		// }
 		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
 			n.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.PoisStatus.Acc length err]")
@@ -521,7 +520,11 @@ func (n *Node) certifiedSpace() error {
 		}
 
 		n.Space("info", "Submit idle space")
-		txhash, err := n.CertIdleSpace(idleSignInfo, signWithAcc, sign, usedTeeWorkAccount)
+		var wpuk pattern.WorkerPublicKey
+		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+			wpuk[i] = types.U8(usedTeeWorkAccount[i])
+		}
+		txhash, err := n.CertIdleSpace(idleSignInfo, sign, wpuk)
 		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)

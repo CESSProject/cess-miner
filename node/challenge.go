@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
@@ -72,8 +71,8 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 						challenge.ChallengeElement.SpaceParam,
 						challenge.MinerSnapshot.SpaceProofInfo.Accumulator,
-						challenge.MinerSnapshot.TeeSignature,
-						idleProve.TeeAcc,
+						challenge.MinerSnapshot.TeeSig,
+						idleProve.TeePubkey,
 					)
 				}
 			}
@@ -94,8 +93,8 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 					challenge.ChallengeElement.SpaceParam,
 					challenge.MinerSnapshot.SpaceProofInfo.Accumulator,
-					challenge.MinerSnapshot.TeeSignature,
-					types.AccountID{},
+					challenge.MinerSnapshot.TeeSig,
+					pattern.WorkerPublicKey{},
 				)
 			}
 		}
@@ -117,7 +116,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						uint32(challenge.ChallengeElement.Start),
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
-						serviceProve.TeeAcc,
+						serviceProve.TeePubkey,
 					)
 				}
 			}
@@ -136,7 +135,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 					uint32(challenge.ChallengeElement.Start),
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
-					types.AccountID{},
+					pattern.WorkerPublicKey{},
 				)
 			}
 		}

@@ -196,7 +196,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	var teeAcc string
 	var teeEndPointList = make([]string, 0)
 	for {
-		teeList, err := n.QueryAllTeeInfo()
+		teeList, err := n.QueryAllTeeWorkerMap()
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
 				out.Err("No TEE was found, waiting for the next query...")
@@ -208,7 +208,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 
 		for _, v := range teeList {
-			err = n.SaveTee(v.WorkAccount, v.EndPoint, v.TeeType)
+			endPoint, err := n.QueryTeeWorkEndpoint(v.Pubkey)
+			if err != nil {
+				continue
+			}
+
+			err = n.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
 			if err != nil {
 				out.Err(fmt.Sprintf("[SaveTee] %v", err))
 				continue
@@ -401,23 +406,31 @@ func runCmd(cmd *cobra.Command, args []string) {
 			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 		}
 
-		var sign pattern.TeeSignature
-		if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSignatureLen {
+		var sign pattern.TeeSig
+		if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
 			out.Err("invalid tee signature")
 			os.Exit(1)
 		}
-		for i := 0; i < pattern.TeeSignatureLen; i++ {
+		for i := 0; i < pattern.TeeSigLen; i++ {
 			sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 		}
-		var signWithAcc pattern.TeeSignature
-		if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSignatureLen {
+		var signWithAcc pattern.TeeSig
+		if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
 			out.Err("invalid tee SignatureWithTeeController")
 			os.Exit(1)
 		}
-		for i := 0; i < pattern.TeeSignatureLen; i++ {
+		for i := 0; i < pattern.TeeSigLen; i++ {
 			signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
 		}
-		txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teeAcc)
+		if len(teeAcc) != pattern.WorkerPublicKeyLen {
+			out.Err("invalid tee work publick")
+			os.Exit(1)
+		}
+		var teepuk pattern.WorkerPublicKey
+		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+			teepuk[i] = types.U8(teeAcc[i])
+		}
+		txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teepuk)
 		if err != nil {
 			if txhash != "" {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
@@ -511,23 +524,31 @@ func runCmd(cmd *cobra.Command, args []string) {
 				key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 			}
 
-			var sign pattern.TeeSignature
-			if len(n.MinerPoisInfo.StatusTeeSign) != len(pattern.TeeSignature{}) {
+			var sign pattern.TeeSig
+			if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
 				out.Err("invalid tee signature")
 				os.Exit(1)
 			}
-			for i := 0; i < len(n.MinerPoisInfo.StatusTeeSign); i++ {
+			for i := 0; i < pattern.TeeSigLen; i++ {
 				sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
 			}
-			var signWithAcc pattern.TeeSignature
-			if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSignatureLen {
+			var signWithAcc pattern.TeeSig
+			if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
 				out.Err("invalid tee SignatureWithTeeController")
 				os.Exit(1)
 			}
-			for i := 0; i < pattern.TeeSignatureLen; i++ {
+			for i := 0; i < pattern.TeeSigLen; i++ {
 				signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
 			}
-			txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teeAcc)
+			if len(teeAcc) != pattern.WorkerPublicKeyLen {
+				out.Err("invalid tee work publick")
+				os.Exit(1)
+			}
+			var teepuk pattern.WorkerPublicKey
+			for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+				teepuk[i] = types.U8(teeAcc[i])
+			}
+			txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teepuk)
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 				os.Exit(1)
@@ -550,7 +571,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 					continue
 				}
 				_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
-				teeSign = []byte(string(minerInfo.TeeSignature[:]))
+				teeSign = []byte(string(minerInfo.TeeSig[:]))
 				peerid = []byte(string(minerInfo.PeerId[:]))
 				earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
 				break
@@ -558,7 +579,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		} else {
 			firstReg = false
 			_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
-			teeSign = []byte(string(minerInfo.TeeSignature[:]))
+			teeSign = []byte(string(minerInfo.TeeSig[:]))
 			peerid = []byte(string(minerInfo.PeerId[:]))
 			earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
 		}

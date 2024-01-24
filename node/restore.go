@@ -647,8 +647,13 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 		MinerId:      n.GetSignatureAccPulickey(),
 	}
 	var dialOptions []grpc.DialOption
-	var teeSign pattern.TeeSignature
+	var teeSign pattern.TeeSig
 	for i := 0; i < len(teeEndPoints); i++ {
+		teePubkey, err := n.GetTeeWorkAccount(teeEndPoints[i])
+		if err != nil {
+			n.Restore("info", fmt.Sprintf("[GetTee(%s)] %v", teeEndPoints[i], err))
+			continue
+		}
 		n.Restore("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
 		n.Restore("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
 		if !strings.Contains(teeEndPoints[i], "443") {
@@ -668,22 +673,28 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 			continue
 		}
 
-		if len(genTag.USig) != pattern.TeeSignatureLen {
+		if len(genTag.USig) != pattern.TeeSigLen {
 			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
 			continue
 		}
 
-		if len(genTag.TagSigInfo) != pattern.TeeSignatureLen {
-			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.TagSigInfo)))
+		if len(genTag.Signature) != pattern.TeeSigLen {
+			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.Signature)))
 			continue
 		}
-		for j := 0; j < pattern.TeeSignatureLen; j++ {
-			teeSign[j] = types.U8(genTag.TagSigInfo[j])
+		for j := 0; j < pattern.TeeSigLen; j++ {
+			teeSign[j] = types.U8(genTag.Signature[j])
 		}
-		genTag.TagSigInfo = nil
-		var tfile = &TagFileType{
-			Tag:  genTag.Tag,
-			USig: genTag.USig,
+
+		index := getTagsNumber(filepath.Join(n.GetDirs().FileDir, fid))
+
+		var tfile = &TagfileType{
+			Tag:          genTag.Tag,
+			USig:         genTag.USig,
+			Signature:    genTag.Signature,
+			FragmentName: []byte(fragmentHash),
+			TeeAccountId: []byte(teePubkey),
+			Index:        uint16(index + 1),
 		}
 		buf, err = json.Marshal(tfile)
 		if err != nil {

@@ -130,6 +130,9 @@ func (t *TeeRecordType) GetAllTeeEndpoint() []string {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
+		if v.EndPoint == "" {
+			continue
+		}
 		result = append(result, v.EndPoint)
 	}
 	return result
@@ -141,6 +144,9 @@ func (t *TeeRecordType) GetAllMarkerTeeEndpoint() []string {
 	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
 		if v.Type == pattern.TeeType_Full || v.Type == pattern.TeeType_Marker {
+			if v.EndPoint == "" {
+				continue
+			}
 			result = append(result, v.EndPoint)
 		}
 	}
