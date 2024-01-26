@@ -377,14 +377,17 @@ func (n *Node) idleChallenge(
 		idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
 		idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
 		n.saveidleProofRecord(idleProofRecord)
-
+		var teeSignBytes = make(types.Bytes, len(teeSig))
+		for j := 0; j < len(teeSig); j++ {
+			teeSignBytes[j] = byte(teeSig[j])
+		}
 		txHash, err := n.SubmitIdleProofResult(
 			idleProve,
 			types.U64(idleProofRecord.ChainFront),
 			types.U64(idleProofRecord.ChainRear),
 			minerAccumulator,
 			types.Bool(spaceProofVerifyTotal.IdleResult),
-			teeSig,
+			teeSignBytes,
 			idleProofRecord.AllocatedTeeWorkpuk,
 		)
 		if err != nil {
@@ -482,13 +485,17 @@ func (n *Node) checkIdleProofRecord(
 			for i := 0; i < pattern.TeeSigLen; i++ {
 				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
+			var teeSignBytes = make(types.Bytes, len(teeSig))
+			for j := 0; j < len(teeSig); j++ {
+				teeSignBytes[j] = byte(teeSig[j])
+			}
 			txHash, err := n.SubmitIdleProofResult(
 				idleProve,
 				types.U64(minerChallFront),
 				types.U64(minerChallRear),
 				minerAccumulator,
 				types.Bool(idleProofRecord.IdleResult),
-				teeSig,
+				teeSignBytes,
 				idleProofRecord.AllocatedTeeWorkpuk,
 			)
 			if err != nil {
@@ -582,13 +589,17 @@ func (n *Node) checkIdleProofRecord(
 				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
 			n.saveidleProofRecord(idleProofRecord)
+			var teeSignBytes = make(types.Bytes, len(teeSig))
+			for j := 0; j < len(teeSig); j++ {
+				teeSignBytes[j] = byte(teeSig[j])
+			}
 			txHash, err := n.SubmitIdleProofResult(
 				idleProve,
 				types.U64(minerChallFront),
 				types.U64(minerChallRear),
 				minerAccumulator,
 				types.Bool(idleProofRecord.IdleResult),
-				teeSig,
+				teeSignBytes,
 				idleProofRecord.AllocatedTeeWorkpuk,
 			)
 			if err != nil {
@@ -691,13 +702,17 @@ func (n *Node) checkIdleProofRecord(
 	idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
 	idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
 	n.saveidleProofRecord(idleProofRecord)
+	var teeSignBytes = make(types.Bytes, len(teeSig))
+	for j := 0; j < len(teeSig); j++ {
+		teeSignBytes[j] = byte(teeSig[j])
+	}
 	txHash, err := n.SubmitIdleProofResult(
 		idleProve,
 		types.U64(minerChallFront),
 		types.U64(minerChallRear),
 		minerAccumulator,
 		types.Bool(spaceProofVerifyTotal.IdleResult),
-		teeSig,
+		teeSignBytes,
 		idleProofRecord.AllocatedTeeWorkpuk,
 	)
 	if err != nil {
