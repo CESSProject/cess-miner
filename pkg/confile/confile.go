@@ -13,7 +13,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
@@ -201,7 +200,7 @@ func (c *confile) SetUseSpace(useSpace uint64) {
 }
 
 func (c *confile) SetServicePort(port int) error {
-	if utils.OpenedPort(port) {
+	if sutils.IsPortInUse(port) {
 		return errors.New("This port is in use")
 	}
 

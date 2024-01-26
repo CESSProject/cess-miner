@@ -475,7 +475,7 @@ func (n *Node) checkServiceProofRecord(
 			return errors.New("chall.ProveInfo.ServiceProve is empty")
 		}
 	} else {
-		if utils.WorkerPublicKeyAreAllZero(teePubkey) {
+		if sutils.IsWorkerPublicKeyAllZero(teePubkey) {
 			_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 			if err != nil {
 				return err
@@ -494,15 +494,10 @@ func (n *Node) checkServiceProofRecord(
 	for {
 		if serviceProofRecord.ServiceBloomFilter != nil &&
 			serviceProofRecord.Signature != nil {
-			var signature pattern.TeeSig
 			if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
 				n.Schal("err", "invalid batchVerify.Signature")
 				break
 			}
-			for i := 0; i < pattern.TeeSigLen; i++ {
-				signature[i] = types.U8(serviceProofRecord.Signature[i])
-			}
-
 			var bloomFilter pattern.BloomFilter
 			if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
 				n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
@@ -511,13 +506,9 @@ func (n *Node) checkServiceProofRecord(
 			for i := 0; i < pattern.BloomFilterLen; i++ {
 				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 			}
-			var teeSignBytes = make(types.Bytes, len(signature))
-			for j := 0; j < len(signature); j++ {
-				teeSignBytes[j] = byte(signature[j])
-			}
 			txhash, err := n.SubmitServiceProofResult(
 				types.Bool(serviceProofRecord.ServiceResult),
-				teeSignBytes,
+				serviceProofRecord.Signature[:],
 				bloomFilter,
 				serviceProofRecord.AllocatedTeeWorkpuk,
 			)
@@ -552,16 +543,10 @@ func (n *Node) checkServiceProofRecord(
 		serviceProofRecord.AllocatedTeeWorkpuk[i] = types.U8(teeWorkpuk[i])
 	}
 	n.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", serviceProofRecord.ServiceResult))
-
-	var signature pattern.TeeSig
 	if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
 		n.Schal("err", "invalid batchVerify.Signature")
 		return nil
 	}
-	for i := 0; i < pattern.TeeSigLen; i++ {
-		signature[i] = types.U8(serviceProofRecord.Signature[i])
-	}
-
 	var bloomFilter pattern.BloomFilter
 	if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
 		n.Schal("err", "invalid batchVerify.ServiceBloomFilter")
@@ -570,15 +555,10 @@ func (n *Node) checkServiceProofRecord(
 	for i := 0; i < pattern.BloomFilterLen; i++ {
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
-
 	n.saveServiceProofRecord(serviceProofRecord)
-	var teeSignBytes = make(types.Bytes, len(signature))
-	for j := 0; j < len(signature); j++ {
-		teeSignBytes[j] = byte(signature[j])
-	}
 	txhash, err := n.SubmitServiceProofResult(
 		types.Bool(serviceProofRecord.ServiceResult),
-		teeSignBytes,
+		serviceProofRecord.Signature[:],
 		bloomFilter,
 		serviceProofRecord.AllocatedTeeWorkpuk,
 	)
@@ -607,23 +587,7 @@ func (n *Node) batchVerify(
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {
 	var err error
-	var randomIndexList_pb = make([]uint32, len(randomIndexList))
-	for i := 0; i < len(randomIndexList); i++ {
-		randomIndexList_pb[i] = uint32(randomIndexList[i])
-	}
-	var randomList_pb = make([][]byte, len(randomList))
-	for i := 0; i < len(randomList); i++ {
-		randomList_pb[i] = make([]byte, len(randomList[i]))
-		for j := 0; j < len(randomList[i]); j++ {
-			randomList_pb[i][j] = byte(randomList[i][j])
-		}
-	}
-
-	var qslice_pb = &pb.RequestBatchVerify_Qslice{
-		RandomIndexList: randomIndexList_pb,
-		RandomList:      randomList_pb,
-	}
-
+	qslice_pb := encodeToRequestBatchVerify_Qslice(randomIndexList, randomList)
 	var batchVerifyParam = &pb.RequestBatchVerify_BatchVerifyParam{
 		Names: serviceProofRecord.Names,
 		Us:    serviceProofRecord.Us,
@@ -674,4 +638,22 @@ func (n *Node) batchVerify(
 		return batchVerifyResult.ServiceBloomFilter, batchVerifyResult.TeeAccountId, batchVerifyResult.Signature, batchVerifyResult.BatchVerifyResult, err
 	}
 	return nil, nil, nil, false, err
+}
+
+func encodeToRequestBatchVerify_Qslice(randomIndexList []types.U32, randomList []pattern.Random) *pb.RequestBatchVerify_Qslice {
+	var randomIndexList_pb = make([]uint32, len(randomIndexList))
+	for i := 0; i < len(randomIndexList); i++ {
+		randomIndexList_pb[i] = uint32(randomIndexList[i])
+	}
+	var randomList_pb = make([][]byte, len(randomList))
+	for i := 0; i < len(randomList); i++ {
+		randomList_pb[i] = make([]byte, len(randomList[i]))
+		for j := 0; j < len(randomList[i]); j++ {
+			randomList_pb[i][j] = byte(randomList[i][j])
+		}
+	}
+	return &pb.RequestBatchVerify_Qslice{
+		RandomIndexList: randomIndexList_pb,
+		RandomList:      randomList_pb,
+	}
 }

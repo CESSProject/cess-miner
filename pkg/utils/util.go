@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
@@ -118,21 +116,6 @@ func RandSlice(slice interface{}) {
 		j := rand.New(rand.NewSource(time.Now().Unix())).Intn(length)
 		swap(i, j)
 	}
-	return
-}
-
-func GetISOWeek() string {
-	year, week := time.Now().UTC().ISOWeek()
-	return fmt.Sprintf("%d%d", year, week)
-}
-
-func OpenedPort(port int) bool {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 3*time.Second)
-	if err != nil {
-		return false
-	}
-	conn.Close()
-	return true
 }
 
 func Ternary(a, b int64) int64 {
@@ -231,28 +214,6 @@ func QueryPeers(url string) ([]byte, error) {
 	return data, nil
 }
 
-var regstr = `\d+\.\d+\.\d+\.\d+`
-var reg = regexp.MustCompile(regstr)
-
-func FildIpv4(data []byte) (string, bool) {
-	result := reg.Find(data)
-	return string(result), len(result) > 0
-}
-
-func IsIntranetIpv4(ipv4 string) (bool, error) {
-	ip := net.ParseIP(ipv4)
-	if ip == nil || !strings.Contains(ipv4, ".") {
-		return false, errors.New("invalid ipv4")
-	}
-	if ip.IsLoopback() {
-		return true, nil
-	}
-	if ip.IsPrivate() {
-		return true, nil
-	}
-	return false, nil
-}
-
 func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr) {
 	newArr = make([]multiaddr.Multiaddr, 0)
 	for i := 0; i < len(arr); i++ {
@@ -270,51 +231,10 @@ func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr
 	return newArr
 }
 
-// InterfaceIsNIL returns the comparison between i and nil
-func InterfaceIsNIL(i interface{}) bool {
-	ret := i == nil
-	if !ret {
-		defer func() {
-			recover()
-		}()
-		va := reflect.ValueOf(i)
-		if va.Kind() == reflect.Ptr {
-			return va.IsNil()
-		}
-		return false
-	}
-	return ret
-}
-
 var ipRegex = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
 
 func ContainsIpv4(str string) bool {
 	matches := ipRegex.FindString(str)
 	ipAddr := net.ParseIP(matches)
 	return ipAddr != nil && strings.Contains(matches, ".")
-}
-
-func WorkerPublicKeyAreAllZero(puk pattern.WorkerPublicKey) bool {
-	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
-		if puk[i] != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func BytesToFileHash(val []byte) pattern.FileHash {
-	var filehash pattern.FileHash
-	for k, v := range val {
-		filehash[k] = types.U8(v)
-	}
-	return filehash
-}
-
-func BytesToWorkPublickey(val []byte) pattern.WorkerPublicKey {
-	var pubkey pattern.WorkerPublicKey
-	for k, v := range val {
-		pubkey[k] = types.U8(v)
-	}
-	return pubkey
 }

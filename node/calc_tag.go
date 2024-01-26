@@ -203,8 +203,8 @@ func (n *Node) calcTag(ch chan<- bool) {
 				})
 				tagSigInfo.Digest = make([]pattern.DigestInfo, len(digest))
 				for j := 0; j < len(digest); j++ {
-					tagSigInfo.Digest[j].Fragment = utils.BytesToFileHash(digest[j].FragmentName)
-					tagSigInfo.Digest[j].TeePubkey = utils.BytesToWorkPublickey(digest[j].TeeAccountId)
+					tagSigInfo.Digest[j].Fragment, _ = sutils.BytesToFileHash(digest[j].FragmentName)
+					tagSigInfo.Digest[j].TeePubkey, _ = sutils.BytesToWorkPublickey(digest[j].TeeAccountId)
 				}
 				n.Stag("info", fmt.Sprintf("Will report tag: %s.%s", fid, fragmentHash))
 				var teeSignBytes = make(types.Bytes, len(teeSign))

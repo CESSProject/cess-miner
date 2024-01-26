@@ -340,12 +340,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetInitStage(node.Stage_Register, "[ok] Registration is complete")
 		n.RebuildDirs()
 
-		time.Sleep(pattern.BlockInterval * 3)
+		time.Sleep(pattern.BlockInterval * 5)
 
 		for i := 0; i < len(teeEndPointList); i++ {
 			delay = 20
 			suc = false
-			for tryCount := uint8(0); tryCount <= 3; tryCount++ {
+			for tryCount := uint8(0); tryCount <= 5; tryCount++ {
 				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
 				if !strings.Contains(teeEndPointList[i], "443") {
 					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
@@ -362,6 +362,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 				if err != nil {
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						delay += 30
+						continue
+					}
+					if strings.Contains(err.Error(), configs.Err_miner_not_exists) {
+						time.Sleep(pattern.BlockInterval * 2)
 						continue
 					}
 					out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
@@ -398,49 +402,23 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err("All tee nodes are busy or unavailable, program exits.")
 			os.Exit(1)
 		}
-
-		var key pattern.PoISKeyInfo
-		if len(n.MinerPoisInfo.KeyG) != pattern.PoISKeyLen {
-			out.Err("invalid tee key_g")
+		poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
+		if err != nil {
+			out.Err(err.Error())
 			os.Exit(1)
 		}
 
-		if len(n.MinerPoisInfo.KeyN) != pattern.PoISKeyLen {
-			out.Err("invalid tee key_n")
+		teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
+		if err != nil {
+			out.Err(err.Error())
 			os.Exit(1)
 		}
-		for i := 0; i < len(n.MinerPoisInfo.KeyG); i++ {
-			key.G[i] = types.U8(n.MinerPoisInfo.KeyG[i])
-		}
-		for i := 0; i < len(n.MinerPoisInfo.KeyN); i++ {
-			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
-		}
-
-		// var sign pattern.TeeSig
-		// if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
-		// 	out.Err("invalid tee signature")
-		// 	os.Exit(1)
-		// }
-		// for i := 0; i < pattern.TeeSigLen; i++ {
-		// 	sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
-		// }
-		// var signWithAcc pattern.TeeSig
-		// if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
-		// 	out.Err("invalid tee SignatureWithTeeController")
-		// 	os.Exit(1)
-		// }
-		// for i := 0; i < pattern.TeeSigLen; i++ {
-		// 	signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
-		// }
-		if len(teeAcc) != pattern.WorkerPublicKeyLen {
-			out.Err("invalid tee work publick")
-			os.Exit(1)
-		}
-		var teepuk pattern.WorkerPublicKey
-		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
-			teepuk[i] = types.U8(teeAcc[i])
-		}
-		txhash, err := n.RegisterSminerPOISKey(key, responseMinerInitParam.SignatureWithTeeController[:], n.MinerPoisInfo.StatusTeeSign[:], teepuk)
+		txhash, err := n.RegisterSminerPOISKey(
+			poisKey,
+			responseMinerInitParam.SignatureWithTeeController[:],
+			n.MinerPoisInfo.StatusTeeSign[:],
+			teeWorkPubkey,
+		)
 		if err != nil {
 			if txhash != "" {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
@@ -527,53 +505,28 @@ func runCmd(cmd *cobra.Command, args []string) {
 				os.Exit(1)
 			}
 
-			var key pattern.PoISKeyInfo
-			if len(n.MinerPoisInfo.KeyG) != len(pattern.PoISKey_G{}) {
-				out.Err("invalid tee key_g")
+			poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
+			if err != nil {
+				out.Err(err.Error())
 				os.Exit(1)
 			}
 
-			if len(n.MinerPoisInfo.KeyN) != len(pattern.PoISKey_N{}) {
-				out.Err("invalid tee key_n")
+			teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
+			if err != nil {
+				out.Err(err.Error())
 				os.Exit(1)
 			}
-			for i := 0; i < len(n.MinerPoisInfo.KeyG); i++ {
-				key.G[i] = types.U8(n.MinerPoisInfo.KeyG[i])
-			}
-			for i := 0; i < len(n.MinerPoisInfo.KeyN); i++ {
-				key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
-			}
-
-			// var sign pattern.TeeSig
-			// if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
-			// 	out.Err("invalid tee signature")
-			// 	os.Exit(1)
-			// }
-			// for i := 0; i < pattern.TeeSigLen; i++ {
-			// 	sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
-			// }
-			// var signWithAcc pattern.TeeSig
-			// if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
-			// 	out.Err("invalid tee SignatureWithTeeController")
-			// 	os.Exit(1)
-			// }
-			// for i := 0; i < pattern.TeeSigLen; i++ {
-			// 	signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
-			// }
-			if len(teeAcc) != pattern.WorkerPublicKeyLen {
-				out.Err("invalid tee work publick")
-				os.Exit(1)
-			}
-			var teepuk pattern.WorkerPublicKey
-			for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
-				teepuk[i] = types.U8(teeAcc[i])
-			}
-			txhash, err := n.RegisterSminerPOISKey(key, responseMinerInitParam.SignatureWithTeeController[:], n.MinerPoisInfo.StatusTeeSign[:], teepuk)
+			txhash, err := n.RegisterSminerPOISKey(
+				poisKey,
+				responseMinerInitParam.SignatureWithTeeController[:],
+				n.MinerPoisInfo.StatusTeeSign[:],
+				teeWorkPubkey,
+			)
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 				os.Exit(1)
 			}
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(pattern.BlockInterval * 2)
 			var count uint8 = 0
 			for {
 				count++
