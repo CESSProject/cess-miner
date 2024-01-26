@@ -220,17 +220,25 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	for i := 0; i < pattern.TeeSigLen; i++ {
 		sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 	}
-	// var signWithAcc pattern.TeeSignature
-	// for i := 0; i < pattern.TeeSignatureLen; i++ {
-	// 	signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
-	// }
+	var signWithAcc pattern.TeeSig
+	for i := 0; i < pattern.TeeSigLen; i++ {
+		signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
+	}
 
 	//
 	var wpuk pattern.WorkerPublicKey
 	for i := 0; i < pattern.TeeSigLen; i++ {
 		wpuk[i] = types.U8(usedTeeWorkAccount[i])
 	}
-	txhash, err := n.ReplaceIdleSpace(idleSignInfo, sign, wpuk)
+	var teeSignBytes = make(types.Bytes, len(sign))
+	for j := 0; j < len(sign); j++ {
+		teeSignBytes[j] = byte(sign[j])
+	}
+	var signWithAccBytes = make(types.Bytes, len(signWithAcc))
+	for j := 0; j < len(sign); j++ {
+		signWithAccBytes[j] = byte(signWithAcc[j])
+	}
+	txhash, err := n.ReplaceIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 	if err != nil || txhash == "" {
 		n.AccRollback(true)
 		n.Replace("err", err.Error())

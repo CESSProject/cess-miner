@@ -82,6 +82,7 @@ func (n *Node) Run() {
 		ch_reportLogs       = make(chan bool, 1)
 		ch_GenIdleFile      = make(chan bool, 1)
 	)
+	out.Tip("run")
 	ch_calctag <- true
 	ch_ConnectChain <- true
 	ch_connectBoot <- true
@@ -93,20 +94,23 @@ func (n *Node) Run() {
 	ch_GenIdleFile <- true
 	ch_restoreMgt <- true
 
-	for {
-		pubkey, err := n.QueryMasterPublicKey()
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		err = n.SetPublickey(pubkey)
-		if err != nil {
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		n.Schal("info", "Initialize key successfully")
-		break
-	}
+	// for {
+	// 	out.Tip("QueryMasterPublicKey")
+	// 	pubkey, err := n.QueryMasterPublicKey()
+	// 	if err != nil {
+	// 		out.Err(err.Error())
+	// 		time.Sleep(pattern.BlockInterval)
+	// 		continue
+	// 	}
+	// 	out.Err("SetPublickey")
+	// 	err = n.SetPublickey(pubkey)
+	// 	if err != nil {
+	// 		time.Sleep(pattern.BlockInterval)
+	// 		continue
+	// 	}
+	// 	n.Schal("info", "Initialize key successfully")
+	// 	break
+	// }
 
 	task_10S := time.NewTicker(time.Duration(time.Second * 10))
 	defer task_10S.Stop()

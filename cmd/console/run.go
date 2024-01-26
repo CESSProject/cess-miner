@@ -340,7 +340,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetInitStage(node.Stage_Register, "[ok] Registration is complete")
 		n.RebuildDirs()
 
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(pattern.BlockInterval * 3)
 
 		for i := 0; i < len(teeEndPointList); i++ {
 			delay = 20
@@ -380,6 +380,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 					KeyG:          responseMinerInitParam.KeyG,
 					StatusTeeSign: responseMinerInitParam.StatusTeeSign,
 				}
+				err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
+				if err != nil {
+					out.Err("invalid podr2 public key")
+					os.Exit(1)
+				}
+				err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
+				if err != nil {
+					out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
+					os.Exit(1)
+				}
 				break
 			}
 		}
@@ -406,22 +416,22 @@ func runCmd(cmd *cobra.Command, args []string) {
 			key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 		}
 
-		var sign pattern.TeeSig
-		if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
-			out.Err("invalid tee signature")
-			os.Exit(1)
-		}
-		for i := 0; i < pattern.TeeSigLen; i++ {
-			sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
-		}
-		var signWithAcc pattern.TeeSig
-		if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
-			out.Err("invalid tee SignatureWithTeeController")
-			os.Exit(1)
-		}
-		for i := 0; i < pattern.TeeSigLen; i++ {
-			signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
-		}
+		// var sign pattern.TeeSig
+		// if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
+		// 	out.Err("invalid tee signature")
+		// 	os.Exit(1)
+		// }
+		// for i := 0; i < pattern.TeeSigLen; i++ {
+		// 	sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
+		// }
+		// var signWithAcc pattern.TeeSig
+		// if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
+		// 	out.Err("invalid tee SignatureWithTeeController")
+		// 	os.Exit(1)
+		// }
+		// for i := 0; i < pattern.TeeSigLen; i++ {
+		// 	signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
+		// }
 		if len(teeAcc) != pattern.WorkerPublicKeyLen {
 			out.Err("invalid tee work publick")
 			os.Exit(1)
@@ -430,7 +440,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
 			teepuk[i] = types.U8(teeAcc[i])
 		}
-		txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teepuk)
+		txhash, err := n.RegisterSminerPOISKey(key, responseMinerInitParam.SignatureWithTeeController[:], n.MinerPoisInfo.StatusTeeSign[:], teepuk)
 		if err != nil {
 			if txhash != "" {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
@@ -498,6 +508,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 						KeyG:          responseMinerInitParam.KeyG,
 						StatusTeeSign: responseMinerInitParam.StatusTeeSign,
 					}
+					err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
+					if err != nil {
+						out.Err("invalid podr2 public key")
+						os.Exit(1)
+					}
+					err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
+					if err != nil {
+						out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
+						os.Exit(1)
+					}
 					break
 				}
 			}
@@ -524,22 +544,22 @@ func runCmd(cmd *cobra.Command, args []string) {
 				key.N[i] = types.U8(n.MinerPoisInfo.KeyN[i])
 			}
 
-			var sign pattern.TeeSig
-			if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
-				out.Err("invalid tee signature")
-				os.Exit(1)
-			}
-			for i := 0; i < pattern.TeeSigLen; i++ {
-				sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
-			}
-			var signWithAcc pattern.TeeSig
-			if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
-				out.Err("invalid tee SignatureWithTeeController")
-				os.Exit(1)
-			}
-			for i := 0; i < pattern.TeeSigLen; i++ {
-				signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
-			}
+			// var sign pattern.TeeSig
+			// if len(n.MinerPoisInfo.StatusTeeSign) != pattern.TeeSigLen {
+			// 	out.Err("invalid tee signature")
+			// 	os.Exit(1)
+			// }
+			// for i := 0; i < pattern.TeeSigLen; i++ {
+			// 	sign[i] = types.U8(n.MinerPoisInfo.StatusTeeSign[i])
+			// }
+			// var signWithAcc pattern.TeeSig
+			// if len(responseMinerInitParam.SignatureWithTeeController) != pattern.TeeSigLen {
+			// 	out.Err("invalid tee SignatureWithTeeController")
+			// 	os.Exit(1)
+			// }
+			// for i := 0; i < pattern.TeeSigLen; i++ {
+			// 	signWithAcc[i] = types.U8(responseMinerInitParam.SignatureWithTeeController[i])
+			// }
 			if len(teeAcc) != pattern.WorkerPublicKeyLen {
 				out.Err("invalid tee work publick")
 				os.Exit(1)
@@ -548,7 +568,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
 				teepuk[i] = types.U8(teeAcc[i])
 			}
-			txhash, err := n.RegisterSminerPOISKey(key, signWithAcc, sign, teepuk)
+			txhash, err := n.RegisterSminerPOISKey(key, responseMinerInitParam.SignatureWithTeeController[:], n.MinerPoisInfo.StatusTeeSign[:], teepuk)
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
 				os.Exit(1)
@@ -626,7 +646,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 				token = (newDecSpace - oldDecSpace) * pattern.StakingStakePerTiB
 				incToken, ok := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
 				if !ok {
-					out.Err(fmt.Sprintf("Failed to calculate staking"))
+					out.Err("Failed to calculate staking")
 					os.Exit(1)
 				}
 				if accInfo.Data.Free.CmpAbs(incToken) < 0 {
@@ -685,6 +705,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	if n.GetPodr2Key().Spk == nil {
+		buf, err := os.ReadFile(n.DataDir.Podr2PubkeyFile)
+		if err != nil {
+			out.Err(fmt.Sprintf("[ReadFile Podr2PubkeyFile] %v", err))
+			os.Exit(1)
+		}
+		err = n.SetPublickey(buf)
+		if err != nil {
+			out.Err("invalid podr2 public key in the file")
+			os.Exit(1)
+		}
+	}
+
 	n.SetInitStage(node.Stage_BuildCache, "[ok] Building cache...")
 	// build cache instance
 	n.Cache, err = buildCache(n.DataDir.DbDir)
@@ -712,7 +745,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Warn("The workspace capacity is less than 32G")
 		}
 	}
-
+	out.Tip(fmt.Sprintf("Workspace free size: %v", dirfreeSpace))
 	// run
 	n.Run()
 }
@@ -1212,6 +1245,7 @@ func buildDir(workspace string) (*node.DataDir, error) {
 	}
 
 	dir.PeersFile = filepath.Join(workspace, configs.PeersFile)
+	dir.Podr2PubkeyFile = filepath.Join(workspace, configs.Podr2PubkeyFile)
 	return dir, nil
 }
 

@@ -176,10 +176,13 @@ func (n *Node) serviceChallenge(
 	}
 
 	n.saveServiceProofRecord(serviceProofRecord)
-
+	var teeSignBytes = make(types.Bytes, len(signature))
+	for j := 0; j < len(signature); j++ {
+		teeSignBytes[j] = byte(signature[j])
+	}
 	txhash, err = n.SubmitServiceProofResult(
 		types.Bool(serviceProofRecord.ServiceResult),
-		signature,
+		teeSignBytes,
 		bloomFilter,
 		serviceProofRecord.AllocatedTeeWorkpuk,
 	)
@@ -508,10 +511,13 @@ func (n *Node) checkServiceProofRecord(
 			for i := 0; i < pattern.BloomFilterLen; i++ {
 				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 			}
-
+			var teeSignBytes = make(types.Bytes, len(signature))
+			for j := 0; j < len(signature); j++ {
+				teeSignBytes[j] = byte(signature[j])
+			}
 			txhash, err := n.SubmitServiceProofResult(
 				types.Bool(serviceProofRecord.ServiceResult),
-				signature,
+				teeSignBytes,
 				bloomFilter,
 				serviceProofRecord.AllocatedTeeWorkpuk,
 			)
@@ -566,10 +572,13 @@ func (n *Node) checkServiceProofRecord(
 	}
 
 	n.saveServiceProofRecord(serviceProofRecord)
-
+	var teeSignBytes = make(types.Bytes, len(signature))
+	for j := 0; j < len(signature); j++ {
+		teeSignBytes[j] = byte(signature[j])
+	}
 	txhash, err := n.SubmitServiceProofResult(
 		types.Bool(serviceProofRecord.ServiceResult),
-		signature,
+		teeSignBytes,
 		bloomFilter,
 		serviceProofRecord.AllocatedTeeWorkpuk,
 	)

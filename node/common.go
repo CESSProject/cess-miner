@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
-	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
@@ -23,13 +22,14 @@ import (
 )
 
 type DataDir struct {
-	DbDir     string
-	LogDir    string
-	SpaceDir  string
-	PoisDir   string
-	AccDir    string
-	RandomDir string
-	PeersFile string
+	DbDir           string
+	LogDir          string
+	SpaceDir        string
+	PoisDir         string
+	AccDir          string
+	RandomDir       string
+	PeersFile       string
+	Podr2PubkeyFile string
 }
 
 const (
@@ -111,14 +111,14 @@ func (n *Node) connectChain(ch chan<- bool) {
 	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 	err := n.ReconnectRPC()
 	if err != nil {
-		n.SetLastReconnectRpcTime(time.Now().Format(configs.TimeFormat))
+		n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
 		n.Log("err", "All RPCs failed to reconnect")
 		n.Ichal("err", "All RPCs failed to reconnect")
 		n.Schal("err", "All RPCs failed to reconnect")
 		out.Err("All RPCs failed to reconnect")
 		return
 	}
-	n.SetLastReconnectRpcTime(time.Now().Format(configs.TimeFormat))
+	n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
 	n.SetChainState(true)
 	out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))

@@ -150,7 +150,7 @@ func (n *Node) calcTag(ch chan<- bool) {
 					continue
 				}
 
-				if len(genTag.USig) != pattern.TeeSigLen {
+				if len(genTag.USig) != pattern.TeeSignatureLen {
 					n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
 					continue
 				}
@@ -207,8 +207,12 @@ func (n *Node) calcTag(ch chan<- bool) {
 					tagSigInfo.Digest[j].TeePubkey = utils.BytesToWorkPublickey(digest[j].TeeAccountId)
 				}
 				n.Stag("info", fmt.Sprintf("Will report tag: %s.%s", fid, fragmentHash))
+				var teeSignBytes = make(types.Bytes, len(teeSign))
+				for j := 0; j < len(teeSign); j++ {
+					teeSignBytes[j] = byte(teeSign[j])
+				}
 				for j := 0; j < 10; j++ {
-					txhash, err = n.ReportTagCalculated(teeSign, tagSigInfo)
+					txhash, err = n.ReportTagCalculated(teeSignBytes, tagSigInfo)
 					if err != nil || txhash == "" {
 						n.Stag("err", fmt.Sprintf("ReportTagCalculated[%s.%s]: [%s] %v", fid, fragmentHash, txhash, err))
 						time.Sleep(pattern.BlockInterval)
@@ -267,7 +271,6 @@ func (n *Node) calcTag(ch chan<- bool) {
 					break
 				}
 			}
-
 		}
 	}
 }

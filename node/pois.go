@@ -495,10 +495,10 @@ func (n *Node) certifiedSpace() error {
 		for i := 0; i < pattern.TeeSigLen; i++ {
 			sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 		}
-		//var signWithAcc pattern.TeeSignature
-		// for i := 0; i < pattern.TeeSignatureLen; i++ {
-		// 	signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
-		// }
+		var signWithAcc pattern.TeeSig
+		for i := 0; i < pattern.TeeSigLen; i++ {
+			signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
+		}
 		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
 			n.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.PoisStatus.Acc length err]")
@@ -524,7 +524,15 @@ func (n *Node) certifiedSpace() error {
 		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
 			wpuk[i] = types.U8(usedTeeWorkAccount[i])
 		}
-		txhash, err := n.CertIdleSpace(idleSignInfo, sign, wpuk)
+		var teeSignBytes = make(types.Bytes, len(sign))
+		for j := 0; j < len(sign); j++ {
+			teeSignBytes[j] = byte(sign[j])
+		}
+		var signWithAccBytes = make(types.Bytes, len(signWithAcc))
+		for j := 0; j < len(sign); j++ {
+			signWithAccBytes[j] = byte(signWithAcc[j])
+		}
+		txhash, err := n.CertIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 		if err != nil || txhash == "" {
 			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)

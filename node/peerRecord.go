@@ -83,7 +83,7 @@ func (p *PeerRecordType) GetAllPeerId() []string {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 	var i int
-	for k, _ := range p.peerList {
+	for k := range p.peerList {
 		result[i] = k
 		i++
 	}
