@@ -442,7 +442,7 @@ func (n *Node) checkIdleProofRecord(
 		return errors.New("Idle proof not submited")
 	}
 
-	if utils.WorkerPublicKeyAreAllZero(teePubkey) {
+	if sutils.IsWorkerPublicKeyAllZero(teePubkey) {
 		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 		if err != nil {
 			return err
