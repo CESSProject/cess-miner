@@ -658,7 +658,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if n.GetPodr2Key().Spk == nil {
+	if n.GetPodr2Key().Spk == nil || n.GetPodr2Key().Spk.N == nil {
 		buf, err := os.ReadFile(n.DataDir.Podr2PubkeyFile)
 		if err != nil {
 			out.Err(fmt.Sprintf("[ReadFile Podr2PubkeyFile] %v", err))

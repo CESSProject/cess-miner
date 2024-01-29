@@ -378,7 +378,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	}
 
 	data, err := n.GetFragmentFromOss(framentHash)
-	if err == nil {
+	if err == nil && len(data) == pattern.FragmentSize {
 		err = os.WriteFile(recoveryPath, data, os.ModePerm)
 		if err == nil {
 			return nil
@@ -673,7 +673,7 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 			continue
 		}
 
-		if len(genTag.USig) != pattern.TeeSigLen {
+		if len(genTag.USig) != pattern.TeeSignatureLen {
 			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
 			continue
 		}

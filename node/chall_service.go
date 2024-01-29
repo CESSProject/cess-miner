@@ -284,6 +284,9 @@ func (n *Node) calcSigma(
 		for j := 0; j < len(fragments); j++ {
 			isChall = false
 			fragmentHash = filepath.Base(fragments[j])
+			if strings.Contains(fragmentHash, ".tag") {
+				continue
+			}
 			ok, err = n.Has([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
@@ -301,9 +304,9 @@ func (n *Node) calcSigma(
 				for _, segment := range fmeta.SegmentList {
 					for _, fragment := range segment.FragmentList {
 						if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
-							isChall = true
 							if fragmentHash == string(fragment.Hash[:]) {
 								if fragment.Tag.HasValue() {
+									isChall = true
 									ok, block := fragment.Tag.Unwrap()
 									if !ok {
 										n.Schal("err", fmt.Sprintf("fragment.Tag.Unwrap(%s.%s): %v", roothash, fragmentHash, err))
@@ -317,6 +320,9 @@ func (n *Node) calcSigma(
 										isChall = false
 										break
 									}
+								} else {
+									isChall = false
+									break
 								}
 							}
 						}
@@ -610,6 +616,10 @@ func (n *Node) batchVerify(
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 	}
 	n.Schal("info", fmt.Sprintf("req tee batch verify: %s", teeEndPoint))
+	n.Schal("info", fmt.Sprintf("serviceProofRecord.Names: %v", serviceProofRecord.Names))
+	n.Schal("info", fmt.Sprintf("len(serviceProofRecord.Us): %v", len(serviceProofRecord.Us)))
+	n.Schal("info", fmt.Sprintf("len(serviceProofRecord.Mus): %v", len(serviceProofRecord.Mus)))
+	n.Schal("info", fmt.Sprintf("Sigma: %v", serviceProofRecord.Sigma))
 	for i := 0; i < 5; {
 		timeout = time.Minute * timeoutStep
 		batchVerifyResult, err = n.RequestBatchVerify(

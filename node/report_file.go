@@ -79,18 +79,18 @@ func (n *Node) reportFiles(ch chan<- bool) {
 			}
 		} else {
 			var deletedFrgmentList []string
-			var savedFrgment string
+			var savedFrgment []string
 			for _, segment := range metadata.SegmentList {
 				for _, fragment := range segment.FragmentList {
 					if !sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 						deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
 						continue
 					}
-					savedFrgment = string(fragment.Hash[:])
+					savedFrgment = append(savedFrgment, string(fragment.Hash[:]))
 				}
 			}
 
-			if savedFrgment == "" {
+			if len(savedFrgment) == 0 {
 				for _, d := range deletedFrgmentList {
 					_, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, d))
 					if err != nil {
@@ -113,21 +113,21 @@ func (n *Node) reportFiles(ch chan<- bool) {
 					continue
 				}
 			}
-			fstat, err := os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment))
-			if err != nil {
-				n.Report("err", fmt.Sprintf("[os.Stat(%s)] %v", roothash, err))
-				continue
+			for i := 0; i < len(savedFrgment); i++ {
+				_, err = os.Stat(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment[i]))
+				if err != nil {
+					n.Report("err", fmt.Sprintf("[os.Stat(%s)] %v", roothash, err))
+					continue
+				}
+				err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment[i]),
+					filepath.Join(n.GetDirs().FileDir, roothash, savedFrgment[i]))
+				if err != nil {
+					n.Report("err", fmt.Sprintf("[Rename TmpDir to FileDir (%s.%s)] %v", roothash, savedFrgment[i], err))
+					continue
+				}
 			}
-			if fstat.Size() != pattern.FragmentSize {
-				continue
-			}
-			err = os.Rename(filepath.Join(n.GetDirs().TmpDir, roothash, savedFrgment),
-				filepath.Join(n.GetDirs().FileDir, roothash, savedFrgment))
-			if err != nil {
-				n.Report("err", fmt.Sprintf("[Remove TmpDir to FileDir (%s.%s)] %v", roothash, savedFrgment, err))
-				continue
-			}
-			err = n.Put([]byte(Cach_prefix_File+roothash), []byte(savedFrgment))
+
+			err = n.Put([]byte(Cach_prefix_File+roothash), nil)
 			if err != nil {
 				n.Report("err", fmt.Sprintf("[Cach.Put(%s.%s)] %v", roothash, savedFrgment, err))
 			}
