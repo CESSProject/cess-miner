@@ -192,12 +192,10 @@ func (n *Node) ReportLogs(file string) {
 
 	client := &http.Client{}
 	client.Transport = utils.GlobalTransport
-	resp, err := client.Do(req)
+	_, err = client.Do(req)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	return
 }
 
 func (n *Node) GetFragmentFromOss(fid string) ([]byte, error) {
@@ -222,6 +220,9 @@ func (n *Node) GetFragmentFromOss(fid string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed")
+	}
 	data, err := io.ReadAll(resp.Body)
 	return data, err
 }

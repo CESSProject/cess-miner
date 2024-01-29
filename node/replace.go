@@ -16,6 +16,7 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/pb"
@@ -224,12 +225,7 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	for i := 0; i < pattern.TeeSigLen; i++ {
 		signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 	}
-
 	//
-	var wpuk pattern.WorkerPublicKey
-	for i := 0; i < pattern.TeeSigLen; i++ {
-		wpuk[i] = types.U8(usedTeeWorkAccount[i])
-	}
 	var teeSignBytes = make(types.Bytes, len(sign))
 	for j := 0; j < len(sign); j++ {
 		teeSignBytes[j] = byte(sign[j])
@@ -237,6 +233,12 @@ func (n *Node) replaceIdle(ch chan<- bool) {
 	var signWithAccBytes = make(types.Bytes, len(signWithAcc))
 	for j := 0; j < len(sign); j++ {
 		signWithAccBytes[j] = byte(signWithAcc[j])
+	}
+	wpuk, err := sutils.BytesToWorkPublickey([]byte(usedTeeWorkAccount))
+	if err != nil {
+		n.AccRollback(true)
+		n.Replace("err", err.Error())
+		return
 	}
 	txhash, err := n.ReplaceIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 	if err != nil || txhash == "" {

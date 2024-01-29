@@ -26,6 +26,9 @@ const (
 	DefaultBootNodeAddr = "_dnsaddr.boot-bucket-testnet.cess.cloud"
 	//
 	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
+
+	//
+	MinMTagFileSize = 600000
 )
 
 const (

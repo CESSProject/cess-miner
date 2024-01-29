@@ -82,7 +82,6 @@ func (n *Node) Run() {
 		ch_reportLogs       = make(chan bool, 1)
 		ch_GenIdleFile      = make(chan bool, 1)
 	)
-	out.Tip("run")
 	ch_calctag <- true
 	ch_ConnectChain <- true
 	ch_connectBoot <- true
