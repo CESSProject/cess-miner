@@ -211,7 +211,6 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			n.SetTaskPeriod("1h")
-			// go n.UpdatePeers()
 			go n.reportLogsMgt(ch_reportLogs)
 			n.SetTaskPeriod("1h-end")
 		default:

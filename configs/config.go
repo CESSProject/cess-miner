@@ -32,10 +32,6 @@ const (
 )
 
 const (
-	OrserState_CalcTag uint8 = 2
-)
-
-const (
 	Err_tee_Busy         = "is being fully calculated"
 	Err_ctx_exceeded     = "context deadline exceeded"
 	Err_file_not_fount   = "no such file"

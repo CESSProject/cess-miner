@@ -706,21 +706,25 @@ func (n *Node) checkIdleProofRecord(
 	for j := 0; j < len(teeSig); j++ {
 		teeSignBytes[j] = byte(teeSig[j])
 	}
-	txHash, err := n.SubmitIdleProofResult(
-		idleProve,
-		types.U64(minerChallFront),
-		types.U64(minerChallRear),
-		minerAccumulator,
-		types.Bool(spaceProofVerifyTotal.IdleResult),
-		teeSignBytes,
-		idleProofRecord.AllocatedTeeWorkpuk,
-	)
-	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-		time.Sleep(time.Minute)
+	var txHash string
+	for j := 2; j < 10; j++ {
+		txHash, err = n.SubmitIdleProofResult(
+			idleProve,
+			types.U64(minerChallFront),
+			types.U64(minerChallRear),
+			minerAccumulator,
+			types.Bool(spaceProofVerifyTotal.IdleResult),
+			teeSignBytes,
+			idleProofRecord.AllocatedTeeWorkpuk,
+		)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+			time.Sleep(time.Minute * time.Duration(j))
+			continue
+		}
+		n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
 		return nil
 	}
-	n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
 	return nil
 }
 

@@ -60,7 +60,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 				n.Ichal("err", fmt.Sprintf("idle data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
 			} else {
 				if len(idleChallTaskCh) > 0 {
-					_ = <-idleChallTaskCh
+					<-idleChallTaskCh
 					go n.idleChallenge(
 						idleChallTaskCh,
 						true,
@@ -82,7 +82,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 			n.Ichal("err", fmt.Sprintf("idle data challenge has expired: %v < %v", uint32(challenge.ChallengeElement.IdleSlip), latestBlock))
 		} else {
 			if len(idleChallTaskCh) > 0 {
-				_ = <-idleChallTaskCh
+				<-idleChallTaskCh
 				go n.idleChallenge(
 					idleChallTaskCh,
 					false,
@@ -107,7 +107,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 				n.Schal("err", fmt.Sprintf("service data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
 			} else {
 				if len(serviceChallTaskCh) > 0 {
-					_ = <-serviceChallTaskCh
+					<-serviceChallTaskCh
 					go n.serviceChallenge(
 						serviceChallTaskCh,
 						true,
@@ -126,7 +126,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 			n.Schal("err", fmt.Sprintf("service challenge has expired: %v < %v", uint32(challenge.ChallengeElement.ServiceSlip), latestBlock))
 		} else {
 			if len(serviceChallTaskCh) > 0 {
-				_ = <-serviceChallTaskCh
+				<-serviceChallTaskCh
 				go n.serviceChallenge(
 					serviceChallTaskCh,
 					false,
