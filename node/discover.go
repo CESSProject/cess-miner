@@ -125,7 +125,7 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 	}
 
 	if len(reportTaskCh) > 0 {
-		_ = <-reportTaskCh
+		<-reportTaskCh
 		defer func() {
 			reportTaskCh <- true
 			if err := recover(); err != nil {
@@ -143,6 +143,7 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
 		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "report.log"))
 	}
 }
 

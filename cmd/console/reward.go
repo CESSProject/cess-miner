@@ -73,7 +73,6 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	var total string
 	var claimed string
-	var available string
 	var sep uint8 = 0
 	for i := len(rewardInfo.Total) - 1; i >= 0; i-- {
 		total = fmt.Sprintf("%c%s", rewardInfo.Total[i], total)
@@ -94,20 +93,9 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	claimed = strings.TrimPrefix(claimed, "_")
 
-	sep = 0
-	for i := len(rewardInfo.Available) - 1; i >= 0; i-- {
-		available = fmt.Sprintf("%c%s", rewardInfo.Available[i], available)
-		sep++
-		if sep%3 == 0 {
-			available = fmt.Sprintf("_%s", available)
-		}
-	}
-	available = strings.TrimPrefix(available, "_")
-
 	var tableRows = []table.Row{
 		{"total reward", total},
 		{"claimed reward", claimed},
-		{"available reward", available},
 	}
 	tw := table.NewWriter()
 	tw.AppendRows(tableRows)

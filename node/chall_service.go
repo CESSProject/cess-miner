@@ -180,17 +180,21 @@ func (n *Node) serviceChallenge(
 	for j := 0; j < len(signature); j++ {
 		teeSignBytes[j] = byte(signature[j])
 	}
-	txhash, err = n.SubmitServiceProofResult(
-		types.Bool(serviceProofRecord.ServiceResult),
-		teeSignBytes,
-		bloomFilter,
-		serviceProofRecord.AllocatedTeeWorkpuk,
-	)
-	if err != nil {
-		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+	for i := 2; i < 10; i++ {
+		txhash, err = n.SubmitServiceProofResult(
+			types.Bool(serviceProofRecord.ServiceResult),
+			teeSignBytes,
+			bloomFilter,
+			serviceProofRecord.AllocatedTeeWorkpuk,
+		)
+		if err != nil {
+			n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+			time.Sleep(time.Minute * time.Duration(i))
+			continue
+		}
+		n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
 		return
 	}
-	n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
 }
 
 // save challenge random number
@@ -348,6 +352,7 @@ func (n *Node) calcSigma(
 					return names, us, mus, sigma, usig, err
 				}
 				if blocknumber > uint64(challStart) {
+					n.Schal("info", fmt.Sprintf("Not at chall: %d > %d", blocknumber, challStart))
 					continue
 				}
 			}
@@ -413,7 +418,6 @@ func (n *Node) calcSigma(
 			us = append(us, tag.Tag.T.U)
 			mus = append(mus, proveResponse.MU)
 			usig = append(usig, tag.USig)
-			break
 		}
 	}
 	return names, us, mus, sigma, usig, nil
