@@ -23,12 +23,8 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/pb"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func (n *Node) restoreMgt(ch chan bool) {
@@ -637,86 +633,47 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 		return errors.New("invalid fragment size")
 	}
 	fragmentHash := filepath.Base(fragment)
-	teeEndPoints := n.GetPriorityTeeList()
-	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
-	requestGenTag := &pb.RequestGenTag{
-		FragmentData: buf[:pattern.FragmentSize],
-		FragmentName: fragmentHash,
-		CustomData:   "",
-		FileName:     fid,
-		MinerId:      n.GetSignatureAccPulickey(),
+
+	genTag, teePubkey, err := n.requestTeeTag(fid, fragment, nil, nil)
+	if err != nil {
+		return err
 	}
-	var dialOptions []grpc.DialOption
-	var teeSign pattern.TeeSig
-	for i := 0; i < len(teeEndPoints); i++ {
-		teePubkey, err := n.GetTeeWorkAccount(teeEndPoints[i])
-		if err != nil {
-			n.Restore("info", fmt.Sprintf("[GetTee(%s)] %v", teeEndPoints[i], err))
-			continue
-		}
-		n.Restore("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
-		n.Restore("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[i]))
-		if !strings.Contains(teeEndPoints[i], "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-		}
-		genTag, err := n.RequestGenTag(
-			teeEndPoints[i],
-			requestGenTag,
-			time.Duration(time.Minute*20),
-			dialOptions,
-			nil,
-		)
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[RequestGenTag] %v", err))
-			continue
-		}
 
-		if len(genTag.USig) != pattern.TeeSignatureLen {
-			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
-			continue
-		}
-
-		if len(genTag.Signature) != pattern.TeeSigLen {
-			n.Restore("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.Signature)))
-			continue
-		}
-		for j := 0; j < pattern.TeeSigLen; j++ {
-			teeSign[j] = types.U8(genTag.Signature[j])
-		}
-
-		index := getTagsNumber(filepath.Join(n.GetDirs().FileDir, fid))
-
-		var tfile = &TagfileType{
-			Tag:          genTag.Tag,
-			USig:         genTag.USig,
-			Signature:    genTag.Signature,
-			FragmentName: []byte(fragmentHash),
-			TeeAccountId: []byte(teePubkey),
-			Index:        uint16(index + 1),
-		}
-		buf, err = json.Marshal(tfile)
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[json.Marshal] err: %s", err))
-			continue
-		}
-		ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
-			continue
-		}
-		if !ok {
-			n.Restore("err", "VerifyAttest is false")
-			continue
-		}
-		err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", fragment))
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
-			continue
-		}
-		n.Restore("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragment)))
-		break
+	if len(genTag.USig) != pattern.TeeSignatureLen {
+		return fmt.Errorf("invalid USig length: %d", len(genTag.USig))
 	}
+
+	if len(genTag.Signature) != pattern.TeeSigLen {
+		return fmt.Errorf("invalid genTag.Signature length: %d", len(genTag.Signature))
+	}
+
+	index := getTagsNumber(filepath.Join(n.GetDirs().FileDir, fid))
+
+	var tfile = &TagfileType{
+		Tag:          genTag.Tag,
+		USig:         genTag.USig,
+		Signature:    genTag.Signature,
+		FragmentName: []byte(fragmentHash),
+		TeeAccountId: []byte(teePubkey),
+		Index:        uint16(index + 1),
+	}
+	buf, err = json.Marshal(tfile)
+	if err != nil {
+		return fmt.Errorf("json.Marshal: %v", err)
+	}
+	// ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
+	// if err != nil {
+	// 	n.Restore("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
+	// 	continue
+	// }
+	// if !ok {
+	// 	n.Restore("err", "VerifyAttest is false")
+	// 	continue
+	// }
+	err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", fragment))
+	if err != nil {
+		return fmt.Errorf("WriteBufToFile: %v", err)
+	}
+	n.Restore("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragment)))
 	return nil
 }

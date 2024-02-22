@@ -315,7 +315,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if firstReg {
 		n.SetInitStage(node.Stage_Register, "[ok] Registering...")
 		stakingAcc := n.GetStakingAcc()
-		if stakingAcc != "" {
+		if stakingAcc != "" && stakingAcc != n.GetSignatureAcc() {
 			out.Ok(fmt.Sprintf("Specify staking account: %s", stakingAcc))
 			txhash, err := n.RegisterSminerAssignStaking(n.GetEarningsAcc(), n.GetPeerPublickey(), stakingAcc, spaceTiB)
 			if err != nil {
@@ -661,13 +661,59 @@ func runCmd(cmd *cobra.Command, args []string) {
 	if n.GetPodr2Key().Spk == nil || n.GetPodr2Key().Spk.N == nil {
 		buf, err := os.ReadFile(n.DataDir.Podr2PubkeyFile)
 		if err != nil {
-			out.Err(fmt.Sprintf("[ReadFile Podr2PubkeyFile] %v", err))
-			os.Exit(1)
-		}
-		err = n.SetPublickey(buf)
-		if err != nil {
-			out.Err("invalid podr2 public key in the file")
-			os.Exit(1)
+			var podr2PubkeyResponse *pb.Podr2PubkeyResponse
+			for i := 0; i < len(teeEndPointList); i++ {
+				delay = 30
+				suc = false
+				out.Tip(fmt.Sprintf("Will request master public key to %v", teeEndPointList[i]))
+				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
+					if !strings.Contains(teeEndPointList[i], "443") {
+						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+					} else {
+						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+					}
+					podr2PubkeyResponse, err = n.GetPodr2Pubkey(
+						teeEndPointList[i],
+						&pb.Request{StorageMinerAccountId: n.GetSignatureAccPulickey()},
+						time.Duration(time.Second*delay),
+						dialOptions,
+						nil,
+					)
+					if err != nil {
+						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+							delay += 30
+							continue
+						}
+						if strings.Contains(err.Error(), configs.Err_tee_Busy) {
+							delay += 10
+							continue
+						}
+						out.Err(fmt.Sprintf("[GetMasterPubkey] %v", err))
+					} else {
+						suc = true
+					}
+					break
+				}
+				if suc {
+					break
+				}
+			}
+			if suc && podr2PubkeyResponse != nil {
+				err = n.SetPublickey(podr2PubkeyResponse.Pubkey)
+				if err != nil {
+					out.Err("invalid podr2 public key from tee")
+					os.Exit(1)
+				}
+			} else {
+				out.Err("Unable to get podr2 public key from all tees, program exits.")
+				os.Exit(1)
+			}
+		} else {
+			err = n.SetPublickey(buf)
+			if err != nil {
+				out.Err("invalid podr2 public key in the file")
+				os.Exit(1)
+			}
 		}
 	}
 

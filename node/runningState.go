@@ -67,7 +67,6 @@ type RunningRecordType struct {
 	taskPeriod           string
 	cpuCores             int
 	pid                  int32
-	workStage            uint8
 	lastReconnectRpcTime string
 	calcTagFlag          bool
 	reportFileFlag       bool
