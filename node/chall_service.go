@@ -336,6 +336,7 @@ func (n *Node) calcSigma(
 					}
 				}
 				if !isChall {
+					os.Remove(fragments[j])
 					continue
 				}
 				n.Schal("info", fmt.Sprintf("chall go on: %s.%s", roothash, fragmentHash))
@@ -362,7 +363,8 @@ func (n *Node) calcSigma(
 				err = n.calcFragmentTag(roothash, fragments[j])
 				if err != nil {
 					n.Schal("err", fmt.Sprintf("calcFragmentTag %v err: %v", fragments[j], err))
-					return names, us, mus, sigma, usig, err
+					n.GenerateRestoralOrder(roothash, fragmentHash)
+					continue
 				}
 			}
 			n.Schal("info", fmt.Sprintf("[%s] Read tag file: %s", roothash, serviceTagPath))
@@ -371,7 +373,8 @@ func (n *Node) calcSigma(
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
 				os.Remove(serviceTagPath)
-				return names, us, mus, sigma, usig, err
+				n.GenerateRestoralOrder(roothash, fragmentHash)
+				continue
 			}
 			_, err = os.Stat(fragments[j])
 			if err != nil {

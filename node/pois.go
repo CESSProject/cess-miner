@@ -100,7 +100,10 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 		ChallAccPath:   n.DataDir.AccDir,
 		MaxProofThread: n.GetCpuCores(),
 	}
-
+	fmt.Println("freeSpace:", freeSpace)
+	fmt.Println("int64(n.ExpendersInfo.K):", int64(n.ExpendersInfo.K))
+	fmt.Println("int64(n.ExpendersInfo.N):", int64(n.ExpendersInfo.N))
+	fmt.Println("int64(n.ExpendersInfo.D):", int64(n.ExpendersInfo.D))
 	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
 	// minerID is storage node's account ID, and space is the amount of physical space available(MiB)
 	n.Prover, err = pois.NewProver(

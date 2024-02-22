@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,11 +66,8 @@ func (n *Node) calcTag(ch chan<- bool) {
 
 	n.Stag("info", fmt.Sprintf("[roothashs] %v", roothashs))
 
-	teeEndPoints := n.GetPriorityTeeList()
-	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
-
 	for _, fileDir := range roothashs {
-		err = n.calcFileTag(fileDir, teeEndPoints)
+		err = n.calcFileTag(fileDir)
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[%s] [calcFileTag] %v", filepath.Base(fileDir), roothashs))
 		}
@@ -77,16 +75,13 @@ func (n *Node) calcTag(ch chan<- bool) {
 	}
 }
 
-func (n *Node) calcFileTag(file string, teeEndPoints []string) error {
+func (n *Node) calcFileTag(file string) error {
 	var ok bool
 	var isReportTag bool
 	var err error
-	var fragmentHash string
 	var tagPath string
 	var fragments, tags []string
-	var dialOptions []grpc.DialOption
-	var teeSign pattern.TeeSig
-	var genTag *pb.ResponseGenTag
+
 	fid := filepath.Base(file)
 	n.Stag("info", fmt.Sprintf("[%s] Start calc file tag", fid))
 
@@ -120,19 +115,18 @@ func (n *Node) calcFileTag(file string, teeEndPoints []string) error {
 			n.Stag("err", fmt.Sprintf("[getFragmentTags(%s)] %v", fid, err))
 			return nil
 		}
-		//n.Stag("info", fmt.Sprintf("[%s] The file have tag: %v", fid, tags))
 
 		latestSig, digest, maxIndex, err := n.calcRequestDigest(filepath.Base(fragments[i]), tags)
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[calcRequestDigest(%s)] %v", fid, err))
 			return nil
 		}
-		buf, err := os.ReadFile(fragments[i])
+		_, err = os.Stat(fragments[i])
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [ReadFile(%s)] %v", fid, fragments[i], err))
+			n.Stag("err", fmt.Sprintf("[%s] [os.Stat(%s)] %v", fid, fragments[i], err))
 			return nil
 		}
-		fragmentHash = filepath.Base(fragments[i])
+
 		tagPath = (fragments[i] + ".tag")
 		n.Stag("info", fmt.Sprintf("[%s] Check this file tag: %v", fid, tagPath))
 		fstat, err := os.Stat(tagPath)
@@ -149,95 +143,13 @@ func (n *Node) calcFileTag(file string, teeEndPoints []string) error {
 			n.Stag("info", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
 		}
 
-		var requestGenTag = &pb.RequestGenTag{
-			FragmentData:     buf,
-			FragmentName:     fragmentHash,
-			CustomData:       "",
-			FileName:         fid,
-			MinerId:          n.GetSignatureAccPulickey(),
-			TeeDigestList:    digest,
-			LastTeeSignature: latestSig,
+		isreport, err := n.calcTheFragmentTag(fid, fragments[i], maxIndex, latestSig, digest)
+		if err != nil {
+			n.Stag("err", fmt.Sprintf("[%s] [calcFragmentTag] %v", fid, err))
+			return nil
 		}
-		for j := 0; j < len(teeEndPoints); j++ {
-			teePubkey, err := n.GetTeeWorkAccount(teeEndPoints[j])
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[j], err))
-				continue
-			}
-			n.Stag("info", fmt.Sprintf("[%s] Will calc file tag: %v", fid, fragmentHash))
-			n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[j]))
-			if !strings.Contains(teeEndPoints[j], "443") {
-				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-			} else {
-				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-			}
-			genTag = nil
-			for k := 0; k < 3; k++ {
-				genTag, err = n.RequestGenTag(
-					teeEndPoints[j],
-					requestGenTag,
-					time.Duration(time.Minute*20),
-					dialOptions,
-					nil,
-				)
-				if err != nil {
-					if strings.Contains(err.Error(), "no permits available") {
-						time.Sleep(time.Minute * 3)
-						continue
-					}
-					n.Stag("err", fmt.Sprintf("[RequestGenTag] %v", err))
-					break
-				}
-			}
-			if genTag == nil {
-				continue
-			}
-
-			if len(genTag.USig) != pattern.TeeSignatureLen {
-				n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid USig length: %d", len(genTag.USig)))
-				continue
-			}
-
-			if len(genTag.Signature) != pattern.TeeSigLen {
-				n.Stag("err", fmt.Sprintf("[RequestGenTag] invalid TagSigInfo length: %d", len(genTag.Signature)))
-				continue
-			}
-			for k := 0; k < pattern.TeeSigLen; k++ {
-				teeSign[k] = types.U8(genTag.Signature[k])
-			}
-
-			var tfile = &TagfileType{
-				Tag:          genTag.Tag,
-				USig:         genTag.USig,
-				Signature:    genTag.Signature,
-				FragmentName: []byte(fragmentHash),
-				TeeAccountId: []byte(string(teePubkey[:])),
-				Index:        (maxIndex + 1),
-			}
-			buf, err = json.Marshal(tfile)
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[json.Marshal] err: %s", err))
-				continue
-			}
-
-			// ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
-			// if err != nil {
-			// 	n.Stag("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
-			// 	continue
-			// }
-			// if !ok {
-			// 	n.Stag("err", "VerifyAttest is false")
-			// 	continue
-			// }
-
-			err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", fragments[i]))
-			if err != nil {
-				n.Stag("err", fmt.Sprintf("[WriteBufToFile] err: %s", err))
-				continue
-			}
-			isReportTag = true
-			n.Stag("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragments[i])))
-			break
+		if isreport {
+			isReportTag = isreport
 		}
 	}
 
@@ -280,12 +192,181 @@ func (n *Node) calcFileTag(file string, teeEndPoints []string) error {
 
 	txhash, err := n.reportFileTag(fid, tags)
 	if err != nil {
+		for k := 0; k < len(tags); k++ {
+			os.Remove(tags[k])
+		}
 		n.Stag("err", fmt.Sprintf("[%s] [reportFileTag] %v", fid, err))
 	} else {
 		n.Cache.Put([]byte(Cach_prefix_Tag+fid), nil)
 		n.Stag("info", fmt.Sprintf("[%s] [reportFileTag] %v", fid, txhash))
 	}
 	return nil
+}
+
+func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
+	var err error
+	var isReportTag bool
+	var teeSign pattern.TeeSig
+	var genTag pb.GenTagMsg
+	var teePubkey string
+	var fragmentHash = filepath.Base(fragmentFile)
+
+	genTag, teePubkey, err = n.requestTeeTag(fid, fragmentFile, lastSign, digest)
+	if err != nil {
+		return false, fmt.Errorf("requestTeeTag: %v", err)
+	}
+
+	if len(genTag.USig) != pattern.TeeSignatureLen {
+		return false, fmt.Errorf("invalid USig length: %d", len(genTag.USig))
+	}
+
+	if len(genTag.Signature) != pattern.TeeSigLen {
+		return false, fmt.Errorf("invalid Tag.Signature length: %d", len(genTag.Signature))
+	}
+	for k := 0; k < pattern.TeeSigLen; k++ {
+		teeSign[k] = types.U8(genTag.Signature[k])
+	}
+
+	var tfile = &TagfileType{
+		Tag:          genTag.Tag,
+		USig:         genTag.USig,
+		Signature:    genTag.Signature,
+		FragmentName: []byte(fragmentHash),
+		TeeAccountId: []byte(teePubkey),
+		Index:        (maxIndex + 1),
+	}
+	buf, err := json.Marshal(tfile)
+	if err != nil {
+		return false, fmt.Errorf("json.Marshal: %v", err)
+	}
+
+	// ok, err := n.GetPodr2Key().VerifyAttest(genTag.Tag.T.Name, genTag.Tag.T.U, genTag.Tag.PhiHash, genTag.Tag.Attest, "")
+	// if err != nil {
+	// 	n.Stag("err", fmt.Sprintf("[VerifyAttest] err: %s", err))
+	// 	continue
+	// }
+	// if !ok {
+	// 	n.Stag("err", "VerifyAttest is false")
+	// 	continue
+	// }
+
+	err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s.tag", fragmentFile))
+	if err != nil {
+		return false, fmt.Errorf("WriteBufToFile: %v", err)
+	}
+	isReportTag = true
+	n.Stag("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragmentFile)))
+	return isReportTag, nil
+}
+
+func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
+	var err error
+	var teePubkey string
+	var tagInfo pb.GenTagMsg
+	teeEndPoints := n.GetPriorityTeeList()
+	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+
+	n.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
+	for j := 0; j < len(teeEndPoints); j++ {
+		n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[j]))
+		teePubkey, err = n.GetTeeWorkAccount(teeEndPoints[j])
+		if err != nil {
+			n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[j], err))
+			continue
+		}
+		tagInfo, err = n.callTeeTag(teeEndPoints[j], fid, fragmentFile, lastSign, digest)
+		if err != nil {
+			n.Stag("err", fmt.Sprintf("[callTeeTag(%s)] %v", teeEndPoints[j], err))
+			continue
+		}
+		return tagInfo, teePubkey, nil
+	}
+	return tagInfo, teePubkey, err
+}
+
+func (n *Node) callTeeTag(teeEndPoint, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, error) {
+	var dialOptions []grpc.DialOption
+	if !strings.Contains(teeEndPoint, "443") {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	} else {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+	}
+	conn, err := grpc.Dial(teeEndPoint, dialOptions...)
+	if err != nil {
+		return pb.GenTagMsg{}, fmt.Errorf("grpc.Dial(%s): %v", teeEndPoint, err)
+	}
+	defer conn.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Minute*20))
+	defer cancel()
+	stream, err := pb.NewPodr2ApiClient(conn).RequestGenTag(ctx)
+	if err != nil {
+		return pb.GenTagMsg{}, fmt.Errorf("RequestGenTag: %v", err)
+	}
+	fragmentHash := filepath.Base(fragmentFile)
+	buf, err := os.ReadFile(fragmentFile)
+	if err != nil {
+		return pb.GenTagMsg{}, fmt.Errorf("ReadFile: %v", err)
+	}
+	n.Stag("info", fmt.Sprintf("Will request first to %s", teeEndPoint))
+	err = stream.Send(&pb.RequestGenTag{
+		FragmentData:     make([]byte, 0),
+		FragmentName:     fragmentHash,
+		CustomData:       "",
+		FileName:         fid,
+		MinerId:          n.GetSignatureAccPulickey(),
+		TeeDigestList:    make([]*pb.DigestInfo, 0),
+		LastTeeSignature: make([]byte, 0)})
+	if err != nil {
+		return pb.GenTagMsg{}, fmt.Errorf("first send: %v", err)
+	}
+	n.Stag("info", fmt.Sprintf("Will recv first result from %s", teeEndPoint))
+	ok, err := reciv_signal(stream)
+	if err != nil {
+		return pb.GenTagMsg{}, err
+	}
+	n.Stag("info", fmt.Sprintf("Recv first result is: %v", ok))
+	if !ok {
+		return pb.GenTagMsg{}, errors.New("reciv_signal: false")
+	}
+	n.Stag("info", fmt.Sprintf("Will request second to %s", teeEndPoint))
+	err = stream.Send(&pb.RequestGenTag{
+		FragmentData:     buf,
+		FragmentName:     fragmentHash,
+		CustomData:       "",
+		FileName:         fid,
+		MinerId:          n.GetSignatureAccPulickey(),
+		TeeDigestList:    digest,
+		LastTeeSignature: lastSign,
+	})
+	if err != nil {
+		return pb.GenTagMsg{}, fmt.Errorf("second send: %v", err)
+	}
+	n.Stag("info", fmt.Sprintf("Will recv second result from %s", teeEndPoint))
+	tag, err := reciv_tag(stream)
+	if err != nil {
+		return pb.GenTagMsg{}, err
+	}
+	n.Stag("info", "Recv second result suc")
+	err = stream.CloseSend()
+	if err != nil {
+		n.Stag("err", fmt.Sprintf(" stream.Close: %v", err))
+	}
+	return tag, nil
+}
+
+func reciv_signal(stream pb.Podr2Api_RequestGenTagClient) (bool, error) {
+	req, err := stream.Recv()
+	if err != nil {
+		return false, err
+	}
+	return req.GetProcessing(), nil
+}
+func reciv_tag(stream pb.Podr2Api_RequestGenTagClient) (pb.GenTagMsg, error) {
+	req, err := stream.Recv()
+	if err != nil {
+		return pb.GenTagMsg{}, err
+	}
+	return *req.GetMsg(), nil
 }
 
 func getAllFragment(path string) ([]string, error) {

@@ -93,24 +93,6 @@ func (n *Node) Run() {
 	ch_GenIdleFile <- true
 	ch_restoreMgt <- true
 
-	// for {
-	// 	out.Tip("QueryMasterPublicKey")
-	// 	pubkey, err := n.QueryMasterPublicKey()
-	// 	if err != nil {
-	// 		out.Err(err.Error())
-	// 		time.Sleep(pattern.BlockInterval)
-	// 		continue
-	// 	}
-	// 	out.Err("SetPublickey")
-	// 	err = n.SetPublickey(pubkey)
-	// 	if err != nil {
-	// 		time.Sleep(pattern.BlockInterval)
-	// 		continue
-	// 	}
-	// 	n.Schal("info", "Initialize key successfully")
-	// 	break
-	// }
-
 	task_10S := time.NewTicker(time.Duration(time.Second * 10))
 	defer task_10S.Stop()
 
@@ -119,6 +101,9 @@ func (n *Node) Run() {
 
 	task_Minute := time.NewTicker(time.Minute)
 	defer task_Minute.Stop()
+
+	task_5_Minute := time.NewTicker(time.Minute * 5)
+	defer task_5_Minute.Stop()
 
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
@@ -153,10 +138,6 @@ func (n *Node) Run() {
 
 		case <-task_30S.C:
 			n.SetTaskPeriod("30s")
-			if len(ch_connectBoot) > 0 {
-				<-ch_connectBoot
-				go n.connectBoot(ch_connectBoot)
-			}
 			if len(ch_reportfiles) > 0 {
 				<-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
@@ -169,20 +150,13 @@ func (n *Node) Run() {
 
 		case <-task_Minute.C:
 			n.SetTaskPeriod("1m")
-			if len(ch_syncChainStatus) > 0 {
-				<-ch_syncChainStatus
-				go n.syncChainStatus(ch_syncChainStatus)
-			}
-
 			if len(ch_idlechallenge) > 0 || len(ch_servicechallenge) > 0 {
 				go n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
 			}
-
 			if len(ch_findPeers) > 0 {
 				<-ch_findPeers
 				//go n.findPeers(ch_findPeers)
 			}
-
 			if len(ch_recvPeers) > 0 {
 				<-ch_recvPeers
 				go n.recvPeers(ch_recvPeers)
@@ -209,6 +183,16 @@ func (n *Node) Run() {
 			}
 			n.SetTaskPeriod("1m-end")
 
+		case <-task_5_Minute.C:
+			if len(ch_syncChainStatus) > 0 {
+				<-ch_syncChainStatus
+				go n.syncChainStatus(ch_syncChainStatus)
+			}
+			if len(ch_connectBoot) > 0 {
+				<-ch_connectBoot
+				go n.connectBoot(ch_connectBoot)
+			}
+
 		case <-task_Hour.C:
 			n.SetTaskPeriod("1h")
 			go n.reportLogsMgt(ch_reportLogs)
@@ -228,6 +212,7 @@ func (n *Node) SetPublickey(pubkey []byte) error {
 	if err != nil {
 		return err
 	}
+
 	if n.RSAKeyPair == nil {
 		n.RSAKeyPair = proof.NewKey()
 	}

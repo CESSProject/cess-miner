@@ -23,7 +23,6 @@ import (
 const DefaultProfile = "conf.yaml"
 const TempleteProfile = `# The rpc endpoint of the chain node
 Rpc:
-  - "ws://127.0.0.1:9948/"
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
   - "wss://testnet-rpc2.cess.cloud/ws/"
@@ -47,9 +46,7 @@ UseSpace: 2000
 # Number of cpu's used, 0 means use all
 UseCpu: 0
 # Priority tee list address
-TeeList:
-  - "127.0.0.1:8080"
-  - "127.0.0.1:8081"`
+TeeList:`
 
 type Confile interface {
 	Parse(fpath string, port int) error
