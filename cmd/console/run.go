@@ -375,57 +375,57 @@ func runCmd(cmd *cobra.Command, args []string) {
 				suc = true
 				break
 			}
-			if suc {
-				n.MinerPoisInfo = &pb.MinerPoisInfo{
-					Acc:           responseMinerInitParam.Acc,
-					Front:         responseMinerInitParam.Front,
-					Rear:          responseMinerInitParam.Rear,
-					KeyN:          responseMinerInitParam.KeyN,
-					KeyG:          responseMinerInitParam.KeyG,
-					StatusTeeSign: responseMinerInitParam.StatusTeeSign,
-				}
-				err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
-				if err != nil {
-					out.Err("invalid podr2 public key")
+			if !suc {
+				if (i + 1) == len(teeEndPointList) {
+					out.Err("All tee nodes are busy or unavailable, program exits.")
 					os.Exit(1)
 				}
-				err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
-				if err != nil {
-					out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
-					os.Exit(1)
+				continue
+			}
+			n.MinerPoisInfo = &pb.MinerPoisInfo{
+				Acc:           responseMinerInitParam.Acc,
+				Front:         responseMinerInitParam.Front,
+				Rear:          responseMinerInitParam.Rear,
+				KeyN:          responseMinerInitParam.KeyN,
+				KeyG:          responseMinerInitParam.KeyG,
+				StatusTeeSign: responseMinerInitParam.StatusTeeSign,
+			}
+			err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
+			if err != nil {
+				out.Err("invalid podr2 public key")
+				os.Exit(1)
+			}
+			err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
+			if err != nil {
+				out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
+				os.Exit(1)
+			}
+			poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
+			if err != nil {
+				out.Err(err.Error())
+				os.Exit(1)
+			}
+
+			teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
+			if err != nil {
+				out.Err(err.Error())
+				os.Exit(1)
+			}
+			txhash, err := n.RegisterSminerPOISKey(
+				poisKey,
+				responseMinerInitParam.SignatureWithTeeController[:],
+				n.MinerPoisInfo.StatusTeeSign[:],
+				teeWorkPubkey,
+			)
+			if err != nil {
+				if txhash != "" {
+					out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
+				} else {
+					out.Err(fmt.Sprintf("Register POIS key failed: %v", err))
 				}
-				break
+				os.Exit(1)
 			}
-		}
-
-		if !suc {
-			out.Err("All tee nodes are busy or unavailable, program exits.")
-			os.Exit(1)
-		}
-		poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
-		if err != nil {
-			out.Err(err.Error())
-			os.Exit(1)
-		}
-
-		teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
-		if err != nil {
-			out.Err(err.Error())
-			os.Exit(1)
-		}
-		txhash, err := n.RegisterSminerPOISKey(
-			poisKey,
-			responseMinerInitParam.SignatureWithTeeController[:],
-			n.MinerPoisInfo.StatusTeeSign[:],
-			teeWorkPubkey,
-		)
-		if err != nil {
-			if txhash != "" {
-				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
-			} else {
-				out.Err(fmt.Sprintf("Register POIS key failed: %v", err))
-			}
-			os.Exit(1)
+			break
 		}
 		err = n.InitPois(
 			firstReg,
@@ -477,56 +477,57 @@ func runCmd(cmd *cobra.Command, args []string) {
 					suc = true
 					break
 				}
-				if suc {
-					n.MinerPoisInfo = &pb.MinerPoisInfo{
-						Acc:           responseMinerInitParam.Acc,
-						Front:         responseMinerInitParam.Front,
-						Rear:          responseMinerInitParam.Rear,
-						KeyN:          responseMinerInitParam.KeyN,
-						KeyG:          responseMinerInitParam.KeyG,
-						StatusTeeSign: responseMinerInitParam.StatusTeeSign,
-					}
-					err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
-					if err != nil {
-						out.Err("invalid podr2 public key")
+				if !suc {
+					if (i + 1) == len(teeEndPointList) {
+						out.Err("All tee nodes are busy or unavailable, program exits.")
 						os.Exit(1)
 					}
-					err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
-					if err != nil {
-						out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
-						os.Exit(1)
-					}
-					break
+					continue
 				}
+
+				n.MinerPoisInfo = &pb.MinerPoisInfo{
+					Acc:           responseMinerInitParam.Acc,
+					Front:         responseMinerInitParam.Front,
+					Rear:          responseMinerInitParam.Rear,
+					KeyN:          responseMinerInitParam.KeyN,
+					KeyG:          responseMinerInitParam.KeyG,
+					StatusTeeSign: responseMinerInitParam.StatusTeeSign,
+				}
+				err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
+				if err != nil {
+					out.Err("invalid podr2 public key")
+					os.Exit(1)
+				}
+				err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
+				if err != nil {
+					out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
+					os.Exit(1)
+				}
+				poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
+				if err != nil {
+					out.Err(err.Error())
+					os.Exit(1)
+				}
+
+				teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
+				if err != nil {
+					out.Err(err.Error())
+					os.Exit(1)
+				}
+				txhash, err := n.RegisterSminerPOISKey(
+					poisKey,
+					responseMinerInitParam.SignatureWithTeeController[:],
+					n.MinerPoisInfo.StatusTeeSign[:],
+					teeWorkPubkey,
+				)
+				if err != nil {
+					out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
+					os.Exit(1)
+				}
+				break
 			}
 
-			if !suc {
-				out.Err("All tee nodes are busy or unavailable, program exits.")
-				os.Exit(1)
-			}
-
-			poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
-			if err != nil {
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-
-			teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
-			if err != nil {
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-			txhash, err := n.RegisterSminerPOISKey(
-				poisKey,
-				responseMinerInitParam.SignatureWithTeeController[:],
-				n.MinerPoisInfo.StatusTeeSign[:],
-				teeWorkPubkey,
-			)
-			if err != nil {
-				out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
-				os.Exit(1)
-			}
-			time.Sleep(pattern.BlockInterval * 2)
+			time.Sleep(pattern.BlockInterval * 3)
 			var count uint8 = 0
 			for {
 				count++
