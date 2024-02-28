@@ -74,6 +74,9 @@ func (n *Node) serviceChallenge(
 	if err == nil {
 		return
 	}
+	if serviceProofSubmited {
+		return
+	}
 
 	n.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challStart))
 
@@ -118,7 +121,7 @@ func (n *Node) serviceChallenge(
 	}
 	n.Schal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
 
-	time.Sleep(pattern.BlockInterval * 2)
+	time.Sleep(pattern.BlockInterval * 3)
 
 	_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 	if err != nil {
@@ -133,17 +136,24 @@ func (n *Node) serviceChallenge(
 	}
 
 	n.saveServiceProofRecord(serviceProofRecord)
-
+	var endpoint string
 	teeInfo, err := n.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
-		n.Schal("info", fmt.Sprintf("Not found tee: %v", serviceProofRecord.AllocatedTeeWorkpuk))
-		return
+		n.Schal("err", err.Error())
+		endpoint, err = n.QueryTeeWorkEndpoint(serviceProofRecord.AllocatedTeeWorkpuk)
+		if err != nil {
+			n.Schal("err", err.Error())
+			return
+		}
+		endpoint = processEndpoint(endpoint)
+	} else {
+		endpoint = teeInfo.EndPoint
 	}
 	var teeWorkpuk []byte
 	serviceProofRecord.ServiceBloomFilter,
 		teeWorkpuk,
 		serviceProofRecord.Signature,
-		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
+		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, endpoint, serviceProofRecord)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
@@ -476,7 +486,7 @@ func (n *Node) checkServiceProofRecord(
 			n.Schal("err", fmt.Sprintf("[SubmitServiceProof] %v", err))
 			return nil
 		}
-		time.Sleep(pattern.BlockInterval * 2)
+		time.Sleep(pattern.BlockInterval * 3)
 		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 		if err != nil {
 			return err
@@ -534,17 +544,25 @@ func (n *Node) checkServiceProofRecord(
 		}
 		break
 	}
-
+	var endpoint string
 	teeInfo, err := n.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
 		n.Schal("err", err.Error())
-		return err
+		endpoint, err = n.QueryTeeWorkEndpoint(serviceProofRecord.AllocatedTeeWorkpuk)
+		if err != nil {
+			n.Schal("err", err.Error())
+			return err
+		}
+		endpoint = processEndpoint(endpoint)
+	} else {
+		endpoint = teeInfo.EndPoint
 	}
+
 	var teeWorkpuk []byte
 	serviceProofRecord.ServiceBloomFilter,
 		teeWorkpuk,
 		serviceProofRecord.Signature,
-		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, teeInfo.EndPoint, serviceProofRecord)
+		serviceProofRecord.ServiceResult, err = n.batchVerify(randomIndexList, randomList, endpoint, serviceProofRecord)
 	if err != nil {
 		return nil
 	}

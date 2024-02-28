@@ -145,12 +145,13 @@ func (n *Node) idleChallenge(
 			}
 			fileBlockProofInfoEle.FileBlockFront = int64(front)
 			fileBlockProofInfoEle.FileBlockRear = rear
+			n.Ichal("info", fmt.Sprintf("[start] %v [front] %d [rear] %d", time.Now(), front, rear))
 			spaceProof, err := n.Prover.ProveSpace(challRandom, int64(front), rear)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[ProveSpace] %v", err))
 				return
 			}
-
+			n.Ichal("info", fmt.Sprintf("[end] %v", time.Now()))
 			var mhtProofGroup = make([]*pb.MhtProofGroup, len(spaceProof.Proofs))
 
 			for i := 0; i < len(spaceProof.Proofs); i++ {
@@ -241,6 +242,7 @@ func (n *Node) idleChallenge(
 		}
 
 		n.saveidleProofRecord(idleProofRecord)
+		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
 		txhash, err := n.SubmitIdleProof(idleProve)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))

@@ -31,7 +31,7 @@ type Logger interface {
 	Schal(level string, msg string)
 	Stag(level string, msg string)
 	Restore(level string, msg string)
-	Parseblock(level string, msg string)
+	Del(level string, msg string)
 	Discover(level, msg string)
 }
 
@@ -50,7 +50,7 @@ var LogFiles = []string{
 	"schal",
 	"stag",
 	"restore",
-	"parseblock",
+	"del",
 	"discover",
 }
 
@@ -194,9 +194,9 @@ func (l *logs) Restore(level string, msg string) {
 	}
 }
 
-func (l *logs) Parseblock(level string, msg string) {
+func (l *logs) Del(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["parseblock"]
+	v, ok := l.log["del"]
 	if ok {
 		switch level {
 		case "info":

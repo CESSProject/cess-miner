@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"runtime"
@@ -146,6 +147,7 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 		n.Log("err", err.Error())
 	} else {
 		for i := 0; i < len(teelist); i++ {
+			n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
 			endpoint, err := n.QueryTeeWorkEndpoint(teelist[i].Pubkey)
 			if err != nil {
 				n.Log("err", err.Error())
@@ -172,7 +174,7 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 				n.Log("err", err.Error())
 				continue
 			}
-			n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
+			//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
 			if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
 				n.DeleteTee(string(teelist[i].Pubkey[:]))
 				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
@@ -184,6 +186,7 @@ func (n *Node) syncChainStatus(ch chan<- bool) {
 			}
 			if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
 				n.DeleteTee(string(teelist[i].Pubkey[:]))
+				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
 				n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
 				continue
 			}
