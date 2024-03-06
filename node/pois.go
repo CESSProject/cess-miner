@@ -36,7 +36,7 @@ type Pois struct {
 	rear      int64
 }
 
-const poisSignalBlockNum = 1024
+const poisSignalBlockNum = 256
 
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
