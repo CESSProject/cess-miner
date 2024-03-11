@@ -134,7 +134,8 @@ func (n *Node) idleChallenge(
 	var spaceProofVerify *pb.ResponseSpaceProofVerify
 	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
 
-	challengeHandle := n.Prover.NewChallengeHandle([]byte(string(teePubkey[:])), challRandom)
+	teeID := make([]byte, 32)
+	challengeHandle := n.Prover.NewChallengeHandle(teeID, challRandom)
 	var previousHash []byte
 	if minerChallFront != minerChallRear {
 		for {
@@ -224,7 +225,6 @@ func (n *Node) idleChallenge(
 			fileBlockProofInfoEle.ProofHashSign = sign
 			idleProofRecord.FileBlockProofInfo = append(idleProofRecord.FileBlockProofInfo, fileBlockProofInfoEle)
 		}
-
 		h := sha256.New()
 		_, err = h.Write(idleproof)
 		if err != nil {
@@ -232,7 +232,6 @@ func (n *Node) idleChallenge(
 			return
 		}
 		idleProofRecord.IdleProof = h.Sum(nil)
-
 		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])

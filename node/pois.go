@@ -9,7 +9,9 @@ package node
 
 import (
 	"fmt"
+	"log"
 	"math/big"
+	"runtime"
 	"strings"
 	"time"
 
@@ -114,7 +116,6 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 	if err != nil {
 		return err
 	}
-
 	if firstflag {
 		//Please initialize prover for the first time
 		err = n.Prover.Init(*n.Pois.RsaKey, cfg)
@@ -126,14 +127,29 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 		err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
 		if err != nil {
 			if strings.Contains(err.Error(), "read element data") {
-				err = n.Prover.CheckAndRestoreSubAccFiles(front, rear)
+				num := 2
+				m, err := utils.GetSysMemAvailable()
+				cpuNum := runtime.NumCPU()
+				if err == nil {
+					m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
+					if int(m) < cpuNum {
+						cpuNum = int(m)
+					}
+					if cpuNum > num {
+						num = cpuNum
+					}
+				}
+				log.Println("check and restore idle data, use", num, "threads")
+				err = n.Prover.CheckAndRestoreIdleData(front, rear, num)
 				if err != nil {
 					return err
 				}
+				log.Println("info", "restore idle data done.")
 				err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
 				if err != nil {
 					return err
 				}
+				log.Println("info", "recovery PoIS status done.")
 			} else {
 				return err
 			}
