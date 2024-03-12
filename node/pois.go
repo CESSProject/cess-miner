@@ -141,6 +141,7 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 				}
 				log.Println("check and restore idle data, use", num, "threads")
 				err = n.Prover.CheckAndRestoreIdleData(front, rear, num)
+				//err = n.Prover.CheckAndRestoreSubAccFiles(front, rear)
 				if err != nil {
 					return err
 				}
