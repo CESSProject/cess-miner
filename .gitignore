@@ -11,6 +11,7 @@
 /db
 /test
 /cache
+/work
 
 ## nohup print and log files
 *.out

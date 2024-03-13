@@ -122,8 +122,6 @@ func (n *Node) idleChallenge(
 	}
 
 	idleProofRecord.ChallRandom = challRandom
-
-	var rear int64
 	var blocksProof = make([]*pb.BlocksProof, 0)
 	var teeEndPoint string
 	n.Ichal("info", "start calc challenge...")
@@ -135,18 +133,20 @@ func (n *Node) idleChallenge(
 	var requestSpaceProofVerifyTotal *pb.RequestSpaceProofVerifyTotal
 	var spaceProofVerify *pb.ResponseSpaceProofVerify
 	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
+
+	teeID := make([]byte, 32)
+	challengeHandle := n.Prover.NewChallengeHandle(teeID, challRandom)
+	var previousHash []byte
 	if minerChallFront != minerChallRear {
-		for front := (minerChallFront + 1); front <= (minerChallRear + 1); {
+		for {
 			var fileBlockProofInfoEle fileBlockProofInfo
-			if (front + poisSignalBlockNum) > (minerChallRear + 1) {
-				rear = int64(minerChallRear + 1)
-			} else {
-				rear = int64(front + poisSignalBlockNum)
+			left, right := challengeHandle(previousHash)
+			if left == right {
+				break
 			}
-			fileBlockProofInfoEle.FileBlockFront = int64(front)
-			fileBlockProofInfoEle.FileBlockRear = rear
-			n.Ichal("info", fmt.Sprintf("[start] %v [front] %d [rear] %d", time.Now(), front, rear))
-			spaceProof, err := n.Prover.ProveSpace(challRandom, int64(front), rear)
+			fileBlockProofInfoEle.FileBlockFront = left
+			fileBlockProofInfoEle.FileBlockRear = right
+			spaceProof, err := n.Prover.ProveSpace(challRandom, left, right)
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[ProveSpace] %v", err))
 				return
@@ -212,6 +212,8 @@ func (n *Node) idleChallenge(
 			}
 			proofHash := h.Sum(nil)
 
+			previousHash = proofHash
+
 			fileBlockProofInfoEle.ProofHashSignOrigin = proofHash
 			idleproof = append(idleproof, proofHash...)
 			sign, err := n.Sign(proofHash)
@@ -222,12 +224,7 @@ func (n *Node) idleChallenge(
 
 			fileBlockProofInfoEle.ProofHashSign = sign
 			idleProofRecord.FileBlockProofInfo = append(idleProofRecord.FileBlockProofInfo, fileBlockProofInfoEle)
-			if rear >= (minerChallRear + 1) {
-				break
-			}
-			front += poisSignalBlockNum
 		}
-
 		h := sha256.New()
 		_, err = h.Write(idleproof)
 		if err != nil {
@@ -235,7 +232,6 @@ func (n *Node) idleChallenge(
 			return
 		}
 		idleProofRecord.IdleProof = h.Sum(nil)
-
 		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
