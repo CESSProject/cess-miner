@@ -282,6 +282,7 @@ func (n *Node) calcSigma(
 
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		roothash = filepath.Base(serviceRoothashDir[i])
+		n.Schal("info", fmt.Sprintf("will calc %s", roothash))
 		_, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
@@ -346,6 +347,7 @@ func (n *Node) calcSigma(
 					}
 				}
 				if !isChall {
+					n.Del("info", fragments[j])
 					os.Remove(fragments[j])
 					continue
 				}
@@ -383,6 +385,7 @@ func (n *Node) calcSigma(
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
 				os.Remove(serviceTagPath)
+				n.Del("info", serviceTagPath)
 				n.GenerateRestoralOrder(roothash, fragmentHash)
 				continue
 			}
@@ -456,6 +459,7 @@ func (n *Node) checkServiceProofRecord(
 
 	if serviceProofRecord.Start != challStart {
 		os.Remove(filepath.Join(n.Workspace(), configs.ServiceProofFile))
+		n.Del("info", filepath.Join(n.Workspace(), configs.ServiceProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 

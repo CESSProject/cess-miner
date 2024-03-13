@@ -436,6 +436,7 @@ func (n *Node) checkIdleProofRecord(
 
 	if idleProofRecord.Start != challStart {
 		os.Remove(filepath.Join(n.Workspace(), configs.IdleProofFile))
+		n.Del("info", filepath.Join(n.Workspace(), configs.IdleProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 

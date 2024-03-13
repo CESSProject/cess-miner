@@ -50,7 +50,7 @@ func (n *Node) reportFiles(ch chan<- bool) {
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[%s] [reportFile] %v", filepath.Base(file), err))
 		}
-		time.Sleep(time.Second)
+		time.Sleep(pattern.BlockInterval)
 	}
 }
 
@@ -132,6 +132,7 @@ func (n *Node) reportFile(file string) error {
 					n.Report("err", fmt.Sprintf("[%s] delete the fragment [%s] failed: %v", fid, d, err))
 					continue
 				}
+				n.Del("info", filepath.Join(n.GetDirs().TmpDir, fid, d))
 				n.Report("info", fmt.Sprintf("[%s] deleted the fragment: %s", fid, d))
 			}
 			return nil
@@ -171,6 +172,7 @@ func (n *Node) reportFile(file string) error {
 				n.Report("err", fmt.Sprintf("[%s] delete the fragment [%s] failed: %v", fid, d, err))
 				continue
 			}
+			n.Del("info", filepath.Join(n.GetDirs().TmpDir, fid, d))
 			n.Report("info", fmt.Sprintf("[%s] deleted the fragment: %s", fid, d))
 		}
 		return nil
