@@ -71,7 +71,7 @@ func (n *Node) calcTag(ch chan<- bool) {
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[%s] [calcFileTag] %v", filepath.Base(fileDir), roothashs))
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Minute)
 	}
 }
 
@@ -134,6 +134,7 @@ func (n *Node) calcFileTag(file string) error {
 			if fstat.Size() < configs.MinMTagFileSize {
 				n.Stag("err", fmt.Sprintf("[%s] The file's tag size: %d < %d", fid, fstat.Size(), configs.MinMTagFileSize))
 				os.Remove(tagPath)
+				n.Del("info", tagPath)
 			} else {
 				n.Stag("info", fmt.Sprintf("[%s] The file's tag already calced", fid))
 				time.Sleep(time.Second)
@@ -194,6 +195,7 @@ func (n *Node) calcFileTag(file string) error {
 	if err != nil {
 		for k := 0; k < len(tags); k++ {
 			os.Remove(tags[k])
+			n.Del("info", tags[k])
 		}
 		n.Stag("err", fmt.Sprintf("[%s] [reportFileTag] %v", fid, err))
 	} else {
@@ -458,6 +460,7 @@ func (n *Node) calcRequestDigest(fragment string, tags []string) ([]byte, []*pb.
 		err = json.Unmarshal(buf, tag)
 		if err != nil {
 			os.Remove(v)
+			n.Del("info", v)
 			return nil, nil, 0, err
 		}
 		n.Stag("info", fmt.Sprintf("tag index: %d", tag.Index))
@@ -526,6 +529,7 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 		err = json.Unmarshal(buf, tag)
 		if err != nil {
 			os.Remove(v)
+			n.Del("info", v)
 			return txhash, err
 		}
 		if tag.Index == 0 {

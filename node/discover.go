@@ -141,6 +141,7 @@ func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "restore.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
+		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "del.log"))
 		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
 		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "report.log"))

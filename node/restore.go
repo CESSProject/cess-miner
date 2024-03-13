@@ -214,7 +214,10 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 			n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.Pretty(), roothash, string(v.Hash[:])))
 			err = n.ReadFileAction(id, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), pattern.FragmentSize)
 			if err != nil {
-				os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
+				err = os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
+				if err == nil {
+					n.Del("info", filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
+				}
 				n.Restore("err", fmt.Sprintf("[ReadFileAction] %v", err))
 				continue
 			}
@@ -231,6 +234,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 			err = erasure.RSRestore(segmentpath, recoverList)
 			if err != nil {
 				os.Remove(segmentpath)
+				n.Del("info", segmentpath)
 				return err
 			}
 			_, err = erasure.ReedSolomon(segmentpath)
@@ -243,6 +247,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 			}
 			n.Restore("info", fmt.Sprintf("[%s] restore fragment suc: %s", roothash, fragmentHash))
 			os.Remove(segmentpath)
+			n.Del("info", segmentpath)
 		} else {
 			n.Restore("err", fmt.Sprintf("[%s] There are not enough fragments to recover the segment %s", roothash, string(segment.Hash[:])))
 			return errors.New("recpvery failed")
@@ -441,6 +446,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		err = n.ReadFileAction(addr.ID, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), pattern.FragmentSize)
 		if err != nil {
 			os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
+			n.Del("info", filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
 			n.Restore("err", fmt.Sprintf("[ReadFileAction] %v", err))
 			continue
 		}
@@ -457,6 +463,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		err = erasure.RSRestore(segmentpath, recoverList)
 		if err != nil {
 			os.Remove(segmentpath)
+			n.Del("info", segmentpath)
 			return err
 		}
 		_, err = erasure.ReedSolomon(segmentpath)
@@ -471,6 +478,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		n.Delete([]byte(Cach_prefix_MyLost + framentHash))
 		n.Delete([]byte(Cach_prefix_recovery + framentHash))
 		os.Remove(segmentpath)
+		n.Del("info", segmentpath)
 	} else {
 		n.Restore("err", fmt.Sprintf("[%s] There are not enough fragments to recover the segment %s", roothash, string(dstSegement.Hash[:])))
 		return errors.New("recpvery failed")

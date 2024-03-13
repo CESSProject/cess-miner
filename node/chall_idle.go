@@ -151,7 +151,7 @@ func (n *Node) idleChallenge(
 				n.Ichal("err", fmt.Sprintf("[ProveSpace] %v", err))
 				return
 			}
-
+			n.Ichal("info", fmt.Sprintf("[end] %v", time.Now()))
 			var mhtProofGroup = make([]*pb.MhtProofGroup, len(spaceProof.Proofs))
 
 			for i := 0; i < len(spaceProof.Proofs); i++ {
@@ -238,6 +238,7 @@ func (n *Node) idleChallenge(
 		}
 
 		n.saveidleProofRecord(idleProofRecord)
+		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
 		txhash, err := n.SubmitIdleProof(idleProve)
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
@@ -431,6 +432,7 @@ func (n *Node) checkIdleProofRecord(
 
 	if idleProofRecord.Start != challStart {
 		os.Remove(filepath.Join(n.Workspace(), configs.IdleProofFile))
+		n.Del("info", filepath.Join(n.Workspace(), configs.IdleProofFile))
 		return errors.New("Local service file challenge record is outdated")
 	}
 

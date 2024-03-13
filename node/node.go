@@ -90,7 +90,6 @@ func (n *Node) Run() {
 	ch_reportfiles <- true
 	ch_replace <- true
 	ch_reportLogs <- true
-	ch_GenIdleFile <- true
 	ch_restoreMgt <- true
 
 	task_10S := time.NewTicker(time.Duration(time.Second * 10))
@@ -105,6 +104,9 @@ func (n *Node) Run() {
 	task_5_Minute := time.NewTicker(time.Minute * 5)
 	defer task_5_Minute.Stop()
 
+	task_10_Minute := time.NewTicker(time.Minute * 10)
+	defer task_10_Minute.Stop()
+
 	task_Hour := time.NewTicker(time.Hour)
 	defer task_Hour.Stop()
 
@@ -116,6 +118,7 @@ func (n *Node) Run() {
 	go n.poisMgt(ch_spaceMgt)
 	//go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
+	go n.genIdlefile(ch_GenIdleFile)
 
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
 	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
@@ -142,10 +145,7 @@ func (n *Node) Run() {
 				<-ch_reportfiles
 				go n.reportFiles(ch_reportfiles)
 			}
-			if len(ch_calctag) > 0 {
-				<-ch_calctag
-				go n.calcTag(ch_calctag)
-			}
+
 			n.SetTaskPeriod("30s-end")
 
 		case <-task_Minute.C:
@@ -157,14 +157,10 @@ func (n *Node) Run() {
 				<-ch_findPeers
 				//go n.findPeers(ch_findPeers)
 			}
+
 			if len(ch_recvPeers) > 0 {
 				<-ch_recvPeers
 				go n.recvPeers(ch_recvPeers)
-			}
-
-			if len(ch_GenIdleFile) > 0 {
-				<-ch_GenIdleFile
-				go n.genIdlefile(ch_GenIdleFile)
 			}
 
 			if len(ch_replace) > 0 {
@@ -177,10 +173,6 @@ func (n *Node) Run() {
 				go n.poisMgt(ch_spaceMgt)
 			}
 
-			if len(ch_restoreMgt) > 0 {
-				<-ch_restoreMgt
-				go n.restoreMgt(ch_restoreMgt)
-			}
 			n.SetTaskPeriod("1m-end")
 
 		case <-task_5_Minute.C:
@@ -193,9 +185,23 @@ func (n *Node) Run() {
 				go n.connectBoot(ch_connectBoot)
 			}
 
+		case <-task_10_Minute.C:
+			if len(ch_GenIdleFile) > 0 {
+				<-ch_GenIdleFile
+				go n.genIdlefile(ch_GenIdleFile)
+			}
+			if len(ch_calctag) > 0 {
+				<-ch_calctag
+				go n.calcTag(ch_calctag)
+			}
+
 		case <-task_Hour.C:
 			n.SetTaskPeriod("1h")
 			go n.reportLogsMgt(ch_reportLogs)
+			if len(ch_restoreMgt) > 0 {
+				<-ch_restoreMgt
+				go n.restoreMgt(ch_restoreMgt)
+			}
 			n.SetTaskPeriod("1h-end")
 		default:
 			time.Sleep(time.Second)
@@ -297,6 +303,7 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 
 	c.Data(200, "application/octet-stream", []byte(msg))
 }
+
 func getCpuUsage(pid int32) float64 {
 	p, _ := sprocess.NewProcess(pid)
 	cpuPercent, err := p.Percent(time.Second)
