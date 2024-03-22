@@ -27,8 +27,8 @@ github.com/CESSProject/cess_pois v0.5.10 h1:ebgwQiJYg9NpPq+i8Ke+xmvi+zQmeNw2KAGD
 github.com/CESSProject/cess_pois v0.5.10/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
-github.com/CESSProject/p2p-go v0.3.3 h1:voX4UtcmqcgsGf12UT2qVmibvAzpSoav1FwrALFZ9Ss=
-github.com/CESSProject/p2p-go v0.3.3/go.mod h1:SMwJt5Zpk98k+d2J5gsN+0Forr7MbqOYWbHLd3mBLrI=
+github.com/CESSProject/p2p-go v0.3.2 h1:l0x/TneDZfirKqFZev+9zRFFQ29RHgbc4GNX2VpLWwM=
+github.com/CESSProject/p2p-go v0.3.2/go.mod h1:SMwJt5Zpk98k+d2J5gsN+0Forr7MbqOYWbHLd3mBLrI=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
