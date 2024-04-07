@@ -65,6 +65,7 @@ func (n *Node) idleChallenge(
 ) {
 	defer func() {
 		ch <- true
+		n.SetIdleChallengeFlag(false)
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}

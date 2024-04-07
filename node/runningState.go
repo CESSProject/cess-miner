@@ -47,6 +47,8 @@ type SetStatus interface {
 	SetReportFileFlag(flag bool)
 	SetGenIdleFlag(flag bool)
 	SetAuthIdleFlag(flag bool)
+	SetIdleChallengeFlag(flag bool)
+	SetServiceChallengeFlag(flag bool)
 }
 
 type GetStatus interface {
@@ -59,6 +61,8 @@ type GetStatus interface {
 	GetReportFileFlag() bool
 	GetGenIdleFlag() bool
 	GetAuthIdleFlag() bool
+	GetIdleChallengeFlag() bool
+	GetServiceChallengeFlag() bool
 }
 
 type RunningRecordType struct {
@@ -72,6 +76,8 @@ type RunningRecordType struct {
 	reportFileFlag       bool
 	genIdleFlag          bool
 	authIdleFlag         bool
+	idleChallengeFlag    bool
+	serviceChallengeFlag bool
 }
 
 var _ RunningRecord = (*RunningRecordType)(nil)
@@ -184,4 +190,28 @@ func (s *RunningRecordType) GetAuthIdleFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.authIdleFlag
+}
+
+func (s *RunningRecordType) SetIdleChallengeFlag(flag bool) {
+	s.lock.Lock()
+	s.idleChallengeFlag = flag
+	s.lock.Unlock()
+}
+
+func (s *RunningRecordType) GetIdleChallengeFlag() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.idleChallengeFlag
+}
+
+func (s *RunningRecordType) SetServiceChallengeFlag(flag bool) {
+	s.lock.Lock()
+	s.serviceChallengeFlag = flag
+	s.lock.Unlock()
+}
+
+func (s *RunningRecordType) GetServiceChallengeFlag() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.serviceChallengeFlag
 }

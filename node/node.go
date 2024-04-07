@@ -31,7 +31,6 @@ import (
 
 type Node struct {
 	sdk.SDK
-	core.P2P
 	confile.Confile
 	logger.Logger
 	cache.Cache
@@ -39,6 +38,7 @@ type Node struct {
 	TeeRecord
 	PeerRecord
 	RunningRecord
+	*core.PeerNode
 	*gin.Engine
 	*proof.RSAKeyPair
 	*pb.MinerPoisInfo
@@ -69,7 +69,6 @@ func (n *Node) Run() {
 	var (
 		ch_ConnectChain     = make(chan bool, 1)
 		ch_findPeers        = make(chan bool, 1)
-		ch_recvPeers        = make(chan bool, 1)
 		ch_syncChainStatus  = make(chan bool, 1)
 		ch_spaceMgt         = make(chan bool, 1)
 		ch_idlechallenge    = make(chan bool, 1)
@@ -78,13 +77,11 @@ func (n *Node) Run() {
 		ch_calctag          = make(chan bool, 1)
 		ch_replace          = make(chan bool, 1)
 		ch_restoreMgt       = make(chan bool, 1)
-		ch_connectBoot      = make(chan bool, 1)
 		ch_reportLogs       = make(chan bool, 1)
 		ch_GenIdleFile      = make(chan bool, 1)
 	)
 	ch_calctag <- true
 	ch_ConnectChain <- true
-	ch_connectBoot <- true
 	ch_idlechallenge <- true
 	ch_servicechallenge <- true
 	ch_reportfiles <- true
@@ -116,8 +113,7 @@ func (n *Node) Run() {
 	}
 
 	go n.poisMgt(ch_spaceMgt)
-	//go n.findPeers(ch_findPeers)
-	go n.recvPeers(ch_recvPeers)
+	go n.subscribe(ch_findPeers)
 	go n.genIdlefile(ch_GenIdleFile)
 
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
@@ -155,12 +151,7 @@ func (n *Node) Run() {
 			}
 			if len(ch_findPeers) > 0 {
 				<-ch_findPeers
-				//go n.findPeers(ch_findPeers)
-			}
-
-			if len(ch_recvPeers) > 0 {
-				<-ch_recvPeers
-				go n.recvPeers(ch_recvPeers)
+				go n.subscribe(ch_findPeers)
 			}
 
 			if len(ch_replace) > 0 {
@@ -179,10 +170,6 @@ func (n *Node) Run() {
 			if len(ch_syncChainStatus) > 0 {
 				<-ch_syncChainStatus
 				go n.syncChainStatus(ch_syncChainStatus)
-			}
-			if len(ch_connectBoot) > 0 {
-				<-ch_connectBoot
-				go n.connectBoot(ch_connectBoot)
 			}
 
 		case <-task_10_Minute.C:
@@ -271,7 +258,7 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 	var msg string
 	initStage := n.GetInitStage()
 	if !strings.Contains(initStage[Stage_Complete], "[ok]") {
-		msg += fmt.Sprintf("init stage: \n")
+		msg += "init stage: \n"
 		for i := 0; i < len(initStage); i++ {
 			msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
 		}
@@ -296,6 +283,10 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 	msg += fmt.Sprintf("Generate idle: %v\n", n.GetGenIdleFlag())
 
 	msg += fmt.Sprintf("Report idle: %v\n", n.GetAuthIdleFlag())
+
+	msg += fmt.Sprintf("Calc idle challenge: %v\n", n.GetIdleChallengeFlag())
+
+	msg += fmt.Sprintf("Calc service challenge: %v\n", n.GetServiceChallengeFlag())
 
 	msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
 

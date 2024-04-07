@@ -59,6 +59,7 @@ func (n *Node) serviceChallenge(
 ) {
 	defer func() {
 		ch <- true
+		n.SetServiceChallengeFlag(false)
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}

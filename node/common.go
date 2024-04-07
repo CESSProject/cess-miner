@@ -15,15 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
-	ma "github.com/multiformats/go-multiaddr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -58,40 +55,40 @@ const (
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
-func (n *Node) connectBoot(ch chan bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
+// func (n *Node) connectBoot(ch chan bool) {
+// 	defer func() {
+// 		ch <- true
+// 		if err := recover(); err != nil {
+// 			n.Pnc(utils.RecoverError(err))
+// 		}
+// 	}()
+// 	minerSt := n.GetMinerState()
+// 	if minerSt != pattern.MINER_STATE_POSITIVE &&
+// 		minerSt != pattern.MINER_STATE_FROZEN {
+// 		return
+// 	}
 
-	boots := n.GetBootNodes()
-	for _, b := range boots {
-		multiaddr, err := core.ParseMultiaddrs(b)
-		if err != nil {
-			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
-			continue
-		}
-		for _, v := range multiaddr {
-			maAddr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
-			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
-			if err != nil {
-				continue
-			}
-			n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-			n.GetDht().RoutingTable().TryAddPeer(addrInfo.ID, true, true)
-		}
-	}
-}
+// 	boots := n.GetBootNodes()
+// 	for _, b := range boots {
+// 		multiaddr, err := core.ParseMultiaddrs(b)
+// 		if err != nil {
+// 			n.Log("err", fmt.Sprintf("[ParseMultiaddrs %v] %v", b, err))
+// 			continue
+// 		}
+// 		for _, v := range multiaddr {
+// 			maAddr, err := ma.NewMultiaddr(v)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			n.Connect(context.Background(), *addrInfo)
+// 			//n.GetDht().RoutingTable().TryAddPeer(addrInfo.ID, true, true)
+// 		}
+// 	}
+// }
 
 func (n *Node) connectChain(ch chan<- bool) {
 	defer func() {
