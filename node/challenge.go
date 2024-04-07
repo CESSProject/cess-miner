@@ -96,6 +96,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 					challenge.MinerSnapshot.TeeSig,
 					pattern.WorkerPublicKey{},
 				)
+				n.SetIdleChallengeFlag(true)
 			}
 		}
 	}
@@ -118,6 +119,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 						challenge.ChallengeElement.ServiceParam.Value,
 						serviceProve.TeePubkey,
 					)
+
 				}
 			}
 		}
@@ -137,6 +139,7 @@ func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
 					challenge.ChallengeElement.ServiceParam.Value,
 					pattern.WorkerPublicKey{},
 				)
+				n.SetServiceChallengeFlag(true)
 			}
 		}
 	}

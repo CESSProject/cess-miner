@@ -61,7 +61,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	n.P2P, err = p2pgo.New(
+	n.PeerNode, err = p2pgo.New(
 		context.Background(),
 		p2pgo.ListenPort(port),
 		p2pgo.Workspace(workspace),

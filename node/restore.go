@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -16,13 +17,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -201,17 +202,17 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 				n.Restore("err", fmt.Sprintf("[%s] peer Decode err: %v", roothash, err))
 				continue
 			}
-			addr, err := n.GetPeer(id.Pretty())
+			addr, err := n.GetPeer(id.String())
 			if err != nil {
-				n.Restore("err", fmt.Sprintf("[%s] not found peer: %v", roothash, id.Pretty()))
+				n.Restore("err", fmt.Sprintf("[%s] not found peer: %v", roothash, id.String()))
 				continue
 			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			err = n.Connect(context.Background(), addr)
 			if err != nil {
 				n.Restore("err", fmt.Sprintf("[%s] Connect peer err: %v", roothash, err))
 				continue
 			}
-			n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.Pretty(), roothash, string(v.Hash[:])))
+			n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.String(), roothash, string(v.Hash[:])))
 			err = n.ReadFileAction(id, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), pattern.FragmentSize)
 			if err != nil {
 				err = os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
@@ -436,7 +437,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 			continue
 		}
 
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		err = n.Connect(context.Background(), addr)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("Connect to miner failed: %s, %s, err: %v", minerAcc, peerid, err))
 			continue

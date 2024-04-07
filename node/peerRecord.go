@@ -13,8 +13,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type PeerRecord interface {
@@ -47,7 +47,7 @@ func NewPeerRecord() PeerRecord {
 }
 
 func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
-	if addr.ID.Pretty() == "" {
+	if addr.ID.String() == "" {
 		return errors.New("peer id is empty")
 	}
 
@@ -56,7 +56,7 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	}
 
 	p.lock.Lock()
-	p.peerList[addr.ID.Pretty()] = addr
+	p.peerList[addr.ID.String()] = addr
 	p.lock.Unlock()
 	return nil
 }

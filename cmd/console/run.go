@@ -18,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
-	"github.com/AstaFrode/go-libp2p/core/peerstore"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/node"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
@@ -32,13 +30,11 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/config"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
 	"github.com/mr-tron/base58"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -107,10 +103,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[err] %v", err))
 		os.Exit(1)
 	}
+	defer n.SDK.GetSubstrateAPI().Client.Close()
+
 	n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[ok] Connect rpc: %s", n.GetCurrentRpcAddr()))
 
 	n.SetInitStage(node.Stage_CreateP2p, "Create p2p node...")
-	n.P2P, err = p2pgo.New(
+	n.PeerNode, err = p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(n.GetServicePort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
@@ -122,9 +120,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 		n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[err] %v", err))
 		os.Exit(1)
 	}
-	n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create p2p node: %s", n.ID().Pretty()))
+	n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create p2p node: %s", n.ID().String()))
 
-	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().Pretty()))
+	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().String()))
 	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
 	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCores()))
@@ -277,36 +275,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory completed")
-
-	for _, b := range boots {
-		multiaddr, err := core.ParseMultiaddrs(b)
-		if err != nil {
-			out.Err(fmt.Sprintf("[ParseMultiaddrs] %v", err))
-			continue
-		}
-		for _, v := range multiaddr {
-			maAddr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
-			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
-			if err != nil {
-				continue
-			}
-			if addrInfo.ID == n.ID() {
-				continue
-			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-			if err != nil {
-				out.Err(fmt.Sprintf("Failed to connect to %s: %v", addrInfo.ID.Pretty(), err))
-			} else {
-				out.Tip(fmt.Sprintf("Connected to %s successfully", addrInfo.ID.Pretty()))
-			}
-			n.GetDht().RoutingTable().TryAddPeer(addrInfo.ID, true, true)
-			n.Peerstore().AddAddr(addrInfo.ID, maAddr, peerstore.PermanentAddrTTL)
-			n.SavePeer(*addrInfo)
-		}
-	}
 
 	var suc bool
 	var dialOptions []grpc.DialOption

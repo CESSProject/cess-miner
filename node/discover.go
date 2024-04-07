@@ -9,6 +9,7 @@ package node
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,14 +21,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/p2p-go/core"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 )
 
-func (n *Node) findPeers(ch chan<- bool) {
+func (n *Node) subscribe(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -35,86 +38,46 @@ func (n *Node) findPeers(ch chan<- bool) {
 		}
 	}()
 
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
+	var (
+		err      error
+		findpeer peer.AddrInfo
+	)
+
+	gossipSub, err := pubsub.NewGossipSub(context.Background(), n.GetHost())
+	if err != nil {
 		return
 	}
 
-	err := n.findpeer()
+	// join the pubsub topic called librum
+	topic, err := gossipSub.Join(core.NetworkRoom)
 	if err != nil {
-		n.Discover("err", err.Error())
+		return
 	}
-}
 
-func (n *Node) recvPeers(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	n.Discover("info", ">>>>> start recvPeers <<<<<")
-
-	for foundPeer := range n.GetDiscoveredPeers() {
-		for _, v := range foundPeer.Responses {
-			if v != nil {
-				if len(v.Addrs) > 0 {
-					n.SavePeer(peer.AddrInfo{
-						ID:    v.ID,
-						Addrs: v.Addrs,
-					})
-					n.GetDht().RoutingTable().TryAddPeer(v.ID, true, true)
-				}
-			}
-		}
-	}
-}
-
-func (n *Node) findpeer() error {
-	peerChan, err := n.GetRoutingTable().FindPeers(
-		n.GetCtxQueryFromCtxCancel(),
-		n.GetRendezvousVersion(),
-	)
+	// subscribe to topic
+	subscriber, err := topic.Subscribe()
 	if err != nil {
-		return err
+		return
 	}
 
-	for onePeer := range peerChan {
-		if onePeer.ID == n.ID() {
+	for {
+		msg, err := subscriber.Next(context.Background())
+		if err != nil {
+			panic(err)
+		}
+
+		// only consider messages delivered by other peers
+		if msg.ReceivedFrom == n.ID() {
 			continue
 		}
-		err := n.Connect(n.GetCtxQueryFromCtxCancel(), onePeer)
-		if err != nil {
-			n.GetDht().RoutingTable().RemovePeer(onePeer.ID)
-		} else {
-			n.GetDht().RoutingTable().TryAddPeer(onePeer.ID, true, true)
-			n.SavePeer(peer.AddrInfo{
-				ID:    onePeer.ID,
-				Addrs: onePeer.Addrs,
-			})
-		}
-	}
-	return nil
-}
 
-func (n *Node) QueryPeerFromOss(peerid string) (peer.AddrInfo, error) {
-	data, err := utils.QueryPeers(configs.DefaultDeossAddr)
-	if err != nil {
-		return peer.AddrInfo{}, err
-	}
-	var peers = make(map[string]peer.AddrInfo, 0)
-	err = json.Unmarshal(data, &peers)
-	if err != nil {
-		return peer.AddrInfo{}, err
-	}
-	for k, v := range peers {
-		if k == peerid {
-			return v, nil
+		err = json.Unmarshal(msg.Data, &findpeer)
+		if err != nil {
+			continue
 		}
+
+		n.SavePeer(findpeer)
 	}
-	return peer.AddrInfo{}, errors.New("not found")
 }
 
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {

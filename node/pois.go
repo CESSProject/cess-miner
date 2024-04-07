@@ -33,12 +33,9 @@ type Pois struct {
 	*pois.Prover
 	*acc.RsaKey
 	pattern.ExpendersInfo
-	teePeerid string
-	front     int64
-	rear      int64
+	front int64
+	rear  int64
 }
-
-const poisSignalBlockNum = 256
 
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
@@ -176,6 +173,10 @@ func (n *Node) genIdlefile(ch chan<- bool) {
 	minerSt := n.GetMinerState()
 	if minerSt != pattern.MINER_STATE_POSITIVE &&
 		minerSt != pattern.MINER_STATE_FROZEN {
+		return
+	}
+
+	if n.GetIdleChallengeFlag() || n.GetServiceChallengeFlag() {
 		return
 	}
 
