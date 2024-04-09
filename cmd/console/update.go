@@ -88,6 +88,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	txhash, err := n.UpdateEarningsAccount(os.Args[3])
 	if err != nil {
