@@ -135,7 +135,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 			return err
 		}
 	}
-	if fragmentHash == core.ZeroFileHash_16M {
+	if fragmentHash == core.ZeroFileHash_8M {
 		err = os.WriteFile(filepath.Join(n.GetDirs().FileDir, roothash, fragmentHash), make([]byte, pattern.FragmentSize), os.ModePerm)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, fragmentHash, err))
@@ -354,7 +354,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 		}
 	}
 
-	if framentHash == core.ZeroFileHash_16M {
+	if framentHash == core.ZeroFileHash_8M {
 		err = os.WriteFile(recoveryPath, make([]byte, pattern.FragmentSize), os.ModePerm)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, framentHash, err))

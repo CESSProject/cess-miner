@@ -45,6 +45,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	txhash, err := n.Withdraw()
 	if err != nil {

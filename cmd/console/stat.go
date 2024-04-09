@@ -53,6 +53,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	// query your own information on the chain
 	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())

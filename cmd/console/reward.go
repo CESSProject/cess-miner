@@ -65,6 +65,7 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	rewardInfo, err := n.QueryRewards(n.GetSignatureAccPulickey())
 	if err != nil {
