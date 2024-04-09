@@ -13,7 +13,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-bucket/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
@@ -140,7 +140,7 @@ func (c *confile) Parse(fpath string, port int) error {
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
-		err = os.MkdirAll(c.Workspace, pattern.DirMode)
+		err = os.MkdirAll(c.Workspace, configs.FileMode)
 		if err != nil {
 			return err
 		}
@@ -214,7 +214,7 @@ func (c *confile) SetServicePort(port int) error {
 func (c *confile) SetWorkspace(workspace string) error {
 	fstat, err := os.Stat(workspace)
 	if err != nil {
-		err = os.MkdirAll(workspace, pattern.DirMode)
+		err = os.MkdirAll(workspace, configs.FileMode)
 		if err != nil {
 			return err
 		}

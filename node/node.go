@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
@@ -112,6 +113,7 @@ func (n *Node) Run() {
 		out.Warn("You are in frozen status, please increase your stake.")
 	}
 
+	go n.connectBoot()
 	go n.poisMgt(ch_spaceMgt)
 	go n.subscribe(ch_findPeers)
 	go n.genIdlefile(ch_GenIdleFile)
@@ -184,7 +186,7 @@ func (n *Node) Run() {
 
 		case <-task_Hour.C:
 			n.SetTaskPeriod("1h")
-			go n.reportLogsMgt(ch_reportLogs)
+			//go n.reportLogsMgt(ch_reportLogs)
 			if len(ch_restoreMgt) > 0 {
 				<-ch_restoreMgt
 				go n.restoreMgt(ch_restoreMgt)
@@ -222,14 +224,14 @@ func (n *Node) RebuildDirs() {
 	os.RemoveAll(n.DataDir.AccDir)
 	os.RemoveAll(n.DataDir.PoisDir)
 	os.RemoveAll(n.DataDir.RandomDir)
-	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.DbDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.LogDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.SpaceDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.AccDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.PoisDir, pattern.DirMode)
-	os.MkdirAll(n.DataDir.RandomDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().FileDir, configs.FileMode)
+	os.MkdirAll(n.GetDirs().TmpDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.DbDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.LogDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.SpaceDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.AccDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.PoisDir, configs.FileMode)
+	os.MkdirAll(n.DataDir.RandomDir, configs.FileMode)
 }
 
 func (n *Node) ListenLocal() {
