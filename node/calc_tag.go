@@ -131,8 +131,8 @@ func (n *Node) calcFileTag(file string) error {
 		n.Stag("info", fmt.Sprintf("[%s] Check this file tag: %v", fid, tagPath))
 		fstat, err := os.Stat(tagPath)
 		if err == nil {
-			if fstat.Size() < configs.MinMTagFileSize {
-				n.Stag("err", fmt.Sprintf("[%s] The file's tag size: %d < %d", fid, fstat.Size(), configs.MinMTagFileSize))
+			if fstat.Size() < configs.MinTagFileSize {
+				n.Stag("err", fmt.Sprintf("[%s] The file's tag size: %d < %d", fid, fstat.Size(), configs.MinTagFileSize))
 				os.Remove(tagPath)
 				n.Del("info", tagPath)
 			} else {

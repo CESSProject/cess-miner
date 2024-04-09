@@ -28,7 +28,10 @@ const (
 	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
 
 	//
-	MinMTagFileSize = 600000
+	MinTagFileSize = 600000
+
+	//
+	FileMode = 0755
 )
 
 const (

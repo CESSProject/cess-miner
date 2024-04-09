@@ -129,7 +129,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 	n.Restore("info", fmt.Sprintf("[%s] To restore the fragment: %s", roothash, fragmentHash))
 	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
 	if err != nil {
-		err = os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+		err = os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), configs.FileMode)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: [MkdirAll] %v", roothash, fragmentHash, err))
 			return err
@@ -347,7 +347,7 @@ func (n *Node) restoreAFragment(roothash, framentHash, recoveryPath string) erro
 	n.Restore("info", fmt.Sprintf("[%s] Restore path: %s", roothash, recoveryPath))
 	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
 	if err != nil {
-		err = os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), pattern.DirMode)
+		err = os.MkdirAll(filepath.Join(n.GetDirs().FileDir, roothash), configs.FileMode)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: [MkdirAll] %v", roothash, framentHash, err))
 			return err

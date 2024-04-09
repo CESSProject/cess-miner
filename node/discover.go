@@ -27,6 +27,7 @@ import (
 	"github.com/CESSProject/p2p-go/core"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
 
@@ -63,7 +64,7 @@ func (n *Node) subscribe(ch chan<- bool) {
 	for {
 		msg, err := subscriber.Next(context.Background())
 		if err != nil {
-			panic(err)
+			continue
 		}
 
 		// only consider messages delivered by other peers
@@ -75,11 +76,31 @@ func (n *Node) subscribe(ch chan<- bool) {
 		if err != nil {
 			continue
 		}
-
+		err = n.Connect(context.Background(), findpeer)
+		if err != nil {
+			continue
+		}
 		n.SavePeer(findpeer)
 	}
 }
 
+func (n *Node) connectBoot() {
+	boots := n.PeerNode.GetBootstraps()
+	for {
+		for i := 0; i < len(boots); i++ {
+			maAddr, err := ma.NewMultiaddr(boots[i])
+			if err != nil {
+				continue
+			}
+			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+			if err != nil {
+				continue
+			}
+			n.Connect(context.Background(), *addrInfo)
+		}
+		time.Sleep(time.Second * 10)
+	}
+}
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 	minerSt := n.GetMinerState()
 	if minerSt != pattern.MINER_STATE_POSITIVE &&

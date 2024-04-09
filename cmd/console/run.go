@@ -1183,32 +1183,32 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 func buildDir(workspace string) (*node.DataDir, error) {
 	var dir = &node.DataDir{}
 	dir.LogDir = filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(dir.LogDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.LogDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
 	dir.DbDir = filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(dir.DbDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.DbDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
 	dir.AccDir = filepath.Join(workspace, configs.AccDir)
-	if err := os.MkdirAll(dir.AccDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.AccDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
 	dir.PoisDir = filepath.Join(workspace, configs.PoisDir)
-	if err := os.MkdirAll(dir.PoisDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.PoisDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
 	dir.RandomDir = filepath.Join(workspace, configs.RandomDir)
-	if err := os.MkdirAll(dir.RandomDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.RandomDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
 	dir.SpaceDir = filepath.Join(workspace, configs.SpaceDir)
-	if err := os.MkdirAll(dir.SpaceDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dir.SpaceDir, configs.FileMode); err != nil {
 		return dir, err
 	}
 
