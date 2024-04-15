@@ -15,11 +15,11 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
-type TeeRecord interface {
+type TeeRecorder interface {
 	// SaveTee saves or updates tee information
 	SaveTee(workAccount, endPoint string, teeType uint8) error
 	//
-	GetTee(workAccount string) (TeeInfoType, error)
+	GetTee(workAccount string) (TeeInfo, error)
 	//
 	GetTeeWorkAccount(endpoint string) (string, error)
 	//
@@ -32,29 +32,29 @@ type TeeRecord interface {
 	GetAllVerifierTeeEndpoint() []string
 }
 
-type TeeInfoType struct {
+type TeeInfo struct {
 	EndPoint string
 	Type     uint8
 }
 
-type TeeRecordType struct {
+type TeeRecord struct {
 	lock                 *sync.RWMutex
 	priorityTeeEndpoints []string
-	teeList              map[string]TeeInfoType
+	teeList              map[string]TeeInfo
 }
 
-var _ TeeRecord = (*TeeRecordType)(nil)
+var _ TeeRecorder = (*TeeRecord)(nil)
 
-func NewTeeRecord() TeeRecord {
-	return &TeeRecordType{
+func NewTeeRecord() *TeeRecord {
+	return &TeeRecord{
 		lock:                 new(sync.RWMutex),
 		priorityTeeEndpoints: make([]string, 0),
-		teeList:              make(map[string]TeeInfoType, 10),
+		teeList:              make(map[string]TeeInfo, 10),
 	}
 }
 
 // SaveTee saves or updates tee information
-func (t *TeeRecordType) SaveTee(workAccount, endPoint string, teeType uint8) error {
+func (t *TeeRecord) SaveTee(workAccount, endPoint string, teeType uint8) error {
 	if workAccount == "" {
 		return errors.New("work account is empty")
 	}
@@ -86,7 +86,7 @@ func (t *TeeRecordType) SaveTee(workAccount, endPoint string, teeType uint8) err
 		}
 	}
 
-	var data = TeeInfoType{
+	var data = TeeInfo{
 		EndPoint: teeEndPoint,
 		Type:     teeType,
 	}
@@ -96,17 +96,17 @@ func (t *TeeRecordType) SaveTee(workAccount, endPoint string, teeType uint8) err
 	return nil
 }
 
-func (t *TeeRecordType) GetTee(workAccount string) (TeeInfoType, error) {
+func (t *TeeRecord) GetTee(workAccount string) (TeeInfo, error) {
 	t.lock.RLock()
 	result, ok := t.teeList[workAccount]
 	t.lock.RUnlock()
 	if !ok {
-		return TeeInfoType{}, errors.New("not found")
+		return TeeInfo{}, errors.New("not found")
 	}
 	return result, nil
 }
 
-func (t *TeeRecordType) GetTeeWorkAccount(endpoint string) (string, error) {
+func (t *TeeRecord) GetTeeWorkAccount(endpoint string) (string, error) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 	for k, v := range t.teeList {
@@ -117,7 +117,7 @@ func (t *TeeRecordType) GetTeeWorkAccount(endpoint string) (string, error) {
 	return "", errors.New("not found")
 }
 
-func (t *TeeRecordType) DeleteTee(workAccount string) {
+func (t *TeeRecord) DeleteTee(workAccount string) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if _, ok := t.teeList[workAccount]; ok {
@@ -125,10 +125,11 @@ func (t *TeeRecordType) DeleteTee(workAccount string) {
 	}
 }
 
-func (t *TeeRecordType) GetAllTeeEndpoint() []string {
+func (t *TeeRecord) GetAllTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
 	defer t.lock.RUnlock()
+	result = t.priorityTeeEndpoints
 	for _, v := range t.teeList {
 		if v.EndPoint == "" {
 			continue
@@ -138,7 +139,7 @@ func (t *TeeRecordType) GetAllTeeEndpoint() []string {
 	return result
 }
 
-func (t *TeeRecordType) GetAllMarkerTeeEndpoint() []string {
+func (t *TeeRecord) GetAllMarkerTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
 	defer t.lock.RUnlock()
@@ -153,7 +154,7 @@ func (t *TeeRecordType) GetAllMarkerTeeEndpoint() []string {
 	return result
 }
 
-func (t *TeeRecordType) GetAllVerifierTeeEndpoint() []string {
+func (t *TeeRecord) GetAllVerifierTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
 	defer t.lock.RUnlock()

@@ -9,11 +9,15 @@ package console
 
 import (
 	"bufio"
-	"context"
+	"crypto/x509"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,18 +27,22 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
+	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
-	cess "github.com/CESSProject/cess-go-sdk"
+	sdkgo "github.com/CESSProject/cess-go-sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess_pois/acc"
+	"github.com/CESSProject/cess_pois/pois"
 	p2pgo "github.com/CESSProject/p2p-go"
-	"github.com/CESSProject/p2p-go/config"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
-	"github.com/mr-tron/base58"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,724 +50,297 @@ import (
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
-	var (
-		firstReg       bool
-		err            error
-		bootEnv        string
-		token          uint64
-		spaceTiB       uint32
-		protocolPrefix string
-		syncSt         pattern.SysSyncState
-		n              = node.New()
-	)
-	n.SetInitStage(node.Stage_Startup, "Program startup")
-	n.SetPID(int32(os.Getpid()))
-	ctx := context.Background()
-	n.ListenLocal()
-	n.SetInitStage(node.Stage_ReadConfig, "Reading configuration...")
+	ctx := cmd.Context()
+	cfg := confile.NewEmptyConfigfile()
+	cli := sdk.SDK(&chain.ChainClient{})
+	peernode := &core.PeerNode{}
+	runningState := node.NewRunningState()
+	teeRecord := &node.TeeRecord{}
+	//minerState := node.MinerState{}
+	wspace := node.NewWorkspace()
+	minerPoisInfo := &pb.MinerPoisInfo{}
+	rsaKeyPair := &proof.RSAKeyPair{}
+	p := &node.Pois{}
+
+	runningState.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
+	runningState.SetInitStage(node.Stage_Startup, "Program startup")
+	runningState.SetPID(int32(os.Getpid()))
+	//n.ListenLocal()
+
+	runningState.SetInitStage(node.Stage_ReadConfig, "Parsing configuration file...")
 	// parse configuration file
-	n.Confile, err = buildConfigFile(cmd, 0)
+	config_file, err := parseArgs_config(cmd)
 	if err != nil {
-		out.Err(fmt.Sprintf("[buildConfigFile] %v", err))
-		n.SetInitStage(node.Stage_ReadConfig, fmt.Sprintf("[err] %v", err))
-		os.Exit(1)
-	}
-	n.SetInitStage(node.Stage_ReadConfig, "[ok] Read configuration file")
-	n.SetCpuCores(configs.SysInit(n.GetUseCpu()))
-
-	out.Tip(fmt.Sprintf("RPC addresses: %v", n.GetRpcAddr()))
-
-	boots := n.GetBootNodes()
-	for _, v := range boots {
-		if strings.Contains(v, "testnet") {
-			bootEnv = "cess-testnet"
-			protocolPrefix = config.TestnetProtocolPrefix
-			break
-		} else if strings.Contains(v, "mainnet") {
-			bootEnv = "cess-mainnet"
-			protocolPrefix = config.MainnetProtocolPrefix
-			break
-		} else if strings.Contains(v, "devnet") {
-			bootEnv = "cess-devnet"
-			protocolPrefix = config.DevnetProtocolPrefix
-			break
-		} else {
-			bootEnv = "unknown"
-		}
-	}
-	out.Tip(fmt.Sprintf("Bootnodes: %v", boots))
-
-	n.SetInitStage(node.Stage_ConnectRpc, "Connecting to rpc...")
-	// build client
-	n.SDK, err = cess.New(
-		ctx,
-		cess.Name(sconfig.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
-		cess.TransactionTimeout(configs.TimeToWaitEvent),
-	)
-	if err != nil {
-		out.Err(fmt.Sprintf("[cess.New] %v", err))
-		n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[err] %v", err))
-		os.Exit(1)
-	}
-	defer n.SDK.GetSubstrateAPI().Client.Close()
-
-	n.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[ok] Connect rpc: %s", n.GetCurrentRpcAddr()))
-
-	n.SetInitStage(node.Stage_CreateP2p, "Create p2p node...")
-	n.PeerNode, err = p2pgo.New(
-		ctx,
-		p2pgo.ListenPort(n.GetServicePort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
-		p2pgo.BootPeers(n.GetBootNodes()),
-		p2pgo.ProtocolPrefix(protocolPrefix),
-	)
-	if err != nil {
-		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
-		n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[err] %v", err))
-		os.Exit(1)
-	}
-	n.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create p2p node: %s", n.ID().String()))
-
-	out.Tip(fmt.Sprintf("Local peer id: %s", n.ID().String()))
-	out.Tip(fmt.Sprintf("Chain network: %s", n.GetNetworkEnv()))
-	out.Tip(fmt.Sprintf("P2P network: %s", bootEnv))
-	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", n.GetCpuCores()))
-	out.Tip(fmt.Sprintf("RPC address used: %v", n.GetCurrentRpcAddr()))
-	//
-	// out.Tip(fmt.Sprintf("Local account publickey: %v", n.GetSignatureAccPulickey()))
-	// out.Tip(fmt.Sprintf("Protocol version: %s", n.GetProtocolVersion()))
-	// out.Tip(fmt.Sprintf("DHT protocol version: %s", n.GetDhtProtocolVersion()))
-	// out.Tip(fmt.Sprintf("Rendezvous version: %s", n.GetRendezvousVersion()))
-
-	if strings.Contains(bootEnv, "test") {
-		if !strings.Contains(n.GetNetworkEnv(), "test") {
-			out.Warn("Chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "main") {
-		if !strings.Contains(n.GetNetworkEnv(), "main") {
-			out.Warn("Chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "dev") {
-		if !strings.Contains(n.GetNetworkEnv(), "dev") {
-			out.Warn("Chain and p2p are not in the same network")
-		}
-	}
-
-	n.SetInitStage(node.Stage_SyncBlock, "Sync block...")
-	for {
-		syncSt, err = n.SyncState()
+		cfg, err = buildConfigItems(cmd)
 		if err != nil {
-			out.Err("Invalid chain node: rpc service failure")
-			n.SetInitStage(node.Stage_SyncBlock, fmt.Sprintf("[err] %v", err))
-			os.Exit(1)
-		}
-		if syncSt.CurrentBlock == syncSt.HighestBlock {
-			out.Ok(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
-			break
-		}
-		out.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
-		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
-	}
-	n.SetInitStage(node.Stage_SyncBlock, fmt.Sprintf("[ok] Latest block: %d", syncSt.HighestBlock))
-	n.SetInitStage(node.Stage_QueryChain, "Querying chain...")
-	chainVersion, err := n.ChainVersion()
-	if err != nil {
-		out.Err("[SysVersion] Invalid chain node: rpc service failure")
-		os.Exit(1)
-	}
-
-	if strings.Contains(n.GetNetworkEnv(), "test") {
-		if !strings.Contains(chainVersion, configs.ChainVersion) {
-			out.Err(fmt.Sprintf("The chain version is not %v", configs.ChainVersion))
-			os.Exit(1)
-		}
-	}
-
-	n.ExpendersInfo, err = n.QueryExpenders()
-	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
-			out.Err("chain err: expenders is empty")
-		} else {
-			out.Err(err.Error())
-		}
-		os.Exit(1)
-	}
-
-	var teeAcc string
-	var teeEndPointList = make([]string, 0)
-	for {
-		teeList, err := n.QueryAllTeeWorkerMap()
-		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
-				out.Err("No TEE was found, waiting for the next query...")
-				time.Sleep(time.Minute)
-				continue
-			}
-			out.Err(err.Error())
-			os.Exit(1)
-		}
-
-		for _, v := range teeList {
-			endPoint, err := n.QueryTeeWorkEndpoint(v.Pubkey)
-			if err != nil {
-				continue
-			}
-
-			err = n.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
-			if err != nil {
-				out.Err(fmt.Sprintf("[SaveTee] %v", err))
-				continue
-			}
-		}
-		break
-	}
-	teeEndPointList = n.GetPriorityTeeList()
-	teeEndPointList = append(teeEndPointList, n.GetAllTeeEndpoint()...)
-
-	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
-	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
-			firstReg = true
-			n.SetInitStage(node.Stage_QueryChain, "[ok] Complete query")
-			token = n.GetUseSpace() / pattern.SIZE_1KiB
-			if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
-				token += 1
-			}
-			spaceTiB = uint32(token)
-			token *= pattern.StakingStakePerTiB
-			accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
-			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
-					out.Err("Invalid chain node: rpc service failure")
-					os.Exit(1)
-				}
-				out.Err("Account does not exist or balance is empty")
-				os.Exit(1)
-			}
-			if n.GetStakingAcc() == "" {
-				token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
-				if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
-					out.Err(fmt.Sprintf("Account balance less than %d %s", token, n.GetTokenSymbol()))
-					os.Exit(1)
-				}
-			}
-		} else {
-			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+			out.Err(fmt.Sprintf("build config items err: %v", err))
 			os.Exit(1)
 		}
 	} else {
-		n.SetInitStage(node.Stage_QueryChain, "[ok] Complete query")
-		err = n.SaveMinerState(string(minerInfo.State))
+		cfg, err = parseConfigFile(config_file)
 		if err != nil {
-			out.Err(err.Error())
+			out.Err(fmt.Sprintf("parse config file err: %v", err))
+			os.Exit(1)
 		}
-		n.SaveMinerSpaceInfo(
-			minerInfo.DeclarationSpace.Uint64(),
-			minerInfo.IdleSpace.Uint64(),
-			minerInfo.ServiceSpace.Uint64(),
-			minerInfo.LockSpace.Uint64(),
-		)
 	}
 
-	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory...")
-	n.DataDir, err = buildDir(n.Workspace())
+	runningState.SetInitStage(node.Stage_ReadConfig, "[ok] Read configuration file")
+	runningState.SetInitStage(node.Stage_ConnectRpc, "Connecting to rpc...")
+
+	// new chain client
+	cli, err = sdkgo.New(
+		ctx,
+		sdkgo.Name(sconfig.CharacterName_Bucket),
+		sdkgo.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		sdkgo.Mnemonic(cfg.ReadMnemonic()),
+		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+	)
 	if err != nil {
-		n.SetInitStage(node.Stage_BuildDir, fmt.Sprintf("[err] %v", err))
-		out.Err(fmt.Sprintf("[buildDir] %v", err))
+		out.Err(fmt.Sprintf("[sdkgo.New] %v", err))
 		os.Exit(1)
 	}
-	n.SetInitStage(node.Stage_BuildDir, "[ok] Build directory completed")
+	defer cli.Close()
 
-	var suc bool
-	var dialOptions []grpc.DialOption
-	var responseMinerInitParam *pb.ResponseMinerInitParam
-	var delay time.Duration
-	if firstReg {
-		n.SetInitStage(node.Stage_Register, "[ok] Registering...")
-		stakingAcc := n.GetStakingAcc()
-		if stakingAcc != "" && stakingAcc != n.GetSignatureAcc() {
-			out.Ok(fmt.Sprintf("Specify staking account: %s", stakingAcc))
-			txhash, err := n.RegisterSminerAssignStaking(n.GetEarningsAcc(), n.GetPeerPublickey(), stakingAcc, spaceTiB)
-			if err != nil {
-				if txhash != "" {
-					err = fmt.Errorf("[%s] %v", txhash, err)
-				}
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-			out.Ok(fmt.Sprintf("Storage node registration successful: %s", txhash))
-		} else {
-			txhash, err := n.RegisterSminer(n.GetEarningsAcc(), n.GetPeerPublickey(), token, spaceTiB)
-			if err != nil {
-				if txhash != "" {
-					err = fmt.Errorf("[%s] %v", txhash, err)
-				}
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-			out.Ok(fmt.Sprintf("Storage node registration successful: %s", txhash))
+	runningState.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[ok] Connect rpc: %s", cli.GetCurrentRpcAddr()))
+	runningState.SetInitStage(node.Stage_CreateP2p, "Create peer node...")
+
+	// new peer node
+	peernode, err = p2pgo.New(
+		ctx,
+		p2pgo.ListenPort(cfg.ReadServicePort()),
+		p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), cli.GetSDKName())),
+		p2pgo.BootPeers(cfg.ReadBootnodes()),
+	)
+	if err != nil {
+		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+		os.Exit(1)
+	}
+	defer peernode.Close()
+
+	// check network environment
+	err = checkNetworkEnv(cli, peernode.GetBootnode())
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+
+	runningState.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create peer node: %s", peernode.ID().String()))
+
+	go subscribe(ctx, peernode.GetBootnode(), peernode.GetHost())
+
+	out.Tip(fmt.Sprintf("Local peer id: %s", peernode.ID().String()))
+	out.Tip(fmt.Sprintf("Network environment: %s", cli.GetNetworkEnv()))
+	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", runningState.GetCpuCores()))
+	out.Tip(fmt.Sprintf("RPC endpoint used: %v", cli.GetCurrentRpcAddr()))
+
+	runningState.SetInitStage(node.Stage_SyncBlock, "Waiting to synchronize the main chain...")
+
+	err = checkRpcSynchronization(cli)
+	if err != nil {
+		out.Err("Failed to synchronize the main chain: network connection is down")
+		os.Exit(1)
+	}
+
+	register, decTib, oldRegInfo, err := checkRegistrationInfo(cfg, cli)
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+
+	switch register {
+	case configs.Unregistered:
+		runningState.SetInitStage(node.Stage_Register, "[ok] Registering...")
+		_, err = registerMiner(cfg, cli, peernode, decTib)
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
 		}
-		n.SetInitStage(node.Stage_Register, "[ok] Registration is complete")
-		n.RebuildDirs()
+		runningState.SetInitStage(node.Stage_Register, "[ok] Registration complete")
+		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace...")
+		err = wspace.RemoveAndBuild(peernode.Workspace())
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace completed")
 
 		time.Sleep(pattern.BlockInterval * 5)
 
-		for i := 0; i < len(teeEndPointList); i++ {
-			delay = 20
-			suc = false
-			for tryCount := uint8(0); tryCount <= 5; tryCount++ {
-				out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-				if !strings.Contains(teeEndPointList[i], "443") {
-					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-				} else {
-					dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-				}
-				responseMinerInitParam, err = n.RequestMinerGetNewKey(
-					teeEndPointList[i],
-					n.GetSignatureAccPulickey(),
-					time.Duration(time.Second*delay),
-					dialOptions,
-					nil,
-				)
-				if err != nil {
-					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
-						delay += 30
-						continue
-					}
-					if strings.Contains(err.Error(), configs.Err_miner_not_exists) {
-						time.Sleep(pattern.BlockInterval * 2)
-						continue
-					}
-					out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
-					break
-				}
-				teeAcc, _ = n.GetTeeWorkAccount(teeEndPointList[i])
-				suc = true
-				break
-			}
-			if !suc {
-				if (i + 1) == len(teeEndPointList) {
-					out.Err("All tee nodes are busy or unavailable, program exits.")
-					os.Exit(1)
-				}
-				continue
-			}
-			n.MinerPoisInfo = &pb.MinerPoisInfo{
-				Acc:           responseMinerInitParam.Acc,
-				Front:         responseMinerInitParam.Front,
-				Rear:          responseMinerInitParam.Rear,
-				KeyN:          responseMinerInitParam.KeyN,
-				KeyG:          responseMinerInitParam.KeyG,
-				StatusTeeSign: responseMinerInitParam.StatusTeeSign,
-			}
-			err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
-			if err != nil {
-				out.Err("invalid podr2 public key")
-				os.Exit(1)
-			}
-			err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
-			if err != nil {
-				out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
-				os.Exit(1)
-			}
-			poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
-			if err != nil {
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-
-			teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
-			if err != nil {
-				out.Err(err.Error())
-				os.Exit(1)
-			}
-			txhash, err := n.RegisterSminerPOISKey(
-				poisKey,
-				responseMinerInitParam.SignatureWithTeeController[:],
-				n.MinerPoisInfo.StatusTeeSign[:],
-				teeWorkPubkey,
-			)
-			if err != nil {
-				if txhash != "" {
-					out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
-				} else {
-					out.Err(fmt.Sprintf("Register POIS key failed: %v", err))
-				}
-				os.Exit(1)
-			}
-			break
+		err = registerPoisKey(cfg, cli, peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
 		}
-		err = n.InitPois(
-			firstReg,
-			0,
-			0,
-			int64(n.GetUseSpace()*1024),
-			32,
-			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyN),
-			*new(big.Int).SetBytes(n.MinerPoisInfo.KeyG),
+
+		err = InitPOIS(
+			p, cli, wspace, true, 0, 0,
+			int64(cfg.ReadUseSpace()*1024), 32,
+			*new(big.Int).SetBytes(minerPoisInfo.KeyN),
+			*new(big.Int).SetBytes(minerPoisInfo.KeyG),
+			runningState.GetCpuCores(),
 		)
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
 			os.Exit(1)
 		}
-	} else {
-		n.SetInitStage(node.Stage_Register, "[ok] Registered")
-		var spaceProofInfo pattern.SpaceProofInfo
-		var teeSign []byte
-		var earningsAcc string
-		var peerid []byte
-		if !minerInfo.SpaceProofInfo.HasValue() {
-			firstReg = true
-			for i := 0; i < len(teeEndPointList); i++ {
-				delay = 30
-				suc = false
-				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
-					out.Tip(fmt.Sprintf("Will request miner init param to %v", teeEndPointList[i]))
-					if !strings.Contains(teeEndPointList[i], "443") {
-						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-					} else {
-						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-					}
-					responseMinerInitParam, err = n.RequestMinerGetNewKey(
-						teeEndPointList[i],
-						n.GetSignatureAccPulickey(),
-						time.Duration(time.Second*delay),
-						dialOptions,
-						nil,
-					)
-					if err != nil {
-						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
-							delay += 50
-							continue
-						}
-						out.Err(fmt.Sprintf("[RequestMinerGetNewKey] %v", err))
-						break
-					}
-					teeAcc, _ = n.GetTeeWorkAccount(teeEndPointList[i])
-					suc = true
-					break
-				}
-				if !suc {
-					if (i + 1) == len(teeEndPointList) {
-						out.Err("All tee nodes are busy or unavailable, program exits.")
-						os.Exit(1)
-					}
-					continue
-				}
-
-				n.MinerPoisInfo = &pb.MinerPoisInfo{
-					Acc:           responseMinerInitParam.Acc,
-					Front:         responseMinerInitParam.Front,
-					Rear:          responseMinerInitParam.Rear,
-					KeyN:          responseMinerInitParam.KeyN,
-					KeyG:          responseMinerInitParam.KeyG,
-					StatusTeeSign: responseMinerInitParam.StatusTeeSign,
-				}
-				err = n.SetPublickey(responseMinerInitParam.Podr2Pbk)
-				if err != nil {
-					out.Err("invalid podr2 public key")
-					os.Exit(1)
-				}
-				err = os.WriteFile(n.DataDir.Podr2PubkeyFile, responseMinerInitParam.Podr2Pbk, os.ModePerm)
-				if err != nil {
-					out.Err(fmt.Sprintf("write %v to Podr2PubkeyFile failed: %v", responseMinerInitParam.Podr2Pbk, err))
-					os.Exit(1)
-				}
-				poisKey, err := sutils.BytesToPoISKeyInfo(n.MinerPoisInfo.KeyG, n.MinerPoisInfo.KeyN)
-				if err != nil {
-					out.Err(err.Error())
-					os.Exit(1)
-				}
-
-				teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(teeAcc))
-				if err != nil {
-					out.Err(err.Error())
-					os.Exit(1)
-				}
-				txhash, err := n.RegisterSminerPOISKey(
-					poisKey,
-					responseMinerInitParam.SignatureWithTeeController[:],
-					n.MinerPoisInfo.StatusTeeSign[:],
-					teeWorkPubkey,
-				)
-				if err != nil {
-					out.Err(fmt.Sprintf("[%s] Register POIS key failed: %v", txhash, err))
-					os.Exit(1)
-				}
-				break
-			}
-
-			time.Sleep(pattern.BlockInterval * 3)
-			var count uint8 = 0
-			for {
-				count++
-				if count > 5 {
-					out.Err("Invalid chain node: rpc service failure")
-					os.Exit(1)
-				}
-				minerInfo, err = n.QueryStorageMiner(n.GetSignaturePublickey())
-				if err != nil {
-					time.Sleep(pattern.BlockInterval)
-					continue
-				}
-				if !minerInfo.SpaceProofInfo.HasValue() {
-					time.Sleep(pattern.BlockInterval)
-					continue
-				}
-				_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
-				teeSign = []byte(string(minerInfo.TeeSig[:]))
-				peerid = []byte(string(minerInfo.PeerId[:]))
-				earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
-				break
-			}
-		} else {
-			firstReg = false
-			_, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
-			teeSign = []byte(string(minerInfo.TeeSig[:]))
-			peerid = []byte(string(minerInfo.PeerId[:]))
-			earningsAcc, _ = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
-		}
-
-		n.MinerPoisInfo = &pb.MinerPoisInfo{
-			Acc:           []byte(string(spaceProofInfo.Accumulator[:])),
-			Front:         int64(spaceProofInfo.Front),
-			Rear:          int64(spaceProofInfo.Rear),
-			KeyN:          []byte(string(spaceProofInfo.PoisKey.N[:])),
-			KeyG:          []byte(string(spaceProofInfo.PoisKey.G[:])),
-			StatusTeeSign: teeSign,
-		}
-
-		oldDecSpace := minerInfo.DeclarationSpace.Uint64() / pattern.SIZE_1TiB
-		if minerInfo.DeclarationSpace.Uint64()%pattern.SIZE_1TiB != 0 {
-			oldDecSpace = +1
-		}
-		newDecSpace := n.GetUseSpace() / pattern.SIZE_1KiB
-		if n.GetUseSpace()%pattern.SIZE_1KiB != 0 {
-			newDecSpace += 1
-		}
-		if newDecSpace > oldDecSpace {
-			txhash, err := n.IncreaseDeclarationSpace(uint32(newDecSpace - oldDecSpace))
-			if err != nil {
-				if txhash != "" {
-					out.Err(fmt.Sprintf("[%s] %v", txhash, err))
-				} else {
-					out.Err(err.Error())
-				}
-				os.Exit(1)
-			}
-			out.Ok(fmt.Sprintf("Successfully expanded %dTiB space", newDecSpace-oldDecSpace))
-			stakingAcc := n.GetStakingAcc()
-			if stakingAcc != "" && stakingAcc != n.GetSignatureAcc() {
-				accInfo, err := n.QueryAccountInfo(n.GetSignatureAccPulickey())
-				if err != nil {
-					if err.Error() != pattern.ERR_Empty {
-						out.Err(err.Error())
-						os.Exit(1)
-					}
-					out.Err("Failed to expand space: account does not exist or balance is empty")
-					os.Exit(1)
-				}
-				token = (newDecSpace - oldDecSpace) * pattern.StakingStakePerTiB
-				incToken, ok := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
-				if !ok {
-					out.Err("Failed to calculate staking")
-					os.Exit(1)
-				}
-				if accInfo.Data.Free.CmpAbs(incToken) < 0 {
-					out.Err(fmt.Sprintf("Failed to expand space: signature account balance less than %d %s",
-						incToken, n.GetTokenSymbol()))
-					os.Exit(1)
-				}
-				txhash, err := n.IncreaseStakingAmount(n.GetSignatureAcc(), incToken)
-				if err != nil {
-					if txhash != "" {
-						out.Err(fmt.Sprintf("[%s] Failed to expand space: %v", txhash, err))
-					} else {
-						out.Err(fmt.Sprintf("Failed to expand space: %v", err))
-					}
-					os.Exit(1)
-				}
-				out.Ok(fmt.Sprintf("Successfully added %dTCESS staking", token))
-			}
-		}
-
-		if earningsAcc != n.GetEarningsAcc() {
-			txhash, err := n.UpdateEarningsAccount(n.GetEarningsAcc())
-			if err != nil {
-				out.Err(fmt.Sprintf("[%s] Update earnings account: %v", txhash, err))
-				os.Exit(1)
-			}
-			out.Ok(fmt.Sprintf("[%s] Successfully updated earnings account to %s", txhash, n.GetEarningsAcc()))
-		}
-
-		if !sutils.CompareSlice(peerid, n.GetPeerPublickey()) {
-			var peeridChain pattern.PeerId
-			pids := n.GetPeerPublickey()
-			for i := 0; i < len(pids); i++ {
-				peeridChain[i] = types.U8(pids[i])
-			}
-			txhash, err := n.UpdateSminerPeerId(peeridChain)
-			if err != nil {
-				out.Err(fmt.Sprintf("[%s] Update PeerId: %v", txhash, err))
-				os.Exit(1)
-			}
-			out.Ok(fmt.Sprintf("[%s] Successfully updated peer ID to %s", txhash, base58.Encode(n.GetPeerPublickey())))
-		}
-
-		err = n.InitPois(
-			firstReg,
-			int64(spaceProofInfo.Front),
-			int64(spaceProofInfo.Rear),
-			int64(n.GetUseSpace()*1024),
-			32,
-			*new(big.Int).SetBytes([]byte(string(spaceProofInfo.PoisKey.N[:]))),
-			*new(big.Int).SetBytes([]byte(string(spaceProofInfo.PoisKey.G[:]))),
-		)
+	case configs.UnregisteredPoisKey:
+		runningState.SetInitStage(node.Stage_Register, "[ok] Registering pois key...")
+		err = registerPoisKey(cfg, cli, peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
 		if err != nil {
-			out.Err(fmt.Sprintf("[Init Pois-2] %v", err))
+			out.Err(err.Error())
 			os.Exit(1)
 		}
-	}
 
-	if n.GetPodr2Key().Spk == nil || n.GetPodr2Key().Spk.N == nil {
-		buf, err := os.ReadFile(n.DataDir.Podr2PubkeyFile)
+		err = updateMinerRegistertionInfo(cfg, cli, oldRegInfo)
 		if err != nil {
-			var podr2PubkeyResponse *pb.Podr2PubkeyResponse
-			for i := 0; i < len(teeEndPointList); i++ {
-				delay = 30
-				suc = false
-				out.Tip(fmt.Sprintf("Will request master public key to %v", teeEndPointList[i]))
-				for tryCount := uint8(0); tryCount <= 3; tryCount++ {
-					if !strings.Contains(teeEndPointList[i], "443") {
-						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-					} else {
-						dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-					}
-					podr2PubkeyResponse, err = n.GetPodr2Pubkey(
-						teeEndPointList[i],
-						&pb.Request{StorageMinerAccountId: n.GetSignatureAccPulickey()},
-						time.Duration(time.Second*delay),
-						dialOptions,
-						nil,
-					)
-					if err != nil {
-						if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
-							delay += 30
-							continue
-						}
-						if strings.Contains(err.Error(), configs.Err_tee_Busy) {
-							delay += 10
-							continue
-						}
-						out.Err(fmt.Sprintf("[GetMasterPubkey] %v", err))
-					} else {
-						suc = true
-					}
-					break
-				}
-				if suc {
-					break
-				}
-			}
-			if suc && podr2PubkeyResponse != nil {
-				err = n.SetPublickey(podr2PubkeyResponse.Pubkey)
-				if err != nil {
-					out.Err("invalid podr2 public key from tee")
-					os.Exit(1)
-				}
-			} else {
-				out.Err("Unable to get podr2 public key from all tees, program exits.")
-				os.Exit(1)
-			}
-		} else {
-			err = n.SetPublickey(buf)
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+
+		err = InitPOIS(
+			p, cli, wspace, true, 0, 0,
+			int64(cfg.ReadUseSpace()*1024), 32,
+			*new(big.Int).SetBytes(minerPoisInfo.KeyN),
+			*new(big.Int).SetBytes(minerPoisInfo.KeyG),
+			runningState.GetCpuCores(),
+		)
+		if err != nil {
+			out.Err(fmt.Sprintf("[Init Pois] %v", err))
+			os.Exit(1)
+		}
+		err = wspace.Build(peernode.Workspace())
+		if err != nil {
+			out.Err(fmt.Sprintf("build workspace err: %v", err))
+			os.Exit(1)
+		}
+
+	case configs.Registered:
+		err = updateMinerRegistertionInfo(cfg, cli, oldRegInfo)
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		_, spaceProofInfo := oldRegInfo.SpaceProofInfo.Unwrap()
+		minerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+		minerPoisInfo.Front = int64(spaceProofInfo.Front)
+		minerPoisInfo.Rear = int64(spaceProofInfo.Rear)
+		minerPoisInfo.KeyN = []byte(string(spaceProofInfo.PoisKey.N[:]))
+		minerPoisInfo.KeyG = []byte(string(spaceProofInfo.PoisKey.G[:]))
+		minerPoisInfo.StatusTeeSign = []byte(string(oldRegInfo.TeeSig[:]))
+
+		err = InitPOIS(
+			p, cli, wspace, false,
+			int64(spaceProofInfo.Front),
+			int64(spaceProofInfo.Rear),
+			int64(cfg.ReadUseSpace()*1024), 32,
+			*new(big.Int).SetBytes(minerPoisInfo.KeyN),
+			*new(big.Int).SetBytes(minerPoisInfo.KeyG),
+			runningState.GetCpuCores(),
+		)
+		if err != nil {
+			out.Err(fmt.Sprintf("Init POIS err: %v", err))
+			os.Exit(1)
+		}
+		err = wspace.Build(peernode.Workspace())
+		if err != nil {
+			out.Err(fmt.Sprintf("build workspace err: %v", err))
+			os.Exit(1)
+		}
+
+		saveAllTees(cli, peernode, teeRecord)
+
+		buf, err := wspace.LoadRsaPublicKey()
+		if err != nil {
+			buf, _ = queryPodr2KeyFromTee(peernode, teeRecord, cli.GetSignatureAccPulickey())
+		}
+		if len(buf) > 0 {
+			rsaKeyPair, err = InitRsaKey(buf)
 			if err != nil {
-				out.Err("invalid podr2 public key in the file")
+				out.Err(fmt.Sprintf("Init rsa public key err: %v", err))
 				os.Exit(1)
 			}
 		}
-	}
+		spaceProofInfo = pattern.SpaceProofInfo{}
+		buf = nil
 
-	n.SetInitStage(node.Stage_BuildCache, "[ok] Building cache...")
+	default:
+		out.Err("system err")
+		os.Exit(1)
+	}
+	oldRegInfo = nil
+
+	runningState.SetInitStage(node.Stage_BuildCache, "[ok] Building cache...")
 	// build cache instance
-	n.Cache, err = buildCache(n.DataDir.DbDir)
+	cache, err := buildCache(wspace.GetDbDir())
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
 	}
-	n.SetInitStage(node.Stage_BuildCache, "[ok] Build cache completed")
+	runningState.SetInitStage(node.Stage_BuildCache, "[ok] Build cache completed")
 
-	n.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
+	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
 	// build log instance
-	n.Logger, err = buildLogs(n.DataDir.LogDir)
+	logger, err := buildLogs(wspace.GetLogDir())
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
 	}
-	n.SetInitStage(node.Stage_BuildLog, "[ok] Build log completed")
-	out.Tip(fmt.Sprintf("Workspace: %v", n.Workspace()))
+	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Build log completed")
+	out.Tip(fmt.Sprintf("Workspace: %v", wspace.GetRootDir()))
 
-	n.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
+	runningState.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
 
-	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
+	dirfreeSpace, err := utils.GetDirFreeSpace(wspace.GetRootDir())
 	if err == nil {
 		if dirfreeSpace < pattern.SIZE_1GiB*32 {
 			out.Warn("The workspace capacity is less than 32G")
 		}
 	}
 	out.Tip(fmt.Sprintf("Workspace free size: %v", dirfreeSpace))
-	// run
-	n.Run()
+
+	node.Run(ctx, cli, peernode, cache, logger)
 }
 
-func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
+func parseArgs_config(cmd *cobra.Command) (string, error) {
 	var err error
-	var conFilePath string
-	configpath1, _ := cmd.Flags().GetString("config")
-	configpath2, _ := cmd.Flags().GetString("c")
-	if configpath1 != "" {
-		_, err = os.Stat(configpath1)
+	configFile, _ := cmd.Flags().GetString("config")
+	if configFile != "" {
+		_, err = os.Stat(configFile)
 		if err != nil {
-			out.Err(err.Error())
-			os.Exit(1)
+			return "", err
 		}
-		conFilePath = configpath1
-	} else if configpath2 != "" {
-		_, err = os.Stat(configpath2)
+		return configFile, nil
+	}
+	configFile, _ = cmd.Flags().GetString("c")
+	if configFile != "" {
+		_, err = os.Stat(configFile)
 		if err != nil {
-			out.Err(err.Error())
-			os.Exit(1)
+			return "", err
 		}
-		conFilePath = configpath2
-	} else {
-		conFilePath = configs.DefaultConfigFile
+		return configFile, nil
 	}
-
-	cfg := confile.NewConfigfile()
-	err = cfg.Parse(conFilePath, port)
-	if err == nil {
-		return cfg, nil
-	} else {
-		if configpath1 != "" || configpath2 != "" {
-			return cfg, err
-		}
+	_, err = os.Stat(configs.DefaultConfigFile)
+	if err != nil {
+		return "", err
 	}
+	return configs.DefaultConfigFile, nil
+}
 
-	if !strings.Contains(err.Error(), "stat") {
-		out.Err(err.Error())
-	}
+func parseConfigFile(file string) (*confile.Confile, error) {
+	cfg := confile.NewEmptyConfigfile()
+	err := cfg.Parse(file)
+	return cfg, err
+}
 
-	var istips bool
-	var inputReader = bufio.NewReader(os.Stdin)
-	var lines string
-	var rpc []string
-	rpc, err = cmd.Flags().GetStringSlice("rpc")
+func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
+	var (
+		istips      bool
+		lines       string
+		rpc         []string
+		cfg         = confile.NewEmptyConfigfile()
+		inputReader = bufio.NewReader(os.Stdin)
+	)
+	rpc, err := cmd.Flags().GetStringSlice("rpc")
 	if err != nil {
 		return cfg, err
 	}
@@ -798,7 +379,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetRpcAddr(rpc)
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetRpcAddr()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadRpcEndpoints()))
 
 	var boots []string
 	boots, err = cmd.Flags().GetStringSlice("boot")
@@ -840,7 +421,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetBootNodes(boots)
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetBootNodes()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadBootnodes()))
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
@@ -883,7 +464,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetWorkspace()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadWorkspace()))
 
 	var earnings string
 	earnings, err = cmd.Flags().GetString("earnings")
@@ -918,7 +499,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetEarningsAcc()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadEarningsAcc()))
 
 	var listenPort int
 	listenPort, err = cmd.Flags().GetInt("port")
@@ -967,7 +548,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		}
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetServicePort()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadServicePort()))
 
 	useSpace, err := cmd.Flags().GetUint64("space")
 	if err != nil {
@@ -1006,7 +587,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetUseSpace(useSpace)
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetUseSpace()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadUseSpace()))
 
 	var priorityTeeList []string
 	priorityTeeList, err = cmd.Flags().GetStringSlice("tees")
@@ -1045,7 +626,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 		cfg.SetBootNodes(priorityTeeList)
 	}
 
-	out.Ok(fmt.Sprintf("%v", cfg.GetPriorityTeeList()))
+	out.Ok(fmt.Sprintf("%v", cfg.ReadPriorityTeeList()))
 
 	var mnemonic string
 	mnemonic, err = cmd.Flags().GetString("mnemonic")
@@ -1088,7 +669,7 @@ func buildConfigFile(cmd *cobra.Command, port int) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
+func buildAuthenticationConfig(cmd *cobra.Command) (*confile.Confile, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -1100,8 +681,8 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 		conFilePath = configs.DefaultConfigFile
 	}
 
-	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath, 0)
+	cfg := confile.NewEmptyConfigfile()
+	err := cfg.Parse(conFilePath)
 	if err == nil {
 		return cfg, err
 	}
@@ -1180,43 +761,6 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildDir(workspace string) (*node.DataDir, error) {
-	var dir = &node.DataDir{}
-	dir.LogDir = filepath.Join(workspace, configs.LogDir)
-	if err := os.MkdirAll(dir.LogDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.DbDir = filepath.Join(workspace, configs.DbDir)
-	if err := os.MkdirAll(dir.DbDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.AccDir = filepath.Join(workspace, configs.AccDir)
-	if err := os.MkdirAll(dir.AccDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.PoisDir = filepath.Join(workspace, configs.PoisDir)
-	if err := os.MkdirAll(dir.PoisDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.RandomDir = filepath.Join(workspace, configs.RandomDir)
-	if err := os.MkdirAll(dir.RandomDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.SpaceDir = filepath.Join(workspace, configs.SpaceDir)
-	if err := os.MkdirAll(dir.SpaceDir, configs.FileMode); err != nil {
-		return dir, err
-	}
-
-	dir.PeersFile = filepath.Join(workspace, configs.PeersFile)
-	dir.Podr2PubkeyFile = filepath.Join(workspace, configs.Podr2PubkeyFile)
-	return dir, nil
-}
-
 func buildCache(cacheDir string) (cache.Cache, error) {
 	return cache.NewCache(cacheDir, 0, 0, configs.NameSpaces)
 }
@@ -1227,4 +771,582 @@ func buildLogs(logDir string) (logger.Logger, error) {
 		logs_info[v] = filepath.Join(logDir, v+".log")
 	}
 	return logger.NewLogs(logs_info)
+}
+
+func checkNetworkEnv(cli sdk.SDK, bootnode string) error {
+	chain := cli.GetNetworkEnv()
+	if strings.Contains(chain, configs.DevNet) {
+		if !strings.Contains(bootnode, configs.DevNet) {
+			return errors.New("chain and p2p are not in the same network")
+		}
+	} else if strings.Contains(chain, configs.TestNet) {
+		if !strings.Contains(bootnode, configs.TestNet) {
+			return errors.New("chain and p2p are not in the same network")
+		}
+	} else if strings.Contains(chain, configs.MainNet) {
+		if !strings.Contains(bootnode, configs.MainNet) {
+			return errors.New("chain and p2p are not in the same network")
+		}
+	} else {
+		return errors.New("unknown chain network")
+	}
+
+	chainVersion, err := cli.ChainVersion()
+	if err != nil {
+		return errors.New("Failed to read chain version: network connection is down")
+	}
+
+	if strings.Contains(chain, configs.TestNet) {
+		if !strings.Contains(chainVersion, configs.ChainVersion) {
+			return fmt.Errorf("The chain version you are using is not %s, please check your rpc service", configs.ChainVersion)
+		}
+	}
+
+	return nil
+}
+
+func checkRpcSynchronization(cli sdk.SDK) error {
+	out.Tip("Waiting to synchronize the main chain...")
+	var err error
+	var syncSt pattern.SysSyncState
+	for {
+		syncSt, err = cli.SyncState()
+		if err != nil {
+			return err
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			out.Ok(fmt.Sprintf("Synchronization the main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		out.Tip(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
+	}
+	return nil
+}
+
+func checkRegistrationInfo(cfg *confile.Confile, cli sdk.SDK) (int, uint64, *pattern.MinerInfo, error) {
+	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			return configs.Unregistered, 0, &minerInfo, err
+		}
+		decTib := cfg.ReadUseSpace() / pattern.SIZE_1KiB
+		if cfg.ReadUseSpace()%pattern.SIZE_1KiB != 0 {
+			decTib += 1
+		}
+		token := decTib * pattern.StakingStakePerTiB
+		accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAccPulickey())
+		if err != nil {
+			if err.Error() != pattern.ERR_Empty {
+				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Failed to query signature account information: ", err)
+			}
+			return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Signature account does not exist, possible: 1.balance is empty 2.rpc address error")
+		}
+		token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+		if cfg.ReadStakingAcc() == "" || cfg.ReadStakingAcc() == cfg.ReadSignatureAccount() {
+			if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
+				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Signature account balance less than %d %s", token, cli.GetTokenSymbol())
+			}
+		} else {
+			stakingAccInfo, err := cli.QueryAccountInfoByAccount(cfg.ReadStakingAcc())
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Failed to query staking account information: ", err)
+				}
+				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Staking account does not exist, possible: 1.balance is empty 2.rpc address error")
+			}
+			if stakingAccInfo.Data.Free.CmpAbs(token_cess) < 0 {
+				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("Staking account balance less than %d %s", token, cli.GetTokenSymbol())
+			}
+		}
+		return configs.Unregistered, decTib, &minerInfo, nil
+	}
+	if !minerInfo.SpaceProofInfo.HasValue() {
+		return configs.UnregisteredPoisKey, 0, &minerInfo, nil
+	}
+	return configs.Registered, 0, &minerInfo, nil
+}
+
+func registerMiner(cfg *confile.Confile, cli sdk.SDK, peernode *core.PeerNode, decTib uint64) (string, error) {
+	stakingAcc := cfg.ReadStakingAcc()
+	if stakingAcc != "" && stakingAcc != cli.GetSignatureAcc() {
+		out.Ok(fmt.Sprintf("Specify staking account: %s", stakingAcc))
+		txhash, err := cli.RegisterSminerAssignStaking(cfg.ReadEarningsAcc(), peernode.GetPeerPublickey(), stakingAcc, uint32(decTib))
+		if err != nil {
+			if txhash != "" {
+				err = fmt.Errorf("[%s] %v", txhash, err)
+			}
+			return txhash, err
+		}
+		out.Ok(fmt.Sprintf("Storage node registration successful: %s", txhash))
+		return txhash, nil
+	}
+
+	txhash, err := cli.RegisterSminer(cfg.ReadEarningsAcc(), peernode.GetPeerPublickey(), uint64(decTib*pattern.StakingStakePerTiB), uint32(decTib))
+	if err != nil {
+		if txhash != "" {
+			err = fmt.Errorf("[%s] %v", txhash, err)
+		}
+		return txhash, err
+	}
+	out.Ok(fmt.Sprintf("Storage node registration successful: %s", txhash))
+	return txhash, nil
+}
+
+func saveAllTees(cli sdk.SDK, peernode *core.PeerNode, teeRecord *node.TeeRecord) error {
+	var (
+		err            error
+		teeList        []pattern.TeeWorkerInfo
+		dialOptions    []grpc.DialOption
+		chainPublickey = make([]byte, pattern.WorkerPublicKeyLen)
+	)
+	for {
+		teeList, err = cli.QueryAllTeeWorkerMap()
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				out.Err("No tee found, waiting for the next minute's query...")
+				time.Sleep(time.Minute)
+				continue
+			}
+			return err
+		}
+		break
+	}
+
+	for _, v := range teeList {
+		out.Tip(fmt.Sprintf("Checking the tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+		endPoint, err := cli.QueryTeeWorkEndpoint(v.Pubkey)
+		if err != nil {
+			out.Err(fmt.Sprintf("Failed to query endpoints for this tee: %v", err))
+			continue
+		}
+		endPoint = node.ProcessTeeEndpoint(endPoint)
+		if !strings.Contains(endPoint, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
+		// verify identity public key
+		identityPubkeyResponse, err := peernode.GetIdentityPubkey(endPoint,
+			&pb.Request{
+				StorageMinerAccountId: cli.GetSignatureAccPulickey(),
+			},
+			time.Duration(time.Minute),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			out.Err(fmt.Sprintf("Failed to query the identity pubkey for this tee: %v", err))
+			continue
+		}
+		if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
+			out.Err(fmt.Sprintf("The identity pubkey length of this tee is incorrect: %d", len(identityPubkeyResponse.Pubkey)))
+			continue
+		}
+		for j := 0; j < pattern.WorkerPublicKeyLen; j++ {
+			chainPublickey[j] = byte(v.Pubkey[j])
+		}
+		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+			out.Err("The IdentityPubkey returned by this tee doesn't match the one in the chain")
+			continue
+		}
+		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
+		if err != nil {
+			out.Err(fmt.Sprintf("Save tee err: %v", err))
+			continue
+		}
+	}
+	return nil
+}
+
+func registerPoisKey(
+	cfg *confile.Confile,
+	cli sdk.SDK,
+	peernode *core.PeerNode,
+	teeRecord *node.TeeRecord,
+	minerPoisInfo *pb.MinerPoisInfo,
+	rsaKeyPair *proof.RSAKeyPair,
+	key *node.Workspace) error {
+	var (
+		err                    error
+		teeList                []pattern.TeeWorkerInfo
+		dialOptions            []grpc.DialOption
+		responseMinerInitParam *pb.ResponseMinerInitParam
+		chainPublickey         = make([]byte, pattern.WorkerPublicKeyLen)
+		teeEndPointList        = cfg.ReadPriorityTeeList()
+	)
+	for {
+		teeList, err = cli.QueryAllTeeWorkerMap()
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				out.Err("No tee found, waiting for the next minute's query...")
+				time.Sleep(time.Minute)
+				continue
+			}
+			return err
+		}
+		break
+	}
+
+	for _, v := range teeList {
+		out.Tip(fmt.Sprintf("Checking the tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+		endPoint, err := cli.QueryTeeWorkEndpoint(v.Pubkey)
+		if err != nil {
+			out.Err(fmt.Sprintf("Failed to query endpoints for this tee: %v", err))
+			continue
+		}
+		endPoint = node.ProcessTeeEndpoint(endPoint)
+		if !strings.Contains(endPoint, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
+		// verify identity public key
+		identityPubkeyResponse, err := peernode.GetIdentityPubkey(endPoint,
+			&pb.Request{
+				StorageMinerAccountId: cli.GetSignatureAccPulickey(),
+			},
+			time.Duration(time.Minute),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			out.Err(fmt.Sprintf("Failed to query the identity pubkey for this tee: %v", err))
+			continue
+		}
+		if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
+			out.Err(fmt.Sprintf("The identity pubkey length of this tee is incorrect: %d", len(identityPubkeyResponse.Pubkey)))
+			continue
+		}
+		for j := 0; j < pattern.WorkerPublicKeyLen; j++ {
+			chainPublickey[j] = byte(v.Pubkey[j])
+		}
+		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+			out.Err("The IdentityPubkey returned by this tee doesn't match the one in the chain")
+			continue
+		}
+		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
+		if err != nil {
+			out.Err(fmt.Sprintf("Save tee err: %v", err))
+			continue
+		}
+		teeEndPointList = append(teeEndPointList, endPoint)
+	}
+
+	delay := time.Duration(30)
+	for i := 0; i < len(teeEndPointList); i++ {
+		delay = 30
+		for tryCount := uint8(0); tryCount <= 5; tryCount++ {
+			out.Tip(fmt.Sprintf("Requesting registration parameters from tee: %s", teeEndPointList[i]))
+			if !strings.Contains(teeEndPointList[i], "443") {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			} else {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+			}
+			responseMinerInitParam, err = peernode.RequestMinerGetNewKey(
+				teeEndPointList[i],
+				cli.GetSignatureAccPulickey(),
+				time.Duration(time.Second*delay),
+				dialOptions,
+				nil,
+			)
+			if err != nil {
+				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+					out.Err(fmt.Sprintf("Request err: %v", err))
+					delay += 30
+					continue
+				}
+				if strings.Contains(err.Error(), configs.Err_miner_not_exists) {
+					out.Err(fmt.Sprintf("Request err: %v", err))
+					time.Sleep(pattern.BlockInterval * 2)
+					continue
+				}
+				out.Err(fmt.Sprintf("Request err: %v", err))
+				break
+			}
+
+			rsaKeyPair, err = InitRsaKey(responseMinerInitParam.Podr2Pbk)
+			if err != nil {
+				out.Err(fmt.Sprintf("Request err: %v", err))
+				break
+			}
+
+			err = key.SaveRsaPublicKey(responseMinerInitParam.Podr2Pbk)
+			if err != nil {
+				out.Err(fmt.Sprintf("Save rsa public key err: %v", err))
+				break
+			}
+
+			minerPoisInfo.Acc = responseMinerInitParam.Acc
+			minerPoisInfo.Front = responseMinerInitParam.Front
+			minerPoisInfo.Rear = responseMinerInitParam.Rear
+			minerPoisInfo.KeyN = responseMinerInitParam.KeyN
+			minerPoisInfo.KeyG = responseMinerInitParam.KeyG
+			minerPoisInfo.StatusTeeSign = responseMinerInitParam.StatusTeeSign
+
+			workpublickey, err := teeRecord.GetTeeWorkAccount(teeEndPointList[i])
+			if err != nil {
+				break
+			}
+
+			poisKey, err := sutils.BytesToPoISKeyInfo(responseMinerInitParam.KeyG, responseMinerInitParam.KeyN)
+			if err != nil {
+				out.Err(fmt.Sprintf("Request err: %v", err))
+				continue
+			}
+
+			teeWorkPubkey, err := sutils.BytesToWorkPublickey([]byte(workpublickey))
+			if err != nil {
+				out.Err(fmt.Sprintf("Request err: %v", err))
+				continue
+			}
+
+			err = registerMinerPoisKey(
+				cli,
+				poisKey,
+				responseMinerInitParam.SignatureWithTeeController[:],
+				responseMinerInitParam.StatusTeeSign,
+				teeWorkPubkey,
+			)
+			if err != nil {
+				out.Err(fmt.Sprintf("Register miner pois key err: %v", err))
+				break
+			}
+			return nil
+		}
+	}
+	return errors.New("All tee nodes are busy or unavailable")
+}
+
+func registerMinerPoisKey(cli sdk.SDK, poisKey pattern.PoISKeyInfo, teeSignWithAcc types.Bytes, teeSign types.Bytes, teePuk pattern.WorkerPublicKey) error {
+	var err error
+	for i := 0; i < 3; i++ {
+		_, err = cli.RegisterSminerPOISKey(
+			poisKey,
+			teeSignWithAcc,
+			teeSign,
+			teePuk,
+		)
+		if err != nil {
+			time.Sleep(pattern.BlockInterval * 2)
+			minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+			if err != nil {
+				return err
+			}
+			if minerInfo.SpaceProofInfo.HasValue() {
+				return nil
+			}
+			continue
+		}
+	}
+	return err
+}
+
+func InitPOIS(p *node.Pois, cli sdk.SDK, wspace *node.Workspace, register bool, front, rear, freeSpace, count int64, key_n, key_g big.Int, cpus int) error {
+	var err error
+	expendersInfo, err := cli.QueryExpenders()
+	if err != nil {
+		return err
+	}
+	if p == nil {
+		p = &node.Pois{}
+	}
+	p.ExpendersInfo = expendersInfo
+
+	if len(key_n.Bytes()) != len(pattern.PoISKey_N{}) {
+		return errors.New("invalid key_n length")
+	}
+
+	if len(key_g.Bytes()) != len(pattern.PoISKey_G{}) {
+		return errors.New("invalid key_g length")
+	}
+
+	p.RsaKey = &acc.RsaKey{N: key_n, G: key_g}
+	p.Front = front
+	p.Rear = rear
+	cfg := pois.Config{
+		AccPath:        wspace.GetPoisDir(),
+		IdleFilePath:   wspace.GetSpaceDir(),
+		ChallAccPath:   wspace.GetPoisAccDir(),
+		MaxProofThread: cpus,
+	}
+
+	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
+	// minerID is storage node's account ID, and space is the amount of physical space available(MiB)
+	p.Prover, err = pois.NewProver(
+		int64(expendersInfo.K),
+		int64(expendersInfo.N),
+		int64(expendersInfo.D),
+		cli.GetSignatureAccPulickey(),
+		freeSpace,
+		count,
+	)
+	if err != nil {
+		return err
+	}
+	if register {
+		//Please initialize prover for the first time
+		err = p.Prover.Init(*p.RsaKey, cfg)
+		if err != nil {
+			return err
+		}
+	} else {
+		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
+		err = p.Prover.Recovery(*p.RsaKey, front, rear, cfg)
+		if err != nil {
+			if strings.Contains(err.Error(), "read element data") {
+				num := 2
+				m, err := utils.GetSysMemAvailable()
+				cpuNum := runtime.NumCPU()
+				if err == nil {
+					m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
+					if int(m) < cpuNum {
+						cpuNum = int(m)
+					}
+					if cpuNum > num {
+						num = cpuNum
+					}
+				}
+				log.Println("check and restore idle data, use", num, "threads")
+				err = p.Prover.CheckAndRestoreIdleData(front, rear, num)
+				//err = n.Prover.CheckAndRestoreSubAccFiles(front, rear)
+				if err != nil {
+					return err
+				}
+				log.Println("info", "restore idle data done.")
+				err = p.Prover.Recovery(*p.RsaKey, front, rear, cfg)
+				if err != nil {
+					return err
+				}
+				log.Println("info", "recovery PoIS status done.")
+			} else {
+				return err
+			}
+		}
+	}
+	p.Prover.AccManager.GetSnapshot()
+	return nil
+}
+
+func updateMinerRegistertionInfo(cfg *confile.Confile, cli sdk.SDK, oldRegInfo *pattern.MinerInfo) error {
+	var err error
+	olddecspace := oldRegInfo.DeclarationSpace.Uint64() / pattern.SIZE_1TiB
+	if (*oldRegInfo).DeclarationSpace.Uint64()%pattern.SIZE_1TiB != 0 {
+		olddecspace = +1
+	}
+	newDecSpace := cfg.ReadUseSpace() / pattern.SIZE_1KiB
+	if cfg.ReadUseSpace()%pattern.SIZE_1KiB != 0 {
+		newDecSpace += 1
+	}
+	if newDecSpace > olddecspace {
+		token := (newDecSpace - olddecspace) * pattern.StakingStakePerTiB
+		if cfg.ReadStakingAcc() != "" && cfg.ReadStakingAcc() != cli.GetSignatureAcc() {
+			signAccInfo, err := cli.QueryAccountInfo(cli.GetSignatureAccPulickey())
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					out.Err(err.Error())
+					os.Exit(1)
+				}
+				out.Err("Failed to expand space: account does not exist or balance is empty")
+				os.Exit(1)
+			}
+			incToken, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+			if signAccInfo.Data.Free.CmpAbs(incToken) < 0 {
+				return fmt.Errorf("Failed to expand space: signature account balance less than %d %s", incToken, cli.GetTokenSymbol())
+			}
+			txhash, err := cli.IncreaseStakingAmount(cli.GetSignatureAcc(), incToken)
+			if err != nil {
+				if txhash != "" {
+					return fmt.Errorf("[%s] Failed to expand space: %v", txhash, err)
+				}
+				return fmt.Errorf("Failed to expand space: %v", err)
+			}
+			out.Ok(fmt.Sprintf("Successfully increased %dTCESS staking", token))
+		} else {
+			newToken, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", newDecSpace*pattern.StakingStakePerTiB, pattern.TokenPrecision_CESS), 10)
+			if oldRegInfo.Collaterals.CmpAbs(newToken) < 0 {
+				return fmt.Errorf("Please let the staking account add the staking for you first before expande space")
+			}
+		}
+		_, err = cli.IncreaseDeclarationSpace(uint32(newDecSpace - olddecspace))
+		if err != nil {
+			return err
+		}
+		out.Ok(fmt.Sprintf("Successfully expanded %dTiB space", newDecSpace-olddecspace))
+	}
+
+	newPublicKey, err := sutils.ParsingPublickey(cfg.ReadEarningsAcc())
+	if err == nil {
+		if !sutils.CompareSlice(oldRegInfo.BeneficiaryAccount[:], newPublicKey) {
+			txhash, err := cli.UpdateEarningsAccount(cfg.ReadEarningsAcc())
+			if err != nil {
+				return fmt.Errorf("Update earnings account err: %v, blockhash: %s", err, txhash)
+			}
+			out.Ok(fmt.Sprintf("[%s] Successfully updated earnings account to %s", txhash, cfg.ReadEarningsAcc()))
+		}
+	}
+
+	// if !sutils.CompareSlice(peerid, n.GetPeerPublickey()) {
+	// 	var peeridChain pattern.PeerId
+	// 	pids := n.GetPeerPublickey()
+	// 	for i := 0; i < len(pids); i++ {
+	// 		peeridChain[i] = types.U8(pids[i])
+	// 	}
+	// 	txhash, err := n.UpdateSminerPeerId(peeridChain)
+	// 	if err != nil {
+	// 		out.Err(fmt.Sprintf("[%s] Update PeerId: %v", txhash, err))
+	// 		os.Exit(1)
+	// 	}
+	// 	out.Ok(fmt.Sprintf("[%s] Successfully updated peer ID to %s", txhash, base58.Encode(n.GetPeerPublickey())))
+	// }
+	return nil
+}
+
+func InitRsaKey(pubkey []byte) (*proof.RSAKeyPair, error) {
+	rsaPubkey, err := x509.ParsePKCS1PublicKey(pubkey)
+	if err != nil {
+		return nil, err
+	}
+	raskey := proof.NewKey()
+	raskey.Spk = rsaPubkey
+	return raskey, nil
+}
+
+func queryPodr2KeyFromTee(peernode *core.PeerNode, teeRecord *node.TeeRecord, signature_publickey []byte) ([]byte, error) {
+	var err error
+	var podr2PubkeyResponse *pb.Podr2PubkeyResponse
+	var dialOptions []grpc.DialOption
+	teeEndPointList := teeRecord.GetAllTeeEndpoint()
+	delay := time.Duration(30)
+	for i := 0; i < len(teeEndPointList); i++ {
+		delay = 30
+		out.Tip(fmt.Sprintf("Requesting registration parameters from tee: %s", teeEndPointList[i]))
+		for tryCount := uint8(0); tryCount <= 3; tryCount++ {
+			if !strings.Contains(teeEndPointList[i], "443") {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			} else {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+			}
+			podr2PubkeyResponse, err = peernode.GetPodr2Pubkey(
+				teeEndPointList[i],
+				&pb.Request{StorageMinerAccountId: signature_publickey},
+				time.Duration(time.Second*delay),
+				dialOptions,
+				nil,
+			)
+			if err != nil {
+				if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+					delay += 30
+					continue
+				}
+				if strings.Contains(err.Error(), configs.Err_tee_Busy) {
+					delay += 10
+					continue
+				}
+				continue
+			}
+			return podr2PubkeyResponse.Pubkey, nil
+		}
+	}
+	return nil, errors.New("All tee nodes are busy or unavailable")
 }

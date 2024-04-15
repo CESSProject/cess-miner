@@ -103,6 +103,8 @@ func (n *Node) connectChain(ch chan<- bool) {
 		return
 	}
 
+	n.PeerNode.DisableRecv()
+
 	minerSt := n.GetMinerState()
 	if minerSt == pattern.MINER_STATE_EXIT ||
 		minerSt == pattern.MINER_STATE_OFFLINE {
@@ -124,6 +126,7 @@ func (n *Node) connectChain(ch chan<- bool) {
 	}
 	n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
 	n.SetChainState(true)
+	n.PeerNode.EnableRecv()
 	out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
@@ -232,7 +235,7 @@ func (n *Node) WatchMem() {
 	}
 }
 
-func processEndpoint(endPoint string) string {
+func ProcessTeeEndpoint(endPoint string) string {
 	var teeEndPoint string
 	if strings.HasPrefix(endPoint, "http://") {
 		teeEndPoint = strings.TrimPrefix(endPoint, "http://")

@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -38,7 +39,7 @@ type Node struct {
 	MinerState
 	TeeRecord
 	PeerRecord
-	RunningRecord
+	RunningStater
 	*core.PeerNode
 	*gin.Engine
 	*proof.RSAKeyPair
@@ -66,7 +67,7 @@ func New() *Node {
 	}
 }
 
-func (n *Node) Run() {
+func Run(ctx context.Context, cli sdk.SDK, peernode *core.PeerNode, cace cache.Cache, l logger.Logger) {
 	var (
 		ch_ConnectChain     = make(chan bool, 1)
 		ch_findPeers        = make(chan bool, 1)
@@ -115,8 +116,8 @@ func (n *Node) Run() {
 
 	go n.connectBoot()
 	go n.poisMgt(ch_spaceMgt)
-	go n.subscribe(ch_findPeers)
-	go n.genIdlefile(ch_GenIdleFile)
+	go n.subscribe(ctx, ch_findPeers)
+	//go n.genIdlefile(ch_GenIdleFile)
 
 	n.Log("info", fmt.Sprintf("Use %d cpu cores", n.GetCpuCores()))
 	n.Log("info", fmt.Sprintf("Use rpc: %s", n.GetCurrentRpcAddr()))
@@ -153,7 +154,7 @@ func (n *Node) Run() {
 			}
 			if len(ch_findPeers) > 0 {
 				<-ch_findPeers
-				go n.subscribe(ch_findPeers)
+				go n.subscribe(ctx, ch_findPeers)
 			}
 
 			if len(ch_replace) > 0 {
@@ -289,6 +290,8 @@ func (n *Node) getStatusHandle(c *gin.Context) {
 	msg += fmt.Sprintf("Calc idle challenge: %v\n", n.GetIdleChallengeFlag())
 
 	msg += fmt.Sprintf("Calc service challenge: %v\n", n.GetServiceChallengeFlag())
+
+	msg += fmt.Sprintf("Receiving data: %v\n", n.PeerNode.GetRecvFlag())
 
 	msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
 

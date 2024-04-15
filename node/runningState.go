@@ -32,7 +32,7 @@ const (
 	Stage_Complete
 )
 
-type RunningRecord interface {
+type RunningStater interface {
 	SetStatus
 	GetStatus
 }
@@ -65,7 +65,7 @@ type GetStatus interface {
 	GetServiceChallengeFlag() bool
 }
 
-type RunningRecordType struct {
+type RunningState struct {
 	lock                 *sync.RWMutex
 	initStageMsg         [Stage_Complete + 1]string
 	taskPeriod           string
@@ -80,137 +80,137 @@ type RunningRecordType struct {
 	serviceChallengeFlag bool
 }
 
-var _ RunningRecord = (*RunningRecordType)(nil)
+var _ RunningStater = (*RunningState)(nil)
 
-func NewRunningRecord() RunningRecord {
-	return &RunningRecordType{
+func NewRunningState() *RunningState {
+	return &RunningState{
 		lock: new(sync.RWMutex),
 	}
 }
 
-func (s *RunningRecordType) SetInitStage(stage uint8, msg string) {
+func (s *RunningState) SetInitStage(stage uint8, msg string) {
 	s.lock.Lock()
 	s.initStageMsg[stage] = msg
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetInitStage() [Stage_Complete + 1]string {
+func (s *RunningState) GetInitStage() [Stage_Complete + 1]string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.initStageMsg
 }
 
-func (s *RunningRecordType) SetTaskPeriod(msg string) {
+func (s *RunningState) SetTaskPeriod(msg string) {
 	s.lock.Lock()
 	s.taskPeriod = msg
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetTaskPeriod() string {
+func (s *RunningState) GetTaskPeriod() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.taskPeriod
 }
 
-func (s *RunningRecordType) SetLastReconnectRpcTime(t string) {
+func (s *RunningState) SetLastReconnectRpcTime(t string) {
 	s.lock.Lock()
 	s.lastReconnectRpcTime = t
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetLastReconnectRpcTime() string {
+func (s *RunningState) GetLastReconnectRpcTime() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.lastReconnectRpcTime
 }
 
-func (s *RunningRecordType) SetCpuCores(num int) {
+func (s *RunningState) SetCpuCores(num int) {
 	s.lock.Lock()
 	s.cpuCores = num
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetPID() int32 {
+func (s *RunningState) GetPID() int32 {
 	return s.pid
 }
 
-func (s *RunningRecordType) SetPID(pid int32) {
+func (s *RunningState) SetPID(pid int32) {
 	s.lock.Lock()
 	s.pid = pid
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetCpuCores() int {
+func (s *RunningState) GetCpuCores() int {
 	return s.cpuCores
 }
 
-func (s *RunningRecordType) SetCalcTagFlag(flag bool) {
+func (s *RunningState) SetCalcTagFlag(flag bool) {
 	s.lock.Lock()
 	s.calcTagFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetCalcTagFlag() bool {
+func (s *RunningState) GetCalcTagFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.calcTagFlag
 }
 
-func (s *RunningRecordType) SetReportFileFlag(flag bool) {
+func (s *RunningState) SetReportFileFlag(flag bool) {
 	s.lock.Lock()
 	s.reportFileFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetReportFileFlag() bool {
+func (s *RunningState) GetReportFileFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.reportFileFlag
 }
 
-func (s *RunningRecordType) SetGenIdleFlag(flag bool) {
+func (s *RunningState) SetGenIdleFlag(flag bool) {
 	s.lock.Lock()
 	s.genIdleFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetGenIdleFlag() bool {
+func (s *RunningState) GetGenIdleFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.genIdleFlag
 }
 
-func (s *RunningRecordType) SetAuthIdleFlag(flag bool) {
+func (s *RunningState) SetAuthIdleFlag(flag bool) {
 	s.lock.Lock()
 	s.authIdleFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetAuthIdleFlag() bool {
+func (s *RunningState) GetAuthIdleFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.authIdleFlag
 }
 
-func (s *RunningRecordType) SetIdleChallengeFlag(flag bool) {
+func (s *RunningState) SetIdleChallengeFlag(flag bool) {
 	s.lock.Lock()
 	s.idleChallengeFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetIdleChallengeFlag() bool {
+func (s *RunningState) GetIdleChallengeFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.idleChallengeFlag
 }
 
-func (s *RunningRecordType) SetServiceChallengeFlag(flag bool) {
+func (s *RunningState) SetServiceChallengeFlag(flag bool) {
 	s.lock.Lock()
 	s.serviceChallengeFlag = flag
 	s.lock.Unlock()
 }
 
-func (s *RunningRecordType) GetServiceChallengeFlag() bool {
+func (s *RunningState) GetServiceChallengeFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.serviceChallengeFlag

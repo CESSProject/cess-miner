@@ -33,8 +33,8 @@ type Pois struct {
 	*pois.Prover
 	*acc.RsaKey
 	pattern.ExpendersInfo
-	front int64
-	rear  int64
+	Front int64
+	Rear  int64
 }
 
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)

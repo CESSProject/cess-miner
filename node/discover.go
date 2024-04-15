@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -26,12 +27,17 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
 
-func (n *Node) subscribe(ch chan<- bool) {
+var room string
+
+func (n *Node) subscribe(ctx context.Context, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -44,13 +50,32 @@ func (n *Node) subscribe(ch chan<- bool) {
 		findpeer peer.AddrInfo
 	)
 
-	gossipSub, err := pubsub.NewGossipSub(context.Background(), n.GetHost())
+	gossipSub, err := pubsub.NewGossipSub(ctx, n.GetHost())
 	if err != nil {
+		n.Log("err", fmt.Sprintf("NewGossipSub: %s", err))
+		return
+	}
+
+	bootnode := n.GetBootnode()
+
+	if strings.Contains(bootnode, "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T") {
+		room = fmt.Sprintf("%s-12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd") {
+		room = fmt.Sprintf("%s-12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S") {
+		room = fmt.Sprintf("%s-12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S", core.NetworkRoom)
+	} else {
+		room = core.NetworkRoom
+	}
+
+	// setup local mDNS discovery
+	if err := setupDiscovery(n.GetHost()); err != nil {
+		n.Log("err", fmt.Sprintf("setupDiscovery: %s", err))
 		return
 	}
 
 	// join the pubsub topic called librum
-	topic, err := gossipSub.Join(core.NetworkRoom)
+	topic, err := gossipSub.Join(room)
 	if err != nil {
 		return
 	}
@@ -61,8 +86,10 @@ func (n *Node) subscribe(ch chan<- bool) {
 		return
 	}
 
+	n.Log("info", fmt.Sprintf("Join room: %s", room))
+
 	for {
-		msg, err := subscriber.Next(context.Background())
+		msg, err := subscriber.Next(ctx)
 		if err != nil {
 			continue
 		}
@@ -72,35 +99,58 @@ func (n *Node) subscribe(ch chan<- bool) {
 			continue
 		}
 
+		n.Log("info", fmt.Sprintf("subscribe a peer: %s", findpeer.ID.String()))
+
 		err = json.Unmarshal(msg.Data, &findpeer)
 		if err != nil {
 			continue
 		}
-		err = n.Connect(context.Background(), findpeer)
-		if err != nil {
-			continue
-		}
+
 		n.SavePeer(findpeer)
 	}
 }
 
+// discoveryNotifee gets notified when we find a new peer via mDNS discovery
+type discoveryNotifee struct {
+	h host.Host
+}
+
+// HandlePeerFound connects to peers discovered via mDNS. Once they're connected,
+// the PubSub system will automatically start interacting with them if they also
+// support PubSub.
+func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
+	fmt.Printf("discovered new peer %s\n", pi.ID.String())
+	err := n.h.Connect(context.TODO(), pi)
+	if err != nil {
+		fmt.Printf("error connecting to peer %s: %s\n", pi.ID.String(), err)
+	}
+}
+
+// setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
+// This lets us automatically discover peers on the same LAN and connect to them.
+func setupDiscovery(h host.Host) error {
+	// setup mDNS discovery to find local peers
+	s := mdns.NewMdnsService(h, "", &discoveryNotifee{h: h})
+	return s.Start()
+}
+
 func (n *Node) connectBoot() {
-	boots := n.PeerNode.GetBootstraps()
+	maAddr, err := ma.NewMultiaddr(n.PeerNode.GetBootnode())
+	if err != nil {
+		return
+	}
+	addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
+	if err != nil {
+		return
+	}
 	for {
-		for i := 0; i < len(boots); i++ {
-			maAddr, err := ma.NewMultiaddr(boots[i])
-			if err != nil {
-				continue
-			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
-			if err != nil {
-				continue
-			}
-			n.Connect(context.Background(), *addrInfo)
+		if n.Network().Connectedness(addrInfo.ID) != network.Connected {
+			n.Network().DialPeer(context.TODO(), addrInfo.ID)
 		}
 		time.Sleep(time.Second * 10)
 	}
 }
+
 func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
 	minerSt := n.GetMinerState()
 	if minerSt != pattern.MINER_STATE_POSITIVE &&
