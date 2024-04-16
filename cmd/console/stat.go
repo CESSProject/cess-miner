@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -29,34 +28,27 @@ import (
 
 // Query miner state
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
-	var (
-		err error
-		n   = node.NewEmptyNode()
-	)
-
-	// Build profile instances
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	// build client
-	n.SDK, err = cess.New(
+	cli, err := cess.New(
 		context.Background(),
 		cess.Name(config.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
+	defer cli.Close()
 
 	// query your own information on the chain
-	minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
@@ -70,12 +62,12 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 
 	beneficiaryAcc, _ := sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
 
-	name := n.GetSDKName()
+	name := cli.GetSDKName()
 	if strings.Contains(name, "bucket") {
 		name = "storage miner"
 	}
 
-	startBlock, err := n.QueryStorageMinerStakingStartBlock(n.GetSignatureAccPulickey())
+	startBlock, err := cli.QueryStorageMinerStakingStartBlock(cli.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
@@ -85,23 +77,23 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	var stakingAcc = n.GetStakingAcc()
+	var stakingAcc = cfg.ReadStakingAcc()
 	if stakingAcc == "" {
-		stakingAcc = n.GetSignatureAcc()
+		stakingAcc = cli.GetSignatureAcc()
 	}
 
 	var tableRows = []table.Row{
 		{"name", name},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
-		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, n.GetTokenSymbol())},
+		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, cli.GetTokenSymbol())},
 		{"staking start", startBlock},
-		{"debt amount", fmt.Sprintf("%v %s", minerInfo.Debt, n.GetTokenSymbol())},
+		{"debt amount", fmt.Sprintf("%v %s", minerInfo.Debt, cli.GetTokenSymbol())},
 		{"declaration space", unitConversion(minerInfo.DeclarationSpace)},
 		{"validated space", unitConversion(minerInfo.IdleSpace)},
 		{"used space", unitConversion(minerInfo.ServiceSpace)},
 		{"locked space", unitConversion(minerInfo.LockSpace)},
-		{"signature account", n.GetSignatureAcc()},
+		{"signature account", cli.GetSignatureAcc()},
 		{"staking account", stakingAcc},
 		{"earnings account", beneficiaryAcc},
 	}
