@@ -9,7 +9,6 @@ package node
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -438,6 +437,7 @@ func checkIdleProofRecord(
 	teeSign pattern.TeeSig,
 	teePubkey pattern.WorkerPublicKey,
 ) error {
+	var err error
 	var timeout time.Duration
 	var teeEndPoint string
 	var idleProofRecord idleProofInfo
@@ -445,16 +445,10 @@ func checkIdleProofRecord(
 	var requestSpaceProofVerify *pb.RequestSpaceProofVerify
 	var requestSpaceProofVerifyTotal *pb.RequestSpaceProofVerifyTotal
 	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
-	buf, err := os.ReadFile(ws.GetIdleProve())
+	idleProofRecord, err = ws.LoadIdleProve()
 	if err != nil {
 		return err
 	}
-
-	err = json.Unmarshal(buf, &idleProofRecord)
-	if err != nil {
-		return err
-	}
-
 	if idleProofRecord.Start != challStart {
 		os.Remove(ws.GetIdleProve())
 		l.Del("info", ws.GetIdleProve())

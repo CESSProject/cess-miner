@@ -326,7 +326,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 
 		if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-			go n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
+			go node.ChallengeMgt(cli, l, wspace, runningState, teeRecord, peernode, minerPoisInfo, rsaKeyPair, p, cace, idleChallCh, serviceChallCh)
 		}
 
 		if len(ch_findPeers) > 0 {

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -261,24 +262,23 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 	return isReportTag, nil
 }
 
-func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
+func requestTeeTag(l logger.Logger, teeRecord *TeeRecord, signPubkey []byte, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
 	var err error
 	var teePubkey string
 	var tagInfo pb.GenTagMsg
-	teeEndPoints := n.GetPriorityTeeList()
-	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+	teeEndPoints := teeRecord.GetAllMarkerTeeEndpoint()
 
-	n.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
+	l.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
 	for j := 0; j < len(teeEndPoints); j++ {
-		n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[j]))
-		teePubkey, err = n.GetTeeWorkAccount(teeEndPoints[j])
+		l.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[j]))
+		teePubkey, err = teeRecord.GetTeeWorkAccount(teeEndPoints[j])
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[j], err))
+			l.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[j], err))
 			continue
 		}
-		tagInfo, err = n.callTeeTag(teeEndPoints[j], fid, fragmentFile, lastSign, digest)
+		tagInfo, err = callTeeTag(l, signPubkey, teeEndPoints[j], fid, fragmentFile, lastSign, digest)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[callTeeTag(%s)] %v", teeEndPoints[j], err))
+			l.Stag("err", fmt.Sprintf("[callTeeTag(%s)] %v", teeEndPoints[j], err))
 			continue
 		}
 		return tagInfo, teePubkey, nil
@@ -286,14 +286,14 @@ func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest [
 	return tagInfo, teePubkey, err
 }
 
-func (n *Node) callTeeTag(teeEndPoint, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, error) {
+func callTeeTag(l logger.Logger, signPubkey []byte, teeEndPoint, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, error) {
 	var dialOptions []grpc.DialOption
 	if !strings.Contains(teeEndPoint, "443") {
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	} else {
 		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 	}
-	conn, err := grpc.Dial(teeEndPoint, dialOptions...)
+	conn, err := grpc.NewClient(teeEndPoint, dialOptions...)
 	if err != nil {
 		return pb.GenTagMsg{}, fmt.Errorf("grpc.Dial(%s): %v", teeEndPoint, err)
 	}
@@ -309,49 +309,49 @@ func (n *Node) callTeeTag(teeEndPoint, fid, fragmentFile string, lastSign []byte
 	if err != nil {
 		return pb.GenTagMsg{}, fmt.Errorf("ReadFile: %v", err)
 	}
-	n.Stag("info", fmt.Sprintf("Will request first to %s", teeEndPoint))
+	l.Stag("info", fmt.Sprintf("Will request first to %s", teeEndPoint))
 	err = stream.Send(&pb.RequestGenTag{
 		FragmentData:     make([]byte, 0),
 		FragmentName:     fragmentHash,
 		CustomData:       "",
 		FileName:         fid,
-		MinerId:          n.GetSignatureAccPulickey(),
+		MinerId:          signPubkey,
 		TeeDigestList:    make([]*pb.DigestInfo, 0),
 		LastTeeSignature: make([]byte, 0)})
 	if err != nil {
 		return pb.GenTagMsg{}, fmt.Errorf("first send: %v", err)
 	}
-	n.Stag("info", fmt.Sprintf("Will recv first result from %s", teeEndPoint))
+	l.Stag("info", fmt.Sprintf("Will recv first result from %s", teeEndPoint))
 	ok, err := reciv_signal(stream)
 	if err != nil {
 		return pb.GenTagMsg{}, err
 	}
-	n.Stag("info", fmt.Sprintf("Recv first result is: %v", ok))
+	l.Stag("info", fmt.Sprintf("Recv first result is: %v", ok))
 	if !ok {
 		return pb.GenTagMsg{}, errors.New("reciv_signal: false")
 	}
-	n.Stag("info", fmt.Sprintf("Will request second to %s", teeEndPoint))
+	l.Stag("info", fmt.Sprintf("Will request second to %s", teeEndPoint))
 	err = stream.Send(&pb.RequestGenTag{
 		FragmentData:     buf,
 		FragmentName:     fragmentHash,
 		CustomData:       "",
 		FileName:         fid,
-		MinerId:          n.GetSignatureAccPulickey(),
+		MinerId:          signPubkey,
 		TeeDigestList:    digest,
 		LastTeeSignature: lastSign,
 	})
 	if err != nil {
 		return pb.GenTagMsg{}, fmt.Errorf("second send: %v", err)
 	}
-	n.Stag("info", fmt.Sprintf("Will recv second result from %s", teeEndPoint))
+	l.Stag("info", fmt.Sprintf("Will recv second result from %s", teeEndPoint))
 	tag, err := reciv_tag(stream)
 	if err != nil {
 		return pb.GenTagMsg{}, err
 	}
-	n.Stag("info", "Recv second result suc")
+	l.Stag("info", "Recv second result suc")
 	err = stream.CloseSend()
 	if err != nil {
-		n.Stag("err", fmt.Sprintf(" stream.Close: %v", err))
+		l.Stag("err", fmt.Sprintf(" stream.Close: %v", err))
 	}
 	return tag, nil
 }

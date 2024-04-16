@@ -11,14 +11,19 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 const (
+	fileDir       = "file"
+	tmpDir        = "tmp"
 	dbDir         = "db"
 	logDir        = "log"
 	spaceDir      = "space"
@@ -42,6 +47,7 @@ type Workspacer interface {
 	GetSpaceDir() string
 	GetPoisDir() string
 	GetPoisAccDir() string
+	GetChallRndomDir() string
 	GetPeerRecord() string
 	GetPodr2Key() string
 	GetIdleProve() string
@@ -49,6 +55,14 @@ type Workspacer interface {
 	SaveRsaPublicKey(pub []byte) error
 	LoadRsaPublicKey() ([]byte, error)
 	SaveIdleProve(idleProofRecord idleProofInfo) error
+	LoadIdleProve() (idleProofInfo, error)
+	SaveServiceProve(serviceProofRecord serviceProofInfo) error
+	LoadServiceProve() (serviceProofInfo, error)
+	SaveChallRandom(
+		challStart uint32,
+		randomIndexList []types.U32,
+		randomList []pattern.Random,
+	) error
 }
 
 type Workspace struct {
@@ -117,34 +131,42 @@ func (w *Workspace) RemoveAndBuild(rootDir string) error {
 	os.Remove(w.idle_prove)
 	os.Remove(w.service_prove)
 
+	w.fileDir = filepath.Join(rootDir, fileDir)
 	err = os.MkdirAll(w.fileDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.tmpDir = filepath.Join(rootDir, tmpDir)
 	err = os.MkdirAll(w.tmpDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.dbDir = filepath.Join(rootDir, dbDir)
 	err = os.MkdirAll(w.dbDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.logDir = filepath.Join(rootDir, logDir)
 	err = os.MkdirAll(w.logDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.spaceDir = filepath.Join(rootDir, spaceDir)
 	err = os.MkdirAll(w.spaceDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.accDir = filepath.Join(rootDir, accDir)
 	err = os.MkdirAll(w.accDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.poisDir = filepath.Join(rootDir, poisDir)
 	err = os.MkdirAll(w.poisDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
+	w.randomDir = filepath.Join(rootDir, randomDir)
 	return os.MkdirAll(w.randomDir, configs.FileMode)
 }
 
@@ -211,6 +233,12 @@ func (w *Workspace) GetPoisDir() string {
 func (w *Workspace) GetPoisAccDir() string {
 	return w.accDir
 }
+func (w *Workspace) GetChallRndomDir() string {
+	return w.randomDir
+}
+func (w *Workspace) GetChallRandomDir() string {
+	return w.randomDir
+}
 func (w *Workspace) GetPeerRecord() string {
 	return w.peer_record
 }
@@ -247,4 +275,69 @@ func (w *Workspace) SaveIdleProve(idleProofRecord idleProofInfo) error {
 		return err
 	}
 	return sutils.WriteBufToFile(buf, w.idle_prove)
+}
+
+func (w *Workspace) LoadIdleProve() (idleProofInfo, error) {
+	var result idleProofInfo
+	buf, err := os.ReadFile(w.idle_prove)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(buf, &result)
+	return result, err
+}
+
+func (w *Workspace) SaveServiceProve(serviceProofRecord serviceProofInfo) error {
+	buf, err := json.Marshal(&serviceProofRecord)
+	if err != nil {
+		return err
+	}
+	return sutils.WriteBufToFile(buf, w.service_prove)
+}
+
+func (w *Workspace) LoadServiceProve() (serviceProofInfo, error) {
+	var result serviceProofInfo
+	buf, err := os.ReadFile(w.service_prove)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(buf, &result)
+	return result, err
+}
+
+func (w *Workspace) SaveChallRandom(
+	challStart uint32,
+	randomIndexList []types.U32,
+	randomList []pattern.Random,
+) error {
+	randfilePath := filepath.Join(w.GetChallRndomDir(), fmt.Sprintf("random.%d", challStart))
+	fstat, err := os.Stat(randfilePath)
+	if err == nil && fstat.Size() > 0 {
+		return nil
+	}
+	var rd RandomList
+	rd.Index = make([]uint32, len(randomIndexList))
+	rd.Random = make([][]byte, len(randomIndexList))
+	for i := 0; i < len(randomIndexList); i++ {
+		rd.Index[i] = uint32(randomIndexList[i])
+		rd.Random[i] = make([]byte, len(randomList[i]))
+		for j := 0; j < len(randomList[i]); j++ {
+			rd.Random[i][j] = byte(randomList[i][j])
+		}
+	}
+	buff, err := json.Marshal(&rd)
+	if err != nil {
+		return fmt.Errorf("[json.Marshal] %v", err)
+	}
+
+	f, err := os.OpenFile(randfilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("[OpenFile] %v", err)
+	}
+	defer f.Close()
+	_, err = f.Write(buff)
+	if err != nil {
+		return fmt.Errorf("[Write] %v", err)
+	}
+	return f.Sync()
 }
