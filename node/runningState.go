@@ -57,6 +57,10 @@ type SetStatus interface {
 	SetAuthIdleFlag(flag bool)
 	SetIdleChallengeFlag(flag bool)
 	SetServiceChallengeFlag(flag bool)
+	SetChainStatus(status bool)
+	SetMinerStatus(status string)
+	SetReceiveFlag(flag bool)
+	SetCurrentRpc(rpc string)
 }
 
 type GetStatus interface {
@@ -71,6 +75,10 @@ type GetStatus interface {
 	GetAuthIdleFlag() bool
 	GetIdleChallengeFlag() bool
 	GetServiceChallengeFlag() bool
+	GetChainStatus() bool
+	GetMinerStatus() string
+	GetReceiveFlag() bool
+	GetCurrentRpc() string
 }
 
 type RunningState struct {
@@ -86,6 +94,10 @@ type RunningState struct {
 	authIdleFlag         bool
 	idleChallengeFlag    bool
 	serviceChallengeFlag bool
+	chainStatus          bool
+	receiveFlag          bool
+	minerStatus          string
+	currentRpc           string
 }
 
 var _ RunningStater = (*RunningState)(nil)
@@ -132,12 +144,12 @@ func (n *RunningState) getStatusHandle(c *gin.Context) {
 
 	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
 
-	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
+	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerStatus())
 
-	if n.GetChainState() {
-		msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpcAddr())
+	if n.GetChainStatus() {
+		msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpc())
 	} else {
-		msg += fmt.Sprintf("RPC Connection: [fail] %v\n", n.GetCurrentRpcAddr())
+		msg += fmt.Sprintf("RPC Connection: [fail] %v\n", n.GetCurrentRpc())
 	}
 	msg += fmt.Sprintf("Last reconnection: %v\n", n.GetLastReconnectRpcTime())
 
@@ -153,7 +165,7 @@ func (n *RunningState) getStatusHandle(c *gin.Context) {
 
 	msg += fmt.Sprintf("Calc service challenge: %v\n", n.GetServiceChallengeFlag())
 
-	msg += fmt.Sprintf("Receiving data: %v\n", n.PeerNode.GetRecvFlag())
+	msg += fmt.Sprintf("Receiving data: %v\n", n.GetReceiveFlag())
 
 	msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
 
@@ -288,4 +300,52 @@ func (s *RunningState) GetServiceChallengeFlag() bool {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.serviceChallengeFlag
+}
+
+func (s *RunningState) SetChainStatus(status bool) {
+	s.lock.Lock()
+	s.chainStatus = status
+	s.lock.Unlock()
+}
+
+func (s *RunningState) GetChainStatus() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.chainStatus
+}
+
+func (s *RunningState) SetMinerStatus(status string) {
+	s.lock.Lock()
+	s.minerStatus = status
+	s.lock.Unlock()
+}
+
+func (s *RunningState) GetMinerStatus() string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.minerStatus
+}
+
+func (s *RunningState) SetReceiveFlag(flag bool) {
+	s.lock.Lock()
+	s.receiveFlag = flag
+	s.lock.Unlock()
+}
+
+func (s *RunningState) GetReceiveFlag() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.receiveFlag
+}
+
+func (s *RunningState) SetCurrentRpc(rpc string) {
+	s.lock.Lock()
+	s.currentRpc = rpc
+	s.lock.Unlock()
+}
+
+func (s *RunningState) GetCurrentRpc() string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.currentRpc
 }

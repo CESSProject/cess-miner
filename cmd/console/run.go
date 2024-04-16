@@ -101,6 +101,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
+	runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
 	runningState.SetInitStage(node.Stage_ConnectRpc, fmt.Sprintf("[ok] Connect rpc: %s", cli.GetCurrentRpcAddr()))
 	runningState.SetInitStage(node.Stage_CreateP2p, "Create peer node...")
 
@@ -318,12 +319,17 @@ func runCmd(cmd *cobra.Command, args []string) {
 	for range tick_block.C {
 		chainState = cli.GetChainState()
 		if !chainState {
+			runningState.SetChainStatus(false)
+			runningState.SetReceiveFlag(false)
 			peernode.DisableRecv()
 			connectChain(cli)
+			runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
 			continue
 		}
+		runningState.SetChainStatus(true)
+		runningState.SetReceiveFlag(true)
 		peernode.EnableRecv()
-		syncMinerStatus(cli, l, minerState)
+		syncMinerStatus(cli, l, minerState, runningState)
 		if minerState.GetMinerState() == pattern.MINER_STATE_EXIT ||
 			minerState.GetMinerState() == pattern.MINER_STATE_OFFLINE {
 			continue
@@ -1454,11 +1460,12 @@ func connectChain(cli sdk.SDK) {
 	// n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 }
 
-func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState) {
+func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState, r *node.RunningState) {
 	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 	if err != nil {
 		l.Log("err", err.Error())
 		if err.Error() == pattern.ERR_Empty {
+			r.SetMinerStatus(pattern.MINER_STATE_OFFLINE)
 			err = miner.SaveMinerState(pattern.MINER_STATE_OFFLINE)
 			if err != nil {
 				l.Log("err", err.Error())
@@ -1466,6 +1473,7 @@ func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState) {
 		}
 		return
 	}
+	r.SetMinerStatus(string(minerInfo.State))
 	err = miner.SaveMinerState(string(minerInfo.State))
 	if err != nil {
 		l.Log("err", err.Error())

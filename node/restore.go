@@ -177,7 +177,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 	var recoverList = make([]string, pattern.DataShards+pattern.ParShards)
 	for _, segment := range fmeta.SegmentList {
 		for k, v := range segment.FragmentList {
-			if !sutils.CompareSlice(v.Miner[:], n.GetSignaturePublickey()) {
+			if !sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {
 				continue
 			}
 			if string(v.Hash[:]) == fragmentHash {
@@ -284,7 +284,7 @@ func (n *Node) claimRestoreOrder() error {
 			continue
 		}
 
-		if !sutils.CompareSlice(restoreOrder.Miner[:], n.GetSignaturePublickey()) {
+		if !sutils.CompareSlice(restoreOrder.Miner[:], n.GetSignatureAccPulickey()) {
 			n.Delete([]byte(Cach_prefix_recovery + v))
 			continue
 		}
@@ -294,10 +294,10 @@ func (n *Node) claimRestoreOrder() error {
 			n.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(b), v, err))
 			continue
 		}
-		err = n.calcFragmentTag(string(b), filepath.Join(n.GetDirs().FileDir, string(b), v))
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[calcFragmentTag %s-%s] %v", string(b), v, err))
-		}
+		// err = n.calcFragmentTag(string(b), filepath.Join(n.GetDirs().FileDir, string(b), v))
+		// if err != nil {
+		// 	n.Restore("err", fmt.Sprintf("[calcFragmentTag %s-%s] %v", string(b), v, err))
+		// }
 		n.Restore("info", fmt.Sprintf("[RestoralComplete %s-%s] %s", string(b), v, txhash))
 		n.Delete([]byte(Cach_prefix_recovery + v))
 	}
