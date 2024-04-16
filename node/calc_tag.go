@@ -18,9 +18,11 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -37,46 +39,34 @@ type TagfileType struct {
 	Index        uint16  `protobuf:"bytes,6,opt,name=index,json=index,proto3" json:"index,omitempty"`
 }
 
-func (n *Node) calcTag(ch chan<- bool) {
+func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, ws *Workspace, r *RunningState, teeRecord *TeeRecord, ch chan<- bool) {
+	r.SetCalcTagFlag(true)
 	defer func() {
 		ch <- true
+		r.SetCalcTagFlag(false)
 		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
+			l.Pnc(utils.RecoverError(err))
 		}
 	}()
 
-	chainSt := n.GetChainState()
-	if !chainSt {
-		return
-	}
-
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
-
-	n.SetCalcTagFlag(true)
-	defer n.SetCalcTagFlag(false)
-
-	roothashs, err := utils.Dirs(n.GetDirs().FileDir)
+	roothashs, err := utils.Dirs(ws.GetFileDir())
 	if err != nil {
-		n.Stag("err", fmt.Sprintf("[Dirs(%s)] %v", n.GetDirs().FileDir, err))
+		l.Stag("err", fmt.Sprintf("[Dirs(%s)] %v", ws.GetFileDir(), err))
 		return
 	}
 
-	n.Stag("info", fmt.Sprintf("[roothashs] %v", roothashs))
+	l.Stag("info", fmt.Sprintf("[roothashs] %v", roothashs))
 
 	for _, fileDir := range roothashs {
-		err = n.calcFileTag(fileDir)
+		err = calc_tag(cli, cace, l, teeRecord, fileDir)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [calcFileTag] %v", filepath.Base(fileDir), roothashs))
+			l.Stag("err", fmt.Sprintf("[%s] [calc_tag] %v", filepath.Base(fileDir), roothashs))
 		}
 		time.Sleep(time.Minute)
 	}
 }
 
-func (n *Node) calcFileTag(file string) error {
+func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeRecord, file string) error {
 	var ok bool
 	var isReportTag bool
 	var err error
@@ -84,90 +74,91 @@ func (n *Node) calcFileTag(file string) error {
 	var fragments, tags []string
 
 	fid := filepath.Base(file)
-	n.Stag("info", fmt.Sprintf("[%s] Start calc file tag", fid))
+	l.Stag("info", fmt.Sprintf("[%s] Start calc file tag", fid))
 
-	ok, _ = n.Has([]byte(Cach_prefix_File + fid))
+	ok, _ = cace.Has([]byte(Cach_prefix_File + fid))
 	if !ok {
-		n.Stag("info", fmt.Sprintf("[%s] file not report", fid))
+		l.Stag("info", fmt.Sprintf("[%s] file not report", fid))
 		return nil
 	}
 
-	ok, _ = n.Has([]byte(Cach_prefix_Tag + fid))
+	ok, _ = cace.Has([]byte(Cach_prefix_Tag + fid))
 	if ok {
-		n.Stag("info", fmt.Sprintf("[%s] the file's tag already report", fid))
+		l.Stag("info", fmt.Sprintf("[%s] the file's tag already report", fid))
 		return nil
 	}
 
 	fragments, err = getAllFragment(file)
 	if err != nil {
-		n.Stag("err", fmt.Sprintf("[getAllFragment(%s)] %v", fid, err))
+		l.Stag("err", fmt.Sprintf("[getAllFragment(%s)] %v", fid, err))
 		return nil
 	}
 	//n.Stag("info", fmt.Sprintf("[%s] The file have fragments: %v", fid, fragments))
 
 	if err = checkFragmentsSize(fragments); err != nil {
-		n.Stag("err", fmt.Sprintf("[checkFragmentsSize(%s)] %v", fid, err))
+		l.Stag("err", fmt.Sprintf("[checkFragmentsSize(%s)] %v", fid, err))
 		return nil
 	}
 
 	for i := 0; i < len(fragments); i++ {
 		tags, err = getFragmentTags(file)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[getFragmentTags(%s)] %v", fid, err))
+			l.Stag("err", fmt.Sprintf("[getFragmentTags(%s)] %v", fid, err))
 			return nil
 		}
 
-		latestSig, digest, maxIndex, err := n.calcRequestDigest(filepath.Base(fragments[i]), tags)
+		latestSig, digest, maxIndex, err := calcRequestDigest(l, filepath.Base(fragments[i]), tags)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[calcRequestDigest(%s)] %v", fid, err))
+			l.Stag("err", fmt.Sprintf("[calcRequestDigest(%s)] %v", fid, err))
 			return nil
 		}
 		_, err = os.Stat(fragments[i])
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [os.Stat(%s)] %v", fid, fragments[i], err))
+			l.Stag("err", fmt.Sprintf("[%s] [os.Stat(%s)] %v", fid, fragments[i], err))
 			return nil
 		}
 
 		tagPath = (fragments[i] + ".tag")
-		n.Stag("info", fmt.Sprintf("[%s] Check this file tag: %v", fid, tagPath))
+		l.Stag("info", fmt.Sprintf("[%s] Check this file tag: %v", fid, tagPath))
 		fstat, err := os.Stat(tagPath)
 		if err == nil {
 			if fstat.Size() < configs.MinTagFileSize {
-				n.Stag("err", fmt.Sprintf("[%s] The file's tag size: %d < %d", fid, fstat.Size(), configs.MinTagFileSize))
+				l.Stag("err", fmt.Sprintf("[%s] The file's tag size: %d < %d", fid, fstat.Size(), configs.MinTagFileSize))
 				os.Remove(tagPath)
-				n.Del("info", tagPath)
+				l.Del("info", tagPath)
 			} else {
-				n.Stag("info", fmt.Sprintf("[%s] The file's tag already calced", fid))
+				l.Stag("info", fmt.Sprintf("[%s] The file's tag already calced", fid))
 				time.Sleep(time.Second)
 				continue
 			}
 		} else {
-			n.Stag("info", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
+			l.Stag("info", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
 		}
 
-		isreport, err := n.calcTheFragmentTag(fid, fragments[i], maxIndex, latestSig, digest)
+		isreport, err := calcTheFragmentTag(l, teeRecord, cli.GetSignatureAccPulickey(), fid, fragments[i], maxIndex, latestSig, digest)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [calcFragmentTag] %v", fid, err))
+			l.Stag("err", fmt.Sprintf("[%s] [calcFragmentTag] %v", fid, err))
 			return nil
 		}
+		l.Stag("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragments[i])))
 		if isreport {
 			isReportTag = isreport
 		}
 	}
 
 	if !isReportTag {
-		fmeta, err := n.QueryFileMetadata(fid)
+		fmeta, err := cli.QueryFileMetadata(fid)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [QueryFileMetadata] %v", fid, err))
+			l.Stag("err", fmt.Sprintf("[%s] [QueryFileMetadata] %v", fid, err))
 			return nil
 		}
 		for _, segment := range fmeta.SegmentList {
 			for _, fragment := range segment.FragmentList {
-				if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+				if sutils.CompareSlice(fragment.Miner[:], cli.GetSignatureAccPulickey()) {
 					if fragment.Tag.HasValue() {
-						err = n.Cache.Put([]byte(Cach_prefix_Tag+fid), nil)
+						err = cace.Put([]byte(Cach_prefix_Tag+fid), nil)
 						if err != nil {
-							n.Stag("err", fmt.Sprintf("[%s] [Cache.Put] %v", fid, err))
+							l.Stag("err", fmt.Sprintf("[%s] [Cache.Put] %v", fid, err))
 						}
 						return nil
 					}
@@ -181,32 +172,32 @@ func (n *Node) calcFileTag(file string) error {
 		}
 	}
 
-	if !n.checkAllFragmentTag(fragments) {
-		n.Stag("err", fmt.Sprintf("[%s] [checkAllFragmentTag] failed", fid))
+	if !checkAllFragmentTag(fragments) {
+		l.Stag("err", fmt.Sprintf("[%s] [checkAllFragmentTag] failed", fid))
 		return nil
 	}
 
 	tags, err = getFragmentTags(file)
 	if err != nil {
-		n.Stag("err", fmt.Sprintf("[getFragmentTags(%s)] %v", fid, err))
+		l.Stag("err", fmt.Sprintf("[getFragmentTags(%s)] %v", fid, err))
 		return nil
 	}
 
-	txhash, err := n.reportFileTag(fid, tags)
+	txhash, err := reportFileTag(cli, l, cace, fid, tags)
 	if err != nil {
 		for k := 0; k < len(tags); k++ {
 			os.Remove(tags[k])
-			n.Del("info", tags[k])
+			l.Del("info", tags[k])
 		}
-		n.Stag("err", fmt.Sprintf("[%s] [reportFileTag] %v", fid, err))
+		l.Stag("err", fmt.Sprintf("[%s] [reportFileTag] %v", fid, err))
 	} else {
-		n.Cache.Put([]byte(Cach_prefix_Tag+fid), nil)
-		n.Stag("info", fmt.Sprintf("[%s] [reportFileTag] %v", fid, txhash))
+		cace.Put([]byte(Cach_prefix_Tag+fid), nil)
+		l.Stag("info", fmt.Sprintf("[%s] [reportFileTag] %v", fid, txhash))
 	}
 	return nil
 }
 
-func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
+func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []byte, fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
 	var err error
 	var isReportTag bool
 	var teeSign pattern.TeeSig
@@ -214,7 +205,7 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 	var teePubkey string
 	var fragmentHash = filepath.Base(fragmentFile)
 
-	genTag, teePubkey, err = n.requestTeeTag(fid, fragmentFile, lastSign, digest)
+	genTag, teePubkey, err = requestTeeTag(l, teeRecord, signPublicKey, fid, fragmentFile, lastSign, digest)
 	if err != nil {
 		return false, fmt.Errorf("requestTeeTag: %v", err)
 	}
@@ -258,7 +249,6 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 		return false, fmt.Errorf("WriteBufToFile: %v", err)
 	}
 	isReportTag = true
-	n.Stag("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragmentFile)))
 	return isReportTag, nil
 }
 
@@ -426,29 +416,28 @@ func checkFragmentsSize(fragments []string) error {
 	return nil
 }
 
-func (n *Node) checkAllFragmentTag(fragments []string) bool {
+func checkAllFragmentTag(fragments []string) bool {
 	var err error
 	for _, v := range fragments {
 		_, err = os.Stat(v + ".tag")
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("check err: %v", err))
 			return false
 		}
 	}
 	return true
 }
 
-func (n *Node) calcRequestDigest(fragment string, tags []string) ([]byte, []*pb.DigestInfo, uint16, error) {
+func calcRequestDigest(l logger.Logger, fragment string, tags []string) ([]byte, []*pb.DigestInfo, uint16, error) {
 	if len(tags) == 0 {
 		return nil, nil, 0, nil
 	}
 	var maxIndex uint16
 	var latestSig []byte
 	var digest = make([]*pb.DigestInfo, len(tags))
-	n.Stag("info", fmt.Sprintf("will check fragment tag: %s", fragment))
-	n.Stag("info", fmt.Sprintf("can check fragment tags: %v", tags))
+	l.Stag("info", fmt.Sprintf("will check fragment tag: %s", fragment))
+	l.Stag("info", fmt.Sprintf("can check fragment tags: %v", tags))
 	for _, v := range tags {
-		n.Stag("info", fmt.Sprintf("check fragment tag: %v", v))
+		l.Stag("info", fmt.Sprintf("check fragment tag: %v", v))
 		if strings.Contains(v, fragment) {
 			continue
 		}
@@ -460,17 +449,17 @@ func (n *Node) calcRequestDigest(fragment string, tags []string) ([]byte, []*pb.
 		err = json.Unmarshal(buf, tag)
 		if err != nil {
 			os.Remove(v)
-			n.Del("info", v)
+			l.Del("info", v)
 			return nil, nil, 0, err
 		}
-		n.Stag("info", fmt.Sprintf("tag index: %d", tag.Index))
+		l.Stag("info", fmt.Sprintf("tag index: %d", tag.Index))
 		if tag.Index == 0 {
 			msg := fmt.Sprintf("[%s] invalid tag.Index: %d ", fragment, tag.Index)
 			return nil, nil, 0, errors.New(msg)
 		}
 		if tag.Index > maxIndex {
 			maxIndex = tag.Index
-			n.Stag("info", fmt.Sprintf("lastest tag sin: %d", tag.Index))
+			l.Stag("info", fmt.Sprintf("lastest tag sin: %d", tag.Index))
 			latestSig = tag.Signature
 		}
 		var dig = &pb.DigestInfo{
@@ -508,7 +497,7 @@ func getTagsNumber(path string) int {
 	return count
 }
 
-func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
+func reportFileTag(cli sdk.SDK, l logger.Logger, cace cache.Cache, fid string, tags []string) (string, error) {
 	var onChainFlag bool
 	var err error
 	var blocknumber uint32
@@ -529,7 +518,7 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 		err = json.Unmarshal(buf, tag)
 		if err != nil {
 			os.Remove(v)
-			n.Del("info", v)
+			l.Del("info", v)
 			return txhash, err
 		}
 		if tag.Index == 0 {
@@ -550,23 +539,23 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 		digest[tag.Index-1] = dig
 	}
 
-	tagSigInfo.Miner = types.AccountID(n.GetSignatureAccPulickey())
+	tagSigInfo.Miner = types.AccountID(cli.GetSignatureAccPulickey())
 	tagSigInfo.Digest = make([]pattern.DigestInfo, len(digest))
 	for j := 0; j < len(digest); j++ {
 		tagSigInfo.Digest[j].Fragment, _ = sutils.BytesToFileHash(digest[j].FragmentName)
 		tagSigInfo.Digest[j].TeePubkey, _ = sutils.BytesToWorkPublickey(digest[j].TeeAccountId)
 	}
-	n.Stag("info", fmt.Sprintf("[%s] Will report file tag", fid))
+	l.Stag("info", fmt.Sprintf("[%s] Will report file tag", fid))
 	for j := 0; j < 10; j++ {
-		txhash, err = n.ReportTagCalculated(latestSig, tagSigInfo)
+		txhash, err = cli.ReportTagCalculated(latestSig, tagSigInfo)
 		if err != nil || txhash == "" {
-			n.Stag("err", fmt.Sprintf("[%s] ReportTagCalculated: %s %v", fid, txhash, err))
+			l.Stag("err", fmt.Sprintf("[%s] ReportTagCalculated: %s %v", fid, txhash, err))
 			time.Sleep(pattern.BlockInterval * 2)
-			fmeta, err = n.QueryFileMetadata(fid)
+			fmeta, err = cli.QueryFileMetadata(fid)
 			if err == nil {
 				for _, segment := range fmeta.SegmentList {
 					for _, fragment := range segment.FragmentList {
-						if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
+						if sutils.CompareSlice(fragment.Miner[:], cli.GetSignatureAccPulickey()) {
 							if fragment.Tag.HasValue() {
 								ok, block := fragment.Tag.Unwrap()
 								if ok {
@@ -574,11 +563,11 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 									for k := 0; k < len(tags); k++ {
 										fragmentHash := filepath.Base(tags[k])
 										fragmentHash = strings.TrimSuffix(fragmentHash, ".tag")
-										err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
+										err = cace.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
 										if err != nil {
-											n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block), err))
+											l.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block), err))
 										} else {
-											n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block)))
+											l.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", block)))
 										}
 									}
 									break
@@ -596,7 +585,7 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 			if onChainFlag {
 				break
 			}
-			n.Stag("err", err.Error())
+			l.Stag("err", err.Error())
 			if (j + 1) >= 10 {
 				break
 			}
@@ -604,20 +593,20 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 			continue
 		}
 		onChainFlag = true
-		n.Stag("info", fmt.Sprintf("[%s] ReportTagCalculated: %s", fid, txhash))
-		blocknumber, err = n.QueryBlockHeight(txhash)
+		l.Stag("info", fmt.Sprintf("[%s] ReportTagCalculated: %s", fid, txhash))
+		blocknumber, err = cli.QueryBlockHeight(txhash)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
+			l.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
 			break
 		}
 		for k := 0; k < len(tags); k++ {
 			fragmentHash := filepath.Base(tags[k])
 			fragmentHash = strings.TrimSuffix(fragmentHash, ".tag")
-			err = n.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
+			err = cace.Put([]byte(Cach_prefix_Tag+fid+"."+fragmentHash), []byte(fmt.Sprintf("%d", blocknumber)))
 			if err != nil {
-				n.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
+				l.Stag("err", fmt.Sprintf("[Cache.Put(%s, %s)] %v", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber), err))
 			} else {
-				n.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber)))
+				l.Stag("info", fmt.Sprintf("[Cache.Put(%s, %s)]", Cach_prefix_Tag+fid+"."+fragmentHash, fmt.Sprintf("%d", blocknumber)))
 			}
 		}
 		break

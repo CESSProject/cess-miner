@@ -311,6 +311,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 	attestationIdleCh := make(chan bool, 1)
 	syncTeeCh := make(chan bool, 1)
 	syncTeeCh <- true
+	calcTagCh := make(chan bool, 1)
+	calcTagCh <- true
+
 	out.Ok("Service started successfully")
 	for range tick_block.C {
 		chainState = cli.GetChainState()
@@ -355,9 +358,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go node.GenIdle(l, minerState, cfg, runningState, p, peernode.Workspace(), genIdleCh)
 		}
 
-		if len(ch_calctag) > 0 {
-			<-ch_calctag
-			go n.calcTag(ch_calctag)
+		if len(calcTagCh) > 0 {
+			<-calcTagCh
+			go node.CalcTag(cli, cace, l, wspace, runningState, teeRecord, calcTagCh)
 		}
 
 		// go n.reportLogsMgt(ch_reportLogs)
@@ -1452,64 +1455,6 @@ func connectChain(cli sdk.SDK) {
 }
 
 func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState) {
-	// var dialOptions []grpc.DialOption
-	// var chainPublickey = make([]byte, pattern.WorkerPublicKeyLen)
-	// teelist, err := n.QueryAllTeeWorkerMap()
-	// if err != nil {
-	// 	n.Log("err", err.Error())
-	// } else {
-	// 	for i := 0; i < len(teelist); i++ {
-	// 		n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
-	// 		endpoint, err := n.QueryTeeWorkEndpoint(teelist[i].Pubkey)
-	// 		if err != nil {
-	// 			n.Log("err", err.Error())
-	// 			continue
-	// 		}
-	// 		endpoint = processEndpoint(endpoint)
-
-	// 		if !strings.Contains(endpoint, "443") {
-	// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	// 		} else {
-	// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-	// 		}
-
-	// 		// verify identity public key
-	// 		identityPubkeyResponse, err := n.GetIdentityPubkey(endpoint,
-	// 			&pb.Request{
-	// 				StorageMinerAccountId: n.GetSignatureAccPulickey(),
-	// 			},
-	// 			time.Duration(time.Minute),
-	// 			dialOptions,
-	// 			nil,
-	// 		)
-	// 		if err != nil {
-	// 			n.Log("err", err.Error())
-	// 			continue
-	// 		}
-	// 		//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
-	// 		if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
-	// 			n.DeleteTee(string(teelist[i].Pubkey[:]))
-	// 			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
-	// 			continue
-	// 		}
-
-	// 		for j := 0; j < pattern.WorkerPublicKeyLen; j++ {
-	// 			chainPublickey[j] = byte(teelist[i].Pubkey[j])
-	// 		}
-	// 		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-	// 			n.DeleteTee(string(teelist[i].Pubkey[:]))
-	// 			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
-	// 			n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
-	// 			continue
-	// 		}
-
-	// 		n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
-	// 		err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
-	// 		if err != nil {
-	// 			n.Log("err", err.Error())
-	// 		}
-	// 	}
-	// }
 	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 	if err != nil {
 		l.Log("err", err.Error())
