@@ -309,7 +309,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	genIdleCh := make(chan bool, 1)
 	genIdleCh <- true
 	attestationIdleCh := make(chan bool, 1)
-
+	syncTeeCh := make(chan bool, 1)
+	syncTeeCh <- true
 	out.Ok("Service started successfully")
 	for range tick_block.C {
 		chainState = cli.GetChainState()
@@ -344,9 +345,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go node.AttestationIdle(cli, peernode, p, runningState, minerPoisInfo, teeRecord, l, attestationIdleCh)
 		}
 
-		if len(ch_syncChainStatus) > 0 {
-			<-ch_syncChainStatus
-			go n.syncChainStatus(ch_syncChainStatus)
+		if len(syncTeeCh) > 0 {
+			<-syncTeeCh
+			go node.SyncTeeInfo(cli, l, peernode, teeRecord, syncTeeCh)
 		}
 
 		if len(genIdleCh) > 0 && !runningState.GetServiceChallengeFlag() && !runningState.GetIdleChallengeFlag() {
@@ -359,13 +360,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go n.calcTag(ch_calctag)
 		}
 
-		n.SetTaskPeriod("1h")
-		//go n.reportLogsMgt(ch_reportLogs)
-		if len(ch_restoreMgt) > 0 {
-			<-ch_restoreMgt
-			go n.restoreMgt(ch_restoreMgt)
-		}
-		n.SetTaskPeriod("1h-end")
+		// go n.reportLogsMgt(ch_reportLogs)
+		// if len(ch_restoreMgt) > 0 {
+		// 	<-ch_restoreMgt
+		// 	go n.restoreMgt(ch_restoreMgt)
+		// }
 	}
 }
 
