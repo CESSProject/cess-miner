@@ -40,6 +40,11 @@ type Node struct {
 	*Pois
 }
 
+// New is used to build a node instance
+func New() *Node {
+	return &Node{}
+}
+
 func (n *Node) GetPodr2Key() *proof.RSAKeyPair {
 	return n.RSAKeyPair
 }
