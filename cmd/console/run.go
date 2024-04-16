@@ -302,6 +302,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	chainState := true
 	reportFileCh := make(chan bool, 1)
 	reportFileCh <- true
+	idleChallCh := make(chan bool, 1)
+	idleChallCh <- true
+	serviceChallCh := make(chan bool, 1)
+	serviceChallCh <- true
 	for range tick_block.C {
 		chainState = cli.GetChainState()
 		if !chainState {
@@ -321,10 +325,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go node.ReportFiles(reportFileCh, cli, runningState, wspace, l)
 		}
 
-		n.SetTaskPeriod("1m")
-		if len(ch_idlechallenge) > 0 || len(ch_servicechallenge) > 0 {
+		if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
 			go n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
 		}
+
 		if len(ch_findPeers) > 0 {
 			<-ch_findPeers
 			go n.subscribe(ctx, ch_findPeers)

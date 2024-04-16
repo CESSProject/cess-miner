@@ -9,11 +9,13 @@ package node
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
 const (
@@ -46,6 +48,7 @@ type Workspacer interface {
 	GetServiceProve() string
 	SaveRsaPublicKey(pub []byte) error
 	LoadRsaPublicKey() ([]byte, error)
+	SaveIdleProve(idleProofRecord idleProofInfo) error
 }
 
 type Workspace struct {
@@ -236,4 +239,12 @@ func (w *Workspace) LoadRsaPublicKey() ([]byte, error) {
 		return nil, err
 	}
 	return buf, nil
+}
+
+func (w *Workspace) SaveIdleProve(idleProofRecord idleProofInfo) error {
+	buf, err := json.Marshal(&idleProofRecord)
+	if err != nil {
+		return err
+	}
+	return sutils.WriteBufToFile(buf, w.idle_prove)
 }

@@ -10,26 +10,17 @@ package node
 import (
 	"fmt"
 
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 )
 
-func (n *Node) challengeMgt(idleChallTaskCh, serviceChallTaskCh chan bool) {
-	chainSt := n.GetChainState()
-	if !chainSt {
-		return
-	}
-
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
-
+func challengeMgt(n sdk.SDK, l logger.Logger, ws *Workspace, r *RunningState, idleChallTaskCh, serviceChallTaskCh chan bool) {
 	haveChall, challenge, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
-			n.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
-			n.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
+			l.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
+			l.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
 		}
 		return
 	}
