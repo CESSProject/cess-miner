@@ -12,7 +12,6 @@ import (
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/p2p-go/out"
@@ -38,33 +37,25 @@ func init() {
 
 // Exit
 func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
-	var (
-		err error
-		n   = node.NewEmptyNode()
-	)
-
-	// Build profile instances
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-
-	//Build client
-	n.SDK, err = cess.New(
+	cli, err := cess.New(
 		context.Background(),
 		cess.Name(config.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
+	defer cli.Close()
 
-	txhash, err := n.ExitSminer(n.GetSignatureAcc())
+	txhash, err := cli.ExitSminer(cli.GetSignatureAcc())
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())
