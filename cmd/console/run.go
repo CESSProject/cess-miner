@@ -297,8 +297,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	tick_block := time.NewTicker(pattern.BlockInterval)
 	defer tick_block.Stop()
 
-	//node.Run(ctx, cli, peernode, cache, logger)
-	out.Ok("Service started successfully")
 	chainState := true
 	reportFileCh := make(chan bool, 1)
 	reportFileCh <- true
@@ -306,6 +304,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 	idleChallCh <- true
 	serviceChallCh := make(chan bool, 1)
 	serviceChallCh <- true
+	replaceIdleCh := make(chan bool, 1)
+	replaceIdleCh <- true
+	genIdleCh := make(chan bool, 1)
+	genIdleCh <- true
+	out.Ok("Service started successfully")
 	for range tick_block.C {
 		chainState = cli.GetChainState()
 		if !chainState {
@@ -329,14 +332,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go node.ChallengeMgt(cli, l, wspace, runningState, teeRecord, peernode, minerPoisInfo, rsaKeyPair, p, cace, idleChallCh, serviceChallCh)
 		}
 
-		if len(ch_findPeers) > 0 {
-			<-ch_findPeers
-			go n.subscribe(ctx, ch_findPeers)
-		}
-
-		if len(ch_replace) > 0 {
-			<-ch_replace
-			go n.replaceIdle(ch_replace)
+		if len(replaceIdleCh) > 0 {
+			<-replaceIdleCh
+			go node.ReplaceIdle(cli, l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
 		}
 
 		if len(ch_spaceMgt) > 0 {
@@ -344,17 +342,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go n.poisMgt(ch_spaceMgt)
 		}
 
-		n.SetTaskPeriod("1m-end")
-
 		if len(ch_syncChainStatus) > 0 {
 			<-ch_syncChainStatus
 			go n.syncChainStatus(ch_syncChainStatus)
 		}
 
-		if len(ch_GenIdleFile) > 0 {
-			<-ch_GenIdleFile
-			go n.genIdlefile(ch_GenIdleFile)
+		if len(genIdleCh) > 0 && !runningState.GetServiceChallengeFlag() && !runningState.GetIdleChallengeFlag() {
+			<-genIdleCh
+			go node.GenIdle(l, minerState, cfg, runningState, p, peernode.Workspace(), genIdleCh)
 		}
+
 		if len(ch_calctag) > 0 {
 			<-ch_calctag
 			go n.calcTag(ch_calctag)
@@ -367,7 +364,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go n.restoreMgt(ch_restoreMgt)
 		}
 		n.SetTaskPeriod("1h-end")
-
 	}
 }
 

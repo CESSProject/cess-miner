@@ -20,7 +20,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -155,79 +154,6 @@ func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key
 	}
 	n.Prover.AccManager.GetSnapshot()
 	return nil
-}
-
-func (n *Node) genIdlefile(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	chainSt := n.GetChainState()
-	if !chainSt {
-		return
-	}
-
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
-
-	if n.GetIdleChallengeFlag() || n.GetServiceChallengeFlag() {
-		return
-	}
-
-	decSpace, validSpace, usedSpace, lockSpace := n.GetMinerSpaceInfo()
-	if (validSpace + usedSpace + lockSpace) >= decSpace {
-		n.Space("info", "The declared space has been authenticated")
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	configSpace := n.GetUseSpace() * pattern.SIZE_1GiB
-	if configSpace < minSpace {
-		n.Space("err", "The configured space is less than the minimum space requirement")
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	if (validSpace + usedSpace + lockSpace) > (configSpace - minSpace) {
-		n.Space("info", "The space for authentication has reached the configured space size")
-		time.Sleep(time.Hour)
-		return
-	}
-
-	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
-	if err != nil {
-		n.Space("err", fmt.Sprintf("[GetDirFreeSpace] %v", err))
-		time.Sleep(time.Minute)
-		return
-	}
-
-	if dirfreeSpace < minSpace {
-		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB))
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	n.Space("info", "Start generating idle files")
-	n.SetGenIdleFlag(true)
-	err = n.Prover.GenerateIdleFileSet()
-	n.SetGenIdleFlag(false)
-	if err != nil {
-		if strings.Contains(err.Error(), "not enough space") {
-			out.Err("Your workspace is out of capacity")
-			n.Space("err", "workspace is out of capacity")
-		} else {
-			n.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
-		}
-		time.Sleep(time.Minute * 10)
-		return
-	}
-	n.Space("info", "generate a idle file")
 }
 
 func (n *Node) certifiedSpace() error {
