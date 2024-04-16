@@ -308,6 +308,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	replaceIdleCh <- true
 	genIdleCh := make(chan bool, 1)
 	genIdleCh <- true
+	attestationIdleCh := make(chan bool, 1)
+
 	out.Ok("Service started successfully")
 	for range tick_block.C {
 		chainState = cli.GetChainState()
@@ -337,9 +339,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 			go node.ReplaceIdle(cli, l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
 		}
 
-		if len(ch_spaceMgt) > 0 {
-			<-ch_spaceMgt
-			go n.poisMgt(ch_spaceMgt)
+		if len(attestationIdleCh) > 0 {
+			<-attestationIdleCh
+			go node.AttestationIdle(cli, peernode, p, runningState, minerPoisInfo, teeRecord, l, attestationIdleCh)
 		}
 
 		if len(ch_syncChainStatus) > 0 {
