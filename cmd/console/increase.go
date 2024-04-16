@@ -14,7 +14,6 @@ import (
 	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -66,11 +65,6 @@ func init() {
 
 // increase staking
 func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
-	var (
-		err error
-		n   = node.NewEmptyNode()
-	)
-
 	if len(os.Args) < 4 {
 		out.Err("Please enter the staking amount, the unit is TCESS")
 		os.Exit(1)
@@ -82,28 +76,26 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Build profile instances
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	//Build client
-	n.SDK, err = cess.New(
+	cli, err := cess.New(
 		context.Background(),
 		cess.Name(config.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
+	defer cli.Close()
 
-	txhash, err := n.IncreaseStakingAmount(n.GetSignatureAcc(), stakes)
+	txhash, err := cli.IncreaseStakingAmount(cli.GetSignatureAcc(), stakes)
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())
@@ -119,11 +111,6 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 
 // increase space
 func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
-	var (
-		err error
-		n   = node.NewEmptyNode()
-	)
-
 	if len(os.Args) < 4 {
 		out.Err("Please enter the space size to be increased in TiB")
 		os.Exit(1)
@@ -135,25 +122,26 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	n.SDK, err = cess.New(
+	cli, err := cess.New(
 		context.Background(),
 		cess.Name(config.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer cli.Close()
 
-	txhash, err := n.IncreaseDeclarationSpace(uint32(space))
+	txhash, err := cli.IncreaseDeclarationSpace(uint32(space))
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

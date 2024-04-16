@@ -9,18 +9,17 @@ package node
 
 import (
 	"fmt"
-	"log"
-	"math/big"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/out"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -33,222 +32,48 @@ type Pois struct {
 	*pois.Prover
 	*acc.RsaKey
 	pattern.ExpendersInfo
-	front int64
-	rear  int64
+	Front int64
+	Rear  int64
 }
 
 var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
-// poisMgt
-func (n *Node) poisMgt(ch chan<- bool) {
+func AttestationIdle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l logger.Logger, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
+			l.Pnc(utils.RecoverError(err))
 		}
 	}()
-	var err error
-	var chainSt bool
-	var minerSt string
 	for {
-		chainSt = n.GetChainState()
-		if !chainSt {
-			return
-		}
-
-		minerSt = n.GetMinerState()
-		if minerSt != pattern.MINER_STATE_POSITIVE &&
-			minerSt != pattern.MINER_STATE_FROZEN {
-			return
-		}
-		err = n.certifiedSpace()
+		err := attestation_idle(cli, peernode, p, r, teeRecord, m, l)
 		if err != nil {
-			n.Space("err", err.Error())
+			l.Space("err", err.Error())
 			time.Sleep(time.Minute)
 		}
 		time.Sleep(pattern.BlockInterval)
 	}
 }
 
-func (n *Node) InitPois(firstflag bool, front, rear, freeSpace, count int64, key_n, key_g big.Int) error {
-	var err error
-	if n.Pois == nil {
-		expendersInfo := n.ExpendersInfo
-		n.Pois = &Pois{
-			ExpendersInfo: expendersInfo,
-		}
-	}
-
-	if len(key_n.Bytes()) != len(pattern.PoISKey_N{}) {
-		return errors.New("invalid key_n length")
-	}
-
-	if len(key_g.Bytes()) != len(pattern.PoISKey_G{}) {
-		return errors.New("invalid key_g length")
-	}
-
-	n.Pois.RsaKey = &acc.RsaKey{
-		N: key_n,
-		G: key_g,
-	}
-	n.Pois.front = front
-	n.Pois.rear = rear
-	cfg := pois.Config{
-		AccPath:        n.DataDir.PoisDir,
-		IdleFilePath:   n.DataDir.SpaceDir,
-		ChallAccPath:   n.DataDir.AccDir,
-		MaxProofThread: n.GetCpuCores(),
-	}
-
-	// k,n,d and key are params that needs to be negotiated with the verifier in advance.
-	// minerID is storage node's account ID, and space is the amount of physical space available(MiB)
-	n.Prover, err = pois.NewProver(
-		int64(n.ExpendersInfo.K),
-		int64(n.ExpendersInfo.N),
-		int64(n.ExpendersInfo.D),
-		n.GetSignatureAccPulickey(),
-		freeSpace,
-		count,
-	)
-	if err != nil {
-		return err
-	}
-	if firstflag {
-		//Please initialize prover for the first time
-		err = n.Prover.Init(*n.Pois.RsaKey, cfg)
-		if err != nil {
-			return err
-		}
-	} else {
-		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
-		err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
-		if err != nil {
-			if strings.Contains(err.Error(), "read element data") {
-				num := 2
-				m, err := utils.GetSysMemAvailable()
-				cpuNum := runtime.NumCPU()
-				if err == nil {
-					m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
-					if int(m) < cpuNum {
-						cpuNum = int(m)
-					}
-					if cpuNum > num {
-						num = cpuNum
-					}
-				}
-				log.Println("check and restore idle data, use", num, "threads")
-				err = n.Prover.CheckAndRestoreIdleData(front, rear, num)
-				//err = n.Prover.CheckAndRestoreSubAccFiles(front, rear)
-				if err != nil {
-					return err
-				}
-				log.Println("info", "restore idle data done.")
-				err = n.Prover.Recovery(*n.Pois.RsaKey, front, rear, cfg)
-				if err != nil {
-					return err
-				}
-				log.Println("info", "recovery PoIS status done.")
-			} else {
-				return err
-			}
-		}
-	}
-	n.Prover.AccManager.GetSnapshot()
-	return nil
-}
-
-func (n *Node) genIdlefile(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	chainSt := n.GetChainState()
-	if !chainSt {
-		return
-	}
-
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
-
-	if n.GetIdleChallengeFlag() || n.GetServiceChallengeFlag() {
-		return
-	}
-
-	decSpace, validSpace, usedSpace, lockSpace := n.GetMinerSpaceInfo()
-	if (validSpace + usedSpace + lockSpace) >= decSpace {
-		n.Space("info", "The declared space has been authenticated")
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	configSpace := n.GetUseSpace() * pattern.SIZE_1GiB
-	if configSpace < minSpace {
-		n.Space("err", "The configured space is less than the minimum space requirement")
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	if (validSpace + usedSpace + lockSpace) > (configSpace - minSpace) {
-		n.Space("info", "The space for authentication has reached the configured space size")
-		time.Sleep(time.Hour)
-		return
-	}
-
-	dirfreeSpace, err := utils.GetDirFreeSpace(n.Workspace())
-	if err != nil {
-		n.Space("err", fmt.Sprintf("[GetDirFreeSpace] %v", err))
-		time.Sleep(time.Minute)
-		return
-	}
-
-	if dirfreeSpace < minSpace {
-		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB))
-		time.Sleep(time.Minute * 10)
-		return
-	}
-
-	n.Space("info", "Start generating idle files")
-	n.SetGenIdleFlag(true)
-	err = n.Prover.GenerateIdleFileSet()
-	n.SetGenIdleFlag(false)
-	if err != nil {
-		if strings.Contains(err.Error(), "not enough space") {
-			out.Err("Your workspace is out of capacity")
-			n.Space("err", "workspace is out of capacity")
-		} else {
-			n.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
-		}
-		time.Sleep(time.Minute * 10)
-		return
-	}
-	n.Space("info", "generate a idle file")
-}
-
-func (n *Node) certifiedSpace() error {
+func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, teeRecord *TeeRecord, m *pb.MinerPoisInfo, l logger.Logger) error {
 	defer func() {
 		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
+			l.Pnc(utils.RecoverError(err))
 		}
 	}()
 
 	for {
 		for {
-			if n.Prover.CommitDataIsReady() {
+			if p.Prover.CommitDataIsReady() {
 				break
 			}
-			n.SetAuthIdleFlag(false)
+			r.SetAuthIdleFlag(false)
 			time.Sleep(pattern.BlockInterval)
 		}
-		n.SetAuthIdleFlag(true)
-		minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+		r.SetAuthIdleFlag(true)
+		minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 		if err != nil {
-			n.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+			l.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
@@ -259,22 +84,22 @@ func (n *Node) certifiedSpace() error {
 			if !ok {
 				return errors.New("minerInfo.SpaceProofInfo.Unwrap() failed")
 			}
-			if spaceProofInfo.Rear > types.U64(n.Prover.GetRear()) {
-				err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+			if spaceProofInfo.Rear > types.U64(p.Prover.GetRear()) {
+				err = p.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 				if err != nil {
-					n.Space("err", fmt.Sprintf("[SyncChainPoisStatus] %v", err))
+					l.Space("err", fmt.Sprintf("[SyncChainPoisStatus] %v", err))
 					return err
 				}
 			}
 		}
 
-		n.Space("info", "Get idle file commits")
-		commits, err := n.Prover.GetIdleFileSetCommits()
+		l.Space("info", "Get idle file commits")
+		commits, err := p.Prover.GetIdleFileSetCommits()
 		if err != nil {
 			return errors.Wrapf(err, "[GetIdleFileSetCommits]")
 		}
 
-		n.Space("info", fmt.Sprintf("FileIndexs[0]: %v ", commits.FileIndexs[0]))
+		l.Space("info", fmt.Sprintf("FileIndexs[0]: %v ", commits.FileIndexs[0]))
 		var commit_pb = &pb.Commits{
 			FileIndexs: commits.FileIndexs,
 			Roots:      commits.Roots,
@@ -282,28 +107,27 @@ func (n *Node) certifiedSpace() error {
 
 		var chall_pb *pb.Challenge
 		var commitGenChall = &pb.RequestMinerCommitGenChall{
-			MinerId: n.GetSignatureAccPulickey(),
+			MinerId: cli.GetSignatureAccPulickey(),
 			Commit:  commit_pb,
 		}
 
 		buf, err := proto.Marshal(commitGenChall)
 		if err != nil {
-			n.Prover.CommitRollback()
-			n.Space("err", fmt.Sprintf("[Marshal] %v", err))
+			p.Prover.CommitRollback()
+			l.Space("err", fmt.Sprintf("[Marshal] %v", err))
 			return err
 		}
 
-		commitGenChall.MinerSign, err = n.Sign(buf)
+		commitGenChall.MinerSign, err = cli.Sign(buf)
 		if err != nil {
-			n.Prover.CommitRollback()
-			n.Space("err", fmt.Sprintf("[Sign] %v", err))
+			p.Prover.CommitRollback()
+			l.Space("err", fmt.Sprintf("[Sign] %v", err))
 			return err
 		}
 
-		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
+		l.Space("info", fmt.Sprintf("front: %v rear: %v", p.Prover.GetFront(), p.Prover.GetRear()))
 
-		teeEndPoints := n.GetPriorityTeeList()
-		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+		teeEndPoints := teeRecord.GetAllMarkerTeeEndpoint()
 
 		var usedTeeEndPoint string
 		var usedTeeWorkAccount string
@@ -312,14 +136,14 @@ func (n *Node) certifiedSpace() error {
 		var dialOptions []grpc.DialOption
 		for i := 0; i < len(teeEndPoints); i++ {
 			timeout = time.Duration(time.Minute * 3)
-			n.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
+			l.Space("info", fmt.Sprintf("Will use tee: %v", teeEndPoints[i]))
 			if !strings.Contains(teeEndPoints[i], "443") {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 			} else {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 			}
 			for try := 2; try <= 6; try += 2 {
-				chall_pb, err = n.RequestMinerCommitGenChall(
+				chall_pb, err = peernode.RequestMinerCommitGenChall(
 					teeEndPoints[i],
 					commitGenChall,
 					time.Duration(timeout),
@@ -327,7 +151,7 @@ func (n *Node) certifiedSpace() error {
 					nil,
 				)
 				if err != nil {
-					n.Space("err", fmt.Sprintf("[RequestMinerCommitGenChall] %v", err))
+					l.Space("err", fmt.Sprintf("[RequestMinerCommitGenChall] %v", err))
 					if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
 						timeout = time.Duration(time.Minute * time.Duration(3+try))
 						continue
@@ -335,9 +159,9 @@ func (n *Node) certifiedSpace() error {
 					break
 				}
 				usedTeeEndPoint = teeEndPoints[i]
-				usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
+				usedTeeWorkAccount, err = teeRecord.GetTeeWorkAccount(usedTeeEndPoint)
 				if err != nil {
-					n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
+					l.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
 				}
 				break
 			}
@@ -347,7 +171,7 @@ func (n *Node) certifiedSpace() error {
 		}
 
 		if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
-			n.Prover.CommitRollback()
+			p.Prover.CommitRollback()
 			return errors.New("no worked tee")
 		}
 
@@ -356,28 +180,28 @@ func (n *Node) certifiedSpace() error {
 			chals[i] = chall_pb.Rows[i].Values
 		}
 
-		n.Space("info", fmt.Sprintf("Commit idle file commits to %s", usedTeeEndPoint))
+		l.Space("info", fmt.Sprintf("Commit idle file commits to %s", usedTeeEndPoint))
 
-		commitProofs, accProof, err := n.Prover.ProveCommitAndAcc(chals)
+		commitProofs, accProof, err := p.Prover.ProveCommitAndAcc(chals)
 		if err != nil {
-			n.Prover.AccRollback(false)
+			p.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[ProveCommitAndAcc]")
 		}
 
 		if err == nil && commitProofs == nil && accProof == nil {
-			n.Prover.AccRollback(false)
+			p.Prover.AccRollback(false)
 			return errors.New("other programs are updating the data of the prover object")
 		}
 
-		if spaceProofInfo.Front == types.U64(n.Prover.GetFront()) {
-			n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
-			n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
-			n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-			n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
+		if spaceProofInfo.Front == types.U64(p.Prover.GetFront()) {
+			m.Front = int64(spaceProofInfo.Front)
+			m.Rear = int64(spaceProofInfo.Rear)
+			m.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+			m.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 		} else {
-			minerInfo, err = n.QueryStorageMiner(n.GetSignatureAccPulickey())
+			minerInfo, err = cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 			if err != nil {
-				n.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+				l.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
 				time.Sleep(pattern.BlockInterval)
 				return err
 			}
@@ -386,10 +210,10 @@ func (n *Node) certifiedSpace() error {
 				if !ok {
 					return errors.New("minerInfo.SpaceProofInfo.Unwrap() failed")
 				}
-				n.MinerPoisInfo.Front = int64(spaceProofInfo.Front)
-				n.MinerPoisInfo.Rear = int64(spaceProofInfo.Rear)
-				n.MinerPoisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-				n.MinerPoisInfo.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
+				m.Front = int64(spaceProofInfo.Front)
+				m.Rear = int64(spaceProofInfo.Rear)
+				m.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+				m.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 			}
 		}
 
@@ -447,35 +271,35 @@ func (n *Node) certifiedSpace() error {
 		var requestVerifyCommitAndAccProof = &pb.RequestVerifyCommitAndAccProof{
 			CommitProofGroup: commitProofGroup_pb,
 			AccProof:         accProof_pb,
-			MinerId:          n.GetSignatureAccPulickey(),
-			PoisInfo:         n.MinerPoisInfo,
+			MinerId:          cli.GetSignatureAccPulickey(),
+			PoisInfo:         m,
 		}
 
 		buf, err = proto.Marshal(requestVerifyCommitAndAccProof)
 		if err != nil {
-			n.Prover.AccRollback(false)
-			n.Space("err", fmt.Sprintf("[Marshal-2] %v", err))
+			p.Prover.AccRollback(false)
+			l.Space("err", fmt.Sprintf("[Marshal-2] %v", err))
 			return err
 		}
 
-		requestVerifyCommitAndAccProof.MinerSign, err = n.Sign(buf)
+		requestVerifyCommitAndAccProof.MinerSign, err = cli.Sign(buf)
 		if err != nil {
-			n.Prover.AccRollback(false)
-			n.Space("err", fmt.Sprintf("[Sign-2] %v", err))
+			p.Prover.AccRollback(false)
+			l.Space("err", fmt.Sprintf("[Sign-2] %v", err))
 			return err
 		}
 
-		n.Space("info", "Verify idle file commits")
+		l.Space("info", "Verify idle file commits")
 		var tryCount uint8
 		var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
 		timeoutStep = 10
 		for {
 			timeout = time.Minute * time.Duration(timeoutStep)
 			if tryCount >= 5 {
-				n.Prover.AccRollback(false)
+				p.Prover.AccRollback(false)
 				return errors.Wrapf(err, "[RequestVerifyCommitProof]")
 			}
-			verifyCommitOrDeletionProof, err = n.RequestVerifyCommitProof(
+			verifyCommitOrDeletionProof, err = peernode.RequestVerifyCommitProof(
 				usedTeeEndPoint,
 				requestVerifyCommitAndAccProof,
 				time.Duration(timeout),
@@ -494,7 +318,7 @@ func (n *Node) certifiedSpace() error {
 					time.Sleep(time.Minute)
 					continue
 				}
-				n.Prover.AccRollback(false)
+				p.Prover.AccRollback(false)
 				return errors.Wrapf(err, "[RequestVerifyCommitProof]")
 			}
 			break
@@ -504,7 +328,7 @@ func (n *Node) certifiedSpace() error {
 		// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
 		if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSigLen {
-			n.Prover.AccRollback(false)
+			p.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.Sign length err]")
 		}
 
@@ -518,7 +342,7 @@ func (n *Node) certifiedSpace() error {
 			signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 		}
 		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
-			n.Prover.AccRollback(false)
+			p.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.PoisStatus.Acc length err]")
 		}
 		for i := 0; i < len(verifyCommitOrDeletionProof.PoisStatus.Acc); i++ {
@@ -526,10 +350,10 @@ func (n *Node) certifiedSpace() error {
 		}
 		idleSignInfo.Front = types.U64(verifyCommitOrDeletionProof.PoisStatus.Front)
 		idleSignInfo.Rear = types.U64(verifyCommitOrDeletionProof.PoisStatus.Rear)
-		accountid, _ := types.NewAccountID(n.GetSignatureAccPulickey())
+		accountid, _ := types.NewAccountID(cli.GetSignatureAccPulickey())
 		idleSignInfo.Miner = *accountid
-		g_byte := n.Pois.RsaKey.G.Bytes()
-		n_byte := n.Pois.RsaKey.N.Bytes()
+		g_byte := p.RsaKey.G.Bytes()
+		n_byte := p.RsaKey.N.Bytes()
 		for i := 0; i < len(g_byte); i++ {
 			idleSignInfo.PoisKey.G[i] = types.U8(g_byte[i])
 		}
@@ -537,7 +361,7 @@ func (n *Node) certifiedSpace() error {
 			idleSignInfo.PoisKey.N[i] = types.U8(n_byte[i])
 		}
 
-		n.Space("info", "Submit idle space")
+		l.Space("info", "Submit idle space")
 		var wpuk pattern.WorkerPublicKey
 		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
 			wpuk[i] = types.U8(usedTeeWorkAccount[i])
@@ -550,39 +374,39 @@ func (n *Node) certifiedSpace() error {
 		for j := 0; j < len(sign); j++ {
 			signWithAccBytes[j] = byte(signWithAcc[j])
 		}
-		txhash, err := n.CertIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
+		txhash, err := cli.CertIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 		if err != nil || txhash == "" {
-			n.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
+			l.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
 			time.Sleep(pattern.BlockInterval)
 			time.Sleep(pattern.BlockInterval)
-			minerInfo, err := n.QueryStorageMiner(n.GetSignatureAccPulickey())
+			minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 			if err != nil {
-				n.Prover.AccRollback(false)
+				p.Prover.AccRollback(false)
 				return fmt.Errorf("QueryStorageMiner err:[%v]", err)
 			}
 			if minerInfo.SpaceProofInfo.HasValue() {
 				_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
-				if int64(spaceProofInfo.Rear) <= n.Prover.GetRear() {
-					n.Prover.AccRollback(false)
-					return fmt.Errorf("AccRollbak: [%v] < [%v]", int64(spaceProofInfo.Rear), n.Prover.GetRear())
+				if int64(spaceProofInfo.Rear) <= p.Prover.GetRear() {
+					p.Prover.AccRollback(false)
+					return fmt.Errorf("AccRollbak: [%v] < [%v]", int64(spaceProofInfo.Rear), p.Prover.GetRear())
 				}
 			}
 		}
 
 		if txhash != "" {
-			n.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
+			l.Space("info", fmt.Sprintf("Certified space transactions: %s", txhash))
 		}
 
 		// If the challenge is successful, update the prover status, fileNum is challenged files number,
 		// the second parameter represents whether it is a delete operation, and the commit proofs should belong to the joining files, so it is false
-		err = n.Prover.UpdateStatus(acc.DEFAULT_ELEMS_NUM, false)
+		err = p.Prover.UpdateStatus(acc.DEFAULT_ELEMS_NUM, false)
 		if err != nil {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
-		n.Space("info", "update pois status")
-		n.MinerPoisInfo.Front = verifyCommitOrDeletionProof.PoisStatus.Front
-		n.MinerPoisInfo.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
-		n.MinerPoisInfo.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc
-		n.MinerPoisInfo.StatusTeeSign = verifyCommitOrDeletionProof.StatusTeeSign
+		l.Space("info", "update pois status")
+		m.Front = verifyCommitOrDeletionProof.PoisStatus.Front
+		m.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
+		m.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc
+		m.StatusTeeSign = verifyCommitOrDeletionProof.StatusTeeSign
 	}
 }

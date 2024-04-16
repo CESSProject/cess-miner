@@ -18,9 +18,11 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -175,7 +177,7 @@ func (n *Node) restoreFragment(roothashes []string, roothash, fragmentHash strin
 	var recoverList = make([]string, pattern.DataShards+pattern.ParShards)
 	for _, segment := range fmeta.SegmentList {
 		for k, v := range segment.FragmentList {
-			if !sutils.CompareSlice(v.Miner[:], n.GetSignaturePublickey()) {
+			if !sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {
 				continue
 			}
 			if string(v.Hash[:]) == fragmentHash {
@@ -282,7 +284,7 @@ func (n *Node) claimRestoreOrder() error {
 			continue
 		}
 
-		if !sutils.CompareSlice(restoreOrder.Miner[:], n.GetSignaturePublickey()) {
+		if !sutils.CompareSlice(restoreOrder.Miner[:], n.GetSignatureAccPulickey()) {
 			n.Delete([]byte(Cach_prefix_recovery + v))
 			continue
 		}
@@ -292,10 +294,10 @@ func (n *Node) claimRestoreOrder() error {
 			n.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(b), v, err))
 			continue
 		}
-		err = n.calcFragmentTag(string(b), filepath.Join(n.GetDirs().FileDir, string(b), v))
-		if err != nil {
-			n.Restore("err", fmt.Sprintf("[calcFragmentTag %s-%s] %v", string(b), v, err))
-		}
+		// err = n.calcFragmentTag(string(b), filepath.Join(n.GetDirs().FileDir, string(b), v))
+		// if err != nil {
+		// 	n.Restore("err", fmt.Sprintf("[calcFragmentTag %s-%s] %v", string(b), v, err))
+		// }
 		n.Restore("info", fmt.Sprintf("[RestoralComplete %s-%s] %s", string(b), v, txhash))
 		n.Delete([]byte(Cach_prefix_recovery + v))
 	}
@@ -633,7 +635,7 @@ func (n *Node) claimNoExitOrder() error {
 // 	return ok
 // }
 
-func (n *Node) calcFragmentTag(fid, fragment string) error {
+func calcFragmentTag(cli sdk.SDK, l logger.Logger, teeRecord *TeeRecord, ws *Workspace, fid, fragment string) error {
 	buf, err := os.ReadFile(fragment)
 	if err != nil {
 		return err
@@ -643,7 +645,7 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 	}
 	fragmentHash := filepath.Base(fragment)
 
-	genTag, teePubkey, err := n.requestTeeTag(fid, fragment, nil, nil)
+	genTag, teePubkey, err := requestTeeTag(l, teeRecord, cli.GetSignatureAccPulickey(), fid, fragment, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -656,7 +658,7 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 		return fmt.Errorf("invalid genTag.Signature length: %d", len(genTag.Signature))
 	}
 
-	index := getTagsNumber(filepath.Join(n.GetDirs().FileDir, fid))
+	index := getTagsNumber(filepath.Join(ws.GetFileDir(), fid))
 
 	var tfile = &TagfileType{
 		Tag:          genTag.Tag,
@@ -683,6 +685,6 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 	if err != nil {
 		return fmt.Errorf("WriteBufToFile: %v", err)
 	}
-	n.Restore("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragment)))
+	l.Restore("info", fmt.Sprintf("Calc a service tag: %s", fmt.Sprintf("%s.tag", fragment)))
 	return nil
 }

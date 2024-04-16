@@ -8,6 +8,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 
 // program entry
 func main() {
+	defer log.Println("Service has exited")
 	exitCh := make(chan os.Signal)
 	signal.Notify(exitCh, os.Interrupt, os.Kill, syscall.SIGTERM)
 	go exitHandle(exitCh)

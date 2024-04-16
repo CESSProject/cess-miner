@@ -42,14 +42,13 @@ const (
 )
 
 const (
-	DbDir            = "db"
-	LogDir           = "log"
-	SpaceDir         = "space"
-	PoisDir          = "pois"
-	AccDir           = "acc"
-	RandomDir        = "random"
-	PeersFile        = "peers"
-	Podr2PubkeyFile  = ".podr2pubkey"
-	IdleProofFile    = "idleproof"
-	ServiceProofFile = "serviceproof"
+	DevNet  = "devnet"
+	TestNet = "testnet"
+	MainNet = "mainnet"
+)
+
+const (
+	Unregistered = iota
+	UnregisteredPoisKey
+	Registered
 )

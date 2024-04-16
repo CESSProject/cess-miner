@@ -12,7 +12,6 @@ import (
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -53,44 +52,37 @@ func init() {
 
 // updateIncomeAccount
 func updateEarningsAccount(cmd *cobra.Command) {
-	var (
-		err error
-		n   = node.NewEmptyNode()
-	)
-
 	if len(os.Args) < 3 {
 		out.Err("Please enter your earnings account")
 		os.Exit(1)
 	}
 
-	err = sutils.VerityAddress(os.Args[3], sutils.CessPrefix)
+	err := sutils.VerityAddress(os.Args[3], sutils.CessPrefix)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	// Build profile instances
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	//Build client
-	n.SDK, err = cess.New(
+	cli, err := cess.New(
 		context.Background(),
 		cess.Name(config.CharacterName_Bucket),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
+	defer cli.Close()
 
-	txhash, err := n.UpdateEarningsAccount(os.Args[3])
+	txhash, err := cli.UpdateEarningsAccount(os.Args[3])
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

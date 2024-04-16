@@ -14,7 +14,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
-type MinerState interface {
+type MinerStater interface {
 	// set
 	SaveMinerState(state string) error
 	SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64)
@@ -24,7 +24,7 @@ type MinerState interface {
 	GetMinerSpaceInfo() (uint64, uint64, uint64, uint64)
 }
 
-type MinerStateType struct {
+type MinerState struct {
 	lock        *sync.RWMutex
 	state       string
 	decSpace    uint64
@@ -33,15 +33,15 @@ type MinerStateType struct {
 	lockedSpace uint64
 }
 
-var _ MinerState = (*MinerStateType)(nil)
+var _ MinerStater = (*MinerState)(nil)
 
-func NewMinerState() MinerState {
-	return &MinerStateType{
+func NewMinerState() *MinerState {
+	return &MinerState{
 		lock: new(sync.RWMutex),
 	}
 }
 
-func (m *MinerStateType) SaveMinerState(state string) error {
+func (m *MinerState) SaveMinerState(state string) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	switch state {
@@ -67,7 +67,7 @@ func (m *MinerStateType) SaveMinerState(state string) error {
 	return nil
 }
 
-func (m *MinerStateType) SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64) {
+func (m *MinerState) SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64) {
 	m.lock.Lock()
 	m.decSpace = decSpace
 	m.validSpace = validSpace
@@ -76,14 +76,14 @@ func (m *MinerStateType) SaveMinerSpaceInfo(decSpace, validSpace, usedSpace, loc
 	m.lock.Unlock()
 }
 
-func (m *MinerStateType) GetMinerState() string {
+func (m *MinerState) GetMinerState() string {
 	m.lock.RLock()
 	result := m.state
 	m.lock.RUnlock()
 	return result
 }
 
-func (m *MinerStateType) GetMinerSpaceInfo() (uint64, uint64, uint64, uint64) {
+func (m *MinerState) GetMinerSpaceInfo() (uint64, uint64, uint64, uint64) {
 	m.lock.RLock()
 	decSpace := m.decSpace
 	validSpace := m.validSpace
