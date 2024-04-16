@@ -8,7 +8,15 @@
 package node
 
 import (
+	"fmt"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/p2p-go/out"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -86,6 +94,72 @@ func NewRunningState() *RunningState {
 	return &RunningState{
 		lock: new(sync.RWMutex),
 	}
+}
+
+func (s *RunningState) ListenLocal() {
+	var port uint32 = 6000
+	engine := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET"}
+	engine.Use(cors.New(config))
+	for {
+		if !core.FreeLocalPort(port) {
+			port++
+		} else {
+			break
+		}
+	}
+	engine.GET("/status", s.getStatusHandle)
+	go engine.Run(fmt.Sprintf("localhost:%d", port))
+	time.Sleep(time.Second)
+	if !core.FreeLocalPort(port) {
+		out.Tip(fmt.Sprintf("Local service started: [GET] localhost:%d/status", port))
+	}
+}
+
+// getStatusHandle
+func (n *RunningState) getStatusHandle(c *gin.Context) {
+	var msg string
+	initStage := n.GetInitStage()
+	if !strings.Contains(initStage[Stage_Complete], "[ok]") {
+		msg += "init stage: \n"
+		for i := 0; i < len(initStage); i++ {
+			msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
+		}
+	}
+	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
+
+	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
+
+	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
+
+	if n.GetChainState() {
+		msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpcAddr())
+	} else {
+		msg += fmt.Sprintf("RPC Connection: [fail] %v\n", n.GetCurrentRpcAddr())
+	}
+	msg += fmt.Sprintf("Last reconnection: %v\n", n.GetLastReconnectRpcTime())
+
+	msg += fmt.Sprintf("Calculate Tag: %v\n", n.GetCalcTagFlag())
+
+	msg += fmt.Sprintf("Report file: %v\n", n.GetReportFileFlag())
+
+	msg += fmt.Sprintf("Generate idle: %v\n", n.GetGenIdleFlag())
+
+	msg += fmt.Sprintf("Report idle: %v\n", n.GetAuthIdleFlag())
+
+	msg += fmt.Sprintf("Calc idle challenge: %v\n", n.GetIdleChallengeFlag())
+
+	msg += fmt.Sprintf("Calc service challenge: %v\n", n.GetServiceChallengeFlag())
+
+	msg += fmt.Sprintf("Receiving data: %v\n", n.PeerNode.GetRecvFlag())
+
+	msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
+
+	msg += fmt.Sprintf("Memory usage: %d", getMemUsage())
+
+	c.Data(200, "application/octet-stream", []byte(msg))
 }
 
 func (s *RunningState) SetInitStage(stage uint8, msg string) {

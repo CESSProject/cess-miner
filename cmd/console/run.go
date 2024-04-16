@@ -56,14 +56,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 	peernode := &core.PeerNode{}
 	runningState := node.NewRunningState()
 	teeRecord := &node.TeeRecord{}
-	//minerState := node.MinerState{}
+	minerState := &node.MinerState{}
 	wspace := node.NewWorkspace()
 	minerPoisInfo := &pb.MinerPoisInfo{}
 	rsaKeyPair := &proof.RSAKeyPair{}
 	p := &node.Pois{}
 
 	runningState.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
-	runningState.SetInitStage(node.Stage_Startup, "Program startup")
+	runningState.SetInitStage(node.Stage_Startup, "Service startup")
 	runningState.SetPID(int32(os.Getpid()))
 	//n.ListenLocal()
 
@@ -126,8 +126,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	runningState.SetInitStage(node.Stage_CreateP2p, fmt.Sprintf("[ok] Create peer node: %s", peernode.ID().String()))
 
-	go subscribe(ctx, peernode.GetBootnode(), peernode.GetHost())
-
 	out.Tip(fmt.Sprintf("Local peer id: %s", peernode.ID().String()))
 	out.Tip(fmt.Sprintf("Network environment: %s", cli.GetNetworkEnv()))
 	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", runningState.GetCpuCores()))
@@ -184,6 +182,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	case configs.UnregisteredPoisKey:
+		minerState.SaveMinerState(string(oldRegInfo.State))
 		runningState.SetInitStage(node.Stage_Register, "[ok] Registering pois key...")
 		err = registerPoisKey(cfg, cli, peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
 		if err != nil {
@@ -215,6 +214,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		}
 
 	case configs.Registered:
+		minerState.SaveMinerState(string(oldRegInfo.State))
 		err = updateMinerRegistertionInfo(cfg, cli, oldRegInfo)
 		if err != nil {
 			out.Err(err.Error())
@@ -271,7 +271,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	runningState.SetInitStage(node.Stage_BuildCache, "[ok] Building cache...")
 	// build cache instance
-	cache, err := buildCache(wspace.GetDbDir())
+	cace, err := buildCache(wspace.GetDbDir())
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildCache] %v", err))
 		os.Exit(1)
@@ -280,7 +280,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
 	// build log instance
-	logger, err := buildLogs(wspace.GetLogDir())
+	l, err := buildLogs(wspace.GetLogDir())
 	if err != nil {
 		out.Err(fmt.Sprintf("[buildLogs] %v", err))
 		os.Exit(1)
@@ -290,15 +290,81 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	runningState.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
 
-	dirfreeSpace, err := utils.GetDirFreeSpace(wspace.GetRootDir())
-	if err == nil {
-		if dirfreeSpace < pattern.SIZE_1GiB*32 {
-			out.Warn("The workspace capacity is less than 32G")
-		}
-	}
-	out.Tip(fmt.Sprintf("Workspace free size: %v", dirfreeSpace))
+	checkWorkSpace(*wspace)
 
-	node.Run(ctx, cli, peernode, cache, logger)
+	go subscribe(ctx, peernode.GetBootnode(), peernode.GetHost())
+
+	tick_block := time.NewTicker(pattern.BlockInterval)
+	defer tick_block.Stop()
+
+	//node.Run(ctx, cli, peernode, cache, logger)
+	out.Ok("Service started successfully")
+	chainState := true
+	reportFileCh := make(chan bool, 1)
+	reportFileCh <- true
+	for range tick_block.C {
+		chainState = cli.GetChainState()
+		if !chainState {
+			peernode.DisableRecv()
+			connectChain(cli)
+			continue
+		}
+		peernode.EnableRecv()
+		syncMinerStatus(cli, l, minerState)
+		if minerState.GetMinerState() == pattern.MINER_STATE_EXIT ||
+			minerState.GetMinerState() == pattern.MINER_STATE_OFFLINE {
+			continue
+		}
+
+		if len(reportFileCh) > 0 {
+			<-reportFileCh
+			go node.ReportFiles(reportFileCh, cli, runningState, wspace, l)
+		}
+
+		n.SetTaskPeriod("1m")
+		if len(ch_idlechallenge) > 0 || len(ch_servicechallenge) > 0 {
+			go n.challengeMgt(ch_idlechallenge, ch_servicechallenge)
+		}
+		if len(ch_findPeers) > 0 {
+			<-ch_findPeers
+			go n.subscribe(ctx, ch_findPeers)
+		}
+
+		if len(ch_replace) > 0 {
+			<-ch_replace
+			go n.replaceIdle(ch_replace)
+		}
+
+		if len(ch_spaceMgt) > 0 {
+			<-ch_spaceMgt
+			go n.poisMgt(ch_spaceMgt)
+		}
+
+		n.SetTaskPeriod("1m-end")
+
+		if len(ch_syncChainStatus) > 0 {
+			<-ch_syncChainStatus
+			go n.syncChainStatus(ch_syncChainStatus)
+		}
+
+		if len(ch_GenIdleFile) > 0 {
+			<-ch_GenIdleFile
+			go n.genIdlefile(ch_GenIdleFile)
+		}
+		if len(ch_calctag) > 0 {
+			<-ch_calctag
+			go n.calcTag(ch_calctag)
+		}
+
+		n.SetTaskPeriod("1h")
+		//go n.reportLogsMgt(ch_reportLogs)
+		if len(ch_restoreMgt) > 0 {
+			<-ch_restoreMgt
+			go n.restoreMgt(ch_restoreMgt)
+		}
+		n.SetTaskPeriod("1h-end")
+
+	}
 }
 
 func parseArgs_config(cmd *cobra.Command) (string, error) {
@@ -1349,4 +1415,120 @@ func queryPodr2KeyFromTee(peernode *core.PeerNode, teeRecord *node.TeeRecord, si
 		}
 	}
 	return nil, errors.New("All tee nodes are busy or unavailable")
+}
+
+func checkWorkSpace(wspace node.Workspace) {
+	dirfreeSpace, err := utils.GetDirFreeSpace(wspace.GetRootDir())
+	if err == nil {
+		if dirfreeSpace < pattern.SIZE_1GiB*32 {
+			out.Warn("The workspace capacity is less than 32G")
+		}
+	}
+	out.Tip(fmt.Sprintf("Workspace free size: %v G", dirfreeSpace/pattern.SIZE_1GiB))
+}
+
+func connectChain(cli sdk.SDK) {
+	// n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	// n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	// n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	// out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+	err := cli.ReconnectRPC()
+	if err != nil {
+		// n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
+		// n.Log("err", "All RPCs failed to reconnect")
+		// n.Ichal("err", "All RPCs failed to reconnect")
+		// n.Schal("err", "All RPCs failed to reconnect")
+		// out.Err("All RPCs failed to reconnect")
+		return
+	}
+	// n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
+	cli.SetChainState(true)
+	//peernode.EnableRecv()
+	// out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	// n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	// n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+	// n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+}
+
+func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState) {
+	// var dialOptions []grpc.DialOption
+	// var chainPublickey = make([]byte, pattern.WorkerPublicKeyLen)
+	// teelist, err := n.QueryAllTeeWorkerMap()
+	// if err != nil {
+	// 	n.Log("err", err.Error())
+	// } else {
+	// 	for i := 0; i < len(teelist); i++ {
+	// 		n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
+	// 		endpoint, err := n.QueryTeeWorkEndpoint(teelist[i].Pubkey)
+	// 		if err != nil {
+	// 			n.Log("err", err.Error())
+	// 			continue
+	// 		}
+	// 		endpoint = processEndpoint(endpoint)
+
+	// 		if !strings.Contains(endpoint, "443") {
+	// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	// 		} else {
+	// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+	// 		}
+
+	// 		// verify identity public key
+	// 		identityPubkeyResponse, err := n.GetIdentityPubkey(endpoint,
+	// 			&pb.Request{
+	// 				StorageMinerAccountId: n.GetSignatureAccPulickey(),
+	// 			},
+	// 			time.Duration(time.Minute),
+	// 			dialOptions,
+	// 			nil,
+	// 		)
+	// 		if err != nil {
+	// 			n.Log("err", err.Error())
+	// 			continue
+	// 		}
+	// 		//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
+	// 		if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
+	// 			n.DeleteTee(string(teelist[i].Pubkey[:]))
+	// 			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
+	// 			continue
+	// 		}
+
+	// 		for j := 0; j < pattern.WorkerPublicKeyLen; j++ {
+	// 			chainPublickey[j] = byte(teelist[i].Pubkey[j])
+	// 		}
+	// 		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+	// 			n.DeleteTee(string(teelist[i].Pubkey[:]))
+	// 			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
+	// 			n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
+	// 			continue
+	// 		}
+
+	// 		n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
+	// 		err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+	// 		if err != nil {
+	// 			n.Log("err", err.Error())
+	// 		}
+	// 	}
+	// }
+	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+	if err != nil {
+		l.Log("err", err.Error())
+		if err.Error() == pattern.ERR_Empty {
+			err = miner.SaveMinerState(pattern.MINER_STATE_OFFLINE)
+			if err != nil {
+				l.Log("err", err.Error())
+			}
+		}
+		return
+	}
+	err = miner.SaveMinerState(string(minerInfo.State))
+	if err != nil {
+		l.Log("err", err.Error())
+	}
+	miner.SaveMinerSpaceInfo(
+		minerInfo.DeclarationSpace.Uint64(),
+		minerInfo.IdleSpace.Uint64(),
+		minerInfo.ServiceSpace.Uint64(),
+		minerInfo.LockSpace.Uint64(),
+	)
+	return
 }
