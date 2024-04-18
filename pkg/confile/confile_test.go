@@ -15,6 +15,6 @@ import (
 
 func TestParse(t *testing.T) {
 	confile := "./conf.yaml"
-	err := NewEmptyConfigfile().Parse(confile)
+	err := NewConfigFile().Parse(confile)
 	assert.NoError(t, err)
 }

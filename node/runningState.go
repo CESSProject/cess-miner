@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,29 +24,12 @@ const (
 	St_Error
 )
 
-// init stage
-const (
-	Stage_Startup uint8 = iota
-	Stage_ReadConfig
-	Stage_ConnectRpc
-	Stage_CreateP2p
-	Stage_SyncBlock
-	Stage_QueryChain
-	Stage_Register
-	Stage_BuildDir
-	Stage_BuildCache
-	Stage_BuildLog
-	Stage_Complete
-)
-
 type RunningStater interface {
 	SetStatus
 	GetStatus
 }
 
 type SetStatus interface {
-	SetInitStage(st uint8, msg string)
-	SetTaskPeriod(msg string)
 	SetCpuCores(num int)
 	SetPID(pid int32)
 	SetLastReconnectRpcTime(t string)
@@ -64,8 +46,6 @@ type SetStatus interface {
 }
 
 type GetStatus interface {
-	GetInitStage() [Stage_Complete + 1]string
-	GetTaskPeriod() string
 	GetCpuCores() int
 	GetPID() int32
 	GetLastReconnectRpcTime() string
@@ -83,8 +63,6 @@ type GetStatus interface {
 
 type RunningState struct {
 	lock                 *sync.RWMutex
-	initStageMsg         [Stage_Complete + 1]string
-	taskPeriod           string
 	cpuCores             int
 	pid                  int32
 	lastReconnectRpcTime string
@@ -110,6 +88,7 @@ func NewRunningState() *RunningState {
 
 func (s *RunningState) ListenLocal() {
 	var port uint32 = 6000
+	gin.SetMode(gin.ReleaseMode)
 	engine := gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
@@ -133,16 +112,8 @@ func (s *RunningState) ListenLocal() {
 // getStatusHandle
 func (n *RunningState) getStatusHandle(c *gin.Context) {
 	var msg string
-	initStage := n.GetInitStage()
-	if !strings.Contains(initStage[Stage_Complete], "[ok]") {
-		msg += "init stage: \n"
-		for i := 0; i < len(initStage); i++ {
-			msg += fmt.Sprintf("    %d: %s\n", i, initStage[i])
-		}
-	}
-	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
 
-	msg += fmt.Sprintf("Task Stage: %s\n", n.GetTaskPeriod())
+	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
 
 	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerStatus())
 
@@ -172,30 +143,6 @@ func (n *RunningState) getStatusHandle(c *gin.Context) {
 	msg += fmt.Sprintf("Memory usage: %d", getMemUsage())
 
 	c.Data(200, "application/octet-stream", []byte(msg))
-}
-
-func (s *RunningState) SetInitStage(stage uint8, msg string) {
-	s.lock.Lock()
-	s.initStageMsg[stage] = msg
-	s.lock.Unlock()
-}
-
-func (s *RunningState) GetInitStage() [Stage_Complete + 1]string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.initStageMsg
-}
-
-func (s *RunningState) SetTaskPeriod(msg string) {
-	s.lock.Lock()
-	s.taskPeriod = msg
-	s.lock.Unlock()
-}
-
-func (s *RunningState) GetTaskPeriod() string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.taskPeriod
 }
 
 func (s *RunningState) SetLastReconnectRpcTime(t string) {
