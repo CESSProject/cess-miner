@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/CESSProject/cess-bucket/configs"
@@ -21,9 +22,13 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
-var reportedFile map[string]struct{}
+var (
+	reportedFileLock *sync.Mutex
+	reportedFile     map[string]struct{}
+)
 
 func init() {
+	reportedFileLock = new(sync.Mutex)
 	reportedFile = make(map[string]struct{}, 0)
 }
 
@@ -38,7 +43,9 @@ func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l 
 	fid := ""
 	for _, file := range roothashs {
 		fid = filepath.Base(file)
+		reportedFileLock.Lock()
 		_, ok = reportedFile[fid]
+		reportedFileLock.Unlock()
 		if ok {
 			l.Report("info", fmt.Sprintf("[%s] prepare to check the file", fid))
 			err = check_file(cli, l, ws, file)
@@ -66,7 +73,9 @@ func check_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 	metadata, err := cli.QueryFileMetadata(fid)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
+			reportedFileLock.Lock()
 			delete(reportedFile, fid)
+			reportedFileLock.Unlock()
 			os.RemoveAll(f)
 			l.Del("info", fmt.Sprintf("delete folder: %s", f))
 			return nil
@@ -129,7 +138,9 @@ func report_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 		if err.Error() != pattern.ERR_Empty {
 			return err
 		}
+		reportedFileLock.Lock()
 		reportedFile[fid] = struct{}{}
+		reportedFileLock.Unlock()
 		return nil
 	}
 
@@ -142,7 +153,9 @@ func report_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 	}
 
 	if !reReport {
+		reportedFileLock.Lock()
 		reportedFile[fid] = struct{}{}
+		reportedFileLock.Unlock()
 		return nil
 	}
 
@@ -184,7 +197,9 @@ func report_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 			continue
 		}
 		l.Report("info", fmt.Sprintf("[%s] report successful, blockhash: %s", fid, txhash))
+		reportedFileLock.Lock()
 		reportedFile[fid] = struct{}{}
+		reportedFileLock.Unlock()
 		break
 	}
 	return nil

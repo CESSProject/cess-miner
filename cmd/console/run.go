@@ -53,19 +53,19 @@ func runCmd(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
 	cfg := confile.NewEmptyConfigfile()
 	cli := sdk.SDK(&chain.ChainClient{})
-	peernode := &core.PeerNode{}
 	runningState := node.NewRunningState()
-	teeRecord := &node.TeeRecord{}
-	minerState := &node.MinerState{}
+	teeRecord := node.NewTeeRecord()
+	minerState := node.NewMinerState()
 	wspace := node.NewWorkspace()
 	minerPoisInfo := &pb.MinerPoisInfo{}
 	rsaKeyPair := &proof.RSAKeyPair{}
 	p := &node.Pois{}
-
+	minerRecord := node.NewPeerRecord()
+	_ = minerRecord
 	runningState.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 	runningState.SetInitStage(node.Stage_Startup, "Service startup")
 	runningState.SetPID(int32(os.Getpid()))
-	//n.ListenLocal()
+	//runningState.ListenLocal()
 
 	runningState.SetInitStage(node.Stage_ReadConfig, "Parsing configuration file...")
 	// parse configuration file
@@ -106,7 +106,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	runningState.SetInitStage(node.Stage_CreateP2p, "Create peer node...")
 
 	// new peer node
-	peernode, err = p2pgo.New(
+	peernode, err := p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(cfg.ReadServicePort()),
 		p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), cli.GetSDKName())),
@@ -118,8 +118,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	defer peernode.Close()
 
+	go subscribe(ctx, &peernode, minerRecord, nil)
+
 	// check network environment
-	err = checkNetworkEnv(cli, peernode.GetBootnode())
+	err = checkNetworkEnv(cli, peernode.GetNetEnv())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -145,16 +147,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-
-	switch register {
-	case configs.Unregistered:
-		runningState.SetInitStage(node.Stage_Register, "[ok] Registering...")
-		_, err = registerMiner(cfg, cli, peernode, decTib)
-		if err != nil {
-			out.Err(err.Error())
-			os.Exit(1)
-		}
-		runningState.SetInitStage(node.Stage_Register, "[ok] Registration complete")
+	if register == configs.Unregistered {
 		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace...")
 		err = wspace.RemoveAndBuild(peernode.Workspace())
 		if err != nil {
@@ -162,10 +155,45 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace completed")
+	} else {
+		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace...")
+		err = wspace.Build(peernode.Workspace())
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		runningState.SetInitStage(node.Stage_BuildDir, "[ok] Build workspace completed")
+	}
+	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
+	// build log instance
+	l, err := buildLogs(wspace.GetLogDir())
+	if err != nil {
+		out.Err(fmt.Sprintf("[buildLogs] %v", err))
+		os.Exit(1)
+	}
+	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Build log completed")
+
+	fmt.Printf("logger point: %p\n", &l)
+	fmt.Printf("ctx point: %p\n", &ctx)
+	fmt.Printf("peernode point: %p\n", &peernode)
+	fmt.Printf("pois point: %p\n", &l)
+	//go node.Subscribe(ctx, &peernode, &l, minerRecord)
+	//go subscribe(ctx, &peernode, minerRecord, &l)
+	//time.Sleep(time.Minute)
+
+	switch register {
+	case configs.Unregistered:
+		runningState.SetInitStage(node.Stage_Register, "[ok] Registering...")
+		_, err = registerMiner(cfg, cli, &peernode, decTib)
+		if err != nil {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		runningState.SetInitStage(node.Stage_Register, "[ok] Registration complete")
 
 		time.Sleep(pattern.BlockInterval * 5)
 
-		err = registerPoisKey(cfg, cli, peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
+		err = registerPoisKey(cfg, cli, &peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
 		if err != nil {
 			out.Err(err.Error())
 			os.Exit(1)
@@ -185,7 +213,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	case configs.UnregisteredPoisKey:
 		minerState.SaveMinerState(string(oldRegInfo.State))
 		runningState.SetInitStage(node.Stage_Register, "[ok] Registering pois key...")
-		err = registerPoisKey(cfg, cli, peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
+		err = registerPoisKey(cfg, cli, &peernode, teeRecord, minerPoisInfo, rsaKeyPair, wspace)
 		if err != nil {
 			out.Err(err.Error())
 			os.Exit(1)
@@ -206,11 +234,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 		)
 		if err != nil {
 			out.Err(fmt.Sprintf("[Init Pois] %v", err))
-			os.Exit(1)
-		}
-		err = wspace.Build(peernode.Workspace())
-		if err != nil {
-			out.Err(fmt.Sprintf("build workspace err: %v", err))
 			os.Exit(1)
 		}
 
@@ -242,17 +265,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err(fmt.Sprintf("Init POIS err: %v", err))
 			os.Exit(1)
 		}
-		err = wspace.Build(peernode.Workspace())
-		if err != nil {
-			out.Err(fmt.Sprintf("build workspace err: %v", err))
-			os.Exit(1)
-		}
 
-		saveAllTees(cli, peernode, teeRecord)
+		saveAllTees(cli, &peernode, teeRecord)
 
 		buf, err := wspace.LoadRsaPublicKey()
 		if err != nil {
-			buf, _ = queryPodr2KeyFromTee(peernode, teeRecord, cli.GetSignatureAccPulickey())
+			buf, _ = queryPodr2KeyFromTee(&peernode, teeRecord, cli.GetSignatureAccPulickey())
 		}
 		if len(buf) > 0 {
 			rsaKeyPair, err = InitRsaKey(buf)
@@ -279,24 +297,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	runningState.SetInitStage(node.Stage_BuildCache, "[ok] Build cache completed")
 
-	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Building log...")
-	// build log instance
-	l, err := buildLogs(wspace.GetLogDir())
-	if err != nil {
-		out.Err(fmt.Sprintf("[buildLogs] %v", err))
-		os.Exit(1)
-	}
-	runningState.SetInitStage(node.Stage_BuildLog, "[ok] Build log completed")
 	out.Tip(fmt.Sprintf("Workspace: %v", wspace.GetRootDir()))
 
 	runningState.SetInitStage(node.Stage_Complete, "[ok] Initialization completed")
 
 	checkWorkSpace(*wspace)
 
-	go subscribe(ctx, peernode.GetBootnode(), peernode.GetHost())
+	//go node.Subscribe(ctx, peernode.GetBootnode(), peernode.GetHost(), l, minerRecord)
 
-	tick_block := time.NewTicker(pattern.BlockInterval)
-	defer tick_block.Stop()
+	// go subscribe(ctx, peernode.GetBootnode(), peernode.GetHost(), l)
+	// select {}
 
 	chainState := true
 	reportFileCh := make(chan bool, 1)
@@ -314,66 +324,93 @@ func runCmd(cmd *cobra.Command, args []string) {
 	syncTeeCh <- true
 	calcTagCh := make(chan bool, 1)
 	calcTagCh <- true
+	restoreCh := make(chan bool, 1)
+	restoreCh <- true
+
+	tick_block := time.NewTicker(pattern.BlockInterval)
+	defer tick_block.Stop()
+
+	tick_Minute := time.NewTicker(time.Minute)
+	defer tick_Minute.Stop()
+
+	tick_Hour := time.NewTicker(time.Hour)
+	defer tick_Hour.Stop()
 
 	out.Ok("Service started successfully")
-	for range tick_block.C {
-		chainState = cli.GetChainState()
-		if !chainState {
-			runningState.SetChainStatus(false)
-			runningState.SetReceiveFlag(false)
-			peernode.DisableRecv()
-			connectChain(cli)
-			runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
-			continue
-		}
-		runningState.SetChainStatus(true)
-		runningState.SetReceiveFlag(true)
-		peernode.EnableRecv()
-		syncMinerStatus(cli, l, minerState, runningState)
-		if minerState.GetMinerState() == pattern.MINER_STATE_EXIT ||
-			minerState.GetMinerState() == pattern.MINER_STATE_OFFLINE {
-			continue
-		}
+	for {
+		select {
+		case <-tick_block.C:
+			chainState = cli.GetChainState()
+			if !chainState {
+				runningState.SetChainStatus(false)
+				runningState.SetReceiveFlag(false)
+				peernode.DisableRecv()
+				connectChain(cli)
+				runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
+				break
+			}
+			runningState.SetChainStatus(true)
+			runningState.SetReceiveFlag(true)
+			peernode.EnableRecv()
 
-		if len(reportFileCh) > 0 {
-			<-reportFileCh
-			go node.ReportFiles(reportFileCh, cli, runningState, wspace, l)
-		}
+		case <-tick_Minute.C:
+			if !chainState {
+				break
+			}
 
-		if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-			go node.ChallengeMgt(cli, l, wspace, runningState, teeRecord, peernode, minerPoisInfo, rsaKeyPair, p, cace, idleChallCh, serviceChallCh)
-		}
+			syncMinerStatus(cli, &l, minerState, runningState)
+			if minerState.GetMinerState() == pattern.MINER_STATE_EXIT ||
+				minerState.GetMinerState() == pattern.MINER_STATE_OFFLINE {
+				break
+			}
 
-		if len(replaceIdleCh) > 0 {
-			<-replaceIdleCh
-			go node.ReplaceIdle(cli, l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
-		}
+			if len(syncTeeCh) > 0 {
+				<-syncTeeCh
+				go node.SyncTeeInfo(cli, &l, &peernode, teeRecord, syncTeeCh)
+			}
 
-		if len(attestationIdleCh) > 0 {
-			<-attestationIdleCh
-			go node.AttestationIdle(cli, peernode, p, runningState, minerPoisInfo, teeRecord, l, attestationIdleCh)
-		}
+			if len(reportFileCh) > 0 {
+				<-reportFileCh
+				go node.ReportFiles(reportFileCh, cli, runningState, wspace, &l)
+			}
 
-		if len(syncTeeCh) > 0 {
-			<-syncTeeCh
-			go node.SyncTeeInfo(cli, l, peernode, teeRecord, syncTeeCh)
-		}
+			if len(attestationIdleCh) > 0 {
+				<-attestationIdleCh
+				go node.AttestationIdle(cli, &peernode, p, runningState, minerPoisInfo, teeRecord, &l, attestationIdleCh)
+			}
 
-		if len(genIdleCh) > 0 && !runningState.GetServiceChallengeFlag() && !runningState.GetIdleChallengeFlag() {
-			<-genIdleCh
-			go node.GenIdle(l, minerState, cfg, runningState, p, peernode.Workspace(), genIdleCh)
-		}
+			if len(calcTagCh) > 0 {
+				<-calcTagCh
+				go node.CalcTag(cli, cace, &l, wspace, runningState, teeRecord, calcTagCh)
+			}
 
-		if len(calcTagCh) > 0 {
-			<-calcTagCh
-			go node.CalcTag(cli, cace, l, wspace, runningState, teeRecord, calcTagCh)
-		}
+			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
+				go node.ChallengeMgt(cli, &l, wspace, runningState, teeRecord, &peernode, minerPoisInfo, rsaKeyPair, p, cace, idleChallCh, serviceChallCh)
+				time.Sleep(pattern.BlockInterval)
+			}
 
-		// go n.reportLogsMgt(ch_reportLogs)
-		// if len(ch_restoreMgt) > 0 {
-		// 	<-ch_restoreMgt
-		// 	go n.restoreMgt(ch_restoreMgt)
-		// }
+			if len(genIdleCh) > 0 && !runningState.GetServiceChallengeFlag() && !runningState.GetIdleChallengeFlag() {
+				<-genIdleCh
+				go node.GenIdle(&l, minerState, cfg, runningState, p, peernode.Workspace(), genIdleCh)
+			}
+
+		case <-tick_Hour.C:
+			if !chainState {
+				break
+			}
+
+			if len(replaceIdleCh) > 0 {
+				<-replaceIdleCh
+				go node.ReplaceIdle(cli, &l, p, minerPoisInfo, teeRecord, &peernode, replaceIdleCh)
+			}
+
+			if len(restoreCh) > 0 {
+				<-restoreCh
+				go node.RestoreFiles(cli, cace, &l, wspace.GetFileDir(), restoreCh)
+			}
+
+			// go n.reportLogsMgt(ch_reportLogs)
+		}
 	}
 }
 
@@ -841,7 +878,7 @@ func buildCache(cacheDir string) (cache.Cache, error) {
 	return cache.NewCache(cacheDir, 0, 0, configs.NameSpaces)
 }
 
-func buildLogs(logDir string) (logger.Logger, error) {
+func buildLogs(logDir string) (logger.Lg, error) {
 	var logs_info = make(map[string]string)
 	for _, v := range logger.LogFiles {
 		logs_info[v] = filepath.Join(logDir, v+".log")
@@ -849,18 +886,18 @@ func buildLogs(logDir string) (logger.Logger, error) {
 	return logger.NewLogs(logs_info)
 }
 
-func checkNetworkEnv(cli sdk.SDK, bootnode string) error {
+func checkNetworkEnv(cli sdk.SDK, netenv string) error {
 	chain := cli.GetNetworkEnv()
 	if strings.Contains(chain, configs.DevNet) {
-		if !strings.Contains(bootnode, configs.DevNet) {
+		if !strings.Contains(netenv, configs.DevNet) {
 			return errors.New("chain and p2p are not in the same network")
 		}
 	} else if strings.Contains(chain, configs.TestNet) {
-		if !strings.Contains(bootnode, configs.TestNet) {
+		if !strings.Contains(netenv, configs.TestNet) {
 			return errors.New("chain and p2p are not in the same network")
 		}
 	} else if strings.Contains(chain, configs.MainNet) {
-		if !strings.Contains(bootnode, configs.MainNet) {
+		if !strings.Contains(netenv, configs.MainNet) {
 			return errors.New("chain and p2p are not in the same network")
 		}
 	} else {
@@ -1424,7 +1461,7 @@ func queryPodr2KeyFromTee(peernode *core.PeerNode, teeRecord *node.TeeRecord, si
 			return podr2PubkeyResponse.Pubkey, nil
 		}
 	}
-	return nil, errors.New("All tee nodes are busy or unavailable")
+	return nil, errors.New("all tee nodes are busy or unavailable")
 }
 
 func checkWorkSpace(wspace node.Workspace) {
@@ -1434,7 +1471,7 @@ func checkWorkSpace(wspace node.Workspace) {
 			out.Warn("The workspace capacity is less than 32G")
 		}
 	}
-	out.Tip(fmt.Sprintf("Workspace free size: %v G", dirfreeSpace/pattern.SIZE_1GiB))
+	out.Tip(fmt.Sprintf("Workspace free size: %vGiB", dirfreeSpace/pattern.SIZE_1GiB))
 }
 
 func connectChain(cli sdk.SDK) {
@@ -1484,5 +1521,4 @@ func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState, r *no
 		minerInfo.ServiceSpace.Uint64(),
 		minerInfo.LockSpace.Uint64(),
 	)
-	return
 }

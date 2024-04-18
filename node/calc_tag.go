@@ -76,7 +76,9 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 	fid := filepath.Base(file)
 	l.Stag("info", fmt.Sprintf("[%s] Start calc file tag", fid))
 
-	ok, _ = cace.Has([]byte(Cach_prefix_File + fid))
+	reportedFileLock.Lock()
+	_, ok = reportedFile[fid]
+	reportedFileLock.Unlock()
 	if !ok {
 		l.Stag("info", fmt.Sprintf("[%s] file not report", fid))
 		return nil

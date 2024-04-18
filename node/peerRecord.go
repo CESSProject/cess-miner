@@ -17,7 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type PeerRecord interface {
+type MinerRecord interface {
 	// SavePeer saves or updates peer information
 	SavePeer(addr peer.AddrInfo) error
 	//
@@ -30,19 +30,27 @@ type PeerRecord interface {
 	BackupPeer(path string) error
 	//
 	LoadPeer(path string) error
+	//
+	SaveMinerAcc(acc string, peerid string)
+	//
+	GetAllMinerAcc() []string
 }
 
 type PeerRecordType struct {
-	lock     *sync.RWMutex
-	peerList map[string]peer.AddrInfo
+	lock        *sync.RWMutex
+	accLock     *sync.RWMutex
+	peerAccList map[string]string
+	peerList    map[string]peer.AddrInfo
 }
 
-var _ PeerRecord = (*PeerRecordType)(nil)
+var _ MinerRecord = (*PeerRecordType)(nil)
 
-func NewPeerRecord() PeerRecord {
+func NewPeerRecord() MinerRecord {
 	return &PeerRecordType{
-		lock:     new(sync.RWMutex),
-		peerList: make(map[string]peer.AddrInfo, 100),
+		lock:        new(sync.RWMutex),
+		accLock:     new(sync.RWMutex),
+		peerAccList: make(map[string]string, 100),
+		peerList:    make(map[string]peer.AddrInfo, 100),
 	}
 }
 
@@ -115,4 +123,22 @@ func (p *PeerRecordType) LoadPeer(path string) error {
 		p.peerList = oldPeer
 	}
 	return err
+}
+
+func (p *PeerRecordType) SaveMinerAcc(acc string, peerid string) {
+	p.accLock.Lock()
+	p.peerAccList[acc] = peerid
+	p.accLock.Unlock()
+}
+
+func (p *PeerRecordType) GetAllMinerAcc() []string {
+	var result = make([]string, len(p.peerAccList))
+	p.accLock.RLock()
+	defer p.accLock.RUnlock()
+	var i int
+	for k := range p.peerAccList {
+		result[i] = k
+		i++
+	}
+	return result
 }

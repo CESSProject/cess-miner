@@ -65,16 +65,16 @@ type Confiler interface {
 }
 
 type Confile struct {
-	rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
-	boot        []string `name:"Boot" toml:"Boot" yaml:"Boot"`
-	mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
-	stakingAcc  string   `name:"StakingAcc" toml:"StakingAcc" yaml:"StakingAcc"`
-	earningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
-	workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
-	port        int      `name:"Port" toml:"Port" yaml:"Port"`
-	useSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
-	useCpu      uint8    `name:"UseCpu" toml:"UseCpu" yaml:"UseCpu"`
-	teeList     []string `name:"TeeList" toml:"TeeList" yaml:"TeeList"`
+	Rpc         []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
+	Boot        []string `name:"Boot" toml:"Boot" yaml:"Boot"`
+	Mnemonic    string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
+	StakingAcc  string   `name:"StakingAcc" toml:"StakingAcc" yaml:"StakingAcc"`
+	EarningsAcc string   `name:"EarningsAcc" toml:"EarningsAcc" yaml:"EarningsAcc"`
+	Workspace   string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
+	Port        int      `name:"Port" toml:"Port" yaml:"Port"`
+	UseSpace    uint64   `name:"UseSpace" toml:"UseSpace" yaml:"UseSpace"`
+	UseCpu      uint8    `name:"UseCpu" toml:"UseCpu" yaml:"UseCpu"`
+	TeeList     []string `name:"TeeList" toml:"TeeList" yaml:"TeeList"`
 }
 
 var _ Confiler = (*Confile)(nil)
@@ -103,66 +103,65 @@ func (c *Confile) Parse(fpath string) error {
 	if err != nil {
 		return errors.Errorf("[Unmarshal] %v", err)
 	}
-
-	_, err = signature.KeyringPairFromSecret(c.mnemonic, 0)
+	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	if err != nil {
 		return errors.Errorf("invalid mnemonic: %v", err)
 	}
 
-	if len(c.rpc) == 0 ||
-		len(c.boot) == 0 {
+	if len(c.Rpc) == 0 ||
+		len(c.Boot) == 0 {
 		return errors.New("cannot have empty configurations")
 	}
 
-	if c.port < 1024 {
-		return errors.Errorf("prohibit the use of system reserved port: %v", c.port)
+	if c.Port < 1024 {
+		return errors.Errorf("prohibit the use of system reserved port: %v", c.Port)
 	}
 
-	if c.port > 65535 {
+	if c.Port > 65535 {
 		return errors.New("the port number cannot exceed 65535")
 	}
 
-	if c.stakingAcc != "" {
-		err = sutils.VerityAddress(c.stakingAcc, sutils.CessPrefix)
+	if c.StakingAcc != "" {
+		err = sutils.VerityAddress(c.StakingAcc, sutils.CessPrefix)
 		if err != nil {
 			return errors.New("invalid staking account")
 		}
 	}
 
-	err = sutils.VerityAddress(c.earningsAcc, sutils.CessPrefix)
+	err = sutils.VerityAddress(c.EarningsAcc, sutils.CessPrefix)
 	if err != nil {
 		return errors.New("invalid earnings account")
 	}
 
-	fstat, err = os.Stat(c.workspace)
+	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
-		err = os.MkdirAll(c.workspace, configs.FileMode)
+		err = os.MkdirAll(c.Workspace, configs.FileMode)
 		if err != nil {
 			return err
 		}
 	} else {
 		if !fstat.IsDir() {
-			return errors.Errorf("the '%v' is not a directory", c.workspace)
+			return errors.Errorf("the '%v' is not a directory", c.Workspace)
 		}
 	}
 
-	if len(c.teeList) > 0 {
-		for i := 0; i < len(c.teeList); i++ {
-			if strings.HasPrefix(c.teeList[i], "http://") {
-				c.teeList[i] = strings.TrimPrefix(c.teeList[i], "http://")
-				c.teeList[i] = strings.TrimSuffix(c.teeList[i], "/")
-				if !strings.Contains(c.teeList[i], ":") {
-					c.teeList[i] = c.teeList[i] + ":80"
+	if len(c.TeeList) > 0 {
+		for i := 0; i < len(c.TeeList); i++ {
+			if strings.HasPrefix(c.TeeList[i], "http://") {
+				c.TeeList[i] = strings.TrimPrefix(c.TeeList[i], "http://")
+				c.TeeList[i] = strings.TrimSuffix(c.TeeList[i], "/")
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":80"
 				}
-			} else if strings.HasPrefix(c.teeList[i], "https://") {
-				c.teeList[i] = strings.TrimPrefix(c.teeList[i], "https://")
-				c.teeList[i] = strings.TrimSuffix(c.teeList[i], "/")
-				if !strings.Contains(c.teeList[i], ":") {
-					c.teeList[i] = c.teeList[i] + ":443"
+			} else if strings.HasPrefix(c.TeeList[i], "https://") {
+				c.TeeList[i] = strings.TrimPrefix(c.TeeList[i], "https://")
+				c.TeeList[i] = strings.TrimSuffix(c.TeeList[i], "/")
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":443"
 				}
 			} else {
-				if !strings.Contains(c.teeList[i], ":") {
-					c.teeList[i] = c.teeList[i] + ":80"
+				if !strings.Contains(c.TeeList[i], ":") {
+					c.TeeList[i] = c.TeeList[i] + ":80"
 				}
 			}
 		}
@@ -181,15 +180,15 @@ func (c *Confile) Parse(fpath string) error {
 }
 
 func (c *Confile) SetRpcAddr(rpc []string) {
-	c.rpc = rpc
+	c.Rpc = rpc
 }
 
 func (c *Confile) SetBootNodes(boot []string) {
-	c.boot = boot
+	c.Boot = boot
 }
 
 func (c *Confile) SetUseSpace(useSpace uint64) {
-	c.useSpace = useSpace
+	c.UseSpace = useSpace
 }
 
 func (c *Confile) SetServicePort(port int) error {
@@ -203,7 +202,7 @@ func (c *Confile) SetServicePort(port int) error {
 	if port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
-	c.port = port
+	c.Port = port
 	return nil
 }
 
@@ -219,7 +218,7 @@ func (c *Confile) SetWorkspace(workspace string) error {
 			return fmt.Errorf("%s is not a directory", workspace)
 		}
 	}
-	c.workspace = workspace
+	c.Workspace = workspace
 	return nil
 }
 
@@ -228,7 +227,7 @@ func (c *Confile) SetMnemonic(mnemonic string) error {
 	if err != nil {
 		return err
 	}
-	c.mnemonic = mnemonic
+	c.Mnemonic = mnemonic
 	return nil
 }
 
@@ -237,46 +236,46 @@ func (c *Confile) SetEarningsAcc(earningsAcc string) error {
 	if err != nil {
 		return err
 	}
-	c.earningsAcc = earningsAcc
+	c.EarningsAcc = earningsAcc
 	return nil
 }
 
 func (c *Confile) SetPriorityTeeList(tees []string) {
-	c.teeList = tees
+	c.TeeList = tees
 }
 
 /////////////////////////////////////////////
 
 func (c *Confile) ReadRpcEndpoints() []string {
-	return c.rpc
+	return c.Rpc
 }
 
 func (c *Confile) ReadBootnodes() []string {
-	return c.boot
+	return c.Boot
 }
 
 func (c *Confile) ReadServicePort() int {
-	return c.port
+	return c.Port
 }
 
 func (c *Confile) ReadWorkspace() string {
-	return c.workspace
+	return c.Workspace
 }
 
 func (c *Confile) ReadMnemonic() string {
-	return c.mnemonic
+	return c.Mnemonic
 }
 
 func (c *Confile) ReadStakingAcc() string {
-	return c.stakingAcc
+	return c.StakingAcc
 }
 
 func (c *Confile) ReadEarningsAcc() string {
-	return c.earningsAcc
+	return c.EarningsAcc
 }
 
 func (c *Confile) ReadSignaturePublickey() []byte {
-	key, _ := signature.KeyringPairFromSecret(c.mnemonic, 0)
+	key, _ := signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	return key.PublicKey
 }
 
@@ -286,13 +285,13 @@ func (c *Confile) ReadSignatureAccount() string {
 }
 
 func (c *Confile) ReadUseSpace() uint64 {
-	return c.useSpace
+	return c.UseSpace
 }
 
 func (c *Confile) ReadUseCpu() uint8 {
-	return c.useCpu
+	return c.UseCpu
 }
 
 func (c *Confile) ReadPriorityTeeList() []string {
-	return c.teeList
+	return c.TeeList
 }

@@ -8,105 +8,97 @@
 package node
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"math/rand"
-	"mime/multipart"
-	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/p2p-go/core"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 )
 
-var room string
-
-func (n *Node) subscribe(ctx context.Context, ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
+func Subscribe(ctx context.Context, peernode *core.PeerNode, l *logger.Lg, minerRecord MinerRecord) {
 	var (
 		err      error
+		room     string
 		findpeer peer.AddrInfo
 	)
+	fmt.Printf("Subscribe logger point: %p\n", l)
+	fmt.Printf("Subscribe peernode point: %p\n", peernode)
+	fmt.Printf("Subscribe minerRecord point: %p\n", &minerRecord)
+	fmt.Println("start discover...")
+	l.Discover("info", "start discover...")
 
-	gossipSub, err := pubsub.NewGossipSub(ctx, n.GetHost())
+	gossipSub, err := pubsub.NewGossipSub(ctx, peernode.GetHost())
 	if err != nil {
-		n.Log("err", fmt.Sprintf("NewGossipSub: %s", err))
+		l.Discover("err", fmt.Sprintf("NewGossipSub: %v", err))
 		return
 	}
-
-	bootnode := n.GetBootnode()
-
+	bootnode := peernode.GetBootnode()
 	if strings.Contains(bootnode, "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T") {
 		room = fmt.Sprintf("%s-12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T", core.NetworkRoom)
 	} else if strings.Contains(bootnode, "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd") {
 		room = fmt.Sprintf("%s-12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd", core.NetworkRoom)
 	} else if strings.Contains(bootnode, "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S") {
 		room = fmt.Sprintf("%s-12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83") {
+		room = fmt.Sprintf("%s-12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9") {
+		room = fmt.Sprintf("%s-12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U") {
+		room = fmt.Sprintf("%s-12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U", core.NetworkRoom)
 	} else {
 		room = core.NetworkRoom
 	}
 
+	l.Discover("info", fmt.Sprintf("room: %s", room))
+
 	// setup local mDNS discovery
-	if err := setupDiscovery(n.GetHost()); err != nil {
-		n.Log("err", fmt.Sprintf("setupDiscovery: %s", err))
+	if err := setupDiscovery(peernode.GetHost()); err != nil {
+		l.Discover("err", fmt.Sprintf("setupDiscovery: %v", err))
 		return
 	}
 
 	// join the pubsub topic called librum
 	topic, err := gossipSub.Join(room)
 	if err != nil {
+		l.Discover("err", fmt.Sprintf("Join: %v", err))
 		return
 	}
 
 	// subscribe to topic
 	subscriber, err := topic.Subscribe()
 	if err != nil {
+		l.Discover("err", fmt.Sprintf("Subscribe: %v", err))
 		return
 	}
 
-	n.Log("info", fmt.Sprintf("Join room: %s", room))
-
+	l.Discover("info", fmt.Sprintf("Join room: %s", room))
+	fmt.Println("Join room: ", room)
 	for {
 		msg, err := subscriber.Next(ctx)
 		if err != nil {
+			l.Discover("err", fmt.Sprintf("subscriber.Next: %v", err))
 			continue
 		}
 
 		// only consider messages delivered by other peers
-		if msg.ReceivedFrom == n.ID() {
+		if msg.ReceivedFrom == peernode.GetHost().ID() {
 			continue
 		}
-
-		n.Log("info", fmt.Sprintf("subscribe a peer: %s", findpeer.ID.String()))
 
 		err = json.Unmarshal(msg.Data, &findpeer)
 		if err != nil {
+			l.Discover("err", fmt.Sprintf("Unmarshal: %v", err))
 			continue
 		}
-
-		n.SavePeer(findpeer)
+		fmt.Println("got peer: ", findpeer.ID.String())
+		l.Discover("info", fmt.Sprintf("got peer: %s", findpeer.ID.String()))
+		minerRecord.SavePeer(findpeer)
 	}
 }
 
@@ -132,133 +124,4 @@ func setupDiscovery(h host.Host) error {
 	// setup mDNS discovery to find local peers
 	s := mdns.NewMdnsService(h, "", &discoveryNotifee{h: h})
 	return s.Start()
-}
-
-func (n *Node) connectBoot() {
-	maAddr, err := ma.NewMultiaddr(n.PeerNode.GetBootnode())
-	if err != nil {
-		return
-	}
-	addrInfo, err := peer.AddrInfoFromP2pAddr(maAddr)
-	if err != nil {
-		return
-	}
-	for {
-		if n.Network().Connectedness(addrInfo.ID) != network.Connected {
-			n.Network().DialPeer(context.TODO(), addrInfo.ID)
-		}
-		time.Sleep(time.Second * 10)
-	}
-}
-
-func (n *Node) reportLogsMgt(reportTaskCh chan bool) {
-	minerSt := n.GetMinerState()
-	if minerSt != pattern.MINER_STATE_POSITIVE &&
-		minerSt != pattern.MINER_STATE_FROZEN {
-		return
-	}
-
-	if len(reportTaskCh) > 0 {
-		<-reportTaskCh
-		defer func() {
-			reportTaskCh <- true
-			if err := recover(); err != nil {
-				n.Pnc(utils.RecoverError(err))
-			}
-		}()
-		time.Sleep(time.Second * time.Duration(rand.Intn(600)))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "space.log"))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "stag.log"))
-		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "schal.log"))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "ichal.log"))
-		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "restore.log"))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "panic.log"))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "del.log"))
-		time.Sleep(time.Second * time.Duration(rand.Intn(120)))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "log.log"))
-		n.ReportLogs(filepath.Join(n.DataDir.LogDir, "report.log"))
-	}
-}
-
-func (n *Node) ReportLogs(file string) {
-	defer func() {
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	fstat, err := os.Stat(file)
-	if err != nil {
-		return
-	}
-
-	body := new(bytes.Buffer)
-	writer := multipart.NewWriter(body)
-	//
-	formFile, err := writer.CreateFormFile("file", fstat.Name())
-	if err != nil {
-		return
-	}
-
-	f, err := os.Open(file)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	_, err = io.Copy(formFile, f)
-	if err != nil {
-		return
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return
-	}
-
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%sfeedback/log", configs.DefaultDeossAddr), body)
-	if err != nil {
-		return
-	}
-
-	req.Header.Set("Account", n.GetSignatureAcc())
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	client := &http.Client{}
-	client.Transport = utils.GlobalTransport
-	_, err = client.Do(req)
-	if err != nil {
-		return
-	}
-}
-
-func (n *Node) GetFragmentFromOss(fid string) ([]byte, error) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Println(utils.RecoverError(err))
-		}
-	}()
-
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", configs.DefaultDeossAddr, fid), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Account", n.GetSignatureAcc())
-	req.Header.Set("Operation", "download")
-
-	client := &http.Client{}
-	client.Transport = utils.GlobalTransport
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("failed")
-	}
-	data, err := io.ReadAll(resp.Body)
-	return data, err
 }

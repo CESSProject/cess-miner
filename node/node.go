@@ -30,7 +30,7 @@ type Node struct {
 	cache.Cache
 	MinerState
 	TeeRecord
-	PeerRecord
+	MinerRecord
 	RunningStater
 	*core.PeerNode
 	*gin.Engine
