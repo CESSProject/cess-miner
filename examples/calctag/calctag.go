@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 )
@@ -25,7 +24,6 @@ const helpInfo string = `help information:
 
 func main() {
 	var err error
-	var n = node.New()
 	var help bool
 	var port int
 	var cpu int
@@ -61,7 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	n.PeerNode, err = p2pgo.New(
+	_, err = p2pgo.New(
 		context.Background(),
 		p2pgo.ListenPort(port),
 		p2pgo.Workspace(workspace),

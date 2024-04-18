@@ -35,7 +35,7 @@ type Logger interface {
 	Discover(level, msg string)
 }
 
-type logs struct {
+type Lg struct {
 	logpath map[string]string
 	log     map[string]*zap.Logger
 }
@@ -54,7 +54,9 @@ var LogFiles = []string{
 	"discover",
 }
 
-func NewLogs(logfiles map[string]string) (Logger, error) {
+var _ Logger = (*Lg)(nil)
+
+func NewLogs(logfiles map[string]string) (Lg, error) {
 	var (
 		logpath = make(map[string]string, 0)
 		logCli  = make(map[string]*zap.Logger)
@@ -65,7 +67,7 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 		if err != nil {
 			err = os.MkdirAll(dir, configs.FileMode)
 			if err != nil {
-				return nil, errors.Errorf("%v,%v", dir, err)
+				return Lg{}, errors.Errorf("%v,%v", dir, err)
 			}
 		}
 		Encoder := getEncoder()
@@ -76,13 +78,13 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 		logCli[name] = zap.New(newCore, zap.AddCaller())
 		logCli[name].Sugar().Infof("%v", fpath)
 	}
-	return &logs{
+	return Lg{
 		logpath: logpath,
 		log:     logCli,
 	}, nil
 }
 
-func (l *logs) Log(level string, msg string) {
+func (l *Lg) Log(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["log"]
 	if ok {
@@ -95,7 +97,7 @@ func (l *logs) Log(level string, msg string) {
 	}
 }
 
-func (l *logs) Pnc(msg string) {
+func (l *Lg) Pnc(msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["panic"]
 	if ok {
@@ -103,7 +105,7 @@ func (l *logs) Pnc(msg string) {
 	}
 }
 
-func (l *logs) Space(level string, msg string) {
+func (l *Lg) Space(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["space"]
 	if ok {
@@ -116,7 +118,7 @@ func (l *logs) Space(level string, msg string) {
 	}
 }
 
-func (l *logs) Report(level string, msg string) {
+func (l *Lg) Report(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["report"]
 	if ok {
@@ -129,7 +131,7 @@ func (l *logs) Report(level string, msg string) {
 	}
 }
 
-func (l *logs) Replace(level string, msg string) {
+func (l *Lg) Replace(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["replace"]
 	if ok {
@@ -142,7 +144,7 @@ func (l *logs) Replace(level string, msg string) {
 	}
 }
 
-func (l *logs) Ichal(level string, msg string) {
+func (l *Lg) Ichal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["ichal"]
 	if ok {
@@ -155,7 +157,7 @@ func (l *logs) Ichal(level string, msg string) {
 	}
 }
 
-func (l *logs) Schal(level string, msg string) {
+func (l *Lg) Schal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["schal"]
 	if ok {
@@ -168,7 +170,7 @@ func (l *logs) Schal(level string, msg string) {
 	}
 }
 
-func (l *logs) Stag(level string, msg string) {
+func (l *Lg) Stag(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["stag"]
 	if ok {
@@ -181,7 +183,7 @@ func (l *logs) Stag(level string, msg string) {
 	}
 }
 
-func (l *logs) Restore(level string, msg string) {
+func (l *Lg) Restore(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["restore"]
 	if ok {
@@ -194,7 +196,7 @@ func (l *logs) Restore(level string, msg string) {
 	}
 }
 
-func (l *logs) Del(level string, msg string) {
+func (l *Lg) Del(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["del"]
 	if ok {
@@ -207,7 +209,7 @@ func (l *logs) Del(level string, msg string) {
 	}
 }
 
-func (l *logs) Discover(level, msg string) {
+func (l *Lg) Discover(level, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["discover"]
 	if ok {

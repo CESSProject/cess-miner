@@ -92,6 +92,7 @@ func ChallengeMgt(
 		} else {
 			if len(idleChallTaskCh) > 0 {
 				<-idleChallTaskCh
+				r.SetIdleChallengeFlag(true)
 				go idleChallenge(
 					cli, r, l, m, rsa, p, teeRecord, peernode, ws,
 					idleChallTaskCh,
@@ -106,7 +107,6 @@ func ChallengeMgt(
 					challenge.MinerSnapshot.TeeSig,
 					pattern.WorkerPublicKey{},
 				)
-				r.SetIdleChallengeFlag(true)
 			}
 		}
 	}
@@ -140,6 +140,7 @@ func ChallengeMgt(
 		} else {
 			if len(serviceChallTaskCh) > 0 {
 				<-serviceChallTaskCh
+				r.SetServiceChallengeFlag(true)
 				go serviceChallenge(
 					cli, r, l, teeRecord, peernode, ws, cace, rsa,
 					serviceChallTaskCh,
@@ -151,7 +152,6 @@ func ChallengeMgt(
 					challenge.ChallengeElement.ServiceParam.Value,
 					pattern.WorkerPublicKey{},
 				)
-				r.SetServiceChallengeFlag(true)
 			}
 		}
 	}

@@ -9,7 +9,10 @@ package node
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -160,4 +163,27 @@ func ProcessTeeEndpoint(endPoint string) string {
 		}
 	}
 	return teeEndPoint
+}
+
+func GetFragmentFromOss(fid string, signAcc string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", configs.DefaultDeossAddr, fid), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Account", signAcc)
+	req.Header.Set("Operation", "download")
+
+	client := &http.Client{}
+	client.Transport = utils.GlobalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed")
+	}
+	data, err := io.ReadAll(resp.Body)
+	return data, err
 }
