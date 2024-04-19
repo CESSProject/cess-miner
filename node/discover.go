@@ -11,34 +11,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
-	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/p2p-go/out"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 )
 
-func Subscribe(ctx context.Context, peernode *core.PeerNode, l *logger.Lg, minerRecord MinerRecord) {
+func Subscribe(ctx context.Context, h host.Host, minerRecord MinerRecord, bootnode string) {
 	var (
 		err      error
 		room     string
 		findpeer peer.AddrInfo
 	)
-	fmt.Printf("Subscribe logger point: %p\n", l)
-	fmt.Printf("Subscribe peernode point: %p\n", peernode)
-	fmt.Printf("Subscribe minerRecord point: %p\n", &minerRecord)
-	fmt.Println("start discover...")
-	l.Discover("info", "start discover...")
 
-	gossipSub, err := pubsub.NewGossipSub(ctx, peernode.GetHost())
+	gossipSub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
-		l.Discover("err", fmt.Sprintf("NewGossipSub: %v", err))
 		return
 	}
-	bootnode := peernode.GetBootnode()
+
 	if strings.Contains(bootnode, "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T") {
 		room = fmt.Sprintf("%s-12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T", core.NetworkRoom)
 	} else if strings.Contains(bootnode, "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd") {
@@ -55,49 +50,41 @@ func Subscribe(ctx context.Context, peernode *core.PeerNode, l *logger.Lg, miner
 		room = core.NetworkRoom
 	}
 
-	l.Discover("info", fmt.Sprintf("room: %s", room))
-
 	// setup local mDNS discovery
-	if err := setupDiscovery(peernode.GetHost()); err != nil {
-		l.Discover("err", fmt.Sprintf("setupDiscovery: %v", err))
+	if err := setupDiscovery(h); err != nil {
 		return
 	}
 
 	// join the pubsub topic called librum
 	topic, err := gossipSub.Join(room)
 	if err != nil {
-		l.Discover("err", fmt.Sprintf("Join: %v", err))
 		return
 	}
 
 	// subscribe to topic
 	subscriber, err := topic.Subscribe()
 	if err != nil {
-		l.Discover("err", fmt.Sprintf("Subscribe: %v", err))
 		return
 	}
 
-	l.Discover("info", fmt.Sprintf("Join room: %s", room))
-	fmt.Println("Join room: ", room)
+	out.Ok(fmt.Sprintf("subscribe to a room: %s", room))
+
 	for {
 		msg, err := subscriber.Next(ctx)
 		if err != nil {
-			l.Discover("err", fmt.Sprintf("subscriber.Next: %v", err))
 			continue
 		}
 
 		// only consider messages delivered by other peers
-		if msg.ReceivedFrom == peernode.GetHost().ID() {
+		if msg.ReceivedFrom == h.ID() {
 			continue
 		}
 
 		err = json.Unmarshal(msg.Data, &findpeer)
 		if err != nil {
-			l.Discover("err", fmt.Sprintf("Unmarshal: %v", err))
 			continue
 		}
-		fmt.Println("got peer: ", findpeer.ID.String())
-		l.Discover("info", fmt.Sprintf("got peer: %s", findpeer.ID.String()))
+		log.Println("got a peer: ", findpeer.ID.String())
 		minerRecord.SavePeer(findpeer)
 	}
 }

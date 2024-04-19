@@ -16,7 +16,6 @@ import (
 
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
@@ -57,7 +56,7 @@ func idleChallenge(
 	r *RunningState,
 	l logger.Logger,
 	m *pb.MinerPoisInfo,
-	rsa *proof.RSAKeyPair,
+	rsa *RSAKeyPair,
 	p *Pois,
 	teeRecord *TeeRecord,
 	peernode *core.PeerNode,

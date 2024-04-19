@@ -79,7 +79,7 @@ type Confile struct {
 
 var _ Confiler = (*Confile)(nil)
 
-func NewEmptyConfigfile() *Confile {
+func NewConfigFile() *Confile {
 	return &Confile{}
 }
 

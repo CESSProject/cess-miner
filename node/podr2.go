@@ -5,20 +5,101 @@
 	SPDX-License-Identifier: Apache-2.0
 */
 
-package proof
+package node
 
 import (
 	"crypto"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
 	"os"
 )
 
+const (
+	Success            = 200
+	Error              = 201
+	ErrorParam         = 202
+	ErrorParamNotFound = 203
+	ErrorInternal      = 204
+)
+
+type RSAKeyPair struct {
+	Spk *rsa.PublicKey
+}
+
+type StatueMsg struct {
+	StatusCode int    `json:"status"`
+	Msg        string `json:"msg"`
+}
+
+type QElement struct {
+	I int64  `json:"i"`
+	V string `json:"v"`
+}
+
+type Tag struct {
+	T       T      `json:"t"`
+	PhiHash string `json:"phi_hash"`
+	Attest  string `json:"attest"`
+}
+
+type T struct {
+	Name string   `json:"name"`
+	U    string   `json:"u"`
+	Phi  []string `json:"phi"`
+}
+
+type GenProofResponse struct {
+	Sigma     string    `json:"sigma"`
+	MU        string    `json:"mu"`
+	StatueMsg StatueMsg `json:"statue_msg"`
+}
+
 type HashSelf interface {
 	New() *HashSelf
 	LoadField(d []byte) error
 	CHash() ([]byte, crypto.Hash)
+}
+
+func NewRsaKey(pubkey []byte) (*RSAKeyPair, error) {
+	rsaPubkey, err := x509.ParsePKCS1PublicKey(pubkey)
+	if err != nil {
+		return nil, err
+	}
+	raskey := &RSAKeyPair{
+		Spk: rsaPubkey,
+	}
+	return raskey, nil
+}
+
+func (r *RSAKeyPair) VerifyAttest(name, u, phiHash, attest, customData string) (bool, error) {
+	bytesHash, err := hex.DecodeString(phiHash)
+	if err != nil {
+		return false, err
+	}
+	bytesAttest, err := hex.DecodeString(attest)
+	if err != nil {
+		return false, err
+	}
+	hash := sha256.New()
+	if customData != "" {
+		hash.Write([]byte(customData))
+	}
+	hash.Write([]byte(name))
+	hash.Write([]byte(u))
+	hash.Write(bytesHash)
+	hdata := hash.Sum(nil)
+	hash.Reset()
+	hash.Write(hdata)
+	err = rsa.VerifyPKCS1v15(r.Spk, crypto.SHA256, hash.Sum(nil), bytesAttest)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Phi []string, Matrix [][]byte) <-chan GenProofResponse {
@@ -120,36 +201,6 @@ func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, aSigma string) (stri
 
 	return sigma.String(), true
 }
-
-// func (keyPair RSAKeyPair) AggrAppendProof(AggrSigma string, QSlice []QElement, Phi []string) (string, bool) {
-// 	if AggrSigma == "" {
-// 		AggrSigma = "1"
-// 	}
-
-// 	sigma, ok := new(big.Int).SetString(AggrSigma, 10)
-// 	if !ok {
-// 		return "", false
-// 	}
-
-// 	for _, q := range QSlice {
-// 		vi, ok := new(big.Int).SetString(q.V, 10)
-// 		if !ok {
-// 			return "", false
-// 		}
-
-// 		//σ =∏ σi^vi ∈ G (i ∈ [1, n])
-// 		sigma_i, ok := new(big.Int).SetString(Phi[q.I], 10)
-// 		if !ok {
-// 			return "", false
-// 		}
-
-// 		sigma_i.Exp(sigma_i, vi, keyPair.Spk.N)
-// 		sigma.Mul(sigma, sigma_i)
-// 	}
-// 	sigma.Mod(sigma, keyPair.Spk.N)
-
-// 	return sigma.String(), true
-// }
 
 func SplitByN(filePath string, N int64) (Data [][]byte, sep int64, err error) {
 	file, err := os.Open(filePath)

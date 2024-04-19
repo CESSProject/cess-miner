@@ -32,7 +32,7 @@ func init() {
 	reportedFile = make(map[string]struct{}, 0)
 }
 
-func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l logger.Logger) {
+func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l *logger.Lg) {
 	defer func() { ch <- true }()
 	roothashs, err := utils.Dirs(ws.GetTmpDir())
 	if err != nil {

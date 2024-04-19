@@ -56,7 +56,7 @@ var LogFiles = []string{
 
 var _ Logger = (*Lg)(nil)
 
-func NewLogs(logfiles map[string]string) (Lg, error) {
+func NewLogs(logfiles map[string]string) (*Lg, error) {
 	var (
 		logpath = make(map[string]string, 0)
 		logCli  = make(map[string]*zap.Logger)
@@ -67,7 +67,7 @@ func NewLogs(logfiles map[string]string) (Lg, error) {
 		if err != nil {
 			err = os.MkdirAll(dir, configs.FileMode)
 			if err != nil {
-				return Lg{}, errors.Errorf("%v,%v", dir, err)
+				return &Lg{}, errors.Errorf("%v,%v", dir, err)
 			}
 		}
 		Encoder := getEncoder()
@@ -78,7 +78,7 @@ func NewLogs(logfiles map[string]string) (Lg, error) {
 		logCli[name] = zap.New(newCore, zap.AddCaller())
 		logCli[name].Sugar().Infof("%v", fpath)
 	}
-	return Lg{
+	return &Lg{
 		logpath: logpath,
 		log:     logCli,
 	}, nil

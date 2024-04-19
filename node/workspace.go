@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -85,6 +86,18 @@ var _ Workspacer = (*Workspace)(nil)
 
 func NewWorkspace() *Workspace {
 	return &Workspace{}
+}
+
+func (w *Workspace) Check() error {
+	dirfreeSpace, err := utils.GetDirFreeSpace(w.rootDir)
+	if err != nil {
+		return fmt.Errorf("check workspace: %v", err)
+	}
+
+	if dirfreeSpace < pattern.SIZE_1GiB*32 {
+		return errors.New("the free space in workspace is less than 32GiB and cannot generate idle data")
+	}
+	return nil
 }
 
 func (w *Workspace) RemoveAndBuild(rootDir string) error {

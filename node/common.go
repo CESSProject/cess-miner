@@ -60,7 +60,7 @@ const (
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
-func SyncTeeInfo(cli sdk.SDK, l logger.Logger, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
+func SyncTeeInfo(cli sdk.SDK, l *logger.Lg, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -127,7 +127,7 @@ func SyncTeeInfo(cli sdk.SDK, l logger.Logger, peernode *core.PeerNode, teeRecor
 	}
 }
 
-func (n *Node) WatchMem() {
+func WatchMem() {
 	memSt := &runtime.MemStats{}
 	tikProgram := time.NewTicker(time.Second * 3)
 	defer tikProgram.Stop()
@@ -135,7 +135,7 @@ func (n *Node) WatchMem() {
 	for range tikProgram.C {
 		runtime.ReadMemStats(memSt)
 		if memSt.HeapSys >= pattern.SIZE_1GiB*8 {
-			n.Log("err", fmt.Sprintf("Mem heigh: %d", memSt.HeapSys))
+			//log("err", fmt.Sprintf("Mem heigh: %d", memSt.HeapSys))
 			os.Exit(1)
 		}
 	}
