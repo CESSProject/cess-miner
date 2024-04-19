@@ -12,7 +12,6 @@ import (
 
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
@@ -27,7 +26,7 @@ func ChallengeMgt(
 	teeRecord *TeeRecord,
 	peernode *core.PeerNode,
 	m *pb.MinerPoisInfo,
-	rsa *proof.RSAKeyPair,
+	rsa *RSAKeyPair,
 	p *Pois,
 	cace cache.Cache,
 	idleChallTaskCh chan bool,

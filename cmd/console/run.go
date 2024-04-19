@@ -9,7 +9,6 @@ package console
 
 import (
 	"bufio"
-	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,7 +24,6 @@ import (
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
@@ -47,19 +45,14 @@ import (
 func runCmd(cmd *cobra.Command, args []string) {
 	ctx := cmd.Context()
 	cfg := confile.NewConfigFile()
-	runningState := node.NewRunningState()
+	runtime := node.NewRunTime()
 	teeRecord := node.NewTeeRecord()
-	minerState := node.NewMinerState()
 	wspace := node.NewWorkspace()
-	minerPoisInfo := &pb.MinerPoisInfo{}
 	minerRecord := node.NewPeerRecord()
 
-	var p *node.Pois
-	var rsakey *proof.RSAKeyPair
-
-	runningState.ListenLocal()
-	runningState.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
-	runningState.SetPID(int32(os.Getpid()))
+	runtime.ListenLocal()
+	runtime.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
+	runtime.SetPID(os.Getpid())
 
 	// parse configuration file
 	config_file, err := parseArgs_config(cmd)
@@ -91,7 +84,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
+	runtime.SetCurrentRpc(cli.GetCurrentRpcAddr())
+	runtime.SetChainStatus(true)
+	runtime.SetMinerSignAcc(cli.GetSignatureAcc())
+
 	err = checkRpcSynchronization(cli)
 	if err != nil {
 		out.Err("Failed to synchronize the main chain: network connection is down")
@@ -104,7 +100,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	register, decTib, oldRegInfo, err := checkRegistrationInfo(cfg, cli)
+	register, decTib, oldRegInfo, err := checkRegistrationInfo(cli, cfg.ReadSignatureAccount(), cfg.ReadStakingAcc(), cfg.ReadUseSpace())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -122,9 +118,11 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	defer peernode.Close()
+	runtime.SetReceiveFlag(true)
 
 	// ok
 	go node.Subscribe(ctx, peernode.GetHost(), minerRecord, peernode.GetBootnode())
+	time.Sleep(time.Second)
 
 	// check network environment
 	err = checkNetworkEnv(cli, peernode.GetNetEnv())
@@ -133,6 +131,9 @@ func runCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	var p *node.Pois
+	var rsakey *node.RSAKeyPair
+	var minerPoisInfo = &pb.MinerPoisInfo{}
 	switch register {
 	case configs.Unregistered:
 		_, err = registerMiner(cli, cfg.ReadStakingAcc(), cfg.ReadEarningsAcc(), peernode.GetPeerPublickey(), decTib)
@@ -161,7 +162,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			expender,
 			true, 0, 0,
 			int64(cfg.ReadUseSpace()*1024), 32,
-			runningState.GetCpuCores(),
+			runtime.GetCpuCores(),
 			minerPoisInfo.KeyN,
 			minerPoisInfo.KeyG,
 			cli.GetSignatureAccPulickey(),
@@ -176,7 +177,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		minerState.SaveMinerState(string(oldRegInfo.State))
+		runtime.SetMinerState(string(oldRegInfo.State))
 		rsakey, err = registerPoisKey(cli, peernode, teeRecord, minerPoisInfo, wspace, cfg.ReadPriorityTeeList())
 		if err != nil {
 			out.Err(err.Error())
@@ -196,7 +197,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			expender,
 			true, 0, 0,
 			int64(cfg.ReadUseSpace()*1024), 32,
-			runningState.GetCpuCores(),
+			runtime.GetCpuCores(),
 			minerPoisInfo.KeyN,
 			minerPoisInfo.KeyG,
 			cli.GetSignatureAccPulickey(),
@@ -213,7 +214,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		minerState.SaveMinerState(string(oldRegInfo.State))
+		runtime.SetMinerState(string(oldRegInfo.State))
 		err = updateMinerRegistertionInfo(cli, oldRegInfo, cfg.ReadUseSpace(), cfg.ReadStakingAcc(), cfg.ReadEarningsAcc())
 		if err != nil {
 			out.Err(err.Error())
@@ -235,7 +236,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			int64(spaceProofInfo.Front),
 			int64(spaceProofInfo.Rear),
 			int64(cfg.ReadUseSpace()*1024), 32,
-			runningState.GetCpuCores(),
+			runtime.GetCpuCores(),
 			minerPoisInfo.KeyN,
 			minerPoisInfo.KeyG,
 			cli.GetSignatureAccPulickey(),
@@ -249,10 +250,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 		buf, err := wspace.LoadRsaPublicKey()
 		if err != nil {
-			buf, _ = queryPodr2KeyFromTee(peernode, teeRecord, cli.GetSignatureAccPulickey())
+			buf, _ = queryPodr2KeyFromTee(peernode, teeRecord.GetAllTeeEndpoint(), cli.GetSignatureAccPulickey())
 		}
 
-		rsakey, err = InitRsaKey(buf)
+		rsakey, err = node.NewRsaKey(buf)
 		if err != nil {
 			out.Err(fmt.Sprintf("Init rsa public key err: %v", err))
 			os.Exit(1)
@@ -283,11 +284,14 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 	out.Tip(fmt.Sprintf("Local peer id: %s", peernode.ID().String()))
 	out.Tip(fmt.Sprintf("Network environment: %s", cli.GetNetworkEnv()))
-	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", runningState.GetCpuCores()))
+	out.Tip(fmt.Sprintf("Number of cpu cores used: %v", runtime.GetCpuCores()))
 	out.Tip(fmt.Sprintf("RPC endpoint used: %v", cli.GetCurrentRpcAddr()))
 	out.Tip(fmt.Sprintf("Workspace: %v", wspace.GetRootDir()))
 
-	checkWorkSpace(*wspace)
+	err = wspace.Check()
+	if err != nil {
+		out.Err(err.Error())
+	}
 
 	chainState := true
 	reportFileCh := make(chan bool, 1)
@@ -301,6 +305,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	genIdleCh := make(chan bool, 1)
 	genIdleCh <- true
 	attestationIdleCh := make(chan bool, 1)
+	attestationIdleCh <- true
 	syncTeeCh := make(chan bool, 1)
 	syncTeeCh <- true
 	calcTagCh := make(chan bool, 1)
@@ -323,74 +328,95 @@ func runCmd(cmd *cobra.Command, args []string) {
 		case <-tick_block.C:
 			chainState = cli.GetChainState()
 			if !chainState {
-				runningState.SetChainStatus(false)
-				runningState.SetReceiveFlag(false)
+				runtime.SetChainStatus(false)
+				runtime.SetReceiveFlag(false)
 				peernode.DisableRecv()
-				connectChain(cli)
-				runningState.SetCurrentRpc(cli.GetCurrentRpcAddr())
-				break
+				err = cli.ReconnectRPC()
+				l.Log("err", fmt.Sprintf("[%s] %v", cli.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+				l.Ichal("err", fmt.Sprintf("[%s] %v", cli.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+				l.Schal("err", fmt.Sprintf("[%s] %v", cli.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+				out.Err(fmt.Sprintf("[%s] %v", cli.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+				if err != nil {
+					runtime.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
+					l.Log("err", "All RPCs failed to reconnect")
+					l.Ichal("err", "All RPCs failed to reconnect")
+					l.Schal("err", "All RPCs failed to reconnect")
+					out.Err("All RPCs failed to reconnect")
+					break
+				}
+				runtime.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
+				out.Ok(fmt.Sprintf("[%s] rpc reconnection successful", cli.GetCurrentRpcAddr()))
+				l.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", cli.GetCurrentRpcAddr()))
+				l.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", cli.GetCurrentRpcAddr()))
+				l.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", cli.GetCurrentRpcAddr()))
+				runtime.SetCurrentRpc(cli.GetCurrentRpcAddr())
+				runtime.SetChainStatus(true)
+				runtime.SetReceiveFlag(true)
+				peernode.EnableRecv()
 			}
-			runningState.SetChainStatus(true)
-			runningState.SetReceiveFlag(true)
-			peernode.EnableRecv()
 
 		case <-tick_Minute.C:
 			if !chainState {
 				break
 			}
 
-			syncMinerStatus(cli, &l, minerState, runningState)
-			if minerState.GetMinerState() == pattern.MINER_STATE_EXIT ||
-				minerState.GetMinerState() == pattern.MINER_STATE_OFFLINE {
+			syncMinerStatus(cli, l, runtime)
+			if runtime.GetMinerState() == pattern.MINER_STATE_EXIT ||
+				runtime.GetMinerState() == pattern.MINER_STATE_OFFLINE {
 				break
 			}
 
 			if len(syncTeeCh) > 0 {
 				<-syncTeeCh
-				go node.SyncTeeInfo(cli, &l, peernode, teeRecord, syncTeeCh)
+				go node.SyncTeeInfo(cli, l, peernode, teeRecord, syncTeeCh)
 			}
 
 			if len(reportFileCh) > 0 {
 				<-reportFileCh
-				go node.ReportFiles(reportFileCh, cli, runningState, wspace, &l)
+				go node.ReportFiles(reportFileCh, cli, runtime, wspace, l)
 			}
 
 			if len(attestationIdleCh) > 0 {
 				<-attestationIdleCh
-				go node.AttestationIdle(cli, peernode, p, runningState, minerPoisInfo, teeRecord, &l, attestationIdleCh)
+				go node.AttestationIdle(cli, peernode, p, runtime, minerPoisInfo, teeRecord, l, attestationIdleCh)
 			}
 
 			if len(calcTagCh) > 0 {
 				<-calcTagCh
-				go node.CalcTag(cli, cace, &l, wspace, runningState, teeRecord, calcTagCh)
+				go node.CalcTag(cli, cace, l, wspace, runtime, teeRecord, calcTagCh)
 			}
 
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go node.ChallengeMgt(cli, &l, wspace, runningState, teeRecord, peernode, minerPoisInfo, rsakey, p, cace, idleChallCh, serviceChallCh)
+				go node.ChallengeMgt(cli, l, wspace, runtime, teeRecord, peernode, minerPoisInfo, rsakey, p, cace, idleChallCh, serviceChallCh)
 				time.Sleep(pattern.BlockInterval)
 			}
 
-			if len(genIdleCh) > 0 && !runningState.GetServiceChallengeFlag() && !runningState.GetIdleChallengeFlag() {
+			if len(genIdleCh) > 0 && !runtime.GetServiceChallengeFlag() && !runtime.GetIdleChallengeFlag() {
 				<-genIdleCh
-				go node.GenIdle(&l, minerState, cfg, runningState, p, peernode.Workspace(), genIdleCh)
+				go node.GenIdle(l, p.Prover, runtime, peernode.Workspace(), cfg.ReadUseSpace(), genIdleCh)
 			}
 
 		case <-tick_Hour.C:
+			if runtime.GetMinerState() == pattern.MINER_STATE_EXIT ||
+				runtime.GetMinerState() == pattern.MINER_STATE_OFFLINE {
+				break
+			}
+
+			// go n.reportLogsMgt(ch_reportLogs)
+
 			if !chainState {
 				break
 			}
 
 			if len(replaceIdleCh) > 0 {
 				<-replaceIdleCh
-				go node.ReplaceIdle(cli, &l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
+				go node.ReplaceIdle(cli, l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
 			}
 
 			if len(restoreCh) > 0 {
 				<-restoreCh
-				go node.RestoreFiles(cli, cace, &l, wspace.GetFileDir(), restoreCh)
+				go node.RestoreFiles(cli, cace, l, wspace.GetFileDir(), restoreCh)
 			}
-
-			// go n.reportLogsMgt(ch_reportLogs)
 		}
 	}
 }
@@ -859,7 +885,7 @@ func buildCache(cacheDir string) (cache.Cache, error) {
 	return cache.NewCache(cacheDir, 0, 0, configs.NameSpaces)
 }
 
-func buildLogs(logDir string) (logger.Lg, error) {
+func buildLogs(logDir string) (*logger.Lg, error) {
 	var logs_info = make(map[string]string)
 	for _, v := range logger.LogFiles {
 		logs_info[v] = filepath.Join(logDir, v+".log")
@@ -918,14 +944,14 @@ func checkRpcSynchronization(cli sdk.SDK) error {
 	return nil
 }
 
-func checkRegistrationInfo(cfg *confile.Confile, cli sdk.SDK) (int, uint64, *pattern.MinerInfo, error) {
+func checkRegistrationInfo(cli sdk.SDK, signatureAcc, stakingAcc string, useSpace uint64) (int, uint64, *pattern.MinerInfo, error) {
 	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			return configs.Unregistered, 0, &minerInfo, err
 		}
-		decTib := cfg.ReadUseSpace() / pattern.SIZE_1KiB
-		if cfg.ReadUseSpace()%pattern.SIZE_1KiB != 0 {
+		decTib := useSpace / pattern.SIZE_1KiB
+		if useSpace%pattern.SIZE_1KiB != 0 {
 			decTib += 1
 		}
 		token := decTib * pattern.StakingStakePerTiB
@@ -937,12 +963,12 @@ func checkRegistrationInfo(cfg *confile.Confile, cli sdk.SDK) (int, uint64, *pat
 			return configs.Unregistered, decTib, &minerInfo, errors.New("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
 		}
 		token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
-		if cfg.ReadStakingAcc() == "" || cfg.ReadStakingAcc() == cfg.ReadSignatureAccount() {
+		if stakingAcc == "" || stakingAcc == signatureAcc {
 			if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
 				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("signature account balance less than %d %s", token, cli.GetTokenSymbol())
 			}
 		} else {
-			stakingAccInfo, err := cli.QueryAccountInfoByAccount(cfg.ReadStakingAcc())
+			stakingAccInfo, err := cli.QueryAccountInfoByAccount(stakingAcc)
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {
 					return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("failed to query staking account information: %v", err)
@@ -1059,13 +1085,13 @@ func registerPoisKey(
 	minerPoisInfo *pb.MinerPoisInfo,
 	ws *node.Workspace,
 	priorityTeeList []string,
-) (*proof.RSAKeyPair, error) {
+) (*node.RSAKeyPair, error) {
 	var (
 		err                    error
 		teeList                []pattern.TeeWorkerInfo
 		dialOptions            []grpc.DialOption
 		responseMinerInitParam *pb.ResponseMinerInitParam
-		rsakey                 *proof.RSAKeyPair
+		rsakey                 *node.RSAKeyPair
 		chainPublickey         = make([]byte, pattern.WorkerPublicKeyLen)
 		teeEndPointList        = make([]string, len(priorityTeeList))
 	)
@@ -1160,7 +1186,7 @@ func registerPoisKey(
 				break
 			}
 
-			rsakey, err = InitRsaKey(responseMinerInitParam.Podr2Pbk)
+			rsakey, err = node.NewRsaKey(responseMinerInitParam.Podr2Pbk)
 			if err != nil {
 				out.Err(fmt.Sprintf("Request err: %v", err))
 				break
@@ -1311,21 +1337,10 @@ func updateMinerRegistertionInfo(cli sdk.SDK, oldRegInfo *pattern.MinerInfo, use
 	return nil
 }
 
-func InitRsaKey(pubkey []byte) (*proof.RSAKeyPair, error) {
-	rsaPubkey, err := x509.ParsePKCS1PublicKey(pubkey)
-	if err != nil {
-		return nil, err
-	}
-	raskey := proof.NewKey()
-	raskey.Spk = rsaPubkey
-	return raskey, nil
-}
-
-func queryPodr2KeyFromTee(peernode *core.PeerNode, teeRecord *node.TeeRecord, signature_publickey []byte) ([]byte, error) {
+func queryPodr2KeyFromTee(peernode *core.PeerNode, teeEndPointList []string, signature_publickey []byte) ([]byte, error) {
 	var err error
 	var podr2PubkeyResponse *pb.Podr2PubkeyResponse
 	var dialOptions []grpc.DialOption
-	teeEndPointList := teeRecord.GetAllTeeEndpoint()
 	delay := time.Duration(30)
 	for i := 0; i < len(teeEndPointList); i++ {
 		delay = 30
@@ -1360,58 +1375,27 @@ func queryPodr2KeyFromTee(peernode *core.PeerNode, teeRecord *node.TeeRecord, si
 	return nil, errors.New("all tee nodes are busy or unavailable")
 }
 
-func checkWorkSpace(wspace node.Workspace) {
-	dirfreeSpace, err := utils.GetDirFreeSpace(wspace.GetRootDir())
-	if err == nil {
-		if dirfreeSpace < pattern.SIZE_1GiB*32 {
-			out.Warn("The workspace capacity is less than 32G")
-		}
-	}
-	out.Tip(fmt.Sprintf("Workspace free size: %vGiB", dirfreeSpace/pattern.SIZE_1GiB))
-}
-
-func connectChain(cli sdk.SDK) {
-	// n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-	// n.Ichal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-	// n.Schal("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-	// out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-	err := cli.ReconnectRPC()
-	if err != nil {
-		// n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
-		// n.Log("err", "All RPCs failed to reconnect")
-		// n.Ichal("err", "All RPCs failed to reconnect")
-		// n.Schal("err", "All RPCs failed to reconnect")
-		// out.Err("All RPCs failed to reconnect")
-		return
-	}
-	// n.SetLastReconnectRpcTime(time.Now().Format(time.DateTime))
-	cli.SetChainState(true)
-	//peernode.EnableRecv()
-	// out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-	// n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-	// n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-	// n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-}
-
-func syncMinerStatus(cli sdk.SDK, l logger.Logger, miner *node.MinerState, r *node.RunningState) {
+func syncMinerStatus(cli sdk.SDK, l *logger.Lg, r *node.RunningState) {
+	l.Log("info", "will QueryStorageMiner")
 	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
 	if err != nil {
 		l.Log("err", err.Error())
 		if err.Error() == pattern.ERR_Empty {
-			r.SetMinerStatus(pattern.MINER_STATE_OFFLINE)
-			err = miner.SaveMinerState(pattern.MINER_STATE_OFFLINE)
+			r.SetMinerState(pattern.MINER_STATE_OFFLINE)
+			err = r.SetMinerState(pattern.MINER_STATE_OFFLINE)
 			if err != nil {
 				l.Log("err", err.Error())
 			}
 		}
 		return
 	}
-	r.SetMinerStatus(string(minerInfo.State))
-	err = miner.SaveMinerState(string(minerInfo.State))
+	l.Log("info", fmt.Sprintf("StorageMiner state: %s", minerInfo.State))
+	r.SetMinerState(string(minerInfo.State))
+	err = r.SetMinerState(string(minerInfo.State))
 	if err != nil {
 		l.Log("err", err.Error())
 	}
-	miner.SaveMinerSpaceInfo(
+	r.SetMinerSpaceInfo(
 		minerInfo.DeclarationSpace.Uint64(),
 		minerInfo.IdleSpace.Uint64(),
 		minerInfo.ServiceSpace.Uint64(),

@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/pkg/confile"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/out"
 )
 
-func GenIdle(l logger.Logger, miner *MinerState, cfg *confile.Confile, r *RunningState, p *Pois, workspace string, ch chan<- bool) {
+func GenIdle(l *logger.Lg, prover *pois.Prover, r *RunningState, workspace string, useSpace uint64, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -27,14 +27,14 @@ func GenIdle(l logger.Logger, miner *MinerState, cfg *confile.Confile, r *Runnin
 		}
 	}()
 
-	decSpace, validSpace, usedSpace, lockSpace := miner.GetMinerSpaceInfo()
+	decSpace, validSpace, usedSpace, lockSpace := r.GetMinerSpaceInfo()
 	if (validSpace + usedSpace + lockSpace) >= decSpace {
 		l.Space("info", "The declared space has been authenticated")
 		time.Sleep(time.Minute * 10)
 		return
 	}
 
-	configSpace := cfg.ReadUseSpace() * pattern.SIZE_1GiB
+	configSpace := useSpace * pattern.SIZE_1GiB
 	if configSpace < minSpace {
 		l.Space("err", "The configured space is less than the minimum space requirement")
 		time.Sleep(time.Minute * 10)
@@ -62,7 +62,7 @@ func GenIdle(l logger.Logger, miner *MinerState, cfg *confile.Confile, r *Runnin
 
 	l.Space("info", "Start generating idle files")
 	r.SetGenIdleFlag(true)
-	err = p.Prover.GenerateIdleFileSet()
+	err = prover.GenerateIdleFileSet()
 	r.SetGenIdleFlag(false)
 	if err != nil {
 		if strings.Contains(err.Error(), "not enough space") {

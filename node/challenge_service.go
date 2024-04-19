@@ -20,7 +20,6 @@ import (
 	"github.com/CESSProject/cess-bucket/configs"
 	"github.com/CESSProject/cess-bucket/pkg/cache"
 	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/proof"
 	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
@@ -59,7 +58,7 @@ func serviceChallenge(
 	peernode *core.PeerNode,
 	ws *Workspace,
 	cace cache.Cache,
-	rsaKey *proof.RSAKeyPair,
+	rsaKey *RSAKeyPair,
 	ch chan<- bool,
 	serviceProofSubmited bool,
 	latestBlock,
@@ -93,7 +92,7 @@ func serviceChallenge(
 
 	l.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challStart))
 
-	var qslice = make([]proof.QElement, len(randomIndexList))
+	var qslice = make([]QElement, len(randomIndexList))
 	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
 		var b = make([]byte, pattern.RandomLen)
@@ -220,44 +219,6 @@ func serviceChallenge(
 	}
 }
 
-// save challenge random number
-func (n *Node) saveRandom(
-	challStart uint32,
-	randomIndexList []types.U32,
-	randomList []pattern.Random,
-) error {
-	randfilePath := filepath.Join(n.DataDir.RandomDir, fmt.Sprintf("random.%d", challStart))
-	fstat, err := os.Stat(randfilePath)
-	if err == nil && fstat.Size() > 0 {
-		return nil
-	}
-	var rd RandomList
-	rd.Index = make([]uint32, len(randomIndexList))
-	rd.Random = make([][]byte, len(randomIndexList))
-	for i := 0; i < len(randomIndexList); i++ {
-		rd.Index[i] = uint32(randomIndexList[i])
-		rd.Random[i] = make([]byte, len(randomList[i]))
-		for j := 0; j < len(randomList[i]); j++ {
-			rd.Random[i][j] = byte(randomList[i][j])
-		}
-	}
-	buff, err := json.Marshal(&rd)
-	if err != nil {
-		return errors.Wrapf(err, "[json.Marshal]")
-	}
-
-	f, err := os.OpenFile(randfilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		return errors.Wrapf(err, "[OpenFile]")
-	}
-	defer f.Close()
-	_, err = f.Write(buff)
-	if err != nil {
-		return errors.Wrapf(err, "[Write]")
-	}
-	return f.Sync()
-}
-
 // calc sigma
 func calcSigma(
 	cli sdk.SDK,
@@ -265,7 +226,7 @@ func calcSigma(
 	cace cache.Cache,
 	l logger.Logger,
 	teeRecord *TeeRecord,
-	rsaKey *proof.RSAKeyPair,
+	rsaKey *RSAKeyPair,
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []pattern.Random,
@@ -275,12 +236,12 @@ func calcSigma(
 	var sigma string
 	var roothash string
 	var fragmentHash string
-	var proveResponse proof.GenProofResponse
+	var proveResponse GenProofResponse
 	var names = make([]string, 0)
 	var us = make([]string, 0)
 	var mus = make([]string, 0)
 	var usig = make([][]byte, 0)
-	var qslice = make([]proof.QElement, len(randomIndexList))
+	var qslice = make([]QElement, len(randomIndexList))
 	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
 		var b = make([]byte, len(randomList[k]))
@@ -413,7 +374,7 @@ func calcSigma(
 				l.Schal("err", err.Error())
 				return names, us, mus, sigma, usig, err
 			}
-			matrix, _, err := proof.SplitByN(fragments[j], int64(len(tag.Tag.T.Phi)))
+			matrix, _, err := SplitByN(fragments[j], int64(len(tag.Tag.T.Phi)))
 			if err != nil {
 				l.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
 				return names, us, mus, sigma, usig, err
@@ -432,7 +393,7 @@ func calcSigma(
 				proveResponse.StatueMsg.StatusCode = 0
 			}
 
-			if proveResponse.StatueMsg.StatusCode != proof.Success {
+			if proveResponse.StatueMsg.StatusCode != Success {
 				l.Schal("err", fmt.Sprintf("GenProof  err: %d", proveResponse.StatueMsg.StatusCode))
 				return names, us, mus, sigma, usig, err
 			}
@@ -458,7 +419,7 @@ func checkServiceProofRecord(
 	ws *Workspace,
 	teeRecord *TeeRecord,
 	cace cache.Cache,
-	rasKey *proof.RSAKeyPair,
+	rasKey *RSAKeyPair,
 	serviceProofSubmited bool,
 	challStart uint32,
 	randomIndexList []types.U32,

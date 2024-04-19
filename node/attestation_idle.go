@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func AttestationIdle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l logger.Logger, ch chan<- bool) {
+func AttestationIdle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l *logger.Lg, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {

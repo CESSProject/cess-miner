@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
@@ -31,7 +32,7 @@ type RunningStater interface {
 
 type SetStatus interface {
 	SetCpuCores(num int)
-	SetPID(pid int32)
+	SetPID(pid int)
 	SetLastReconnectRpcTime(t string)
 	SetCalcTagFlag(flag bool)
 	SetReportFileFlag(flag bool)
@@ -40,14 +41,18 @@ type SetStatus interface {
 	SetIdleChallengeFlag(flag bool)
 	SetServiceChallengeFlag(flag bool)
 	SetChainStatus(status bool)
-	SetMinerStatus(status string)
 	SetReceiveFlag(flag bool)
 	SetCurrentRpc(rpc string)
+
+	// miner
+	SetMinerState(state string) error
+	SetMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64)
+	SetMinerSignAcc(acc string)
 }
 
 type GetStatus interface {
 	GetCpuCores() int
-	GetPID() int32
+	GetPID() int
 	GetLastReconnectRpcTime() string
 	GetCalcTagFlag() bool
 	GetReportFileFlag() bool
@@ -56,16 +61,28 @@ type GetStatus interface {
 	GetIdleChallengeFlag() bool
 	GetServiceChallengeFlag() bool
 	GetChainStatus() bool
-	GetMinerStatus() string
 	GetReceiveFlag() bool
 	GetCurrentRpc() string
+
+	// miner
+	GetMinerState() string
+	GetMinerSpaceInfo() (uint64, uint64, uint64, uint64)
+	GetMinerSignatureAcc() string
 }
 
 type RunningState struct {
 	lock                 *sync.RWMutex
-	cpuCores             int
-	pid                  int32
+	minerLock            *sync.RWMutex
+	minerSignAcc         string
+	minerState           string
+	currentRpc           string
 	lastReconnectRpcTime string
+	decSpace             uint64
+	validSpace           uint64
+	usedSpace            uint64
+	lockedSpace          uint64
+	cpuCores             int
+	pid                  int
 	calcTagFlag          bool
 	reportFileFlag       bool
 	genIdleFlag          bool
@@ -74,15 +91,14 @@ type RunningState struct {
 	serviceChallengeFlag bool
 	chainStatus          bool
 	receiveFlag          bool
-	minerStatus          string
-	currentRpc           string
 }
 
 var _ RunningStater = (*RunningState)(nil)
 
-func NewRunningState() *RunningState {
+func NewRunTime() *RunningState {
 	return &RunningState{
-		lock: new(sync.RWMutex),
+		lock:      new(sync.RWMutex),
+		minerLock: new(sync.RWMutex),
 	}
 }
 
@@ -94,6 +110,7 @@ func (s *RunningState) ListenLocal() {
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET"}
 	engine.Use(cors.New(config))
+	engine.Use(AllowSpecificRoute("/status"))
 	for {
 		if !core.FreeLocalPort(port) {
 			port++
@@ -109,13 +126,25 @@ func (s *RunningState) ListenLocal() {
 	}
 }
 
+func AllowSpecificRoute(allowedPath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.URL.Path == allowedPath {
+			c.Next()
+		} else {
+			c.Abort()
+		}
+	}
+}
+
 // getStatusHandle
 func (n *RunningState) getStatusHandle(c *gin.Context) {
 	var msg string
 
 	msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
 
-	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerStatus())
+	msg += fmt.Sprintf("Miner Signature Account: %s\n", n.GetMinerSignatureAcc())
+
+	msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
 
 	if n.GetChainStatus() {
 		msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpc())
@@ -163,11 +192,11 @@ func (s *RunningState) SetCpuCores(num int) {
 	s.lock.Unlock()
 }
 
-func (s *RunningState) GetPID() int32 {
+func (s *RunningState) GetPID() int {
 	return s.pid
 }
 
-func (s *RunningState) SetPID(pid int32) {
+func (s *RunningState) SetPID(pid int) {
 	s.lock.Lock()
 	s.pid = pid
 	s.lock.Unlock()
@@ -261,18 +290,6 @@ func (s *RunningState) GetChainStatus() bool {
 	return s.chainStatus
 }
 
-func (s *RunningState) SetMinerStatus(status string) {
-	s.lock.Lock()
-	s.minerStatus = status
-	s.lock.Unlock()
-}
-
-func (s *RunningState) GetMinerStatus() string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	return s.minerStatus
-}
-
 func (s *RunningState) SetReceiveFlag(flag bool) {
 	s.lock.Lock()
 	s.receiveFlag = flag
@@ -295,4 +312,67 @@ func (s *RunningState) GetCurrentRpc() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return s.currentRpc
+}
+
+func (m *RunningState) SetMinerState(state string) error {
+	m.minerLock.Lock()
+	defer m.minerLock.Unlock()
+	switch state {
+	case pattern.MINER_STATE_POSITIVE:
+		m.minerState = pattern.MINER_STATE_POSITIVE
+
+	case pattern.MINER_STATE_FROZEN:
+		m.minerState = pattern.MINER_STATE_FROZEN
+
+	case pattern.MINER_STATE_LOCK:
+		m.minerState = pattern.MINER_STATE_LOCK
+
+	case pattern.MINER_STATE_EXIT:
+		m.minerState = pattern.MINER_STATE_EXIT
+
+	case pattern.MINER_STATE_OFFLINE:
+		m.minerState = pattern.MINER_STATE_OFFLINE
+
+	default:
+		return fmt.Errorf("invalid miner state: %s", state)
+	}
+
+	return nil
+}
+
+func (m *RunningState) SetMinerSignAcc(acc string) {
+	m.minerLock.Lock()
+	m.minerSignAcc = acc
+	m.minerLock.Unlock()
+}
+
+func (m *RunningState) SetMinerSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64) {
+	m.minerLock.Lock()
+	m.decSpace = decSpace
+	m.validSpace = validSpace
+	m.usedSpace = usedSpace
+	m.lockedSpace = lockedSpace
+	m.minerLock.Unlock()
+}
+
+func (s *RunningState) GetMinerSignatureAcc() string {
+	s.minerLock.RLock()
+	defer s.minerLock.RUnlock()
+	return s.minerSignAcc
+}
+
+func (s *RunningState) GetMinerState() string {
+	s.minerLock.RLock()
+	defer s.minerLock.RUnlock()
+	return s.minerState
+}
+
+func (m *RunningState) GetMinerSpaceInfo() (uint64, uint64, uint64, uint64) {
+	m.minerLock.RLock()
+	decSpace := m.decSpace
+	validSpace := m.validSpace
+	usedSpace := m.usedSpace
+	lockedSpace := m.lockedSpace
+	m.minerLock.RUnlock()
+	return decSpace, validSpace, usedSpace, lockedSpace
 }
