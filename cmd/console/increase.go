@@ -9,11 +9,13 @@ package console
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
 
 	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-bucket/pkg/confile"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -122,10 +124,20 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	cfg, err := buildAuthenticationConfig(cmd)
+	cfg := confile.NewConfigFile()
+	config_file, err := parseArgs_config(cmd)
 	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
+		cfg, err = buildConfigItems(cmd)
+		if err != nil {
+			out.Err(fmt.Sprintf("build config items err: %v", err))
+			os.Exit(1)
+		}
+	} else {
+		cfg, err = parseConfigFile(config_file)
+		if err != nil {
+			out.Err(fmt.Sprintf("parse config file err: %v", err))
+			os.Exit(1)
+		}
 	}
 
 	cli, err := cess.New(
@@ -140,6 +152,23 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	defer cli.Close()
+
+	accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAccPulickey())
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		out.Err("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
+		os.Exit(1)
+	}
+
+	token := space * pattern.StakingStakePerTiB
+	token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+	if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
+		out.Err(fmt.Sprintf("signature account balance less than %d %s", token, cli.GetTokenSymbol()))
+		os.Exit(1)
+	}
 
 	txhash, err := cli.IncreaseDeclarationSpace(uint32(space))
 	if err != nil {
