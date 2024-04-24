@@ -51,7 +51,6 @@ func runCmd(cmd *cobra.Command, args []string) {
 	minerRecord := node.NewPeerRecord()
 
 	runtime.ListenLocal()
-	runtime.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 	runtime.SetPID(os.Getpid())
 
 	// parse configuration file
@@ -69,6 +68,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
+	fmt.Println("config: ", cfg.ReadUseCpu())
+	runtime.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 
 	// new chain client
 	cli, err := sdkgo.New(
@@ -147,9 +148,20 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		time.Sleep(pattern.BlockInterval * 5)
+		time.Sleep(pattern.BlockInterval * 10)
 
-		rsakey, err = registerPoisKey(cli, peernode, teeRecord, minerPoisInfo, wspace, cfg.ReadPriorityTeeList())
+		for i := 0; i < 3; i++ {
+			rsakey, err = registerPoisKey(cli, peernode, teeRecord, minerPoisInfo, wspace, cfg.ReadPriorityTeeList())
+			if err != nil {
+				if !strings.Contains(err.Error(), "storage miner is not registered") {
+					out.Err(err.Error())
+					os.Exit(1)
+				}
+				time.Sleep(pattern.BlockInterval)
+				continue
+			}
+			break
+		}
 		if err != nil {
 			out.Err(err.Error())
 			os.Exit(1)
@@ -178,7 +190,18 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		runtime.SetMinerState(string(oldRegInfo.State))
-		rsakey, err = registerPoisKey(cli, peernode, teeRecord, minerPoisInfo, wspace, cfg.ReadPriorityTeeList())
+		for i := 0; i < 3; i++ {
+			rsakey, err = registerPoisKey(cli, peernode, teeRecord, minerPoisInfo, wspace, cfg.ReadPriorityTeeList())
+			if err != nil {
+				if !strings.Contains(err.Error(), "storage miner is not registered") {
+					out.Err(err.Error())
+					os.Exit(1)
+				}
+				time.Sleep(pattern.BlockInterval)
+				continue
+			}
+			break
+		}
 		if err != nil {
 			out.Err(err.Error())
 			os.Exit(1)
