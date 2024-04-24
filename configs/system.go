@@ -22,13 +22,13 @@ const (
 	// Name is the name of the program
 	Name = "bucket"
 	// version
-	Version = "v0.7.11 pre-release"
+	Version = "v0.7.11 devnet"
 	// Description is the description of the program
 	Description = "Storage node implementation in CESS networks"
 	// NameSpace is the cached namespace
 	NameSpaces = Name
 	// Chain version
-	ChainVersion = "0.7.6"
+	ChainVersion = "0.7.7"
 )
 
 var cp *x509.CertPool
