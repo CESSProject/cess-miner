@@ -20,7 +20,7 @@ import (
 
 const (
 	// Name is the name of the program
-	Name = "bucket"
+	Name = "miner"
 	// version
 	Version = "v0.7.11 devnet"
 	// Description is the description of the program

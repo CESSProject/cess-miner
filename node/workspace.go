@@ -15,10 +15,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 

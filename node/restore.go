@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/cache"
-	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/pkg/errors"
 )

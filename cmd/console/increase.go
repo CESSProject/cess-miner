@@ -14,11 +14,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/confile"
 	cess "github.com/CESSProject/cess-go-sdk"
-	"github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
@@ -86,7 +85,7 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 
 	cli, err := cess.New(
 		context.Background(),
-		cess.Name(config.CharacterName_Bucket),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
 		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),
@@ -142,7 +141,7 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 
 	cli, err := cess.New(
 		context.Background(),
-		cess.Name(config.CharacterName_Bucket),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
 		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),

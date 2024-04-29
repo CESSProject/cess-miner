@@ -10,10 +10,10 @@ package node
 import (
 	"fmt"
 
-	"github.com/CESSProject/cess-bucket/pkg/cache"
-	"github.com/CESSProject/cess-bucket/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
 )
@@ -32,7 +32,7 @@ func ChallengeMgt(
 	idleChallTaskCh chan bool,
 	serviceChallTaskCh chan bool,
 ) {
-	haveChall, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey())
+	haveChall, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			l.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))

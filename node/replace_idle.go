@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/core"
@@ -245,7 +245,7 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		l.Replace("err", err.Error())
 	}
 
-	ok, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey())
+	ok, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != pattern.ERR_Empty {
 			l.Replace("err", err.Error())

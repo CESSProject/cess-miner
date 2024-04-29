@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -266,7 +266,7 @@ func idleChallenge(
 
 		time.Sleep(pattern.BlockInterval * 2)
 
-		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey())
+		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			return
 		}
@@ -460,7 +460,7 @@ func checkIdleProofRecord(
 	}
 
 	if sutils.IsWorkerPublicKeyAllZero(teePubkey) {
-		_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey())
+		_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			return err
 		}

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-miner/configs"
 	"github.com/natefinch/lumberjack"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

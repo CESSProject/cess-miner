@@ -11,9 +11,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	cess "github.com/CESSProject/cess-go-sdk"
-	"github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/spf13/cobra"
 )
@@ -45,7 +44,7 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 
 	cli, err := cess.New(
 		context.Background(),
-		cess.Name(config.CharacterName_Bucket),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
 		cess.Mnemonic(cfg.ReadMnemonic()),
 		cess.TransactionTimeout(configs.TimeToWaitEvent),

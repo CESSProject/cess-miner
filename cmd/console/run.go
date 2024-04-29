@@ -19,17 +19,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-bucket/configs"
-	"github.com/CESSProject/cess-bucket/node"
-	"github.com/CESSProject/cess-bucket/pkg/cache"
-	"github.com/CESSProject/cess-bucket/pkg/confile"
-	"github.com/CESSProject/cess-bucket/pkg/logger"
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/node"
+	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/confile"
+	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -74,7 +73,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	// new chain client
 	cli, err := sdkgo.New(
 		ctx,
-		sdkgo.Name(sconfig.CharacterName_Bucket),
+		sdkgo.Name(configs.Name),
 		sdkgo.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
 		sdkgo.Mnemonic(cfg.ReadMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
@@ -111,7 +110,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	peernode, err := p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(cfg.ReadServicePort()),
-		p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), cli.GetSDKName())),
+		p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), configs.Name)),
 		p2pgo.BootPeers(cfg.ReadBootnodes()),
 	)
 	if err != nil {

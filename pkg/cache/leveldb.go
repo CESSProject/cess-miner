@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-miner/configs"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"

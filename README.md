@@ -1,4 +1,4 @@
-# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-bucket/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-bucket/edit/main/README.md) [![build](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-bucket/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
+# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-miner/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-miner/edit/main/README.md) [![build](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
@@ -106,7 +106,7 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-bucket/releases/download/v0.7.10/bucket0.7.10.linux-amd64.tar.gz
+wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.10/bucket0.7.10.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
@@ -336,4 +336,4 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 ```
 
 ## License
-Licensed under [Apache 2.0](https://github.com/CESSProject/cess-bucket/blob/main/LICENSE)
+Licensed under [Apache 2.0](https://github.com/CESSProject/cess-miner/blob/main/LICENSE)
