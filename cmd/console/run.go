@@ -396,7 +396,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 			if len(reportFileCh) > 0 {
 				<-reportFileCh
-				go node.ReportFiles(reportFileCh, cli, runtime, wspace, l)
+				go node.ReportFiles(reportFileCh, cli, runtime, l, wspace.GetFileDir(), wspace.GetTmpDir())
 			}
 
 			if len(attestationIdleCh) > 0 {

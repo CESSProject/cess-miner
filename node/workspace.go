@@ -219,6 +219,16 @@ func (w *Workspace) Build(rootDir string) error {
 	if err := os.MkdirAll(w.spaceDir, configs.FileMode); err != nil {
 		return err
 	}
+
+	w.fileDir = filepath.Join(rootDir, fileDir)
+	if err := os.MkdirAll(w.fileDir, configs.FileMode); err != nil {
+		return err
+	}
+
+	w.tmpDir = filepath.Join(rootDir, tmpDir)
+	if err := os.MkdirAll(w.tmpDir, configs.FileMode); err != nil {
+		return err
+	}
 	return nil
 }
 

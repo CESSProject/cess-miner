@@ -95,7 +95,10 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 		l.Stag("err", fmt.Sprintf("[getAllFragment(%s)] %v", fid, err))
 		return nil
 	}
-	//n.Stag("info", fmt.Sprintf("[%s] The file have fragments: %v", fid, fragments))
+
+	if len(fragments) == 0 {
+		return nil
+	}
 
 	if err = checkFragmentsSize(fragments); err != nil {
 		l.Stag("err", fmt.Sprintf("[checkFragmentsSize(%s)] %v", fid, err))
@@ -134,7 +137,7 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 				continue
 			}
 		} else {
-			l.Stag("info", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
+			l.Stag("err", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
 		}
 
 		isreport, err := calcTheFragmentTag(l, teeRecord, cli.GetSignatureAccPulickey(), fid, fragments[i], maxIndex, latestSig, digest)

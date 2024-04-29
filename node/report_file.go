@@ -8,6 +8,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,13 +33,15 @@ func init() {
 	reportedFile = make(map[string]struct{}, 0)
 }
 
-func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l *logger.Lg) {
+func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, l *logger.Lg, fileDir, tmpDir string) {
 	defer func() { ch <- true }()
-	roothashs, err := utils.Dirs(ws.GetTmpDir())
+
+	roothashs, err := utils.Dirs(tmpDir)
 	if err != nil {
 		l.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))
 		return
 	}
+
 	ok := false
 	fid := ""
 	for _, file := range roothashs {
@@ -48,14 +51,14 @@ func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l 
 		reportedFileLock.Unlock()
 		if ok {
 			l.Report("info", fmt.Sprintf("[%s] prepare to check the file", fid))
-			err = check_file(cli, l, ws, file)
+			err = check_file(cli, l, file, fileDir, tmpDir)
 			if err != nil {
 				l.Report("err", fmt.Sprintf("[%s] check the file err: %v", fid, err))
 			}
 		} else {
 			r.SetReportFileFlag(true)
 			l.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
-			err = report_file(cli, l, ws, file)
+			err = report_file(cli, l, file, fileDir, tmpDir)
 			if err != nil {
 				l.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
@@ -68,18 +71,29 @@ func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, ws *Workspace, l 
 	}
 }
 
-func check_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
+func check_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string) error {
 	fid := filepath.Base(f)
 	metadata, err := cli.QueryFileMetadata(fid)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
-			reportedFileLock.Lock()
-			delete(reportedFile, fid)
-			reportedFileLock.Unlock()
-			os.RemoveAll(f)
-			l.Del("info", fmt.Sprintf("delete folder: %s", f))
-			return nil
+		if !errors.Is(err, pattern.ERR_RPC_EMPTY_VALUE) {
+			return err
 		}
+		sorder, err := cli.QueryStorageOrder(fid)
+		if err != nil {
+			if !errors.Is(err, pattern.ERR_RPC_EMPTY_VALUE) {
+				return err
+			}
+		}
+		for _, v := range sorder.CompleteList {
+			if sutils.CompareSlice(v.Miner[:], cli.GetSignatureAccPulickey()) {
+				return nil
+			}
+		}
+		reportedFileLock.Lock()
+		delete(reportedFile, fid)
+		reportedFileLock.Unlock()
+		os.RemoveAll(f)
+		l.Del("info", fmt.Sprintf("delete folder: %s", f))
 		return err
 	}
 
@@ -102,36 +116,36 @@ func check_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 		return nil
 	}
 
-	if _, err = os.Stat(filepath.Join(ws.GetFileDir(), fid)); err != nil {
-		err = os.Mkdir(filepath.Join(ws.GetFileDir(), fid), configs.FileMode)
+	if _, err = os.Stat(filepath.Join(fileDir, fid)); err != nil {
+		err = os.Mkdir(filepath.Join(fileDir, fid), configs.FileMode)
 		if err != nil {
 			return err
 		}
 	}
 
 	for i := 0; i < len(savedFrgment); i++ {
-		_, err = os.Stat(filepath.Join(ws.GetTmpDir(), fid, savedFrgment[i]))
+		_, err = os.Stat(filepath.Join(tmpDir, fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
-		err = os.Rename(filepath.Join(ws.GetTmpDir(), fid, savedFrgment[i]),
-			filepath.Join(ws.GetFileDir(), fid, savedFrgment[i]))
+		err = os.Rename(filepath.Join(tmpDir, fid, savedFrgment[i]),
+			filepath.Join(fileDir, fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, d := range deletedFrgmentList {
-		err = os.Remove(filepath.Join(ws.GetTmpDir(), fid, d))
+		err = os.Remove(filepath.Join(tmpDir, fid, d))
 		if err != nil {
 			continue
 		}
-		l.Del("info", filepath.Join(ws.GetTmpDir(), fid, d))
+		l.Del("info", filepath.Join(tmpDir, fid, d))
 	}
 	return nil
 }
 
-func report_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
+func report_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string) error {
 	fid := filepath.Base(f)
 	storageorder, err := cli.QueryStorageOrder(fid)
 	if err != nil {
@@ -164,7 +178,7 @@ func report_file(cli sdk.SDK, l logger.Logger, ws *Workspace, f string) error {
 	for idx := uint8(0); idx < uint8(pattern.DataShards+pattern.ParShards); idx++ {
 		sucCount = 0
 		for i := 0; i < len(storageorder.SegmentList); i++ {
-			fstat, err := os.Stat(filepath.Join(ws.GetTmpDir(), fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
+			fstat, err := os.Stat(filepath.Join(tmpDir, fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
 			if err != nil {
 				break
 			}
