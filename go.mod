@@ -1,9 +1,9 @@
-module github.com/CESSProject/cess-bucket
+module github.com/CESSProject/cess-miner
 
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240415124817-f6bf0e9d41e4
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240429075853-8cd5672d1188
 	github.com/CESSProject/cess_pois v0.5.15
 	github.com/CESSProject/p2p-go v0.3.14
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -11,7 +11,7 @@ require (
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
-	github.com/jedib0t/go-pretty/v6 v6.5.7
+	github.com/jedib0t/go-pretty/v6 v6.5.8
 	github.com/libp2p/go-libp2p v0.32.2
 	github.com/libp2p/go-libp2p-pubsub v0.10.0
 	github.com/multiformats/go-multiaddr v0.12.3
@@ -23,7 +23,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
 	go.uber.org/zap v1.27.0
-	google.golang.org/grpc v1.63.0
+	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 )
 
@@ -129,6 +129,7 @@ require (
 	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-multistream v0.5.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/onsi/ginkgo/v2 v2.15.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect

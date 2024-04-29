@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/CESSProject/cess-bucket/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/out"

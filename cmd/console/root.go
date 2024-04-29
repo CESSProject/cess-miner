@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/CESSProject/cess-bucket/configs"
+	"github.com/CESSProject/cess-miner/configs"
 
 	"github.com/spf13/cobra"
 )

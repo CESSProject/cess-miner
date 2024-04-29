@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/CESSProject/cess-bucket/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-miner/configs"
 	p2pgo "github.com/CESSProject/p2p-go"
 )
 

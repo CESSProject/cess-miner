@@ -13,7 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/CESSProject/cess-bucket/cmd/console"
+	"github.com/CESSProject/cess-miner/cmd/console"
 )
 
 // program entry
