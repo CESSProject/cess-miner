@@ -327,8 +327,6 @@ func calcSigma(
 					}
 				}
 				if !isChall {
-					l.Del("info", fragments[j])
-					os.Remove(fragments[j])
 					continue
 				}
 				l.Schal("info", fmt.Sprintf("chall go on: %s.%s", roothash, fragmentHash))
