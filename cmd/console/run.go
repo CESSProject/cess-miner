@@ -338,10 +338,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 	tick_block := time.NewTicker(pattern.BlockInterval)
 	defer tick_block.Stop()
 
-	tick_Minute := time.NewTicker(time.Minute)
+	tick_Minute := time.NewTicker(time.Second * time.Duration(57))
 	defer tick_Minute.Stop()
 
-	tick_Hour := time.NewTicker(time.Hour)
+	tick_Hour := time.NewTicker(time.Second * time.Duration(3597))
 	defer tick_Hour.Stop()
 
 	out.Ok("Service started successfully")
@@ -405,7 +405,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 			if len(calcTagCh) > 0 {
 				<-calcTagCh
-				go node.CalcTag(cli, cace, l, wspace, runtime, teeRecord, calcTagCh)
+				go node.CalcTag(cli, cace, l, runtime, teeRecord, wspace.GetFileDir(), calcTagCh)
 			}
 
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {

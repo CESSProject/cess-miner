@@ -39,7 +39,7 @@ type TagfileType struct {
 	Index        uint16  `protobuf:"bytes,6,opt,name=index,json=index,proto3" json:"index,omitempty"`
 }
 
-func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, ws *Workspace, r *RunningState, teeRecord *TeeRecord, ch chan<- bool) {
+func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, r *RunningState, teeRecord *TeeRecord, fileDir string, ch chan<- bool) {
 	r.SetCalcTagFlag(true)
 	defer func() {
 		ch <- true
@@ -49,9 +49,9 @@ func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, ws *Workspace, r *R
 		}
 	}()
 
-	roothashs, err := utils.Dirs(ws.GetFileDir())
+	roothashs, err := utils.Dirs(fileDir)
 	if err != nil {
-		l.Stag("err", fmt.Sprintf("[Dirs(%s)] %v", ws.GetFileDir(), err))
+		l.Stag("err", fmt.Sprintf("[Dirs(%s)] %v", fileDir, err))
 		return
 	}
 
@@ -90,13 +90,19 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 		return nil
 	}
 
+	fmeta, err := cli.QueryFileMetadata(fid)
+	if err != nil {
+		l.Stag("info", fmt.Sprintf("[%s] QueryFileMetadata: %v", fid, err))
+		return nil
+	}
+
 	fragments, err = getAllFragment(file)
 	if err != nil {
 		l.Stag("err", fmt.Sprintf("[getAllFragment(%s)] %v", fid, err))
 		return nil
 	}
 
-	if len(fragments) == 0 {
+	if len(fragments) < len(fmeta.SegmentList) {
 		return nil
 	}
 
