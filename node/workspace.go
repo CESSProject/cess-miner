@@ -106,6 +106,15 @@ func (w *Workspace) RemoveAndBuild(rootDir string) error {
 	w.podr2_rsa_pub = filepath.Join(rootDir, podr2_rsa_pub)
 	w.idle_prove = filepath.Join(rootDir, idle_prove)
 	w.service_prove = filepath.Join(rootDir, service_prove)
+	w.fileDir = filepath.Join(rootDir, fileDir)
+	w.tmpDir = filepath.Join(rootDir, tmpDir)
+	w.dbDir = filepath.Join(rootDir, dbDir)
+	w.logDir = filepath.Join(rootDir, logDir)
+	w.spaceDir = filepath.Join(rootDir, spaceDir)
+	w.accDir = filepath.Join(rootDir, accDir)
+	w.poisDir = filepath.Join(rootDir, poisDir)
+	w.randomDir = filepath.Join(rootDir, randomDir)
+
 	err := os.RemoveAll(w.fileDir)
 	if err != nil {
 		return err
@@ -144,42 +153,41 @@ func (w *Workspace) RemoveAndBuild(rootDir string) error {
 	os.Remove(w.idle_prove)
 	os.Remove(w.service_prove)
 
-	w.fileDir = filepath.Join(rootDir, fileDir)
 	err = os.MkdirAll(w.fileDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.tmpDir = filepath.Join(rootDir, tmpDir)
+
 	err = os.MkdirAll(w.tmpDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.dbDir = filepath.Join(rootDir, dbDir)
+
 	err = os.MkdirAll(w.dbDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.logDir = filepath.Join(rootDir, logDir)
+
 	err = os.MkdirAll(w.logDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.spaceDir = filepath.Join(rootDir, spaceDir)
+
 	err = os.MkdirAll(w.spaceDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.accDir = filepath.Join(rootDir, accDir)
+
 	err = os.MkdirAll(w.accDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.poisDir = filepath.Join(rootDir, poisDir)
+
 	err = os.MkdirAll(w.poisDir, configs.FileMode)
 	if err != nil {
 		return err
 	}
-	w.randomDir = filepath.Join(rootDir, randomDir)
+
 	return os.MkdirAll(w.randomDir, configs.FileMode)
 }
 

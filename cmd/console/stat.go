@@ -52,7 +52,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		if err.Error() != pattern.ERR_Empty {
 			out.Err(pattern.ERR_RPC_CONNECTION.Error())
 		} else {
-			out.Err("You are not a storage node")
+			out.Err("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
 		}
 		os.Exit(1)
 	}
