@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
@@ -37,7 +37,7 @@ func init() {
 	recoveryFailedFiles = make(map[string]int64, 0)
 }
 
-func RestoreFiles(cli sdk.SDK, cace cache.Cache, l logger.Logger, fileDir string, ch chan bool) {
+func RestoreFiles(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, fileDir string, ch chan bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -48,17 +48,17 @@ func RestoreFiles(cli sdk.SDK, cace cache.Cache, l logger.Logger, fileDir string
 	err := RestoreLocalFiles(cli, l, cace, fileDir)
 	if err != nil {
 		l.Restore("err", err.Error())
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(chain.BlockInterval)
 	}
 
 	err = RestoreOtherFiles(cli, l, fileDir)
 	if err != nil {
 		l.Restore("err", err.Error())
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(chain.BlockInterval)
 	}
 }
 
-func RestoreLocalFiles(cli sdk.SDK, l logger.Logger, cace cache.Cache, fileDir string) error {
+func RestoreLocalFiles(cli *chain.ChainClient, l logger.Logger, cace cache.Cache, fileDir string) error {
 	roothashes, err := utils.Dirs(fileDir)
 	if err != nil {
 		l.Restore("err", fmt.Sprintf("[Dir %v] %v", fileDir, err))
@@ -75,8 +75,8 @@ func RestoreLocalFiles(cli sdk.SDK, l logger.Logger, cace cache.Cache, fileDir s
 	return nil
 }
 
-func RestoreOtherFiles(cli sdk.SDK, l logger.Logger, fileDir string) error {
-	restoreOrderList, err := cli.QueryRestoralOrderList()
+func RestoreOtherFiles(cli *chain.ChainClient, l logger.Logger, fileDir string) error {
+	restoreOrderList, err := cli.QueryAllRestoralOrder(-1)
 	if err != nil {
 		l.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
 		return err
@@ -94,13 +94,13 @@ func RestoreOtherFiles(cli sdk.SDK, l logger.Logger, fileDir string) error {
 			continue
 		}
 		blockhash = ""
-		rsOrder, err := cli.QueryRestoralOrder(string(v.FragmentHash[:]))
+		rsOrder, err := cli.QueryRestoralOrder(string(v.FragmentHash[:]), -1)
 		if err != nil {
 			l.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
 			continue
 		}
 
-		latestBlock, err = cli.QueryBlockHeight("")
+		latestBlock, err = cli.QueryBlockNumber("")
 		if err != nil {
 			l.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 			continue
@@ -125,7 +125,7 @@ func RestoreOtherFiles(cli sdk.SDK, l logger.Logger, fileDir string) error {
 			continue
 		}
 
-		blockhash, err = cli.RestoralComplete(string(v.FragmentHash[:]))
+		blockhash, err = cli.RestoralOrderComplete(string(v.FragmentHash[:]))
 		if err != nil {
 			l.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(v.FileHash[:]), string(v.FragmentHash[:]), err))
 			return err
@@ -135,10 +135,10 @@ func RestoreOtherFiles(cli sdk.SDK, l logger.Logger, fileDir string) error {
 	return err
 }
 
-func restoreFile(cli sdk.SDK, l logger.Logger, fileDir string, fid string) error {
-	metadata, err := cli.QueryFileMetadata(fid)
+func restoreFile(cli *chain.ChainClient, l logger.Logger, fileDir string, fid string) error {
+	metadata, err := cli.QueryFile(fid, -1)
 	if err != nil {
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(chain.BlockInterval)
 		return err
 	}
 	var chainRecord = make([]string, 0)
@@ -156,7 +156,7 @@ func restoreFile(cli sdk.SDK, l logger.Logger, fileDir string, fid string) error
 				continue
 			}
 		} else {
-			if fstat.Size() == pattern.FragmentSize {
+			if fstat.Size() == sconfig.FragmentSize {
 				continue
 			}
 		}
@@ -197,7 +197,7 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 		}
 	}
 	if fragmentHash == core.ZeroFileHash_8M {
-		err = os.WriteFile(filepath.Join(fileDir, roothash, fragmentHash), make([]byte, pattern.FragmentSize), os.ModePerm)
+		err = os.WriteFile(filepath.Join(fileDir, roothash, fragmentHash), make([]byte, sconfig.FragmentSize), os.ModePerm)
 		if err != nil {
 			l.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, fragmentHash, err))
 		} else {
@@ -231,9 +231,9 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 	// }
 
 	// var id peer.ID
-	// var miner pattern.MinerInfo
+	// var miner chain.MinerInfo
 	// var canRestore int
-	// var recoverList = make([]string, pattern.DataShards+pattern.ParShards)
+	// var recoverList = make([]string, chain.DataShards+chain.ParShards)
 	// for _, segment := range fmeta.SegmentList {
 	// 	for k, v := range segment.FragmentList {
 	// 		if !sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {
@@ -274,7 +274,7 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 	// 			continue
 	// 		}
 	// 		n.Restore("info", fmt.Sprintf("[%s] will read file from %s: %s", id.String(), roothash, string(v.Hash[:])))
-	// 		err = n.ReadFileAction(id, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), pattern.FragmentSize)
+	// 		err = n.ReadFileAction(id, roothash, string(v.Hash[:]), filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])), chain.FragmentSize)
 	// 		if err != nil {
 	// 			err = os.Remove(filepath.Join(n.GetDirs().FileDir, roothash, string(v.Hash[:])))
 	// 			if err == nil {
@@ -318,12 +318,12 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 	return nil
 }
 
-func calcFragmentTag(cli sdk.SDK, l logger.Logger, teeRecord *TeeRecord, ws *Workspace, fid, fragment string) error {
+func calcFragmentTag(cli *chain.ChainClient, l logger.Logger, teeRecord *TeeRecord, ws *Workspace, fid, fragment string) error {
 	buf, err := os.ReadFile(fragment)
 	if err != nil {
 		return err
 	}
-	if len(buf) != pattern.FragmentSize {
+	if len(buf) != sconfig.FragmentSize {
 		return errors.New("invalid fragment size")
 	}
 	fragmentHash := filepath.Base(fragment)
@@ -333,11 +333,11 @@ func calcFragmentTag(cli sdk.SDK, l logger.Logger, teeRecord *TeeRecord, ws *Wor
 		return err
 	}
 
-	if len(genTag.USig) != pattern.TeeSignatureLen {
+	if len(genTag.USig) != chain.TeeSignatureLen {
 		return fmt.Errorf("invalid USig length: %d", len(genTag.USig))
 	}
 
-	if len(genTag.Signature) != pattern.TeeSigLen {
+	if len(genTag.Signature) != chain.TeeSigLen {
 		return fmt.Errorf("invalid genTag.Signature length: %d", len(genTag.Signature))
 	}
 

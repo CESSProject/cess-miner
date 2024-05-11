@@ -55,7 +55,7 @@ func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	txhash, err := cli.ClaimRewards()
+	txhash, err := cli.ReceiveReward()
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

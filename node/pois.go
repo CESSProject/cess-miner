@@ -13,7 +13,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
@@ -26,17 +27,17 @@ type Pois struct {
 	*acc.RsaKey
 }
 
-var minSpace = uint64(pois.FileSize * pattern.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
+var minSpace = uint64(pois.FileSize * sconfig.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
-func NewPOIS(poisDir, spaceDir, accDir string, expendersInfo pattern.ExpendersInfo, register bool, front, rear, freeSpace, count int64, cpus int, key_n, key_g, signAccPulickey []byte) (*Pois, error) {
+func NewPOIS(poisDir, spaceDir, accDir string, expendersInfo chain.ExpendersInfo, register bool, front, rear, freeSpace, count int64, cpus int, key_n, key_g, signAccPulickey []byte) (*Pois, error) {
 	var err error
 	p := &Pois{}
 
-	if len(key_n) != len(pattern.PoISKey_N{}) {
+	if len(key_n) != len(chain.PoISKey_N{}) {
 		return p, errors.New("[NewPOIS] invalid key_n length")
 	}
 
-	if len(key_g) != len(pattern.PoISKey_G{}) {
+	if len(key_g) != len(chain.PoISKey_G{}) {
 		return p, errors.New("[NewPOIS] invalid key_g length")
 	}
 

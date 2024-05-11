@@ -15,7 +15,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -62,7 +63,7 @@ type Workspacer interface {
 	SaveChallRandom(
 		challStart uint32,
 		randomIndexList []types.U32,
-		randomList []pattern.Random,
+		randomList []chain.Random,
 	) error
 }
 
@@ -94,7 +95,7 @@ func (w *Workspace) Check() error {
 		return fmt.Errorf("check workspace: %v", err)
 	}
 
-	if dirfreeSpace < pattern.SIZE_1GiB*32 {
+	if dirfreeSpace < sconfig.SIZE_1GiB*32 {
 		return errors.New("the free space in workspace is less than 32GiB and cannot generate idle data")
 	}
 	return nil
@@ -339,7 +340,7 @@ func (w *Workspace) LoadServiceProve() (serviceProofInfo, error) {
 func (w *Workspace) SaveChallRandom(
 	challStart uint32,
 	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomList []chain.Random,
 ) error {
 	randfilePath := filepath.Join(w.GetChallRndomDir(), fmt.Sprintf("random.%d", challStart))
 	fstat, err := os.Stat(randfilePath)

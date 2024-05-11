@@ -54,7 +54,7 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	txhash, err := cli.ExitSminer(cli.GetSignatureAcc())
+	txhash, err := cli.MinerExitPrep()
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

@@ -10,8 +10,7 @@ package node
 import (
 	"fmt"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/p2p-go/core"
@@ -19,7 +18,7 @@ import (
 )
 
 func ChallengeMgt(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	l logger.Logger,
 	ws *Workspace,
 	r *RunningState,
@@ -32,9 +31,9 @@ func ChallengeMgt(
 	idleChallTaskCh chan bool,
 	serviceChallTaskCh chan bool,
 ) {
-	haveChall, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+	haveChall, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
+		if err.Error() != chain.ERR_Empty {
 			l.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
 			l.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
 		}
@@ -45,7 +44,7 @@ func ChallengeMgt(
 		return
 	}
 
-	latestBlock, err := cli.QueryBlockHeight("")
+	latestBlock, err := cli.QueryBlockNumber("")
 	if err != nil {
 		l.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		l.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
@@ -104,7 +103,7 @@ func ChallengeMgt(
 					challenge.ChallengeElement.SpaceParam,
 					challenge.MinerSnapshot.SpaceProofInfo.Accumulator,
 					challenge.MinerSnapshot.TeeSig,
-					pattern.WorkerPublicKey{},
+					chain.WorkerPublicKey{},
 				)
 			}
 		}
@@ -149,7 +148,7 @@ func ChallengeMgt(
 					uint32(challenge.ChallengeElement.Start),
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
-					pattern.WorkerPublicKey{},
+					chain.WorkerPublicKey{},
 				)
 			}
 		}
