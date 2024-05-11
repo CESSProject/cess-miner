@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/logger"
@@ -60,7 +60,7 @@ const (
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
-func SyncTeeInfo(cli sdk.SDK, l *logger.Lg, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
+func SyncTeeInfo(cli *chain.ChainClient, l *logger.Lg, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -68,14 +68,14 @@ func SyncTeeInfo(cli sdk.SDK, l *logger.Lg, peernode *core.PeerNode, teeRecord *
 		}
 	}()
 	var dialOptions []grpc.DialOption
-	var chainPublickey = make([]byte, pattern.WorkerPublicKeyLen)
-	teelist, err := cli.QueryAllTeeWorkerMap()
+	var chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
+	teelist, err := cli.QueryAllWorkers(-1)
 	if err != nil {
 		l.Log("err", err.Error())
 	} else {
 		for i := 0; i < len(teelist); i++ {
 			l.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
-			endpoint, err := cli.QueryTeeWorkEndpoint(teelist[i].Pubkey)
+			endpoint, err := cli.QueryEndpoints(teelist[i].Pubkey, -1)
 			if err != nil {
 				l.Log("err", err.Error())
 				continue
@@ -102,13 +102,13 @@ func SyncTeeInfo(cli sdk.SDK, l *logger.Lg, peernode *core.PeerNode, teeRecord *
 				continue
 			}
 			//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
-			if len(identityPubkeyResponse.Pubkey) != pattern.WorkerPublicKeyLen {
+			if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
 				teeRecord.DeleteTee(string(teelist[i].Pubkey[:]))
 				l.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
 				continue
 			}
 
-			for j := 0; j < pattern.WorkerPublicKeyLen; j++ {
+			for j := 0; j < chain.WorkerPublicKeyLen; j++ {
 				chainPublickey[j] = byte(teelist[i].Pubkey[j])
 			}
 			if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
@@ -134,7 +134,7 @@ func WatchMem() {
 
 	for range tikProgram.C {
 		runtime.ReadMemStats(memSt)
-		if memSt.HeapSys >= pattern.SIZE_1GiB*8 {
+		if memSt.HeapSys >= sconfig.SIZE_1GiB*8 {
 			//log("err", fmt.Sprintf("Mem heigh: %d", memSt.HeapSys))
 			os.Exit(1)
 		}

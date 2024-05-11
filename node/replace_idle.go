@@ -13,9 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
-	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -29,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, teeRecord *TeeRecord, peernode *core.PeerNode, ch chan<- bool) {
+func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, teeRecord *TeeRecord, peernode *core.PeerNode, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -37,9 +35,9 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		}
 	}()
 
-	replaceSize, err := cli.QueryPendingReplacements(cli.GetSignatureAccPulickey())
+	replaceSize, err := cli.QueryPendingReplacements(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
+		if err.Error() != chain.ERR_Empty {
 			l.Replace("err", err.Error())
 		}
 		return
@@ -83,7 +81,7 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		return
 	}
 
-	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		l.Replace("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
 		return
@@ -184,13 +182,13 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		return
 	}
 
-	var idleSignInfo pattern.SpaceProofInfo
+	var idleSignInfo chain.SpaceProofInfo
 	minerAcc, _ := types.NewAccountID(cli.GetSignatureAccPulickey())
 	idleSignInfo.Miner = *minerAcc
 	idleSignInfo.Front = types.U64(verifyCommitOrDeletionProof.PoisStatus.Front)
 	idleSignInfo.Rear = types.U64(verifyCommitOrDeletionProof.PoisStatus.Rear)
 
-	if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSigLen {
+	if len(verifyCommitOrDeletionProof.StatusTeeSign) != chain.TeeSigLen {
 		p.AccRollback(true)
 		l.Replace("err", "invalid tee sign length")
 		return
@@ -208,12 +206,12 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		idleSignInfo.PoisKey.N[i] = types.U8(n_byte[i])
 	}
 
-	var sign pattern.TeeSig
-	for i := 0; i < pattern.TeeSigLen; i++ {
+	var sign chain.TeeSig
+	for i := 0; i < chain.TeeSigLen; i++ {
 		sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 	}
-	var signWithAcc pattern.TeeSig
-	for i := 0; i < pattern.TeeSigLen; i++ {
+	var signWithAcc chain.TeeSig
+	for i := 0; i < chain.TeeSigLen; i++ {
 		signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 	}
 	//
@@ -225,7 +223,7 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 	for j := 0; j < len(sign); j++ {
 		signWithAccBytes[j] = byte(signWithAcc[j])
 	}
-	wpuk, err := sutils.BytesToWorkPublickey([]byte(usedTeeWorkAccount))
+	wpuk, err := chain.BytesToWorkPublickey([]byte(usedTeeWorkAccount))
 	if err != nil {
 		p.AccRollback(true)
 		l.Replace("err", err.Error())
@@ -245,9 +243,9 @@ func ReplaceIdle(cli sdk.SDK, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, tee
 		l.Replace("err", err.Error())
 	}
 
-	ok, challenge, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+	ok, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
+		if err.Error() != chain.ERR_Empty {
 			l.Replace("err", err.Error())
 			return
 		}

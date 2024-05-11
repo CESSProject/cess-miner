@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/pois"
@@ -34,7 +34,7 @@ func GenIdle(l *logger.Lg, prover *pois.Prover, r *RunningState, workspace strin
 		return
 	}
 
-	configSpace := useSpace * pattern.SIZE_1GiB
+	configSpace := useSpace * sconfig.SIZE_1GiB
 	if configSpace < minSpace {
 		l.Space("err", "The configured space is less than the minimum space requirement")
 		time.Sleep(time.Minute * 10)
@@ -55,7 +55,7 @@ func GenIdle(l *logger.Lg, prover *pois.Prover, r *RunningState, workspace strin
 	}
 
 	if dirfreeSpace < minSpace {
-		l.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/pattern.SIZE_1GiB))
+		l.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/sconfig.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
 		return
 	}

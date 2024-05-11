@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -27,7 +26,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func AttestationIdle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l *logger.Lg, ch chan<- bool) {
+func AttestationIdle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l *logger.Lg, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -40,11 +39,11 @@ func AttestationIdle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningSt
 			l.Space("err", err.Error())
 			time.Sleep(time.Minute)
 		}
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(chain.BlockInterval)
 	}
 }
 
-func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningState, teeRecord *TeeRecord, m *pb.MinerPoisInfo, l logger.Logger) error {
+func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, teeRecord *TeeRecord, m *pb.MinerPoisInfo, l logger.Logger) error {
 	defer func() {
 		if err := recover(); err != nil {
 			l.Pnc(utils.RecoverError(err))
@@ -57,17 +56,17 @@ func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningS
 				break
 			}
 			r.SetAuthIdleFlag(false)
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(chain.BlockInterval)
 		}
 		r.SetAuthIdleFlag(true)
-		minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+		minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			l.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(chain.BlockInterval)
 			continue
 		}
 		var ok bool
-		var spaceProofInfo pattern.SpaceProofInfo
+		var spaceProofInfo chain.SpaceProofInfo
 		if minerInfo.SpaceProofInfo.HasValue() {
 			ok, spaceProofInfo = minerInfo.SpaceProofInfo.Unwrap()
 			if !ok {
@@ -188,10 +187,10 @@ func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningS
 			m.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
 			m.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 		} else {
-			minerInfo, err = cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+			minerInfo, err = cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 			if err != nil {
 				l.Space("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
-				time.Sleep(pattern.BlockInterval)
+				time.Sleep(chain.BlockInterval)
 				return err
 			}
 			if minerInfo.SpaceProofInfo.HasValue() {
@@ -316,21 +315,21 @@ func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningS
 		// If the challenge is failure, need to roll back the prover to the previous status,
 		// this method will return whether the rollback is successful, and its parameter is also whether it is a delete operation be rolled back.
 
-		if len(verifyCommitOrDeletionProof.StatusTeeSign) != pattern.TeeSigLen {
+		if len(verifyCommitOrDeletionProof.StatusTeeSign) != chain.TeeSigLen {
 			p.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.Sign length err]")
 		}
 
-		var idleSignInfo pattern.SpaceProofInfo
-		var sign pattern.TeeSig
-		for i := 0; i < pattern.TeeSigLen; i++ {
+		var idleSignInfo chain.SpaceProofInfo
+		var sign chain.TeeSig
+		for i := 0; i < chain.TeeSigLen; i++ {
 			sign[i] = types.U8(verifyCommitOrDeletionProof.StatusTeeSign[i])
 		}
-		var signWithAcc pattern.TeeSig
-		for i := 0; i < pattern.TeeSigLen; i++ {
+		var signWithAcc chain.TeeSig
+		for i := 0; i < chain.TeeSigLen; i++ {
 			signWithAcc[i] = types.U8(verifyCommitOrDeletionProof.SignatureWithTeeController[i])
 		}
-		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(pattern.Accumulator{}) {
+		if len(verifyCommitOrDeletionProof.PoisStatus.Acc) != len(chain.Accumulator{}) {
 			p.Prover.AccRollback(false)
 			return errors.Wrapf(err, "[verifyCommitOrDeletionProof.PoisStatus.Acc length err]")
 		}
@@ -351,8 +350,8 @@ func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningS
 		}
 
 		l.Space("info", "Submit idle space")
-		var wpuk pattern.WorkerPublicKey
-		for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+		var wpuk chain.WorkerPublicKey
+		for i := 0; i < chain.WorkerPublicKeyLen; i++ {
 			wpuk[i] = types.U8(usedTeeWorkAccount[i])
 		}
 		var teeSignBytes = make(types.Bytes, len(sign))
@@ -366,9 +365,9 @@ func attestation_idle(cli sdk.SDK, peernode *core.PeerNode, p *Pois, r *RunningS
 		txhash, err := cli.CertIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 		if err != nil || txhash == "" {
 			l.Space("err", fmt.Sprintf("[%s] [CertIdleSpace]: %s", txhash, err))
-			time.Sleep(pattern.BlockInterval)
-			time.Sleep(pattern.BlockInterval)
-			minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+			time.Sleep(chain.BlockInterval)
+			time.Sleep(chain.BlockInterval)
+			minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 			if err != nil {
 				p.Prover.AccRollback(false)
 				return fmt.Errorf("QueryStorageMiner err:[%v]", err)

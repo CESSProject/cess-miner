@@ -15,7 +15,8 @@ import (
 	"strings"
 
 	cess "github.com/CESSProject/cess-go-sdk"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/p2p-go/out"
@@ -47,10 +48,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	defer cli.Close()
 
 	// query your own information on the chain
-	minerInfo, err := cli.QueryStorageMiner(cli.GetSignatureAccPulickey())
+	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
-			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+		if err.Error() != chain.ERR_Empty {
+			out.Err(chain.ERR_RPC_CONNECTION.Error())
 		} else {
 			out.Err("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
 		}
@@ -66,10 +67,10 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		name = "storage miner"
 	}
 
-	startBlock, err := cli.QueryStorageMinerStakingStartBlock(cli.GetSignatureAccPulickey())
+	startBlock, err := cli.QueryStakingStartBlock(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
-			out.Err(pattern.ERR_RPC_CONNECTION.Error())
+		if err.Error() != chain.ERR_Empty {
+			out.Err(chain.ERR_RPC_CONNECTION.Error())
 			os.Exit(1)
 		} else {
 			out.Err("your staking starting block is not found")
@@ -106,35 +107,35 @@ func unitConversion(value types.U128) string {
 	var result string
 	if value.IsUint64() {
 		v := value.Uint64()
-		if v >= (pattern.SIZE_1GiB * 1024 * 1024 * 1024) {
-			result = fmt.Sprintf("%.2f EiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024*1024*1024)))
+		if v >= (sconfig.SIZE_1GiB * 1024 * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f EiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024*1024*1024)))
 			return result
 		}
-		if v >= (pattern.SIZE_1GiB * 1024 * 1024) {
-			result = fmt.Sprintf("%.2f PiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024*1024)))
+		if v >= (sconfig.SIZE_1GiB * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f PiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024*1024)))
 			return result
 		}
-		if v >= (pattern.SIZE_1GiB * 1024) {
-			result = fmt.Sprintf("%.2f TiB", float64(float64(v)/float64(pattern.SIZE_1GiB*1024)))
+		if v >= (sconfig.SIZE_1GiB * 1024) {
+			result = fmt.Sprintf("%.2f TiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024)))
 			return result
 		}
-		if v >= (pattern.SIZE_1GiB) {
-			result = fmt.Sprintf("%.2f GiB", float64(float64(v)/float64(pattern.SIZE_1GiB)))
+		if v >= (sconfig.SIZE_1GiB) {
+			result = fmt.Sprintf("%.2f GiB", float64(float64(v)/float64(sconfig.SIZE_1GiB)))
 			return result
 		}
-		if v >= (pattern.SIZE_1MiB) {
-			result = fmt.Sprintf("%.2f MiB", float64(float64(v)/float64(pattern.SIZE_1MiB)))
+		if v >= (sconfig.SIZE_1MiB) {
+			result = fmt.Sprintf("%.2f MiB", float64(float64(v)/float64(sconfig.SIZE_1MiB)))
 			return result
 		}
-		if v >= (pattern.SIZE_1KiB) {
-			result = fmt.Sprintf("%.2f KiB", float64(float64(v)/float64(pattern.SIZE_1KiB)))
+		if v >= (sconfig.SIZE_1KiB) {
+			result = fmt.Sprintf("%.2f KiB", float64(float64(v)/float64(sconfig.SIZE_1KiB)))
 			return result
 		}
 		result = fmt.Sprintf("%v Bytes", v)
 		return result
 	}
 	v := new(big.Int).SetBytes(value.Bytes())
-	v.Quo(v, new(big.Int).SetUint64((pattern.SIZE_1GiB * 1024 * 1024 * 1024)))
+	v.Quo(v, new(big.Int).SetUint64((sconfig.SIZE_1GiB * 1024 * 1024 * 1024)))
 	result = fmt.Sprintf("%v EiB", v)
 	return result
 }

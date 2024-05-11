@@ -15,7 +15,7 @@ import (
 	"strconv"
 
 	cess "github.com/CESSProject/cess-go-sdk"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/p2p-go/out"
@@ -71,12 +71,6 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	stakes, ok := new(big.Int).SetString(os.Args[3]+pattern.TokenPrecision_CESS, 10)
-	if !ok {
-		out.Err("Please enter the correct staking amount")
-		os.Exit(1)
-	}
-
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
@@ -96,7 +90,7 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	txhash, err := cli.IncreaseStakingAmount(cli.GetSignatureAcc(), stakes)
+	txhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), os.Args[3])
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())
@@ -152,9 +146,9 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAccPulickey())
+	accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAcc(), -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
+		if err.Error() != chain.ERR_Empty {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
@@ -162,8 +156,8 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	token := space * pattern.StakingStakePerTiB
-	token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, pattern.TokenPrecision_CESS), 10)
+	token := space * chain.StakingStakePerTiB
+	token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
 	if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
 		out.Err(fmt.Sprintf("signature account balance less than %d %s", token, cli.GetTokenSymbol()))
 		os.Exit(1)

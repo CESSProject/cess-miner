@@ -14,9 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
-	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -38,21 +36,21 @@ type fileBlockProofInfo struct {
 }
 
 type idleProofInfo struct {
-	Start               uint32                  `json:"start"`
-	ChainFront          int64                   `json:"chainFront"`
-	ChainRear           int64                   `json:"chainRear"`
-	IdleResult          bool                    `json:"idleResult"`
-	AllocatedTeeWorkpuk pattern.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
-	IdleProof           []byte                  `json:"idleProof"`
-	Acc                 []byte                  `json:"acc"`
-	TotalSignature      []byte                  `json:"totalSignature"`
-	ChallRandom         []int64                 `json:"challRandom"`
+	Start               uint32                `json:"start"`
+	ChainFront          int64                 `json:"chainFront"`
+	ChainRear           int64                 `json:"chainRear"`
+	IdleResult          bool                  `json:"idleResult"`
+	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
+	IdleProof           []byte                `json:"idleProof"`
+	Acc                 []byte                `json:"acc"`
+	TotalSignature      []byte                `json:"totalSignature"`
+	ChallRandom         []int64               `json:"challRandom"`
 	FileBlockProofInfo  []fileBlockProofInfo
 	BlocksProof         []*pb.BlocksProof
 }
 
 func idleChallenge(
-	n sdk.SDK,
+	n *chain.ChainClient,
 	r *RunningState,
 	l logger.Logger,
 	m *pb.MinerPoisInfo,
@@ -68,10 +66,10 @@ func idleChallenge(
 	challStart uint32,
 	minerChallFront int64,
 	minerChallRear int64,
-	spaceChallengeParam pattern.SpaceChallengeParam,
-	minerAccumulator pattern.Accumulator,
-	teeSign pattern.TeeSig,
-	teePubkey pattern.WorkerPublicKey,
+	spaceChallengeParam chain.SpaceChallengeParam,
+	minerAccumulator chain.Accumulator,
+	teeSign chain.TeeSig,
+	teePubkey chain.WorkerPublicKey,
 ) {
 	defer func() {
 		ch <- true
@@ -107,7 +105,7 @@ func idleChallenge(
 	idleProofRecord.ChainFront = minerChallFront
 	idleProofRecord.ChainRear = minerChallRear
 
-	var acc = make([]byte, len(pattern.Accumulator{}))
+	var acc = make([]byte, len(chain.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
 		acc[i] = byte(minerAccumulator[i])
 	}
@@ -133,8 +131,8 @@ func idleChallenge(
 		return
 	}
 
-	var challRandom = make([]int64, pattern.SpaceChallengeParamLen)
-	for i := 0; i < pattern.SpaceChallengeParamLen; i++ {
+	var challRandom = make([]int64, chain.SpaceChallengeParamLen)
+	for i := 0; i < chain.SpaceChallengeParamLen; i++ {
 		challRandom[i] = int64(spaceChallengeParam[i])
 	}
 
@@ -264,9 +262,9 @@ func idleChallenge(
 		l.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
 		//
 
-		time.Sleep(pattern.BlockInterval * 2)
+		time.Sleep(chain.BlockInterval * 2)
 
-		_, chall, err := n.QueryChallengeInfo(n.GetSignatureAccPulickey(), -1)
+		_, chall, err := n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			return
 		}
@@ -279,12 +277,12 @@ func idleChallenge(
 
 		teeInfoType, err := teeRecord.GetTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]))
 		if err != nil {
-			teeInfo, err := n.QueryTeeWorker(idleProofRecord.AllocatedTeeWorkpuk)
+			teeInfo, err := n.QueryWorkers(idleProofRecord.AllocatedTeeWorkpuk, -1)
 			if err != nil {
 				l.Ichal("err", err.Error())
 				return
 			}
-			endpoint, err := n.QueryTeeWorkEndpoint(teeInfo.Pubkey)
+			endpoint, err := n.QueryEndpoints(teeInfo.Pubkey, -1)
 			if err != nil {
 				l.Ichal("err", err.Error())
 				return
@@ -379,13 +377,13 @@ func idleChallenge(
 		}
 		l.Ichal("info", fmt.Sprintf("spaceProofVerifyTotal.IdleResult is %v", spaceProofVerifyTotal.IdleResult))
 
-		var teeSig pattern.TeeSig
-		if len(spaceProofVerifyTotal.Signature) != pattern.TeeSigLen {
+		var teeSig chain.TeeSig
+		if len(spaceProofVerifyTotal.Signature) != chain.TeeSigLen {
 			l.Ichal("err", "invalid spaceProofVerifyTotal signature")
 			return
 		}
 
-		for i := 0; i < pattern.TeeSigLen; i++ {
+		for i := 0; i < chain.TeeSigLen; i++ {
 			teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
 		}
 
@@ -396,7 +394,7 @@ func idleChallenge(
 		for j := 0; j < len(teeSig); j++ {
 			teeSignBytes[j] = byte(teeSig[j])
 		}
-		txHash, err := n.SubmitIdleProofResult(
+		txHash, err := n.SubmitVerifyIdleResult(
 			idleProve,
 			types.U64(idleProofRecord.ChainFront),
 			types.U64(idleProofRecord.ChainRear),
@@ -422,7 +420,7 @@ func idleChallenge(
 }
 
 func checkIdleProofRecord(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	l logger.Logger,
 	ws *Workspace,
 	teeRecord *TeeRecord,
@@ -432,9 +430,9 @@ func checkIdleProofRecord(
 	challStart uint32,
 	minerChallFront int64,
 	minerChallRear int64,
-	minerAccumulator pattern.Accumulator,
-	teeSign pattern.TeeSig,
-	teePubkey pattern.WorkerPublicKey,
+	minerAccumulator chain.Accumulator,
+	teeSign chain.TeeSig,
+	teePubkey chain.WorkerPublicKey,
 ) error {
 	var err error
 	var timeout time.Duration
@@ -459,8 +457,8 @@ func checkIdleProofRecord(
 		return errors.New("Idle proof not submited")
 	}
 
-	if sutils.IsWorkerPublicKeyAllZero(teePubkey) {
-		_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+	if chain.IsWorkerPublicKeyAllZero(teePubkey) {
+		_, chall, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			return err
 		}
@@ -474,7 +472,7 @@ func checkIdleProofRecord(
 		idleProofRecord.AllocatedTeeWorkpuk = teePubkey
 	}
 
-	var acc = make([]byte, len(pattern.Accumulator{}))
+	var acc = make([]byte, len(chain.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
 		acc[i] = byte(minerAccumulator[i])
 	}
@@ -494,19 +492,19 @@ func checkIdleProofRecord(
 			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 			}
-			var teeSig pattern.TeeSig
-			if len(idleProofRecord.TotalSignature) != pattern.TeeSigLen {
+			var teeSig chain.TeeSig
+			if len(idleProofRecord.TotalSignature) != chain.TeeSigLen {
 				l.Ichal("err", "invalid spaceProofVerifyTotal signature")
 				break
 			}
-			for i := 0; i < pattern.TeeSigLen; i++ {
+			for i := 0; i < chain.TeeSigLen; i++ {
 				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
 			var teeSignBytes = make(types.Bytes, len(teeSig))
 			for j := 0; j < len(teeSig); j++ {
 				teeSignBytes[j] = byte(teeSig[j])
 			}
-			txHash, err := cli.SubmitIdleProofResult(
+			txHash, err := cli.SubmitVerifyIdleResult(
 				idleProve,
 				types.U64(minerChallFront),
 				types.U64(minerChallRear),
@@ -528,12 +526,12 @@ func checkIdleProofRecord(
 
 	teeInfoType, err := teeRecord.GetTee(string(idleProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
-		teeInfo, err := cli.QueryTeeWorker(idleProofRecord.AllocatedTeeWorkpuk)
+		teeInfo, err := cli.QueryWorkers(idleProofRecord.AllocatedTeeWorkpuk, -1)
 		if err != nil {
 			l.Ichal("err", err.Error())
 			return err
 		}
-		endpoint, err := cli.QueryTeeWorkEndpoint(idleProofRecord.AllocatedTeeWorkpuk)
+		endpoint, err := cli.QueryEndpoints(idleProofRecord.AllocatedTeeWorkpuk, -1)
 		if err != nil {
 			l.Ichal("err", err.Error())
 			return err
@@ -596,13 +594,13 @@ func checkIdleProofRecord(
 			for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 				idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
 			}
-			var teeSig pattern.TeeSig
-			if len(idleProofRecord.TotalSignature) != pattern.TeeSigLen {
+			var teeSig chain.TeeSig
+			if len(idleProofRecord.TotalSignature) != chain.TeeSigLen {
 				l.Ichal("err", "invalid spaceProofVerifyTotal signature")
 				break
 			}
 
-			for i := 0; i < pattern.TeeSigLen; i++ {
+			for i := 0; i < chain.TeeSigLen; i++ {
 				teeSig[i] = types.U8(idleProofRecord.TotalSignature[i])
 			}
 			ws.SaveIdleProve(idleProofRecord)
@@ -610,7 +608,7 @@ func checkIdleProofRecord(
 			for j := 0; j < len(teeSig); j++ {
 				teeSignBytes[j] = byte(teeSig[j])
 			}
-			txHash, err := cli.SubmitIdleProofResult(
+			txHash, err := cli.SubmitVerifyIdleResult(
 				idleProve,
 				types.U64(minerChallFront),
 				types.U64(minerChallRear),
@@ -702,13 +700,13 @@ func checkIdleProofRecord(
 		break
 	}
 
-	var teeSig pattern.TeeSig
-	if len(spaceProofVerifyTotal.Signature) != pattern.TeeSigLen {
+	var teeSig chain.TeeSig
+	if len(spaceProofVerifyTotal.Signature) != chain.TeeSigLen {
 		l.Ichal("err", "invalid spaceProofVerifyTotal signature")
 		return nil
 	}
 
-	for i := 0; i < pattern.TeeSigLen; i++ {
+	for i := 0; i < chain.TeeSigLen; i++ {
 		teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
 	}
 
@@ -725,7 +723,7 @@ func checkIdleProofRecord(
 	}
 	var txHash string
 	for j := 2; j < 10; j++ {
-		txHash, err = cli.SubmitIdleProofResult(
+		txHash, err = cli.SubmitVerifyIdleResult(
 			idleProve,
 			types.U64(minerChallFront),
 			types.U64(minerChallRear),

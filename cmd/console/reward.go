@@ -59,28 +59,34 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	rewardInfo, err := cli.QueryRewards(cli.GetSignatureAccPulickey())
+	rewardInfo, err := cli.QueryRewardMap(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 	var total string
+	var totalStr string
 	var claimed string
+	var claimedStr string
 	var unclaimed string
 
-	if len(rewardInfo.Total) == 0 {
-		rewardInfo.Total = "0"
+	if len(rewardInfo.TotalReward.Bytes()) == 0 {
+		totalStr = "0"
+	} else {
+		totalStr = rewardInfo.TotalReward.String()
 	}
-	if len(rewardInfo.Claimed) == 0 {
-		rewardInfo.Claimed = "0"
+	if len(rewardInfo.RewardIssued.Bytes()) == 0 {
+		claimedStr = "0"
+	} else {
+		claimedStr = rewardInfo.RewardIssued.String()
 	}
 
-	t, ok := new(big.Int).SetString(rewardInfo.Total, 10)
+	t, ok := new(big.Int).SetString(totalStr, 10)
 	if !ok {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	c, ok := new(big.Int).SetString(rewardInfo.Claimed, 10)
+	c, ok := new(big.Int).SetString(claimedStr, 10)
 	if !ok {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -90,8 +96,8 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	u := t.String()
 
 	var sep uint8 = 0
-	for i := len(rewardInfo.Total) - 1; i >= 0; i-- {
-		total = fmt.Sprintf("%c%s", rewardInfo.Total[i], total)
+	for i := len(totalStr) - 1; i >= 0; i-- {
+		total = fmt.Sprintf("%c%s", totalStr[i], total)
 		sep++
 		if sep%3 == 0 {
 			total = fmt.Sprintf("_%s", total)
@@ -100,8 +106,8 @@ func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
 	total = strings.TrimPrefix(total, "_")
 
 	sep = 0
-	for i := len(rewardInfo.Claimed) - 1; i >= 0; i-- {
-		claimed = fmt.Sprintf("%c%s", rewardInfo.Claimed[i], claimed)
+	for i := len(claimedStr) - 1; i >= 0; i-- {
+		claimed = fmt.Sprintf("%c%s", claimedStr[i], claimed)
 		sep++
 		if sep%3 == 0 {
 			claimed = fmt.Sprintf("_%s", claimed)

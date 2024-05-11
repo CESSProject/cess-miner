@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
@@ -39,7 +39,7 @@ type TagfileType struct {
 	Index        uint16  `protobuf:"bytes,6,opt,name=index,json=index,proto3" json:"index,omitempty"`
 }
 
-func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, r *RunningState, teeRecord *TeeRecord, fileDir string, ch chan<- bool) {
+func CalcTag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, r *RunningState, teeRecord *TeeRecord, fileDir string, ch chan<- bool) {
 	r.SetCalcTagFlag(true)
 	defer func() {
 		ch <- true
@@ -66,7 +66,7 @@ func CalcTag(cli sdk.SDK, cace cache.Cache, l logger.Logger, r *RunningState, te
 	}
 }
 
-func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeRecord, file string) error {
+func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeRecord *TeeRecord, file string) error {
 	var ok bool
 	var isReportTag bool
 	var err error
@@ -90,7 +90,7 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 		return nil
 	}
 
-	fmeta, err := cli.QueryFileMetadata(fid)
+	fmeta, err := cli.QueryFile(fid, -1)
 	if err != nil {
 		l.Stag("info", fmt.Sprintf("[%s] QueryFileMetadata: %v", fid, err))
 		return nil
@@ -158,7 +158,7 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 	}
 
 	if !isReportTag {
-		fmeta, err := cli.QueryFileMetadata(fid)
+		fmeta, err := cli.QueryFile(fid, -1)
 		if err != nil {
 			l.Stag("err", fmt.Sprintf("[%s] [QueryFileMetadata] %v", fid, err))
 			return nil
@@ -211,7 +211,7 @@ func calc_tag(cli sdk.SDK, cace cache.Cache, l logger.Logger, teeRecord *TeeReco
 func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []byte, fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
 	var err error
 	var isReportTag bool
-	var teeSign pattern.TeeSig
+	var teeSign chain.TeeSig
 	var genTag pb.GenTagMsg
 	var teePubkey string
 	var fragmentHash = filepath.Base(fragmentFile)
@@ -221,14 +221,14 @@ func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []b
 		return false, fmt.Errorf("requestTeeTag: %v", err)
 	}
 
-	if len(genTag.USig) != pattern.TeeSignatureLen {
+	if len(genTag.USig) != chain.TeeSignatureLen {
 		return false, fmt.Errorf("invalid USig length: %d", len(genTag.USig))
 	}
 
-	if len(genTag.Signature) != pattern.TeeSigLen {
+	if len(genTag.Signature) != chain.TeeSigLen {
 		return false, fmt.Errorf("invalid Tag.Signature length: %d", len(genTag.Signature))
 	}
-	for k := 0; k < pattern.TeeSigLen; k++ {
+	for k := 0; k < chain.TeeSigLen; k++ {
 		teeSign[k] = types.U8(genTag.Signature[k])
 	}
 
@@ -386,7 +386,7 @@ func getAllFragment(path string) ([]string, error) {
 	}
 	var fragments []string
 	for i := 0; i < len(files); i++ {
-		if len(filepath.Base(files[i])) == pattern.FileHashLen {
+		if len(filepath.Base(files[i])) == chain.FileHashLen {
 			fragments = append(fragments, files[i])
 		}
 	}
@@ -420,7 +420,7 @@ func checkFragmentsSize(fragments []string) error {
 		if err != nil {
 			return err
 		}
-		if fsata.Size() != pattern.FragmentSize {
+		if fsata.Size() != sconfig.FragmentSize {
 			return errors.New("size error")
 		}
 	}
@@ -508,15 +508,15 @@ func getTagsNumber(path string) int {
 	return count
 }
 
-func reportFileTag(cli sdk.SDK, l logger.Logger, cace cache.Cache, fid string, tags []string) (string, error) {
+func reportFileTag(cli *chain.ChainClient, l logger.Logger, cace cache.Cache, fid string, tags []string) (string, error) {
 	var onChainFlag bool
 	var err error
 	var blocknumber uint32
 	var txhash string
-	var tagSigInfo pattern.TagSigInfo
+	var tagSigInfo chain.TagSigInfo
 	var latestSig []byte
-	var fmeta pattern.FileMetadata
-	for j := 0; j < pattern.FileHashLen; j++ {
+	var fmeta chain.FileMetadata
+	for j := 0; j < chain.FileHashLen; j++ {
 		tagSigInfo.Filehash[j] = types.U8(fid[j])
 	}
 	var digest = make([]*pb.DigestInfo, len(tags))
@@ -551,18 +551,18 @@ func reportFileTag(cli sdk.SDK, l logger.Logger, cace cache.Cache, fid string, t
 	}
 
 	tagSigInfo.Miner = types.AccountID(cli.GetSignatureAccPulickey())
-	tagSigInfo.Digest = make([]pattern.DigestInfo, len(digest))
+	tagSigInfo.Digest = make([]chain.DigestInfo, len(digest))
 	for j := 0; j < len(digest); j++ {
-		tagSigInfo.Digest[j].Fragment, _ = sutils.BytesToFileHash(digest[j].FragmentName)
-		tagSigInfo.Digest[j].TeePubkey, _ = sutils.BytesToWorkPublickey(digest[j].TeeAccountId)
+		tagSigInfo.Digest[j].Fragment, _ = chain.BytesToFileHash(digest[j].FragmentName)
+		tagSigInfo.Digest[j].TeePubkey, _ = chain.BytesToWorkPublickey(digest[j].TeeAccountId)
 	}
 	l.Stag("info", fmt.Sprintf("[%s] Will report file tag", fid))
 	for j := 0; j < 10; j++ {
-		txhash, err = cli.ReportTagCalculated(latestSig, tagSigInfo)
+		txhash, err = cli.CalculateReport(latestSig, tagSigInfo)
 		if err != nil || txhash == "" {
 			l.Stag("err", fmt.Sprintf("[%s] ReportTagCalculated: %s %v", fid, txhash, err))
-			time.Sleep(pattern.BlockInterval * 2)
-			fmeta, err = cli.QueryFileMetadata(fid)
+			time.Sleep(chain.BlockInterval * 2)
+			fmeta, err = cli.QueryFile(fid, -1)
 			if err == nil {
 				for _, segment := range fmeta.SegmentList {
 					for _, fragment := range segment.FragmentList {
@@ -605,7 +605,7 @@ func reportFileTag(cli sdk.SDK, l logger.Logger, cace cache.Cache, fid string, t
 		}
 		onChainFlag = true
 		l.Stag("info", fmt.Sprintf("[%s] ReportTagCalculated: %s", fid, txhash))
-		blocknumber, err = cli.QueryBlockHeight(txhash)
+		blocknumber, err = cli.QueryBlockNumber(txhash)
 		if err != nil {
 			l.Stag("err", fmt.Sprintf("[QueryBlockHeight(%s)] %v", txhash, err))
 			break

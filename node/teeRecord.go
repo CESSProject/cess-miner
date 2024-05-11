@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 )
 
 type TeeRecorder interface {
@@ -61,7 +61,7 @@ func (t *TeeRecord) SaveTee(workAccount, endPoint string, teeType uint8) error {
 	if endPoint == "" {
 		return errors.New("endPoint is empty")
 	}
-	if teeType > pattern.TeeType_Marker {
+	if teeType > chain.TeeType_Marker {
 		return errors.New("invalid tee type")
 	}
 	var teeEndPoint string
@@ -144,7 +144,7 @@ func (t *TeeRecord) GetAllMarkerTeeEndpoint() []string {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
-		if v.Type == pattern.TeeType_Full || v.Type == pattern.TeeType_Marker {
+		if v.Type == chain.TeeType_Full || v.Type == chain.TeeType_Marker {
 			if v.EndPoint == "" {
 				continue
 			}
@@ -159,7 +159,7 @@ func (t *TeeRecord) GetAllVerifierTeeEndpoint() []string {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
-		if v.Type == pattern.TeeType_Full || v.Type == pattern.TeeType_Verifier {
+		if v.Type == chain.TeeType_Full || v.Type == chain.TeeType_Verifier {
 			result = append(result, v.EndPoint)
 		}
 	}

@@ -81,7 +81,7 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	}
 	defer cli.Close()
 
-	txhash, err := cli.UpdateEarningsAccount(os.Args[3])
+	txhash, err := cli.UpdateBeneficiary(os.Args[3])
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

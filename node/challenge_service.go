@@ -17,8 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
@@ -33,16 +32,16 @@ import (
 )
 
 type serviceProofInfo struct {
-	Names               []string                `json:"names"`
-	Us                  []string                `json:"us"`
-	Mus                 []string                `json:"mus"`
-	Usig                [][]byte                `json:"usig"`
-	ServiceBloomFilter  []uint64                `json:"serviceBloomFilter"`
-	Signature           []byte                  `json:"signature"`
-	AllocatedTeeWorkpuk pattern.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
-	Sigma               string                  `json:"sigma"`
-	Start               uint32                  `json:"start"`
-	ServiceResult       bool                    `json:"serviceResult"`
+	Names               []string              `json:"names"`
+	Us                  []string              `json:"us"`
+	Mus                 []string              `json:"mus"`
+	Usig                [][]byte              `json:"usig"`
+	ServiceBloomFilter  []uint64              `json:"serviceBloomFilter"`
+	Signature           []byte                `json:"signature"`
+	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
+	Sigma               string                `json:"sigma"`
+	Start               uint32                `json:"start"`
+	ServiceResult       bool                  `json:"serviceResult"`
 }
 
 type RandomList struct {
@@ -51,7 +50,7 @@ type RandomList struct {
 }
 
 func serviceChallenge(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	r *RunningState,
 	l logger.Logger,
 	teeRecord *TeeRecord,
@@ -65,8 +64,8 @@ func serviceChallenge(
 	challVerifyExpiration uint32,
 	challStart uint32,
 	randomIndexList []types.U32,
-	randomList []pattern.Random,
-	teePubkey pattern.WorkerPublicKey,
+	randomList []chain.Random,
+	teePubkey chain.WorkerPublicKey,
 ) {
 	defer func() {
 		ch <- true
@@ -95,8 +94,8 @@ func serviceChallenge(
 	var qslice = make([]QElement, len(randomIndexList))
 	for k, v := range randomIndexList {
 		qslice[k].I = int64(v)
-		var b = make([]byte, pattern.RandomLen)
-		for i := 0; i < pattern.RandomLen; i++ {
+		var b = make([]byte, chain.RandomLen)
+		for i := 0; i < chain.RandomLen; i++ {
 			b[i] = byte(randomList[k][i])
 		}
 		qslice[k].V = new(big.Int).SetBytes(b).String()
@@ -133,9 +132,9 @@ func serviceChallenge(
 	}
 	l.Schal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
 
-	time.Sleep(pattern.BlockInterval * 3)
+	time.Sleep(chain.BlockInterval * 3)
 
-	_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+	_, chall, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		l.Schal("err", err.Error())
 		return
@@ -152,7 +151,7 @@ func serviceChallenge(
 	teeInfo, err := teeRecord.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
 		l.Schal("err", err.Error())
-		endpoint, err = cli.QueryTeeWorkEndpoint(serviceProofRecord.AllocatedTeeWorkpuk)
+		endpoint, err = cli.QueryEndpoints(serviceProofRecord.AllocatedTeeWorkpuk, -1)
 		if err != nil {
 			l.Schal("err", err.Error())
 			return
@@ -170,30 +169,30 @@ func serviceChallenge(
 		l.Schal("err", fmt.Sprintf("[batchVerify] %v", err))
 		return
 	}
-	if len(teeWorkpuk) != pattern.WorkerPublicKeyLen {
+	if len(teeWorkpuk) != chain.WorkerPublicKeyLen {
 		l.Schal("err", fmt.Sprintf("Invalid tee work public key from tee returned: %v", len(teeWorkpuk)))
 		return
 	}
-	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+	for i := 0; i < chain.WorkerPublicKeyLen; i++ {
 		serviceProofRecord.AllocatedTeeWorkpuk[i] = types.U8(teeWorkpuk[i])
 	}
 	l.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", serviceProofRecord.ServiceResult))
 
-	var signature pattern.TeeSig
-	if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
+	var signature chain.TeeSig
+	if len(serviceProofRecord.Signature) != chain.TeeSigLen {
 		l.Schal("err", "invalid batchVerify.Signature")
 		return
 	}
-	for i := 0; i < pattern.TeeSigLen; i++ {
+	for i := 0; i < chain.TeeSigLen; i++ {
 		signature[i] = types.U8(serviceProofRecord.Signature[i])
 	}
 
-	var bloomFilter pattern.BloomFilter
-	if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
+	var bloomFilter chain.BloomFilter
+	if len(serviceProofRecord.ServiceBloomFilter) != chain.BloomFilterLen {
 		l.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 		return
 	}
-	for i := 0; i < pattern.BloomFilterLen; i++ {
+	for i := 0; i < chain.BloomFilterLen; i++ {
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
 
@@ -203,7 +202,7 @@ func serviceChallenge(
 		teeSignBytes[j] = byte(signature[j])
 	}
 	for i := 2; i < 10; i++ {
-		txhash, err = cli.SubmitServiceProofResult(
+		txhash, err = cli.SubmitVerifyServiceResult(
 			types.Bool(serviceProofRecord.ServiceResult),
 			teeSignBytes,
 			bloomFilter,
@@ -221,7 +220,7 @@ func serviceChallenge(
 
 // calc sigma
 func calcSigma(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	ws *Workspace,
 	cace cache.Cache,
 	l logger.Logger,
@@ -229,7 +228,7 @@ func calcSigma(
 	rsaKey *RSAKeyPair,
 	challStart uint32,
 	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomList []chain.Random,
 ) ([]string, []string, []string, string, [][]byte, error) {
 	var ok bool
 	var isChall bool
@@ -263,9 +262,9 @@ func calcSigma(
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		roothash = filepath.Base(serviceRoothashDir[i])
 		l.Schal("info", fmt.Sprintf("will calc %s", roothash))
-		_, err = cli.QueryFileMetadata(roothash)
+		_, err = cli.QueryFile(roothash, -1)
 		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
+			if err.Error() == chain.ERR_Empty {
 				l.Schal("info", fmt.Sprintf("QueryFileMetadata(%s) is empty", roothash))
 				continue
 			}
@@ -288,9 +287,9 @@ func calcSigma(
 			}
 			if !ok {
 				l.Schal("err", fmt.Sprintf("Cache.NotFound(%s.%s)", roothash, fragmentHash))
-				fmeta, err := cli.QueryFileMetadata(roothash)
+				fmeta, err := cli.QueryFile(roothash, -1)
 				if err != nil {
-					if !strings.Contains(err.Error(), pattern.ERR_Empty) {
+					if !strings.Contains(err.Error(), chain.ERR_Empty) {
 						l.Schal("err", fmt.Sprintf("QueryFileMetadata(%s): %v", roothash, err))
 						return names, us, mus, sigma, usig, err
 					}
@@ -411,7 +410,7 @@ func calcSigma(
 }
 
 func checkServiceProofRecord(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	l logger.Logger,
 	peernode *core.PeerNode,
 	ws *Workspace,
@@ -421,8 +420,8 @@ func checkServiceProofRecord(
 	serviceProofSubmited bool,
 	challStart uint32,
 	randomIndexList []types.U32,
-	randomList []pattern.Random,
-	teePubkey pattern.WorkerPublicKey,
+	randomList []chain.Random,
+	teePubkey chain.WorkerPublicKey,
 ) error {
 	serviceProofRecord, err := ws.LoadServiceProve()
 	if err != nil {
@@ -462,8 +461,8 @@ func checkServiceProofRecord(
 			l.Schal("err", fmt.Sprintf("[SubmitServiceProof] %v", err))
 			return nil
 		}
-		time.Sleep(pattern.BlockInterval * 3)
-		_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+		time.Sleep(chain.BlockInterval * 3)
+		_, chall, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 		if err != nil {
 			return err
 		}
@@ -474,8 +473,8 @@ func checkServiceProofRecord(
 			return errors.New("chall.ProveInfo.ServiceProve is empty")
 		}
 	} else {
-		if sutils.IsWorkerPublicKeyAllZero(teePubkey) {
-			_, chall, err := cli.QueryChallengeInfo(cli.GetSignatureAccPulickey(), -1)
+		if chain.IsWorkerPublicKeyAllZero(teePubkey) {
+			_, chall, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 			if err != nil {
 				return err
 			}
@@ -493,19 +492,19 @@ func checkServiceProofRecord(
 	for {
 		if serviceProofRecord.ServiceBloomFilter != nil &&
 			serviceProofRecord.Signature != nil {
-			if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
+			if len(serviceProofRecord.Signature) != chain.TeeSigLen {
 				l.Schal("err", "invalid batchVerify.Signature")
 				break
 			}
-			var bloomFilter pattern.BloomFilter
-			if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
+			var bloomFilter chain.BloomFilter
+			if len(serviceProofRecord.ServiceBloomFilter) != chain.BloomFilterLen {
 				l.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 				break
 			}
-			for i := 0; i < pattern.BloomFilterLen; i++ {
+			for i := 0; i < chain.BloomFilterLen; i++ {
 				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 			}
-			txhash, err := cli.SubmitServiceProofResult(
+			txhash, err := cli.SubmitVerifyServiceResult(
 				types.Bool(serviceProofRecord.ServiceResult),
 				serviceProofRecord.Signature[:],
 				bloomFilter,
@@ -524,7 +523,7 @@ func checkServiceProofRecord(
 	teeInfo, err := teeRecord.GetTee(string(serviceProofRecord.AllocatedTeeWorkpuk[:]))
 	if err != nil {
 		l.Schal("err", err.Error())
-		endpoint, err = cli.QueryTeeWorkEndpoint(serviceProofRecord.AllocatedTeeWorkpuk)
+		endpoint, err = cli.QueryEndpoints(serviceProofRecord.AllocatedTeeWorkpuk, -1)
 		if err != nil {
 			l.Schal("err", err.Error())
 			return err
@@ -542,28 +541,28 @@ func checkServiceProofRecord(
 	if err != nil {
 		return nil
 	}
-	if len(teeWorkpuk) != pattern.WorkerPublicKeyLen {
+	if len(teeWorkpuk) != chain.WorkerPublicKeyLen {
 		l.Schal("err", fmt.Sprintf("Invalid tee work public key from tee returned: %v", len(teeWorkpuk)))
 		return nil
 	}
-	for i := 0; i < pattern.WorkerPublicKeyLen; i++ {
+	for i := 0; i < chain.WorkerPublicKeyLen; i++ {
 		serviceProofRecord.AllocatedTeeWorkpuk[i] = types.U8(teeWorkpuk[i])
 	}
 	l.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", serviceProofRecord.ServiceResult))
-	if len(serviceProofRecord.Signature) != pattern.TeeSigLen {
+	if len(serviceProofRecord.Signature) != chain.TeeSigLen {
 		l.Schal("err", "invalid batchVerify.Signature")
 		return nil
 	}
-	var bloomFilter pattern.BloomFilter
-	if len(serviceProofRecord.ServiceBloomFilter) != pattern.BloomFilterLen {
+	var bloomFilter chain.BloomFilter
+	if len(serviceProofRecord.ServiceBloomFilter) != chain.BloomFilterLen {
 		l.Schal("err", "invalid batchVerify.ServiceBloomFilter")
 		return nil
 	}
-	for i := 0; i < pattern.BloomFilterLen; i++ {
+	for i := 0; i < chain.BloomFilterLen; i++ {
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
 	ws.SaveServiceProve(serviceProofRecord)
-	txhash, err := cli.SubmitServiceProofResult(
+	txhash, err := cli.SubmitVerifyServiceResult(
 		types.Bool(serviceProofRecord.ServiceResult),
 		serviceProofRecord.Signature[:],
 		bloomFilter,
@@ -578,11 +577,11 @@ func checkServiceProofRecord(
 }
 
 func batchVerify(
-	cli sdk.SDK,
+	cli *chain.ChainClient,
 	l logger.Logger,
 	peernode *core.PeerNode,
 	randomIndexList []types.U32,
-	randomList []pattern.Random,
+	randomList []chain.Random,
 	teeEndPoint string,
 	serviceProofRecord serviceProofInfo,
 ) ([]uint64, []byte, []byte, bool, error) {
@@ -644,7 +643,7 @@ func batchVerify(
 	return nil, nil, nil, false, err
 }
 
-func encodeToRequestBatchVerify_Qslice(randomIndexList []types.U32, randomList []pattern.Random) *pb.RequestBatchVerify_Qslice {
+func encodeToRequestBatchVerify_Qslice(randomIndexList []types.U32, randomList []chain.Random) *pb.RequestBatchVerify_Qslice {
 	var randomIndexList_pb = make([]uint32, len(randomIndexList))
 	for i := 0; i < len(randomIndexList); i++ {
 		randomIndexList_pb[i] = uint32(randomIndexList[i])

@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/logger"
@@ -33,7 +33,7 @@ func init() {
 	reportedFile = make(map[string]struct{}, 0)
 }
 
-func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, l *logger.Lg, fileDir, tmpDir string) {
+func ReportFiles(ch chan<- bool, cli *chain.ChainClient, r *RunningState, l *logger.Lg, fileDir, tmpDir string) {
 	defer func() { ch <- true }()
 
 	roothashs, err := utils.Dirs(tmpDir)
@@ -64,23 +64,23 @@ func ReportFiles(ch chan<- bool, cli sdk.SDK, r *RunningState, l *logger.Lg, fil
 			}
 			r.SetReportFileFlag(false)
 		}
-		if !cli.GetChainState() {
+		if !cli.GetRpcState() {
 			return
 		}
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(chain.BlockInterval)
 	}
 }
 
-func check_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string) error {
+func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpDir string) error {
 	fid := filepath.Base(f)
-	metadata, err := cli.QueryFileMetadata(fid)
+	metadata, err := cli.QueryFile(fid, -1)
 	if err != nil {
-		if !errors.Is(err, pattern.ERR_RPC_EMPTY_VALUE) {
+		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 			return err
 		}
-		sorder, err := cli.QueryStorageOrder(fid)
+		sorder, err := cli.QueryDealMap(fid, -1)
 		if err != nil {
-			if !errors.Is(err, pattern.ERR_RPC_EMPTY_VALUE) {
+			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 				return err
 			}
 		}
@@ -145,11 +145,11 @@ func check_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string) 
 	return nil
 }
 
-func report_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string) error {
+func report_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpDir string) error {
 	fid := filepath.Base(f)
-	storageorder, err := cli.QueryStorageOrder(fid)
+	storageorder, err := cli.QueryDealMap(fid, -1)
 	if err != nil {
-		if err.Error() != pattern.ERR_Empty {
+		if err.Error() != chain.ERR_Empty {
 			return err
 		}
 		reportedFileLock.Lock()
@@ -175,14 +175,14 @@ func report_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string)
 
 	var sucCount int
 	var sucIndex = make([]uint8, 0)
-	for idx := uint8(0); idx < uint8(pattern.DataShards+pattern.ParShards); idx++ {
+	for idx := uint8(0); idx < uint8(sconfig.DataShards+sconfig.ParShards); idx++ {
 		sucCount = 0
 		for i := 0; i < len(storageorder.SegmentList); i++ {
 			fstat, err := os.Stat(filepath.Join(tmpDir, fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
 			if err != nil {
 				break
 			}
-			if fstat.Size() != pattern.FragmentSize {
+			if fstat.Size() != sconfig.FragmentSize {
 				break
 			}
 			sucCount++
@@ -205,7 +205,7 @@ func report_file(cli sdk.SDK, l logger.Logger, f string, fileDir, tmpDir string)
 	}
 	txhash := ""
 	for _, v := range sucIndex {
-		txhash, err = cli.ReportFile(v, fid)
+		txhash, err = cli.TransferReport(v, fid)
 		if err != nil {
 			l.Report("err", fmt.Sprintf("[%s] report err: %v bloakhash: %s", fid, err, txhash))
 			continue

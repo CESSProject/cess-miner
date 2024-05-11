@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
@@ -318,20 +318,20 @@ func (m *RunningState) SetMinerState(state string) error {
 	m.minerLock.Lock()
 	defer m.minerLock.Unlock()
 	switch state {
-	case pattern.MINER_STATE_POSITIVE:
-		m.minerState = pattern.MINER_STATE_POSITIVE
+	case chain.MINER_STATE_POSITIVE:
+		m.minerState = chain.MINER_STATE_POSITIVE
 
-	case pattern.MINER_STATE_FROZEN:
-		m.minerState = pattern.MINER_STATE_FROZEN
+	case chain.MINER_STATE_FROZEN:
+		m.minerState = chain.MINER_STATE_FROZEN
 
-	case pattern.MINER_STATE_LOCK:
-		m.minerState = pattern.MINER_STATE_LOCK
+	case chain.MINER_STATE_LOCK:
+		m.minerState = chain.MINER_STATE_LOCK
 
-	case pattern.MINER_STATE_EXIT:
-		m.minerState = pattern.MINER_STATE_EXIT
+	case chain.MINER_STATE_EXIT:
+		m.minerState = chain.MINER_STATE_EXIT
 
-	case pattern.MINER_STATE_OFFLINE:
-		m.minerState = pattern.MINER_STATE_OFFLINE
+	case chain.MINER_STATE_OFFLINE:
+		m.minerState = chain.MINER_STATE_OFFLINE
 
 	default:
 		return fmt.Errorf("invalid miner state: %s", state)

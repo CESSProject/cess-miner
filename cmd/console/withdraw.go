@@ -38,7 +38,7 @@ func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	txhash, err := cli.Withdraw()
+	txhash, err := cli.MinerWithdraw()
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

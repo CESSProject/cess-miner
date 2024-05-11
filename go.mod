@@ -3,7 +3,7 @@ module github.com/CESSProject/cess-miner
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240429075853-8cd5672d1188
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad
 	github.com/CESSProject/cess_pois v0.5.15
 	github.com/CESSProject/p2p-go v0.3.14
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -28,10 +28,11 @@ require (
 )
 
 require (
-	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2 // indirect
 	github.com/bytedance/sonic v1.11.3 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
