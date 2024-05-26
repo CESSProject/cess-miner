@@ -24,7 +24,7 @@ const (
 	// version
 	Version = "v0.7.11 devnet"
 	// Description is the description of the program
-	Description = "Storage node implementation in CESS networks"
+	Description = "Storage miner implementation in CESS networks"
 	// NameSpace is the cached namespace
 	NameSpaces = Name
 	// Chain version
