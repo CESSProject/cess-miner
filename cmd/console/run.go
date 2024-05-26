@@ -67,7 +67,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 	}
-	fmt.Println("config: ", cfg.ReadUseCpu())
+
 	runtime.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 
 	// new chain client
@@ -982,7 +982,7 @@ func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc stri
 			if err.Error() != chain.ERR_Empty {
 				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("failed to query signature account information: %v", err)
 			}
-			return configs.Unregistered, decTib, &minerInfo, errors.New("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
+			return configs.Unregistered, decTib, &minerInfo, errors.New("signature account does not exist, possible cause: 1.balance is empty 2.wrong rpc address")
 		}
 		token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
 		if stakingAcc == "" || stakingAcc == signatureAcc {
@@ -995,7 +995,7 @@ func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc stri
 				if err.Error() != chain.ERR_Empty {
 					return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("failed to query staking account information: %v", err)
 				}
-				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("staking account does not exist, possible: 1.balance is empty 2.rpc address error")
+				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("staking account does not exist, possible: 1.balance is empty 2.wrong rpc address")
 			}
 			if stakingAccInfo.Data.Free.CmpAbs(token_cess) < 0 {
 				return configs.Unregistered, decTib, &minerInfo, fmt.Errorf("staking account balance less than %d %s", token, cli.GetTokenSymbol())

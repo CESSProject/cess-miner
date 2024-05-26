@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strings"
 
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -53,7 +52,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		if err.Error() != chain.ERR_Empty {
 			out.Err(chain.ERR_RPC_CONNECTION.Error())
 		} else {
-			out.Err("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
+			out.Err("you are not registered as a storage miner, possible cause: 1.insufficient balance in signature account 2.wrong rpc address")
 		}
 		os.Exit(1)
 	}
@@ -61,11 +60,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	minerInfo.Collaterals.Div(new(big.Int).SetBytes(minerInfo.Collaterals.Bytes()), big.NewInt(configs.TokenTCESS))
 
 	beneficiaryAcc, _ := sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
-
-	name := cli.GetSDKName()
-	if strings.Contains(name, "bucket") {
-		name = "storage miner"
-	}
 
 	startBlock, err := cli.QueryStakingStartBlock(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
@@ -83,7 +77,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	var tableRows = []table.Row{
-		{"name", name},
+		{"name", "storage miner"},
 		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, cli.GetTokenSymbol())},

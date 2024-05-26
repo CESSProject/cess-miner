@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/CESSProject/p2p-go/core"
@@ -84,7 +83,7 @@ func Subscribe(ctx context.Context, h host.Host, minerRecord MinerRecord, bootno
 		if err != nil {
 			continue
 		}
-		log.Println("got a peer: ", findpeer.ID.String())
+		//log.Println("got a peer: ", findpeer.ID.String())
 		minerRecord.SavePeer(findpeer)
 	}
 }
