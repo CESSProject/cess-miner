@@ -3,7 +3,7 @@ module github.com/CESSProject/cess-miner
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240604024323-4bb5b057a452
 	github.com/CESSProject/cess_pois v0.5.15
 	github.com/CESSProject/p2p-go v0.3.14
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
