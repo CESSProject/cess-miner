@@ -9,8 +9,8 @@ dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad h1:oknDc9mWkxphN3ICRcJQNqPaudZOJkKx6t8uYYsXKEQ=
-github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad/go.mod h1:9BGRFkU3Zc5CYqK9EIz3DY14MjDg6a0bA1DWgMk3qFc=
+github.com/CESSProject/cess-go-sdk v0.5.1-0.20240604024323-4bb5b057a452 h1:gVQoivK44Cn3asnCgEFj1XLELFzbfC5TdJt3tq4UCD0=
+github.com/CESSProject/cess-go-sdk v0.5.1-0.20240604024323-4bb5b057a452/go.mod h1:9BGRFkU3Zc5CYqK9EIz3DY14MjDg6a0bA1DWgMk3qFc=
 github.com/CESSProject/cess_pois v0.5.15 h1:oQH8xEtxVzB+SeI+gNS6iSeFgjb/xDAsmgyuoF3al28=
 github.com/CESSProject/cess_pois v0.5.15/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/CESSProject/p2p-go v0.3.14 h1:t7xLWTC8C+tuELtD6f2k4Ds6Z0zulMA0v83ONTDTthw=

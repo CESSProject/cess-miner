@@ -20,6 +20,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/utils"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
@@ -96,7 +97,7 @@ func (w *Workspace) Check() error {
 	}
 
 	if dirfreeSpace < sconfig.SIZE_1GiB*32 {
-		return errors.New("the free space in workspace is less than 32GiB and cannot generate idle data")
+		out.Warn("Your free space in workspace is less than 32GiB and cannot generate idle data")
 	}
 	return nil
 }

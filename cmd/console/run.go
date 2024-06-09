@@ -1180,7 +1180,7 @@ func registerPoisKey(
 	for i := 0; i < len(teeEndPointList); i++ {
 		delay = 30
 		for tryCount := uint8(0); tryCount <= 5; tryCount++ {
-			out.Tip(fmt.Sprintf("Requesting registration parameters from tee: %s", teeEndPointList[i]))
+			out.Tip(fmt.Sprintf("Requesting registration parameters to tee: %s", teeEndPointList[i]))
 			if !strings.Contains(teeEndPointList[i], "443") {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 			} else {
@@ -1281,6 +1281,7 @@ func registerMinerPoisKey(cli *chain.ChainClient, poisKey chain.PoISKeyInfo, tee
 			}
 			continue
 		}
+		return nil
 	}
 	return err
 }
