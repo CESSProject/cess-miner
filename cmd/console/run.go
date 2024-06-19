@@ -84,6 +84,12 @@ func runCmd(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
+	err = cli.InitExtrinsicsName()
+	if err != nil {
+		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
+
 	runtime.SetCurrentRpc(cli.GetCurrentRpcAddr())
 	runtime.SetChainStatus(true)
 	runtime.SetMinerSignAcc(cli.GetSignatureAcc())
@@ -335,8 +341,8 @@ func runCmd(cmd *cobra.Command, args []string) {
 	restoreCh := make(chan bool, 1)
 	restoreCh <- true
 
-	tick_block := time.NewTicker(chain.BlockInterval)
-	defer tick_block.Stop()
+	tick_29s := time.NewTicker(time.Second * time.Duration(29))
+	defer tick_29s.Stop()
 
 	tick_Minute := time.NewTicker(time.Second * time.Duration(57))
 	defer tick_Minute.Stop()
@@ -347,7 +353,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 	out.Ok("Service started successfully")
 	for {
 		select {
-		case <-tick_block.C:
+		case <-tick_29s.C:
 			chainState = cli.GetRpcState()
 			if !chainState {
 				runtime.SetChainStatus(false)
@@ -378,6 +384,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			}
 
 		case <-tick_Minute.C:
+			chainState = cli.GetRpcState()
 			if !chainState {
 				break
 			}
@@ -425,7 +432,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			}
 
 			// go n.reportLogsMgt(ch_reportLogs)
-
+			chainState = cli.GetRpcState()
 			if !chainState {
 				break
 			}

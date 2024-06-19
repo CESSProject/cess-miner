@@ -81,6 +81,12 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	}
 	defer cli.Close()
 
+	err = cli.InitExtrinsicsName()
+	if err != nil {
+		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
+
 	txhash, err := cli.UpdateBeneficiary(os.Args[3])
 	if err != nil {
 		if txhash == "" {

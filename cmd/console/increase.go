@@ -90,6 +90,12 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
+	err = cli.InitExtrinsicsName()
+	if err != nil {
+		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
+
 	txhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), os.Args[3])
 	if err != nil {
 		if txhash == "" {
@@ -145,6 +151,12 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	defer cli.Close()
+
+	err = cli.InitExtrinsicsName()
+	if err != nil {
+		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
 
 	accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAcc(), -1)
 	if err != nil {
