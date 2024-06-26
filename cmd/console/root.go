@@ -20,6 +20,11 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   configs.Name,
 	Short: configs.Description,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Usage()
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
