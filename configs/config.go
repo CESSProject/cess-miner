@@ -20,12 +20,12 @@ const (
 	//
 	DefaultServicePort = 4001
 	//
-	DefaultRpcAddr1 = "wss://testnet-rpc0.cess.cloud/ws/"
-	DefaultRpcAddr2 = "wss://testnet-rpc1.cess.cloud/ws/"
+	DefaultRpcAddr = "wss://testnet-rpc.cess.cloud/ws/"
+
 	//
 	DefaultBootNodeAddr = "_dnsaddr.boot-miner-testnet.cess.cloud"
 	//
-	DefaultDeossAddr = "http://deoss-pub-gateway.cess.cloud/"
+	DefaultDeossAddr = "https://deoss-pub-gateway.cess.cloud/"
 
 	//
 	MinTagFileSize = 600000

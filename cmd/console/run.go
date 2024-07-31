@@ -498,7 +498,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 	if len(rpc) == 0 {
 		for {
 			if !istips {
-				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default rpc address:", configs.DefaultRpcAddr))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
@@ -519,7 +519,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 				}
 			}
 			if len(rpcValus) == 0 {
-				rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
+				rpcValus = []string{configs.DefaultRpcAddr}
 			}
 			cfg.SetRpcAddr(rpcValus)
 			break
@@ -852,7 +852,7 @@ func buildAuthenticationConfig(cmd *cobra.Command) (*confile.Confile, error) {
 	if len(rpc) == 0 {
 		for {
 			if !istips {
-				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s, %s] as default rpc address:", configs.DefaultRpcAddr1, configs.DefaultRpcAddr2))
+				out.Input(fmt.Sprintf("Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default rpc address:", configs.DefaultRpcAddr))
 				istips = true
 			}
 			lines, err = inputReader.ReadString('\n')
@@ -873,7 +873,7 @@ func buildAuthenticationConfig(cmd *cobra.Command) (*confile.Confile, error) {
 				}
 			}
 			if len(rpcValus) == 0 {
-				rpcValus = []string{configs.DefaultRpcAddr1, configs.DefaultRpcAddr2}
+				rpcValus = []string{configs.DefaultRpcAddr}
 			}
 			cfg.SetRpcAddr(rpcValus)
 			break
