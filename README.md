@@ -17,7 +17,7 @@ _dnsaddr.boot-miner-testnet.cess.cloud
 
 ## 🚰 CESS test network faucet
 ```
-https://cess.cloud/faucet.html
+https://www.cess.network/faucet.html
 ```
 
 ## ⚠ Attention

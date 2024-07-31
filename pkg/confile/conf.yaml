@@ -1,19 +1,17 @@
 # The rpc endpoint of the chain node
 Rpc:
-  - "wss://testnet-rpc0.cess.cloud/ws/"
-  - "wss://testnet-rpc1.cess.cloud/ws/"
-  - "wss://testnet-rpc2.cess.cloud/ws/"
+  - "wss://testnet-rpc.cess.cloud/ws/"
 # Bootstrap nodes
 Boot:
-  - "_dnsaddr.boot-bucket-testnet.cess.cloud" 
+  - "_dnsaddr.boot-miner-testnet.cess.cloud" 
 # Signature account mnemonic
 Mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 # Staking account
 # If you fill in the staking account, the staking will be paid by the staking account,
 # otherwise the staking will be paid by the signature account.
-StakingAcc: "cXgaee2N8E77JJv9gdsGAckv1Qsf3hqWYf7NL4q6ZuQzuAUtB"
+StakingAcc: ""
 # Earnings account
-EarningsAcc: cXff7TAFumWEu4DeXnAVtfWtBWeqeMrezwZENd4omRzMJDQJi
+EarningsAcc: ""
 # Service workspace
 Workspace: /
 # Service listening port
@@ -24,5 +22,3 @@ UseSpace: 2000
 UseCpu: 0
 # Priority tee list address
 TeeList:
-  - "127.0.0.1:8080"
-  - "127.0.0.1:8081"
