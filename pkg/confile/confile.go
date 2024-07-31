@@ -23,20 +23,18 @@ import (
 const DefaultProfile = "conf.yaml"
 const TempleteProfile = `# The rpc endpoint of the chain node
 Rpc:
-  - "wss://testnet-rpc0.cess.cloud/ws/"
-  - "wss://testnet-rpc1.cess.cloud/ws/"
-  - "wss://testnet-rpc2.cess.cloud/ws/"
+  - "wss://testnet-rpc.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
+  - "_dnsaddr.boot-miner-testnet.cess.cloud"
 # Signature account mnemonic
-Mnemonic: "xxx xxx ... xxx"
+Mnemonic: "
 # Staking account
 # If you fill in the staking account, the staking will be paid by the staking account,
 # otherwise the staking will be paid by the signature account.
-StakingAcc: "cXxxx...xxx"
+StakingAcc: ""
 # earnings account
-EarningsAcc: cXxxx...xxx
+EarningsAcc: ""
 # Service workspace
 Workspace: /
 # P2P communication port
@@ -44,7 +42,7 @@ Port: 4001
 # Maximum space used, the unit is GiB
 UseSpace: 2000
 # Number of cpu's used, 0 means use all
-UseCpu: 0
+UseCpu: 1
 # Priority tee list address
 TeeList:`
 
