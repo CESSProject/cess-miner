@@ -28,7 +28,7 @@ Rpc:
 Boot:
   - "_dnsaddr.boot-miner-testnet.cess.cloud"
 # Signature account mnemonic
-Mnemonic: "
+Mnemonic: ""
 # Staking account
 # If you fill in the staking account, the staking will be paid by the staking account,
 # otherwise the staking will be paid by the signature account.
