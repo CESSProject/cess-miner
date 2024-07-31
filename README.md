@@ -1,4 +1,4 @@
-# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-miner/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-miner/edit/main/README.md) [![build](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-bucket)](https://goreportcard.com/report/github.com/CESSProject/cess-bucket)</h1>
+# <h1 align="center">CESS-BUCKET </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg" /></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-miner/edit/main/README.md.svg)](https://pkg.go.dev/github.com/CESSProject/cess-miner/edit/main/README.md) [![build](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/cess-miner/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-miner)](https://goreportcard.com/report/github.com/CESSProject/cess-miner)</h1>
 
 CESS-Bucket is a mining program provided by cess platform for storage miners.
 
@@ -8,18 +8,16 @@ If you find any system errors or you have better suggestions, please submit an i
 ## 📢 Announcement
 **CESS test network rpc endpoints**
 ```
-wss://testnet-rpc0.cess.cloud/ws/
-wss://testnet-rpc1.cess.cloud/ws/
-wss://testnet-rpc2.cess.cloud/ws/
+wss://testnet-rpc.cess.cloud/ws/
 ```
 **CESS test network bootstrap node**
 ```
-_dnsaddr.boot-bucket-testnet.cess.cloud
+_dnsaddr.boot-miner-testnet.cess.cloud
 ```
 
 ## 🚰 CESS test network faucet
 ```
-https://testnet-faucet.cess.cloud/
+https://cess.cloud/faucet.html
 ```
 
 ## ⚠ Attention
@@ -44,7 +42,7 @@ yum install git curl wget vim util-linux -y
 ```
 
 ### Firewall configuration
-By default, cess-bucket uses port `4001` to listen for incoming connections, if your platform blocks these two ports by default, you may need to enable access to these port.
+By default, cess-miner uses port `4001` to listen for incoming connections, if your platform blocks these two ports by default, you may need to enable access to these port.
 
 #### ufw
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
@@ -106,13 +104,13 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.10/bucket0.7.10.linux-amd64.tar.gz
+wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.11/bucket0.7.11.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
 
 **1) install go**
-CESS-Bucket requires [Go 1.20](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
+CESS-Bucket requires [Go 1.21](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open gomod mode:
 ```
@@ -127,32 +125,32 @@ go env -w GOPROXY="https://goproxy.cn,direct"
 **2) clone code**
 
 ```shell
-git clone https://github.com/CESSProject/cess-bucket.git
+git clone https://github.com/CESSProject/cess-miner.git
 ```
 
 **3) compile code**
 
 ```shell
-cd cess-bucket/
-go build -o bucket cmd/main.go
+cd cess-miner/
+go build -o miner cmd/main.go
 ```
 
 **4) Grant execute permission**
 
 ```shell
-chmod +x bucket
+chmod +x miner
 ```
 
-**5) View bucket features (optional)**
+**5) View miner features (optional)**
 
-The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` to view, as follows:
+The `miner` has many functions, you can use `./miner -h` or `./miner --help` to view, as follows:
 
 - Flags
 
 | Flag        | Description                                        |
 | ----------- | -------------------------------------------------- |
 | -c,--config | custom configuration file (default "conf.yaml")    |
-| -h,--help   | help for bucket                                    |
+| -h,--help   | help for cess-miner                                |
 | --earnings  | earnings account                                   |
 | --port      | listening port                                     |
 | --rpc       | rpc endpoint list                                  |
@@ -176,38 +174,38 @@ The `bucket` has many functions, you can use `./bucket -h` or `./bucket --help` 
 | claim    |            | Claim reward                                   |
 
 ## 🟢 Start mining
-The bucket program has two running modes: foreground and background.
+The miner program has two running modes: foreground and background.
 
-> :warning: If you are not running the bucket program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your signature account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
+> :warning: If you are not running the `miner` program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your signature account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
 ```
 chown -R  user:user /cess/cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y/
 ```
 
 ### Foreground operation mode
 
-The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the bucket and ensure that the window always exists. 
-Create and enter the bucket window command:
+The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the miner and ensure that the window always exists. 
+Create and enter the miner window command:
 ```
-screen -S bucket
+screen -S miner
 ```
-Press `ctrl + A + D` to exit the bucket window without closing it.
+Press `ctrl + A + D` to exit the miner window without closing it.
 
 View window list command:
 ```
 screen -ls
 ```
-Re-enter the bucket window command:
+Re-enter the miner window command:
 ```
-screen -r bucket
+screen -r miner
 ```
 
 
 **method one**
 
-Enter the `bucket run` command to run directly, and enter the information according to the prompt to complete the startup:
+Enter the `miner run` command to run directly, and enter the information according to the prompt to complete the startup:
 
 ```
-# ./bucket run
+# ./miner run
 >> Please enter the rpc address of the chain, multiple addresses are separated by spaces:
 wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
 >> Please enter the workspace, press enter to use / by default workspace:
@@ -225,7 +223,7 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 **method two**
 
 ```
-# ./bucket run --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
+# ./miner run --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 ```
@@ -234,23 +232,23 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 
 Generate configuration file:
 ```
-./bucket config
-OK /root/bucket/conf.yaml
+./miner config
+OK /root/miner/conf.yaml
 ```
 Edit the configuration file and fill in the correct information, then run:
 ```
-nohup ./bucket run -c /root/bucket/conf.yaml &
+nohup ./miner run -c /root/miner/conf.yaml &
 ```
-If the configuration file is named conf.yaml and is located in the same directory as the bucket program, you can specify without -c:
+If the configuration file is named conf.yaml and is located in the same directory as the miner program, you can specify without -c:
 ```
-nohup ./bucket run &
+nohup ./miner run &
 ```
 
 ## 💡 Other commands
 
 - stat
 ```shell
-./bucket stat --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner stat --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +-------------------+------------------------------------------------------+
@@ -272,7 +270,7 @@ nohup ./bucket run &
 
 - increase staking
 ```shell
-./bucket increase staking 1000 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner increase staking 1000000000000000000000 --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
@@ -280,7 +278,7 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 
 - increase space
 ```shell
-./bucket increase space 10 --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner increase space 10 --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
@@ -288,7 +286,7 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 
 - update earnings
 ```shell
-./bucket update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
@@ -296,13 +294,13 @@ OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
 
 - version
 ```shell
-./bucket version
-bucket v0.7.8
+./miner version
+miner v0.7.11
 ```
 
 - exit
 ```shell
-./bucket exit --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner exit --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
@@ -310,7 +308,7 @@ OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 
 - withdraw
 ```shell
-./bucket withdraw --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner withdraw --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
@@ -318,7 +316,7 @@ OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 
 - claim
 ```shell
-./bucket claim --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner claim --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
@@ -326,7 +324,7 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 
 - reward
 ```shell
-./bucket reward --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+./miner reward --rpc wss://testnet-rpc.cess.cloud/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+---------------------------+

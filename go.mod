@@ -5,9 +5,9 @@ go 1.21
 toolchain go1.21.12
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240721063943-d679eae43b78
+	github.com/CESSProject/cess-go-sdk v0.6.0
 	github.com/CESSProject/cess_pois v0.5.15
-	github.com/CESSProject/p2p-go v0.3.14
+	github.com/CESSProject/p2p-go v0.4.0
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
 	github.com/gin-contrib/cors v1.7.1
@@ -186,7 +186,7 @@ require (
 	golang.org/x/mod v0.15.0 // indirect
 	golang.org/x/net v0.22.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.18.0 // indirect
