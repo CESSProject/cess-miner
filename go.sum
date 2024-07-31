@@ -9,14 +9,10 @@ dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/CESSProject/cess-go-sdk v0.5.1-0.20240721063943-d679eae43b78 h1:Klqyh6ByBy1/Gj8B6Me0GgsFzNHQ+umxb4nZJ3FqpqQ=
-github.com/CESSProject/cess-go-sdk v0.5.1-0.20240721063943-d679eae43b78/go.mod h1:UH85s5lpxpAf1HCXLmGgOEUAPKyeZZKEdbbWMSMHM8Y=
 github.com/CESSProject/cess-go-sdk v0.6.0 h1:QinJuZeDrBRYgkSN34NgR5u30vg5DS8zyfwYiIKl38Y=
 github.com/CESSProject/cess-go-sdk v0.6.0/go.mod h1:L5IDeS2ydsdgtdybzhWk9fIdBsDkU2XrQyo5mrWHkdQ=
 github.com/CESSProject/cess_pois v0.5.15 h1:oQH8xEtxVzB+SeI+gNS6iSeFgjb/xDAsmgyuoF3al28=
 github.com/CESSProject/cess_pois v0.5.15/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
-github.com/CESSProject/p2p-go v0.3.14 h1:t7xLWTC8C+tuELtD6f2k4Ds6Z0zulMA0v83ONTDTthw=
-github.com/CESSProject/p2p-go v0.3.14/go.mod h1:NXlRF0kaJs7pUu0dFUnp5K5HpxL//wq4DJ4fcnFNfiI=
 github.com/CESSProject/p2p-go v0.4.0 h1:Eh8SJ6aFoLLsl0rr9+bmgs82fi/nHHa8xWF58IcsnLo=
 github.com/CESSProject/p2p-go v0.4.0/go.mod h1:BahNU7n8ARLDPyikaJqSRdahOdvPf+z8sO0nS2+MCzE=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
@@ -736,8 +732,6 @@ golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20220908164124-27713097b956/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.18.0 h1:DBdB3niSjOA/O0blCZBqDefyWNYveAYMNF1Wum0DYQ4=
-golang.org/x/sys v0.18.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/sys v0.20.0 h1:Od9JTbYCk261bKm4M/mw7AklTlFYIa0bIp9BgSm1S8Y=
 golang.org/x/sys v0.20.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
