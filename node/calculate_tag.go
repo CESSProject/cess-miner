@@ -211,7 +211,7 @@ func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeReco
 func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []byte, fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
 	var err error
 	var isReportTag bool
-	var teeSign chain.TeeSig
+	//var teeSign chain.TeeSig
 	var genTag pb.GenTagMsg
 	var teePubkey string
 	var fragmentHash = filepath.Base(fragmentFile)
@@ -228,9 +228,9 @@ func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []b
 	if len(genTag.Signature) != chain.TeeSigLen {
 		return false, fmt.Errorf("invalid Tag.Signature length: %d", len(genTag.Signature))
 	}
-	for k := 0; k < chain.TeeSigLen; k++ {
-		teeSign[k] = types.U8(genTag.Signature[k])
-	}
+	// for k := 0; k < chain.TeeSigLen; k++ {
+	// 	teeSign[k] = types.U8(genTag.Signature[k])
+	// }
 
 	var tfile = &TagfileType{
 		Tag:          genTag.Tag,

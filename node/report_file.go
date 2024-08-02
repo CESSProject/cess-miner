@@ -58,7 +58,7 @@ func ReportFiles(ch chan<- bool, cli *chain.ChainClient, r *RunningState, l *log
 		} else {
 			r.SetReportFileFlag(true)
 			l.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
-			err = report_file(cli, l, file, fileDir, tmpDir)
+			err = report_file(cli, l, file, tmpDir)
 			if err != nil {
 				l.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
@@ -145,7 +145,7 @@ func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpD
 	return nil
 }
 
-func report_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpDir string) error {
+func report_file(cli *chain.ChainClient, l logger.Logger, f string, tmpDir string) error {
 	fid := filepath.Base(f)
 	storageorder, err := cli.QueryDealMap(fid, -1)
 	if err != nil {
