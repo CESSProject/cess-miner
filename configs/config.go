@@ -10,26 +10,24 @@ package configs
 import "time"
 
 const (
+	//
 	TokenTCESS = 1000000000000000000
 	// the time to wait for the event, in seconds
 	TimeToWaitEvent = time.Duration(time.Second * 30)
-	// Default config file
+	// default config file
 	DefaultConfigFile = "conf.yaml"
 	//
 	DefaultWorkspace = "/"
 	//
 	DefaultServicePort = 4001
 	//
-	DefaultRpcAddr = "wss://testnet-rpc.cess.cloud/ws/"
-
+	DefaultRpcAddr = "wss://testnet-rpc.cess.network/ws/"
 	//
-	DefaultBootNodeAddr = "_dnsaddr.boot-miner-testnet.cess.cloud"
+	DefaultBootNodeAddr = "_dnsaddr.boot-miner-testnet.cess.network"
 	//
-	DefaultDeossAddr = "https://deoss-pub-gateway.cess.cloud/"
-
+	DefaultDeossAddr = "https://deoss-pub-gateway.cess.network/"
 	//
 	MinTagFileSize = 600000
-
 	//
 	FileMode = 0755
 )

@@ -90,7 +90,7 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	err = cli.InitExtrinsicsName()
+	err = cli.InitExtrinsicsNameForMiner()
 	if err != nil {
 		out.Err("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)
@@ -152,7 +152,7 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 	}
 	defer cli.Close()
 
-	err = cli.InitExtrinsicsName()
+	err = cli.InitExtrinsicsNameForMiner()
 	if err != nil {
 		out.Err("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)
