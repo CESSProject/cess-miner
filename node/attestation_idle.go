@@ -176,7 +176,7 @@ func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, 
 			return errors.Wrapf(err, "[ProveCommitAndAcc]")
 		}
 
-		if err == nil && commitProofs == nil && accProof == nil {
+		if commitProofs == nil && accProof == nil {
 			p.Prover.AccRollback(false)
 			return errors.New("other programs are updating the data of the prover object")
 		}
