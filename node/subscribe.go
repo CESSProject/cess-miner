@@ -51,7 +51,7 @@ func Subscribe(ctx context.Context, h host.Host, minerRecord MinerRecord, bootno
 		return
 	}
 
-	out.Ok(fmt.Sprintf("subscribe to a room: %s", room))
+	out.Ok(fmt.Sprintf("subscribe to a bootnode: %s", room))
 
 	for {
 		msg, err := subscriber.Next(ctx)

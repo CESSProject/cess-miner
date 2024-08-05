@@ -27,9 +27,11 @@ const (
 	Description = "Storage miner implementation in CESS networks"
 	// NameSpace is the cached namespace
 	NameSpaces = Name
-	// Chain version
-	ChainVersion = "0.7.7"
 )
+
+// Chain version
+var ChainVersionStr = [3]string{"0", "7", "7"}
+var ChainVersionInt = [3]int{0, 7, 7}
 
 var cp *x509.CertPool
 

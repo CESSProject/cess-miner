@@ -8,11 +8,11 @@ If you find any system errors or you have better suggestions, please submit an i
 ## 📢 Announcement
 **CESS test network rpc endpoints**
 ```
-wss://testnet-rpc.cess.cloud/ws/
+wss://testnet-rpc.cess.network/ws/
 ```
 **CESS test network bootstrap node**
 ```
-_dnsaddr.boot-miner-testnet.cess.cloud
+_dnsaddr.boot-miner-testnet.cess.network
 ```
 
 ## 🚰 CESS test network faucet
@@ -31,14 +31,14 @@ The following commands are executed with root privileges, if the prompt `Permiss
 
 For the Debian and  ubuntu families of linux systems:
 
-```shell
-apt install git curl wget vim util-linux -y
+```bash
+# apt install git curl wget vim util-linux -y
 ```
 
 For the Fedora, RedHat and CentOS families of linux systems:
 
-```shell
-yum install git curl wget vim util-linux -y
+```bash
+# yum install git curl wget vim util-linux -y
 ```
 
 ### Firewall configuration
@@ -46,22 +46,22 @@ By default, cess-miner uses port `4001` to listen for incoming connections, if y
 
 #### ufw
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
-```
-ufw allow 4001
+```bash
+# ufw allow 4001
 ```
 
 #### firewall-cmd
 For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd command to allow traffic on specific ports. Use the following command to allow access to a port:
-```
-firewall-cmd --get-active-zones
+```bash
+# firewall-cmd --get-active-zones
 ```
 This command gets the active zone(s). Now, apply port rules to the relevant zones returned above. For example if the zone is public, use
-```
-firewall-cmd --zone=public --add-port=4001/tcp --permanent
+```bash
+# firewall-cmd --zone=public --add-port=4001/tcp --permanent
 ```
 Note that permanent makes sure the rules are persistent across firewall start, restart or reload. Finally reload the firewall for changes to take effect.
-```
-firewall-cmd --reload
+```bash
+# firewall-cmd --reload
 ```
 
 #### iptables
@@ -103,8 +103,8 @@ If you are using the test network, Please join the [CESS discord](https://discor
 ## 🏗 Get the binary program
 ### Method one
 Download the latest release of the binary application directly at：
-```
-wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.11/bucket0.7.11.linux-amd64.tar.gz
+```bash
+# wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.11/bucket0.7.11.linux-amd64.tar.gz
 ```
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
@@ -113,32 +113,32 @@ Compile the binary program from the storage node source code and follow the proc
 CESS-Bucket requires [Go 1.21](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open gomod mode:
-```
-go env -w GO111MODULE="on"
+```bash
+# go env -w GO111MODULE="on"
 ```
 
 Users in China can add go proxy to speed up the download:
-```
-go env -w GOPROXY="https://goproxy.cn,direct"
+```bash
+# go env -w GOPROXY="https://goproxy.cn,direct"
 ```
 
 **2) clone code**
 
-```shell
-git clone https://github.com/CESSProject/cess-miner.git
+```bash
+# git clone https://github.com/CESSProject/cess-miner.git
 ```
 
 **3) compile code**
 
-```shell
-cd cess-miner/
-go build -o miner cmd/main.go
+```bash
+# cd cess-miner/
+# go build -o miner cmd/main.go
 ```
 
 **4) Grant execute permission**
 
-```shell
-chmod +x miner
+```bash
+# chmod +x miner
 ```
 
 **5) View miner features (optional)**
@@ -177,26 +177,26 @@ The `miner` has many functions, you can use `./miner -h` or `./miner --help` to 
 The miner program has two running modes: foreground and background.
 
 > :warning: If you are not running the `miner` program with root privileges, make sure that the user you are currently logged in to has all permissions for the workspace directory you have configured. If you are logged in as `user`, the configured directory is `/cess`, and your signature account is `cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y`, execute the following command to grant permissions:
-```
-chown -R  user:user /cess/cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y/
+```bash
+# chown -R  user:user /cess/cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y/
 ```
 
 ### Foreground operation mode
 
 The foreground operation mode requires the terminal window to be kept all the time, and the window cannot be closed. You can use the screen command to create a window for the miner and ensure that the window always exists. 
 Create and enter the miner window command:
-```
-screen -S miner
+```bash
+# screen -S miner
 ```
 Press `ctrl + A + D` to exit the miner window without closing it.
 
 View window list command:
-```
-screen -ls
+```bash
+# screen -ls
 ```
 Re-enter the miner window command:
-```
-screen -r miner
+```bash
+# screen -r miner
 ```
 
 
@@ -204,10 +204,10 @@ screen -r miner
 
 Enter the `miner run` command to run directly, and enter the information according to the prompt to complete the startup:
 
-```
+```bash
 # ./miner run
 >> Please enter the rpc address of the chain, multiple addresses are separated by spaces:
-wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/
+wss://testnet-rpc.cess.network/ws/
 >> Please enter the workspace, press enter to use / by default workspace:
 /
 >> Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
@@ -222,8 +222,8 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 
 **method two**
 
-```
-# ./miner run --rpc wss://testnet-rpc0.cess.cloud/ws/ wss://testnet-rpc1.cess.cloud/ws/ wss://testnet-rpc2.cess.cloud/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
+```bash
+# ./miner run --rpc wss://testnet-rpc.cess.network/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 ```
@@ -231,24 +231,24 @@ cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
 ### Background operation mode
 
 Generate configuration file:
-```
-./miner config
+```bash
+# ./miner config
 OK /root/miner/conf.yaml
 ```
 Edit the configuration file and fill in the correct information, then run:
-```
-nohup ./miner run -c /root/miner/conf.yaml &
+```bash
+# nohup ./miner run -c /root/miner/conf.yaml &
 ```
 If the configuration file is named conf.yaml and is located in the same directory as the miner program, you can specify without -c:
-```
-nohup ./miner run &
+```bash
+# nohup ./miner run &
 ```
 
 ## 💡 Other commands
 
 - stat
-```shell
-./miner stat --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner stat --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +-------------------+------------------------------------------------------+
@@ -269,24 +269,24 @@ nohup ./miner run &
 ```
 
 - increase staking
-```shell
-./miner increase staking 1000000000000000000000 --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner increase staking 1000000000000000000000 --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```
 
 - increase space
-```shell
-./miner increase space 10 --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner increase space 10 --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 ```
 
 - update earnings
-```shell
-./miner update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
@@ -299,32 +299,32 @@ miner v0.7.11
 ```
 
 - exit
-```shell
-./miner exit --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner exit --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 ```
 
 - withdraw
-```shell
-./miner withdraw --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner withdraw --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 ```
 
 - claim
-```shell
-./miner claim --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner claim --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 ```
 
 - reward
-```shell
-./miner reward --rpc wss://testnet-rpc.cess.cloud/ws/
+```bash
+# ./miner reward --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+---------------------------+

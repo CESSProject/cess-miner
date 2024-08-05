@@ -926,28 +926,42 @@ func checkNetworkEnv(cli *chain.ChainClient, netenv string) error {
 	chain := cli.GetNetworkEnv()
 	if strings.Contains(chain, configs.DevNet) {
 		if !strings.Contains(netenv, configs.DevNet) {
-			return errors.New("chain and p2p are not in the same network")
+			return fmt.Errorf("chain and storage are not on the same network, chain: %s storage: %s", chain, netenv)
 		}
 	} else if strings.Contains(chain, configs.TestNet) {
 		if !strings.Contains(netenv, configs.TestNet) {
-			return errors.New("chain and p2p are not in the same network")
+			return fmt.Errorf("chain and storage are not on the same network, chain: %s storage: %s", chain, netenv)
 		}
 	} else if strings.Contains(chain, configs.MainNet) {
 		if !strings.Contains(netenv, configs.MainNet) {
-			return errors.New("chain and p2p are not in the same network")
+			return fmt.Errorf("chain and storage are not on the same network, chain: %s storage: %s", chain, netenv)
 		}
 	} else {
-		return errors.New("unknown chain network")
+		return fmt.Errorf("unknown chain network: %s", chain)
 	}
 
 	chainVersion, err := cli.SystemVersion()
 	if err != nil {
-		return errors.New("Failed to read chain version: network connection is down")
+		return errors.New("failed to query the chain version: rpc connection is down")
 	}
 
 	if strings.Contains(chain, configs.TestNet) {
-		if !strings.Contains(chainVersion, configs.ChainVersion) {
-			return fmt.Errorf("The chain version you are using is not %s, please check your rpc service", configs.ChainVersion)
+		tmps := strings.Split(chainVersion, "-")
+		for _, v := range tmps {
+			if strings.Contains(v, ".") {
+				values := strings.Split(v, ".")
+				if len(values) == 3 {
+					if values[0] != configs.ChainVersionStr[0] || values[1] != configs.ChainVersionStr[1] {
+						return fmt.Errorf("chain version number is not v%d.%d, please check your rpc service", configs.ChainVersionInt[0], configs.ChainVersionInt[1])
+					}
+					versionI, err := strconv.Atoi(values[2])
+					if err == nil {
+						if versionI < configs.ChainVersionInt[2] {
+							return fmt.Errorf("chain version number is lower than v%d.%d.%d, please check your rpc service", configs.ChainVersionInt[0], configs.ChainVersionInt[1], configs.ChainVersionInt[2])
+						}
+					}
+				}
+			}
 		}
 	}
 
