@@ -23,10 +23,12 @@ import (
 const DefaultProfile = "conf.yaml"
 const TempleteProfile = `# The rpc endpoint of the chain node
 Rpc:
-  - "wss://testnet-rpc.cess.cloud/ws/"
+  # testnet
+  - "wss://testnet-rpc.cess.network/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.boot-miner-testnet.cess.cloud"
+  # testnet
+  - "_dnsaddr.boot-miner-testnet.cess.network"
 # Signature account mnemonic
 Mnemonic: ""
 # Staking account
@@ -36,7 +38,7 @@ StakingAcc: ""
 # earnings account
 EarningsAcc: ""
 # Service workspace
-Workspace: /
+Workspace: ""
 # P2P communication port
 Port: 4001
 # Maximum space used, the unit is GiB
