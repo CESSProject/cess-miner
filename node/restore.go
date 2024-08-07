@@ -69,7 +69,7 @@ func RestoreLocalFiles(cli *chain.ChainClient, l logger.Logger, cace cache.Cache
 		roothash = filepath.Base(v)
 		err = restoreFile(cli, l, fileDir, roothash)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("restoreFile: %v", fileDir, err))
+			l.Restore("err", fmt.Sprintf("restoreFile: %v err: %v", fileDir, err))
 		}
 	}
 	return nil
