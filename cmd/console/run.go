@@ -493,7 +493,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 	if err != nil {
 		return cfg, err
 	}
-
+	out.Warn("No configuration file was found, so enter the manual configuration process:")
 	var rpcValus = make([]string, 0)
 	if len(rpc) == 0 {
 		for {
@@ -504,6 +504,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -546,6 +547,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -586,6 +588,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			} else {
 				workspace = strings.ReplaceAll(lines, "\n", "")
@@ -630,6 +633,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			}
 			earnings = strings.ReplaceAll(lines, "\n", "")
@@ -668,6 +672,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			}
 			lines = strings.ReplaceAll(lines, "\n", "")
@@ -716,6 +721,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			}
 			lines = strings.ReplaceAll(lines, "\n", "")
@@ -754,6 +760,7 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
@@ -858,6 +865,7 @@ func buildAuthenticationConfig(cmd *cobra.Command) (*confile.Confile, error) {
 			lines, err = inputReader.ReadString('\n')
 			if err != nil {
 				out.Err(err.Error())
+				time.Sleep(time.Second)
 				continue
 			} else {
 				lines = strings.ReplaceAll(lines, "\n", "")
