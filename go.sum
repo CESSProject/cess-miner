@@ -13,8 +13,8 @@ github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49 h1:6a58I
 github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49/go.mod h1:L5IDeS2ydsdgtdybzhWk9fIdBsDkU2XrQyo5mrWHkdQ=
 github.com/CESSProject/cess_pois v0.5.15 h1:oQH8xEtxVzB+SeI+gNS6iSeFgjb/xDAsmgyuoF3al28=
 github.com/CESSProject/cess_pois v0.5.15/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
-github.com/CESSProject/p2p-go v0.4.1-0.20240807034541-acd924a57c86 h1:eBl+5j4coVjsP1sl67ZRCKskWES8exQbUjk2nUNpf2s=
-github.com/CESSProject/p2p-go v0.4.1-0.20240807034541-acd924a57c86/go.mod h1:gcx/L7DIm9WGKe5lVmprG94gML7j+Sz9OLwAt82O4kE=
+github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e h1:jaU/Pqsyu2BQL0ewamgsYmbfrTKLCqRBHh7RL0+bv6Q=
+github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e/go.mod h1:NR4nOQM5vHk5NHxW3LEynynl0q7W8AEMIxYz0EGiH0U=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
@@ -312,8 +312,8 @@ github.com/libp2p/go-cidranger v1.1.0 h1:ewPN8EZ0dd1LSnrtuwd4709PXVcITVeuwbag38y
 github.com/libp2p/go-cidranger v1.1.0/go.mod h1:KWZTfSr+r9qEo9OkI9/SIEeAtw+NNoU0dXIXt15Okic=
 github.com/libp2p/go-flow-metrics v0.1.0 h1:0iPhMI8PskQwzh57jB9WxIuIOQ0r+15PChFGkx3Q3WM=
 github.com/libp2p/go-flow-metrics v0.1.0/go.mod h1:4Xi8MX8wj5aWNDAZttg6UPmc0ZrnFNsMtpsYUClFtro=
-github.com/libp2p/go-libp2p v0.36.0 h1:euESeA1bndKdEjHoSbzyJ39PT14CL+/BNCfq7aaneuo=
-github.com/libp2p/go-libp2p v0.36.0/go.mod h1:mdtNGqy0AQuiYJuO1bXPdFOyFeyMTMSVZ03OBi/XLS4=
+github.com/libp2p/go-libp2p v0.36.1 h1:piAHesy0/8ifBEBUS8HF2m7ywR5vnktUFv00dTsVKcs=
+github.com/libp2p/go-libp2p v0.36.1/go.mod h1:vHzel3CpRB+vS11fIjZSJAU4ALvieKV9VZHC9VerHj8=
 github.com/libp2p/go-libp2p-asn-util v0.4.1 h1:xqL7++IKD9TBFMgnLPZR6/6iYhawHKHl950SO9L6n94=
 github.com/libp2p/go-libp2p-asn-util v0.4.1/go.mod h1:d/NI6XZ9qxw67b4e+NgpQexCIiFYJjErASrYW4PFDN8=
 github.com/libp2p/go-libp2p-kad-dht v0.25.2 h1:FOIk9gHoe4YRWXTu8SY9Z1d0RILol0TrtApsMDPjAVQ=

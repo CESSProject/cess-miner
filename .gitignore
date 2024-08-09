@@ -24,8 +24,8 @@
 
 ## Binaries for programs and plugins
 main
-bucket*
-sm*
+miner*
+cess-miner*
 *.exe
 *.dll
 *.so

@@ -25,8 +25,6 @@ const (
 	//
 	DefaultBootNodeAddr = "_dnsaddr.boot-miner-testnet.cess.network"
 	//
-	DefaultDeossAddr = "https://deoss-pub-gateway.cess.network/"
-	//
 	MinTagFileSize = 600000
 	//
 	FileMode = 0755
