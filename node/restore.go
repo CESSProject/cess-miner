@@ -219,10 +219,10 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 		}
 	}
 
-	data, err := GetFragmentFromOss(fragmentHash, signAcc)
-	if err == nil {
-		return os.WriteFile(filepath.Join(fileDir, roothash, fragmentHash), data, os.ModePerm)
-	}
+	// data, err := GetFragmentFromOss(fragmentHash, signAcc)
+	// if err == nil {
+	// 	return os.WriteFile(filepath.Join(fileDir, roothash, fragmentHash), data, os.ModePerm)
+	// }
 
 	// fmeta, err := n.QueryFileMetadata(roothash)
 	// if err != nil {

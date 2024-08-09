@@ -7,14 +7,14 @@ toolchain go1.21.12
 require (
 	github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49
 	github.com/CESSProject/cess_pois v0.5.15
-	github.com/CESSProject/p2p-go v0.4.1-0.20240807034541-acd924a57c86
+	github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.5.8
-	github.com/libp2p/go-libp2p v0.36.0
+	github.com/libp2p/go-libp2p v0.36.1
 	github.com/libp2p/go-libp2p-pubsub v0.11.0
 	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
