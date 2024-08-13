@@ -158,20 +158,30 @@ func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	accInfo, err := cli.QueryAccountInfo(cli.GetSignatureAcc(), -1)
+	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Err("signature account does not exist, possible: 1.balance is empty 2.rpc address error")
+		out.Err("You are not a storage miner: " + cli.GetSignatureAcc())
+		os.Exit(1)
+	}
+
+	accInfo, err := cli.QueryAccountInfoByAccountID(minerInfo.StakingAccount[:], -1)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		out.Err("staking account does not exist, possible: 1.balance is empty 2.rpc address error")
 		os.Exit(1)
 	}
 
 	token := space * chain.StakingStakePerTiB
 	token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
 	if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
-		out.Err(fmt.Sprintf("signature account balance less than %d %s", token, cli.GetTokenSymbol()))
+		out.Err(fmt.Sprintf("staking account balance less than %d %s", token, cli.GetTokenSymbol()))
 		os.Exit(1)
 	}
 
