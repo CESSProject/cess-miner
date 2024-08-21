@@ -102,10 +102,8 @@ If you are using the test network, Please join the [CESS discord](https://discor
 
 ## 🏗 Get the binary program
 ### Method one
-Download the latest release of the binary application directly at：
-```bash
-# wget https://github.com/CESSProject/cess-miner/releases/download/v0.7.11/bucket0.7.11.linux-amd64.tar.gz
-```
+Download the latest release code directly at： [Releases](https://github.com/CESSProject/cess-miner/releases)
+
 ### Method two
 Compile the binary program from the storage node source code and follow the process as follows:
 
