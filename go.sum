@@ -11,6 +11,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49 h1:6a58IgBudMSK0YsRvdxDsNgAPqyowfrrgKCXfQ5IP6I=
 github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49/go.mod h1:L5IDeS2ydsdgtdybzhWk9fIdBsDkU2XrQyo5mrWHkdQ=
+github.com/CESSProject/cess-go-sdk v0.6.2-0.20240822075251-93843c2a4017 h1:q488VDsCSykpJ1v+QmOxPVolkCBHvSxEP8dW3/+/MH0=
+github.com/CESSProject/cess-go-sdk v0.6.2-0.20240822075251-93843c2a4017/go.mod h1:L5IDeS2ydsdgtdybzhWk9fIdBsDkU2XrQyo5mrWHkdQ=
 github.com/CESSProject/cess_pois v0.5.16 h1:OYPmmuvGH9ikTyDS2BlmcNw3ZBX8udew+gNnIBTJSa8=
 github.com/CESSProject/cess_pois v0.5.16/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e h1:jaU/Pqsyu2BQL0ewamgsYmbfrTKLCqRBHh7RL0+bv6Q=
