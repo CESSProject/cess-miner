@@ -28,11 +28,11 @@ const increase_cmd_short = "increase [staking | space]"
 
 const increaseStaking_cmd = "staking"
 const increaseStaking_cmd_use = increaseStaking_cmd
-const increaseStaking_cmd_short = "increase staking"
+const increaseStaking_cmd_short = "increase staking, the unit is TCESS"
 
 const increaseSpace_cmd = "space"
 const increaseSpace_cmd_use = increaseSpace_cmd
-const increaseSpace_cmd_short = "increase space"
+const increaseSpace_cmd_short = "increase space, the unit is TiB"
 
 var increaseCmd = &cobra.Command{
 	Use:                   increase_cmd_use,
@@ -71,6 +71,12 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	_, err := strconv.ParseUint(os.Args[3], 10, 64)
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())
@@ -95,8 +101,8 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 		out.Err("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)
 	}
-
-	txhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), os.Args[3])
+	addStaking := os.Args[3] + chain.TokenPrecision_CESS
+	txhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), addStaking)
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

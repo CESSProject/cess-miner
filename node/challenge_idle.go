@@ -40,6 +40,8 @@ type idleProofInfo struct {
 	ChainFront          int64                 `json:"chainFront"`
 	ChainRear           int64                 `json:"chainRear"`
 	IdleResult          bool                  `json:"idleResult"`
+	SubmintProof        bool                  `json:"submintProof"`
+	SubmintResult       bool                  `json:"submintResult"`
 	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
 	IdleProof           []byte                `json:"idleProof"`
 	Acc                 []byte                `json:"acc"`
@@ -104,6 +106,8 @@ func idleChallenge(
 	idleProofRecord.Start = challStart
 	idleProofRecord.ChainFront = minerChallFront
 	idleProofRecord.ChainRear = minerChallRear
+	idleProofRecord.SubmintProof = true
+	idleProofRecord.SubmintResult = true
 
 	var acc = make([]byte, len(chain.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
@@ -253,13 +257,22 @@ func idleChallenge(
 		}
 
 		ws.SaveIdleProve(idleProofRecord)
-		l.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
-		txhash, err := n.SubmitIdleProof(idleProve)
-		if err != nil {
-			l.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-			return
+
+		txhash := ""
+		for i := 0; i < 5; i++ {
+			l.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
+			txhash, err = n.SubmitIdleProof(idleProve)
+			l.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
+			if err != nil {
+				l.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
+				time.Sleep(time.Minute)
+				continue
+			}
+			break
 		}
-		l.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
+		idleProofRecord.SubmintProof = false
+		ws.SaveIdleProve(idleProofRecord)
+
 		//
 
 		time.Sleep(chain.BlockInterval * 2)
@@ -394,28 +407,39 @@ func idleChallenge(
 		for j := 0; j < len(teeSig); j++ {
 			teeSignBytes[j] = byte(teeSig[j])
 		}
-		txHash, err := n.SubmitVerifyIdleResult(
-			idleProve,
-			types.U64(idleProofRecord.ChainFront),
-			types.U64(idleProofRecord.ChainRear),
-			minerAccumulator,
-			types.Bool(spaceProofVerifyTotal.IdleResult),
-			teeSignBytes,
-			idleProofRecord.AllocatedTeeWorkpuk,
-		)
-		if err != nil {
-			l.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-			return
+		for i := 0; i < 5; i++ {
+			txHash, err := n.SubmitVerifyIdleResult(
+				idleProve,
+				types.U64(idleProofRecord.ChainFront),
+				types.U64(idleProofRecord.ChainRear),
+				minerAccumulator,
+				types.Bool(spaceProofVerifyTotal.IdleResult),
+				teeSignBytes,
+				idleProofRecord.AllocatedTeeWorkpuk,
+			)
+			if err != nil {
+				l.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+				time.Sleep(time.Minute)
+				continue
+			}
+			l.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+			break
 		}
-
-		l.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+		idleProofRecord.SubmintResult = false
+		ws.SaveIdleProve(idleProofRecord)
 	} else {
-		txhash, err := n.SubmitIdleProof([]types.U8{})
-		if err != nil {
-			l.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-			return
+		for i := 0; i < 5; i++ {
+			txhash, err := n.SubmitIdleProof([]types.U8{})
+			if err != nil {
+				l.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
+				time.Sleep(time.Minute)
+				continue
+			}
+			l.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
+			break
 		}
-		l.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
+		idleProofRecord.SubmintResult = false
+		ws.SaveIdleProve(idleProofRecord)
 	}
 }
 
@@ -454,7 +478,14 @@ func checkIdleProofRecord(
 
 	l.Ichal("info", fmt.Sprintf("local idle proof file challenge: %v", idleProofRecord.Start))
 	if !idleProofSubmited {
-		return errors.New("Idle proof not submited")
+		if idleProofRecord.SubmintProof {
+			return errors.New("Idle proof not submited")
+		}
+		return nil
+	}
+
+	if !idleProofRecord.SubmintResult {
+		return nil
 	}
 
 	if chain.IsWorkerPublicKeyAllZero(teePubkey) {

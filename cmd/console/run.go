@@ -407,16 +407,16 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 			if len(attestationIdleCh) > 0 {
 				<-attestationIdleCh
-				go node.AttestationIdle(cli, peernode, p, runtime, minerPoisInfo, teeRecord, l, attestationIdleCh)
+				go node.AttestationIdle(cli, peernode, p, runtime, minerPoisInfo, teeRecord, l, cfg, attestationIdleCh)
 			}
 
 			if len(calcTagCh) > 0 {
 				<-calcTagCh
-				go node.CalcTag(cli, cace, l, runtime, teeRecord, wspace.GetFileDir(), calcTagCh)
+				go node.CalcTag(cli, cace, l, runtime, teeRecord, cfg, wspace.GetFileDir(), calcTagCh)
 			}
 
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go node.ChallengeMgt(cli, l, wspace, runtime, teeRecord, peernode, minerPoisInfo, rsakey, p, cace, idleChallCh, serviceChallCh)
+				go node.ChallengeMgt(cli, l, wspace, runtime, teeRecord, peernode, minerPoisInfo, rsakey, p, cfg, cace, idleChallCh, serviceChallCh)
 				time.Sleep(chain.BlockInterval)
 			}
 
@@ -1144,7 +1144,7 @@ func registerPoisKey(
 		responseMinerInitParam *pb.ResponseMinerInitParam
 		rsakey                 *node.RSAKeyPair
 		chainPublickey         = make([]byte, chain.WorkerPublicKeyLen)
-		teeEndPointList        = make([]string, len(priorityTeeList))
+		teeEndPointList        = make([]string, 0)
 	)
 	copy(teeEndPointList, priorityTeeList)
 	for {

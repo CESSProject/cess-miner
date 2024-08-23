@@ -12,6 +12,7 @@ import (
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/pb"
@@ -27,6 +28,7 @@ func ChallengeMgt(
 	m *pb.MinerPoisInfo,
 	rsa *RSAKeyPair,
 	p *Pois,
+	cfg *confile.Confile,
 	cace cache.Cache,
 	idleChallTaskCh chan bool,
 	serviceChallTaskCh chan bool,
@@ -118,7 +120,7 @@ func ChallengeMgt(
 				if len(serviceChallTaskCh) > 0 {
 					<-serviceChallTaskCh
 					go serviceChallenge(
-						cli, r, l, teeRecord, peernode, ws, cace, rsa,
+						cli, r, l, teeRecord, peernode, ws, cace, rsa, cfg,
 						serviceChallTaskCh,
 						true,
 						latestBlock,
@@ -140,7 +142,7 @@ func ChallengeMgt(
 				<-serviceChallTaskCh
 				r.SetServiceChallengeFlag(true)
 				go serviceChallenge(
-					cli, r, l, teeRecord, peernode, ws, cace, rsa,
+					cli, r, l, teeRecord, peernode, ws, cace, rsa, cfg,
 					serviceChallTaskCh,
 					false,
 					latestBlock,
