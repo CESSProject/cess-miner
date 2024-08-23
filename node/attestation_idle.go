@@ -14,6 +14,7 @@ import (
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
@@ -26,7 +27,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func AttestationIdle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l *logger.Lg, ch chan<- bool) {
+func AttestationIdle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, m *pb.MinerPoisInfo, teeRecord *TeeRecord, l *logger.Lg, cfg *confile.Confile, ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -34,7 +35,7 @@ func AttestationIdle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r
 		}
 	}()
 	for {
-		err := attestation_idle(cli, peernode, p, r, teeRecord, m, l)
+		err := attestation_idle(cli, peernode, p, r, teeRecord, m, l, cfg)
 		if err != nil {
 			l.Space("err", err.Error())
 			time.Sleep(time.Minute)
@@ -43,7 +44,7 @@ func AttestationIdle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r
 	}
 }
 
-func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, teeRecord *TeeRecord, m *pb.MinerPoisInfo, l logger.Logger) error {
+func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, r *RunningState, teeRecord *TeeRecord, m *pb.MinerPoisInfo, l *logger.Lg, cfg *confile.Confile) error {
 	defer func() {
 		if err := recover(); err != nil {
 			l.Pnc(utils.RecoverError(err))
@@ -114,8 +115,12 @@ func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, 
 		}
 
 		l.Space("info", fmt.Sprintf("front: %v rear: %v", p.Prover.GetFront(), p.Prover.GetRear()))
-
-		teeEndPoints := teeRecord.GetAllMarkerTeeEndpoint()
+		var teeEndPoints = cfg.ReadPriorityTeeList()
+		if len(teeEndPoints) > 0 {
+			teeEndPoints = append(teeEndPoints, cfg.ReadPriorityTeeList()...)
+			teeEndPoints = append(teeEndPoints, cfg.ReadPriorityTeeList()...)
+		}
+		teeEndPoints = append(teeEndPoints, teeRecord.GetAllMarkerTeeEndpoint()...)
 
 		var usedTeeEndPoint string
 		var usedTeeWorkAccount string

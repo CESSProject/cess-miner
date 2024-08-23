@@ -22,6 +22,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/pb"
@@ -39,7 +40,7 @@ type TagfileType struct {
 	Index        uint16  `protobuf:"bytes,6,opt,name=index,json=index,proto3" json:"index,omitempty"`
 }
 
-func CalcTag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, r *RunningState, teeRecord *TeeRecord, fileDir string, ch chan<- bool) {
+func CalcTag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, r *RunningState, teeRecord *TeeRecord, cfg *confile.Confile, fileDir string, ch chan<- bool) {
 	r.SetCalcTagFlag(true)
 	defer func() {
 		ch <- true
@@ -58,7 +59,7 @@ func CalcTag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, r *Runni
 	l.Stag("info", fmt.Sprintf("[roothashs] %v", roothashs))
 
 	for _, fileDir := range roothashs {
-		err = calc_tag(cli, cace, l, teeRecord, fileDir)
+		err = calc_tag(cli, cace, l, teeRecord, cfg, fileDir)
 		if err != nil {
 			l.Stag("err", fmt.Sprintf("[%s] [calc_tag] %v", filepath.Base(fileDir), roothashs))
 		}
@@ -66,7 +67,7 @@ func CalcTag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, r *Runni
 	}
 }
 
-func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeRecord *TeeRecord, file string) error {
+func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeRecord *TeeRecord, cfg *confile.Confile, file string) error {
 	var ok bool
 	var isReportTag bool
 	var err error
@@ -146,7 +147,7 @@ func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeReco
 			l.Stag("err", fmt.Sprintf("[%s] The file's tag stat err: %v", fid, err))
 		}
 
-		isreport, err := calcTheFragmentTag(l, teeRecord, cli.GetSignatureAccPulickey(), fid, fragments[i], maxIndex, latestSig, digest)
+		isreport, err := calcTheFragmentTag(l, teeRecord, cfg, cli.GetSignatureAccPulickey(), fid, fragments[i], maxIndex, latestSig, digest)
 		if err != nil {
 			l.Stag("err", fmt.Sprintf("[%s] [calcFragmentTag] %v", fid, err))
 			return nil
@@ -208,7 +209,7 @@ func calc_tag(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, teeReco
 	return nil
 }
 
-func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []byte, fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
+func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, cfg *confile.Confile, signPublicKey []byte, fid, fragmentFile string, maxIndex uint16, lastSign []byte, digest []*pb.DigestInfo) (bool, error) {
 	var err error
 	var isReportTag bool
 	//var teeSign chain.TeeSig
@@ -216,7 +217,7 @@ func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []b
 	var teePubkey string
 	var fragmentHash = filepath.Base(fragmentFile)
 
-	genTag, teePubkey, err = requestTeeTag(l, teeRecord, signPublicKey, fid, fragmentFile, lastSign, digest)
+	genTag, teePubkey, err = requestTeeTag(l, teeRecord, cfg, signPublicKey, fid, fragmentFile, lastSign, digest)
 	if err != nil {
 		return false, fmt.Errorf("requestTeeTag: %v", err)
 	}
@@ -263,11 +264,16 @@ func calcTheFragmentTag(l logger.Logger, teeRecord *TeeRecord, signPublicKey []b
 	return isReportTag, nil
 }
 
-func requestTeeTag(l logger.Logger, teeRecord *TeeRecord, signPubkey []byte, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
+func requestTeeTag(l logger.Logger, teeRecord *TeeRecord, cfg *confile.Confile, signPubkey []byte, fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
 	var err error
 	var teePubkey string
 	var tagInfo pb.GenTagMsg
-	teeEndPoints := teeRecord.GetAllMarkerTeeEndpoint()
+	var teeEndPoints = cfg.ReadPriorityTeeList()
+	if len(teeEndPoints) > 0 {
+		teeEndPoints = append(teeEndPoints, cfg.ReadPriorityTeeList()...)
+		teeEndPoints = append(teeEndPoints, cfg.ReadPriorityTeeList()...)
+	}
+	teeEndPoints = append(teeEndPoints, teeRecord.GetAllMarkerTeeEndpoint()...)
 
 	l.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
 	for j := 0; j < len(teeEndPoints); j++ {

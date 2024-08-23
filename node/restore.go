@@ -21,6 +21,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
@@ -318,7 +319,7 @@ func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fi
 	return nil
 }
 
-func calcFragmentTag(cli *chain.ChainClient, l logger.Logger, teeRecord *TeeRecord, ws *Workspace, fid, fragment string) error {
+func calcFragmentTag(cli *chain.ChainClient, l logger.Logger, teeRecord *TeeRecord, ws *Workspace, cfg *confile.Confile, fid, fragment string) error {
 	buf, err := os.ReadFile(fragment)
 	if err != nil {
 		return err
@@ -328,7 +329,7 @@ func calcFragmentTag(cli *chain.ChainClient, l logger.Logger, teeRecord *TeeReco
 	}
 	fragmentHash := filepath.Base(fragment)
 
-	genTag, teePubkey, err := requestTeeTag(l, teeRecord, cli.GetSignatureAccPulickey(), fid, fragment, nil, nil)
+	genTag, teePubkey, err := requestTeeTag(l, teeRecord, cfg, cli.GetSignatureAccPulickey(), fid, fragment, nil, nil)
 	if err != nil {
 		return err
 	}

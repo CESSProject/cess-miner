@@ -21,6 +21,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/cache"
+	"github.com/CESSProject/cess-miner/pkg/confile"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
@@ -42,6 +43,8 @@ type serviceProofInfo struct {
 	Sigma               string                `json:"sigma"`
 	Start               uint32                `json:"start"`
 	ServiceResult       bool                  `json:"serviceResult"`
+	SubmitProof         bool                  `json:"submitProof"`
+	SubmitResult        bool                  `json:"submitResult"`
 }
 
 type RandomList struct {
@@ -58,6 +61,7 @@ func serviceChallenge(
 	ws *Workspace,
 	cace cache.Cache,
 	rsaKey *RSAKeyPair,
+	cfg *confile.Confile,
 	ch chan<- bool,
 	serviceProofSubmited bool,
 	latestBlock,
@@ -80,8 +84,7 @@ func serviceChallenge(
 		return
 	}
 
-	var serviceProofRecord serviceProofInfo
-	err := checkServiceProofRecord(cli, l, peernode, ws, teeRecord, cace, rsaKey, serviceProofSubmited, challStart, randomIndexList, randomList, teePubkey)
+	err := checkServiceProofRecord(cli, l, peernode, ws, teeRecord, cace, rsaKey, cfg, serviceProofSubmited, challStart, randomIndexList, randomList, teePubkey)
 	if err == nil {
 		return
 	}
@@ -106,13 +109,15 @@ func serviceChallenge(
 		l.Schal("err", fmt.Sprintf("Save service file challenge random err: %v", err))
 	}
 
-	serviceProofRecord = serviceProofInfo{}
+	var serviceProofRecord serviceProofInfo
 	serviceProofRecord.Start = uint32(challStart)
+	serviceProofRecord.SubmitProof = true
+	serviceProofRecord.SubmitResult = true
 	serviceProofRecord.Names,
 		serviceProofRecord.Us,
 		serviceProofRecord.Mus,
 		serviceProofRecord.Sigma,
-		serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rsaKey, challStart, randomIndexList, randomList)
+		serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rsaKey, cfg, challStart, randomIndexList, randomList)
 	if err != nil {
 		l.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 		return
@@ -125,13 +130,18 @@ func serviceChallenge(
 		serviceProof[i] = types.U8(serviceProofRecord.Sigma[i])
 	}
 
-	txhash, err := cli.SubmitServiceProof(serviceProof)
-	if err != nil {
-		l.Schal("err", fmt.Sprintf("[SubmitServiceProof] %v", err))
-		return
+	for i := 0; i < 5; i++ {
+		txhash, err := cli.SubmitServiceProof(serviceProof)
+		if err != nil {
+			l.Schal("err", fmt.Sprintf("[SubmitServiceProof] %v", err))
+			time.Sleep(time.Minute)
+			continue
+		}
+		l.Schal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
+		break
 	}
-	l.Schal("info", fmt.Sprintf("submit service aggr proof suc: %s", txhash))
-
+	serviceProofRecord.SubmitProof = false
+	ws.SaveServiceProve(serviceProofRecord)
 	time.Sleep(chain.BlockInterval * 3)
 
 	_, chall, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
@@ -201,8 +211,8 @@ func serviceChallenge(
 	for j := 0; j < len(signature); j++ {
 		teeSignBytes[j] = byte(signature[j])
 	}
-	for i := 2; i < 10; i++ {
-		txhash, err = cli.SubmitVerifyServiceResult(
+	for i := 0; i < 5; i++ {
+		txhash, err := cli.SubmitVerifyServiceResult(
 			types.Bool(serviceProofRecord.ServiceResult),
 			teeSignBytes,
 			bloomFilter,
@@ -210,12 +220,14 @@ func serviceChallenge(
 		)
 		if err != nil {
 			l.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
-			time.Sleep(time.Minute * time.Duration(i))
+			time.Sleep(time.Minute)
 			continue
 		}
 		l.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
-		return
+		break
 	}
+	serviceProofRecord.SubmitResult = false
+	ws.SaveServiceProve(serviceProofRecord)
 }
 
 // calc sigma
@@ -226,6 +238,7 @@ func calcSigma(
 	l logger.Logger,
 	teeRecord *TeeRecord,
 	rsaKey *RSAKeyPair,
+	cfg *confile.Confile,
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []chain.Random,
@@ -349,7 +362,7 @@ func calcSigma(
 			serviceTagPath := fmt.Sprintf("%s.tag", fragments[j])
 			buf, err := os.ReadFile(serviceTagPath)
 			if err != nil {
-				err = calcFragmentTag(cli, l, teeRecord, ws, roothash, fragments[j])
+				err = calcFragmentTag(cli, l, teeRecord, ws, cfg, roothash, fragments[j])
 				if err != nil {
 					l.Schal("err", fmt.Sprintf("calcFragmentTag %v err: %v", fragments[j], err))
 					cli.GenerateRestoralOrder(roothash, fragmentHash)
@@ -417,6 +430,7 @@ func checkServiceProofRecord(
 	teeRecord *TeeRecord,
 	cace cache.Cache,
 	rasKey *RSAKeyPair,
+	cfg *confile.Confile,
 	serviceProofSubmited bool,
 	challStart uint32,
 	randomIndexList []types.U32,
@@ -434,9 +448,13 @@ func checkServiceProofRecord(
 		return errors.New("Local service file challenge record is outdated")
 	}
 
+	if !serviceProofRecord.SubmitProof && !serviceProofRecord.SubmitResult {
+		return nil
+	}
+
 	l.Schal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
 
-	if !serviceProofSubmited {
+	if !serviceProofSubmited && serviceProofRecord.SubmitProof {
 		if serviceProofRecord.Names == nil ||
 			serviceProofRecord.Us == nil ||
 			serviceProofRecord.Mus == nil {
@@ -444,7 +462,7 @@ func checkServiceProofRecord(
 				serviceProofRecord.Us,
 				serviceProofRecord.Mus,
 				serviceProofRecord.Sigma,
-				serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rasKey, challStart, randomIndexList, randomList)
+				serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rasKey, cfg, challStart, randomIndexList, randomList)
 			if err != nil {
 				l.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil
@@ -489,6 +507,10 @@ func checkServiceProofRecord(
 		}
 	}
 
+	if !serviceProofRecord.SubmitResult {
+		return nil
+	}
+
 	for {
 		if serviceProofRecord.ServiceBloomFilter != nil &&
 			serviceProofRecord.Signature != nil {
@@ -504,17 +526,23 @@ func checkServiceProofRecord(
 			for i := 0; i < chain.BloomFilterLen; i++ {
 				bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 			}
-			txhash, err := cli.SubmitVerifyServiceResult(
-				types.Bool(serviceProofRecord.ServiceResult),
-				serviceProofRecord.Signature[:],
-				bloomFilter,
-				serviceProofRecord.AllocatedTeeWorkpuk,
-			)
-			if err != nil {
-				l.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+			for i := 0; i < 5; i++ {
+				txhash, err := cli.SubmitVerifyServiceResult(
+					types.Bool(serviceProofRecord.ServiceResult),
+					serviceProofRecord.Signature[:],
+					bloomFilter,
+					serviceProofRecord.AllocatedTeeWorkpuk,
+				)
+				if err != nil {
+					l.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+					time.Sleep(time.Minute)
+					continue
+				}
+				l.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
 				break
 			}
-			l.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+			serviceProofRecord.SubmitResult = false
+			ws.SaveServiceProve(serviceProofRecord)
 			return nil
 		}
 		break
@@ -562,17 +590,24 @@ func checkServiceProofRecord(
 		bloomFilter[i] = types.U64(serviceProofRecord.ServiceBloomFilter[i])
 	}
 	ws.SaveServiceProve(serviceProofRecord)
-	txhash, err := cli.SubmitVerifyServiceResult(
-		types.Bool(serviceProofRecord.ServiceResult),
-		serviceProofRecord.Signature[:],
-		bloomFilter,
-		serviceProofRecord.AllocatedTeeWorkpuk,
-	)
-	if err != nil {
-		l.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
-		return nil
+
+	for i := 0; i < 5; i++ {
+		txhash, err := cli.SubmitVerifyServiceResult(
+			types.Bool(serviceProofRecord.ServiceResult),
+			serviceProofRecord.Signature[:],
+			bloomFilter,
+			serviceProofRecord.AllocatedTeeWorkpuk,
+		)
+		if err != nil {
+			l.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", txhash, err))
+			time.Sleep(time.Minute)
+			continue
+		}
+		l.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+		break
 	}
-	l.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", txhash))
+	serviceProofRecord.SubmitResult = false
+	ws.SaveServiceProve(serviceProofRecord)
 	return nil
 }
 
