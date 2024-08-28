@@ -276,9 +276,10 @@ func runCmd(cmd *cobra.Command, args []string) {
 
 		saveAllTees(cli, peernode, teeRecord)
 
-		buf, err := wspace.LoadRsaPublicKey()
+		buf, err := queryPodr2KeyFromTee(peernode, teeRecord.GetAllTeeEndpoint(), cli.GetSignatureAccPulickey(), cfg.ReadPriorityTeeList())
 		if err != nil {
-			buf, _ = queryPodr2KeyFromTee(peernode, teeRecord.GetAllTeeEndpoint(), cli.GetSignatureAccPulickey())
+			out.Err(err.Error())
+			os.Exit(1)
 		}
 
 		rsakey, err = node.NewRsaKey(buf)
@@ -287,6 +288,7 @@ func runCmd(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
+		wspace.SaveRsaPublicKey(buf)
 		spaceProofInfo = chain.SpaceProofInfo{}
 		buf = nil
 
@@ -1373,38 +1375,34 @@ func updateMinerRegistertionInfo(cli *chain.ChainClient, oldRegInfo *chain.Miner
 		}
 	}
 
-	// if !sutils.CompareSlice(peerid, n.GetPeerPublickey()) {
-	// 	var peeridChain chain.PeerId
-	// 	pids := n.GetPeerPublickey()
-	// 	for i := 0; i < len(pids); i++ {
-	// 		peeridChain[i] = types.U8(pids[i])
-	// 	}
-	// 	txhash, err := n.UpdateSminerPeerId(peeridChain)
-	// 	if err != nil {
-	// 		out.Err(fmt.Sprintf("[%s] Update PeerId: %v", txhash, err))
-	// 		os.Exit(1)
-	// 	}
-	// 	out.Ok(fmt.Sprintf("[%s] Successfully updated peer ID to %s", txhash, base58.Encode(n.GetPeerPublickey())))
-	// }
 	return nil
 }
 
-func queryPodr2KeyFromTee(peernode *core.PeerNode, teeEndPointList []string, signature_publickey []byte) ([]byte, error) {
+func queryPodr2KeyFromTee(peernode *core.PeerNode, teeEndPointList []string, signature_publickey []byte, priorityTeeList []string) ([]byte, error) {
 	var err error
 	var podr2PubkeyResponse *pb.Podr2PubkeyResponse
 	var dialOptions []grpc.DialOption
 	delay := time.Duration(30)
-	for i := 0; i < len(teeEndPointList); i++ {
+
+	var allTee []string
+
+	if len(priorityTeeList) > 0 {
+		allTee = append(allTee, priorityTeeList...)
+		allTee = append(allTee, priorityTeeList...)
+		allTee = append(allTee, priorityTeeList...)
+	}
+	allTee = append(allTee, teeEndPointList...)
+	for i := 0; i < len(allTee); i++ {
 		delay = 30
-		out.Tip(fmt.Sprintf("Requesting registration parameters from tee: %s", teeEndPointList[i]))
+		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", allTee[i]))
 		for tryCount := uint8(0); tryCount <= 3; tryCount++ {
-			if !strings.Contains(teeEndPointList[i], "443") {
+			if !strings.Contains(allTee[i], "443") {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 			} else {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 			}
 			podr2PubkeyResponse, err = peernode.GetPodr2Pubkey(
-				teeEndPointList[i],
+				allTee[i],
 				&pb.Request{StorageMinerAccountId: signature_publickey},
 				time.Duration(time.Second*delay),
 				dialOptions,
