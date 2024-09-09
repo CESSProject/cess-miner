@@ -57,6 +57,12 @@ const (
 	Cach_prefix_ParseBlock  = "parseblocks"
 )
 
+const (
+	Unregistered = iota
+	UnregisteredPoisKey
+	Registered
+)
+
 func SyncTeeInfo(cli *chain.ChainClient, l *logger.Lg, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
 	defer func() {
 		ch <- true

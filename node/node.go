@@ -9,30 +9,53 @@ package node
 
 import (
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/pkg/com/pb"
+	"github.com/CESSProject/cess-miner/pkg/confile"
+	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/gin-gonic/gin"
 	sprocess "github.com/shirou/gopsutil/process"
 )
 
 type Node struct {
-	// sdk.SDK
-	// confile.Confile
-	// logger.Logger
+	confile.Confiler
+	logger.Logger
 	// cache.Cache
-	// TeeRecord
-	// MinerRecord
-	// RunningStater
-	// *core.PeerNode
-	// *gin.Engine
-	// *proof.RSAKeyPair
-	// *pb.MinerPoisInfo
-	// *DataDir
-	// *Pois
+	TeeRecord
+	MinerRecord
+	RunningStater
+	*chain.ChainClient
+	*pb.MinerPoisInfo
+	*Workspace
+	*RSAKeyPair
+	*Pois
+	*gin.Engine
+	//*DataDir
+	chain.ExpendersInfo
 }
 
-// New is used to build a node instance
-func New() *Node {
-	return &Node{}
+var (
+	n    *Node
+	once sync.Once
+)
+
+func GetNode() *Node {
+	once.Do(func() {
+		n = &Node{}
+	})
+	return n
+}
+
+func InitConfig(cfg confile.Confiler) {
+	n := GetNode()
+	n.Confiler = cfg
+}
+
+func (*Node) Start() {
+
 }
 
 func getCpuUsage(pid int32) float64 {

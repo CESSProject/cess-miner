@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	sdkgo "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -27,11 +26,10 @@ import (
 	"github.com/CESSProject/cess-miner/node"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/confile"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/howeyc/gopass"
@@ -39,6 +37,33 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+// runCmd is used to start the service
+func runCmdV2(cmd *cobra.Command, args []string) {
+	node.InitConfig(InitConfigFile(cmd))
+	node.InitNode().Start()
+}
+
+func InitConfigFile(cmd *cobra.Command) confile.Confiler {
+	// parse configuration file
+	config_file, err := parseArgs_config(cmd)
+	if err != nil {
+		cfg, err := buildConfigItems(cmd)
+		if err != nil {
+			out.Err(fmt.Sprintf("build config items err: %v", err))
+			os.Exit(1)
+		}
+		configs.SysInit(cfg.ReadUseCpu())
+		return cfg
+	}
+	cfg, err := parseConfigFile(config_file)
+	if err != nil {
+		out.Err(fmt.Sprintf("parse config file err: %v", err))
+		os.Exit(1)
+	}
+	configs.SysInit(cfg.ReadUseCpu())
+	return cfg
+}
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
@@ -53,89 +78,89 @@ func runCmd(cmd *cobra.Command, args []string) {
 	runtime.SetPID(os.Getpid())
 
 	// parse configuration file
-	config_file, err := parseArgs_config(cmd)
-	if err != nil {
-		cfg, err = buildConfigItems(cmd)
-		if err != nil {
-			out.Err(fmt.Sprintf("build config items err: %v", err))
-			os.Exit(1)
-		}
-	} else {
-		cfg, err = parseConfigFile(config_file)
-		if err != nil {
-			out.Err(fmt.Sprintf("parse config file err: %v", err))
-			os.Exit(1)
-		}
-	}
+	// config_file, err := parseArgs_config(cmd)
+	// if err != nil {
+	// 	cfg, err = buildConfigItems(cmd)
+	// 	if err != nil {
+	// 		out.Err(fmt.Sprintf("build config items err: %v", err))
+	// 		os.Exit(1)
+	// 	}
+	// } else {
+	// 	cfg, err = parseConfigFile(config_file)
+	// 	if err != nil {
+	// 		out.Err(fmt.Sprintf("parse config file err: %v", err))
+	// 		os.Exit(1)
+	// 	}
+	// }
 
 	runtime.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 
 	// new chain client
-	cli, err := sdkgo.New(
-		ctx,
-		sdkgo.Name(configs.Name),
-		sdkgo.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
-		sdkgo.Mnemonic(cfg.ReadMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
-	)
-	if err != nil {
-		out.Err(fmt.Sprintf("[sdkgo.New] %v", err))
-		os.Exit(1)
-	}
-	defer cli.Close()
+	// cli, err := sdkgo.New(
+	// 	ctx,
+	// 	sdkgo.Name(configs.Name),
+	// 	sdkgo.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+	// 	sdkgo.Mnemonic(cfg.ReadMnemonic()),
+	// 	sdkgo.TransactionTimeout(configs.TimeToWaitEvent),
+	// )
+	// if err != nil {
+	// 	out.Err(fmt.Sprintf("[sdkgo.New] %v", err))
+	// 	os.Exit(1)
+	// }
+	// defer cli.Close()
 
-	err = cli.InitExtrinsicsNameForMiner()
-	if err != nil {
-		out.Err("The rpc address does not match the software version, please check the rpc address.")
-		os.Exit(1)
-	}
+	// err = cli.InitExtrinsicsNameForMiner()
+	// if err != nil {
+	// 	out.Err("The rpc address does not match the software version, please check the rpc address.")
+	// 	os.Exit(1)
+	// }
 
 	runtime.SetCurrentRpc(cli.GetCurrentRpcAddr())
 	runtime.SetChainStatus(true)
 	runtime.SetMinerSignAcc(cli.GetSignatureAcc())
 
-	err = checkRpcSynchronization(cli)
-	if err != nil {
-		out.Err("Failed to synchronize the main chain: network connection is down")
-		os.Exit(1)
-	}
+	// err = checkRpcSynchronization(cli)
+	// if err != nil {
+	// 	out.Err("Failed to synchronize the main chain: network connection is down")
+	// 	os.Exit(1)
+	// }
 
-	expender, err := cli.QueryExpenders(-1)
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
+	// expender, err := cli.QueryExpenders(-1)
+	// if err != nil {
+	// 	out.Err(err.Error())
+	// 	os.Exit(1)
+	// }
 
-	register, decTib, oldRegInfo, err := checkRegistrationInfo(cli, cfg.ReadSignatureAccount(), cfg.ReadStakingAcc(), cfg.ReadUseSpace())
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
+	// register, decTib, oldRegInfo, err := checkRegistrationInfo(cli, cfg.ReadSignatureAccount(), cfg.ReadStakingAcc(), cfg.ReadUseSpace())
+	// if err != nil {
+	// 	out.Err(err.Error())
+	// 	os.Exit(1)
+	// }
 
 	// new peer node
-	peernode, err := p2pgo.New(
-		ctx,
-		p2pgo.ListenPort(cfg.ReadServicePort()),
-		p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), configs.Name)),
-		p2pgo.BootPeers(cfg.ReadBootnodes()),
-	)
-	if err != nil {
-		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
-		os.Exit(1)
-	}
-	defer peernode.Close()
+	// peernode, err := p2pgo.New(
+	// 	ctx,
+	// 	p2pgo.ListenPort(cfg.ReadServicePort()),
+	// 	p2pgo.Workspace(filepath.Join(cfg.ReadWorkspace(), cli.GetSignatureAcc(), configs.Name)),
+	// 	p2pgo.BootPeers(cfg.ReadBootnodes()),
+	// )
+	// if err != nil {
+	// 	out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
+	// 	os.Exit(1)
+	// }
+	// defer peernode.Close()
 	runtime.SetReceiveFlag(true)
 
 	// ok
-	go node.Subscribe(ctx, peernode.GetHost(), minerRecord, peernode.GetBootnode())
-	time.Sleep(time.Second)
+	// go node.Subscribe(ctx, peernode.GetHost(), minerRecord, peernode.GetBootnode())
+	// time.Sleep(time.Second)
 
 	// check network environment
-	err = checkNetworkEnv(cli, peernode.GetNetEnv())
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
+	// err = checkNetworkEnv(cli, peernode.GetNetEnv())
+	// if err != nil {
+	// 	out.Err(err.Error())
+	// 	os.Exit(1)
+	// }
 
 	var p *node.Pois
 	var rsakey *node.RSAKeyPair
@@ -483,7 +508,7 @@ func parseConfigFile(file string) (*confile.Confile, error) {
 	return cfg, err
 }
 
-func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
+func buildConfigItems(cmd *cobra.Command) (confile.Confiler, error) {
 	var (
 		istips      bool
 		lines       string

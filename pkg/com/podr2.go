@@ -5,13 +5,13 @@
 	SPDX-License-Identifier: Apache-2.0
 */
 
-package tee
+package com
 
 import (
 	"context"
 	"time"
 
-	"github.com/CESSProject/cess-miner/pkg/tee/pb"
+	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"google.golang.org/grpc"
 )
 

@@ -14,7 +14,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/CESSProject/p2p-go/out"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"google.golang.org/grpc/credentials"
 )
 

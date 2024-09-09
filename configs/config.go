@@ -42,9 +42,3 @@ const (
 	TestNet = "testnet"
 	MainNet = "mainnet"
 )
-
-const (
-	Unregistered = iota
-	UnregisteredPoisKey
-	Registered
-)
