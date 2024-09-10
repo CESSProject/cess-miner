@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -117,7 +116,7 @@ func serviceChallenge(
 		serviceProofRecord.Us,
 		serviceProofRecord.Mus,
 		serviceProofRecord.Sigma,
-		serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rsaKey, cfg, challStart, randomIndexList, randomList)
+		serviceProofRecord.Usig, err = calcSigma(cli, ws, l, teeRecord, rsaKey, cfg, challStart, randomIndexList, randomList)
 	if err != nil {
 		l.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 		return
@@ -234,7 +233,6 @@ func serviceChallenge(
 func calcSigma(
 	cli *chain.ChainClient,
 	ws *Workspace,
-	cace cache.Cache,
 	l logger.Logger,
 	teeRecord *TeeRecord,
 	rsaKey *RSAKeyPair,
@@ -243,11 +241,8 @@ func calcSigma(
 	randomIndexList []types.U32,
 	randomList []chain.Random,
 ) ([]string, []string, []string, string, [][]byte, error) {
-	var ok bool
-	var isChall bool
 	var sigma string
 	var roothash string
-	var fragmentHash string
 	var proveResponse GenProofResponse
 	var names = make([]string, 0)
 	var us = make([]string, 0)
@@ -275,111 +270,22 @@ func calcSigma(
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		roothash = filepath.Base(serviceRoothashDir[i])
 		l.Schal("info", fmt.Sprintf("will calc %s", roothash))
-		_, err = cli.QueryFile(roothash, -1)
-		if err != nil {
-			if err.Error() == chain.ERR_Empty {
-				l.Schal("info", fmt.Sprintf("QueryFileMetadata(%s) is empty", roothash))
-				continue
-			}
-		}
 
-		fragments, err := utils.DirFiles(serviceRoothashDir[i], 0)
+		fragments, err := calcChallengeFragments(cli, roothash, challStart)
 		if err != nil {
-			l.Schal("err", fmt.Sprintf("DirFiles(%s) %v", serviceRoothashDir[i], err))
+			l.Schal("err", fmt.Sprintf("calcChallengeFragments(%s): %v", roothash, err))
 			return names, us, mus, sigma, usig, err
 		}
+		l.Schal("info", fmt.Sprintf("fragments: %v", fragments))
 		for j := 0; j < len(fragments); j++ {
-			isChall = false
-			fragmentHash = filepath.Base(fragments[j])
-			if strings.Contains(fragmentHash, ".tag") {
+			serviceTagPath := filepath.Join(ws.GetFileDir(), roothash, fragments[j]+".tag")
+			tag, err := checkTag(cli, ws, teeRecord, cfg, l, roothash, fragments[j])
+			if err != nil {
+				l.Schal("err", fmt.Sprintf("checkTag: %v", err))
 				continue
 			}
-			ok, err = cace.Has([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
-			if err != nil {
-				l.Schal("err", fmt.Sprintf("Cache.Has(%s.%s): %v", roothash, fragmentHash, err))
-			}
-			if !ok {
-				l.Schal("err", fmt.Sprintf("Cache.NotFound(%s.%s)", roothash, fragmentHash))
-				fmeta, err := cli.QueryFile(roothash, -1)
-				if err != nil {
-					if !strings.Contains(err.Error(), chain.ERR_Empty) {
-						l.Schal("err", fmt.Sprintf("QueryFileMetadata(%s): %v", roothash, err))
-						return names, us, mus, sigma, usig, err
-					}
-					continue
-				}
-				for _, segment := range fmeta.SegmentList {
-					for _, fragment := range segment.FragmentList {
-						if sutils.CompareSlice(fragment.Miner[:], cli.GetSignatureAccPulickey()) {
-							if fragmentHash == string(fragment.Hash[:]) {
-								if fragment.Tag.HasValue() {
-									isChall = true
-									ok, block := fragment.Tag.Unwrap()
-									if !ok {
-										l.Schal("err", fmt.Sprintf("fragment.Tag.Unwrap(%s.%s): %v", roothash, fragmentHash, err))
-										return names, us, mus, sigma, usig, err
-									}
-									err = cace.Put([]byte(Cach_prefix_Tag+roothash+"."+fragmentHash), []byte(fmt.Sprintf("%d", block)))
-									if err != nil {
-										l.Schal("err", fmt.Sprintf("Cache.Put(%s.%s)(%s): %v", roothash, fragmentHash, fmt.Sprintf("%d", block), err))
-									}
-									if uint32(block) > challStart {
-										isChall = false
-										break
-									}
-								} else {
-									isChall = false
-									break
-								}
-							}
-						}
-					}
-					if isChall {
-						break
-					}
-				}
-				if !isChall {
-					continue
-				}
-				l.Schal("info", fmt.Sprintf("chall go on: %s.%s", roothash, fragmentHash))
-			} else {
-				l.Schal("info", fmt.Sprintf("calc file: %s.%s", roothash, fragmentHash))
-				block, err := cace.Get([]byte(Cach_prefix_Tag + roothash + "." + fragmentHash))
-				if err != nil {
-					l.Schal("err", fmt.Sprintf("Cache.Get(%s.%s): %v", roothash, fragmentHash, err))
-					return names, us, mus, sigma, usig, err
-				}
-				blocknumber, err := strconv.ParseUint(string(block), 10, 32)
-				if err != nil {
-					l.Schal("err", fmt.Sprintf("ParseUint(%s): %v", string(block), err))
-					return names, us, mus, sigma, usig, err
-				}
-				if blocknumber > uint64(challStart) {
-					l.Schal("info", fmt.Sprintf("Not at chall: %d > %d", blocknumber, challStart))
-					continue
-				}
-			}
-			serviceTagPath := fmt.Sprintf("%s.tag", fragments[j])
-			buf, err := os.ReadFile(serviceTagPath)
-			if err != nil {
-				err = calcFragmentTag(cli, l, teeRecord, ws, cfg, roothash, fragments[j])
-				if err != nil {
-					l.Schal("err", fmt.Sprintf("calcFragmentTag %v err: %v", fragments[j], err))
-					cli.GenerateRestoralOrder(roothash, fragmentHash)
-					continue
-				}
-			}
-			l.Schal("info", fmt.Sprintf("[%s] Read tag file: %s", roothash, serviceTagPath))
-			var tag = &TagfileType{}
-			err = json.Unmarshal(buf, tag)
-			if err != nil {
-				l.Schal("err", fmt.Sprintf("Unmarshal %v err: %v", serviceTagPath, err))
-				os.Remove(serviceTagPath)
-				l.Del("info", serviceTagPath)
-				cli.GenerateRestoralOrder(roothash, fragmentHash)
-				continue
-			}
-			_, err = os.Stat(fragments[j])
+
+			_, err = os.Stat(filepath.Join(ws.GetFileDir(), roothash, fragments[j]))
 			if err != nil {
 				l.Schal("err", err.Error())
 				return names, us, mus, sigma, usig, err
@@ -410,6 +316,7 @@ func calcSigma(
 
 			sigmaTemp, ok := rsaKey.AggrAppendProof(sigma, proveResponse.Sigma)
 			if !ok {
+				l.Schal("err", "AggrAppendProof: false")
 				return names, us, mus, sigma, usig, errors.New("AggrAppendProof failed")
 			}
 			sigma = sigmaTemp
@@ -462,7 +369,7 @@ func checkServiceProofRecord(
 				serviceProofRecord.Us,
 				serviceProofRecord.Mus,
 				serviceProofRecord.Sigma,
-				serviceProofRecord.Usig, err = calcSigma(cli, ws, cace, l, teeRecord, rasKey, cfg, challStart, randomIndexList, randomList)
+				serviceProofRecord.Usig, err = calcSigma(cli, ws, l, teeRecord, rasKey, cfg, challStart, randomIndexList, randomList)
 			if err != nil {
 				l.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil
@@ -694,4 +601,75 @@ func encodeToRequestBatchVerify_Qslice(randomIndexList []types.U32, randomList [
 		RandomIndexList: randomIndexList_pb,
 		RandomList:      randomList_pb,
 	}
+}
+
+func calcChallengeFragments(cli *chain.ChainClient, fid string, start uint32) ([]string, error) {
+	var err error
+	var fmeta chain.FileMetadata
+	for i := 0; i < 3; i++ {
+		fmeta, err = cli.QueryFile(fid, int32(start))
+		if err != nil {
+			if errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+				return []string{}, nil
+			}
+			time.Sleep(chain.BlockInterval)
+			continue
+		}
+	}
+	if err != nil {
+		return []string{}, err
+	}
+
+	var challFragments = make([]string, 0)
+	for i := 0; i < len(fmeta.SegmentList); i++ {
+		for j := 0; j < len(fmeta.SegmentList[i].FragmentList); j++ {
+			if sutils.CompareSlice(fmeta.SegmentList[i].FragmentList[j].Miner[:], cli.GetSignatureAccPulickey()) {
+				if fmeta.SegmentList[i].FragmentList[j].Tag.HasValue() {
+					ok, block := fmeta.SegmentList[i].FragmentList[j].Tag.Unwrap()
+					if !ok {
+						return challFragments, fmt.Errorf("[%s] fragment.Tag.Unwrap %v", string(fmeta.SegmentList[i].FragmentList[j].Hash[:]), err)
+					}
+					if uint32(block) <= start {
+						challFragments = append(challFragments, string(fmeta.SegmentList[i].FragmentList[j].Hash[:]))
+					}
+				}
+			}
+		}
+	}
+	return challFragments, nil
+}
+
+func checkTag(cli *chain.ChainClient, ws *Workspace, teeRecord *TeeRecord, cfg *confile.Confile, l logger.Logger, fid, fragment string) (TagfileType, error) {
+	serviceTagPath := filepath.Join(ws.GetFileDir(), fid, fragment+".tag")
+	fragmentPath := filepath.Join(ws.GetFileDir(), fid, fragment)
+	buf, err := os.ReadFile(serviceTagPath)
+	if err != nil {
+		err = calcFragmentTag(cli, l, teeRecord, ws, cfg, fid, fragmentPath)
+		if err != nil {
+			l.Schal("err", fmt.Sprintf("calc the fragment tag failed: %v", err))
+			cli.GenerateRestoralOrder(fid, fragment)
+			return TagfileType{}, err
+		}
+	}
+	var tag = TagfileType{}
+	err = json.Unmarshal(buf, &tag)
+	if err != nil {
+		l.Schal("err", fmt.Sprintf("invalid tag file: %v", err))
+		os.Remove(serviceTagPath)
+		l.Del("info", serviceTagPath)
+		err = calcFragmentTag(cli, l, teeRecord, ws, cfg, fid, fragmentPath)
+		if err != nil {
+			l.Schal("err", fmt.Sprintf("calc the fragment tag failed: %v", err))
+			cli.GenerateRestoralOrder(fid, fragment)
+			return TagfileType{}, err
+		}
+	}
+
+	buf, err = os.ReadFile(serviceTagPath)
+	if err != nil {
+		return TagfileType{}, err
+	}
+
+	err = json.Unmarshal(buf, &tag)
+	return tag, err
 }
