@@ -8,9 +8,7 @@
 package node
 
 import (
-	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,14 +32,13 @@ const (
 	accDir        = "acc"
 	randomDir     = "random"
 	peer_record   = "peer_record"
-	podr2_rsa_pub = "podr2_rsa.pub"
 	idle_prove    = "idle_prove"
 	service_prove = "service_prove"
 )
 
 type Workspacer interface {
-	Build(rootDir string) error
-	RemoveAndBuild(rootDir string) error
+	Build() error
+	RemoveAndBuild() error
 	GetRootDir() string
 	GetFileDir() string
 	GetTmpDir() string
@@ -55,8 +52,6 @@ type Workspacer interface {
 	GetPodr2Key() string
 	GetIdleProve() string
 	GetServiceProve() string
-	SaveRsaPublicKey(pub []byte) error
-	LoadRsaPublicKey() ([]byte, error)
 	SaveIdleProve(idleProofRecord idleProofInfo) error
 	LoadIdleProve() (idleProofInfo, error)
 	SaveServiceProve(serviceProofRecord serviceProofInfo) error
@@ -102,20 +97,21 @@ func (w *Workspace) Check() error {
 	return nil
 }
 
-func (w *Workspace) RemoveAndBuild(rootDir string) error {
-	w.rootDir = rootDir
-	w.peer_record = filepath.Join(rootDir, peer_record)
-	w.podr2_rsa_pub = filepath.Join(rootDir, podr2_rsa_pub)
-	w.idle_prove = filepath.Join(rootDir, idle_prove)
-	w.service_prove = filepath.Join(rootDir, service_prove)
-	w.fileDir = filepath.Join(rootDir, fileDir)
-	w.tmpDir = filepath.Join(rootDir, tmpDir)
-	w.dbDir = filepath.Join(rootDir, dbDir)
-	w.logDir = filepath.Join(rootDir, logDir)
-	w.spaceDir = filepath.Join(rootDir, spaceDir)
-	w.accDir = filepath.Join(rootDir, accDir)
-	w.poisDir = filepath.Join(rootDir, poisDir)
-	w.randomDir = filepath.Join(rootDir, randomDir)
+func (w *Workspace) RemoveAndBuild() error {
+	if w.rootDir == "" {
+		return fmt.Errorf("Please initialize the workspace first")
+	}
+	w.peer_record = filepath.Join(w.rootDir, peer_record)
+	w.idle_prove = filepath.Join(w.rootDir, idle_prove)
+	w.service_prove = filepath.Join(w.rootDir, service_prove)
+	w.fileDir = filepath.Join(w.rootDir, fileDir)
+	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
+	w.dbDir = filepath.Join(w.rootDir, dbDir)
+	w.logDir = filepath.Join(w.rootDir, logDir)
+	w.spaceDir = filepath.Join(w.rootDir, spaceDir)
+	w.accDir = filepath.Join(w.rootDir, accDir)
+	w.poisDir = filepath.Join(w.rootDir, poisDir)
+	w.randomDir = filepath.Join(w.rootDir, randomDir)
 
 	err := os.RemoveAll(w.fileDir)
 	if err != nil {
@@ -193,49 +189,51 @@ func (w *Workspace) RemoveAndBuild(rootDir string) error {
 	return os.MkdirAll(w.randomDir, configs.FileMode)
 }
 
-func (w *Workspace) Build(rootDir string) error {
-	w.rootDir = rootDir
-	w.peer_record = filepath.Join(rootDir, peer_record)
-	w.podr2_rsa_pub = filepath.Join(rootDir, podr2_rsa_pub)
-	w.idle_prove = filepath.Join(rootDir, idle_prove)
-	w.service_prove = filepath.Join(rootDir, service_prove)
+func (w *Workspace) Build() error {
+	if w.rootDir == "" {
+		return fmt.Errorf("Please initialize the workspace first")
+	}
 
-	w.logDir = filepath.Join(rootDir, logDir)
+	w.peer_record = filepath.Join(w.rootDir, peer_record)
+	w.idle_prove = filepath.Join(w.rootDir, idle_prove)
+	w.service_prove = filepath.Join(w.rootDir, service_prove)
+
+	w.logDir = filepath.Join(w.rootDir, logDir)
 	if err := os.MkdirAll(w.logDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.dbDir = filepath.Join(rootDir, dbDir)
+	w.dbDir = filepath.Join(w.rootDir, dbDir)
 	if err := os.MkdirAll(w.dbDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.accDir = filepath.Join(rootDir, accDir)
+	w.accDir = filepath.Join(w.rootDir, accDir)
 	if err := os.MkdirAll(w.accDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.poisDir = filepath.Join(rootDir, poisDir)
+	w.poisDir = filepath.Join(w.rootDir, poisDir)
 	if err := os.MkdirAll(w.poisDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.randomDir = filepath.Join(rootDir, randomDir)
+	w.randomDir = filepath.Join(w.rootDir, randomDir)
 	if err := os.MkdirAll(w.randomDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.spaceDir = filepath.Join(rootDir, spaceDir)
+	w.spaceDir = filepath.Join(w.rootDir, spaceDir)
 	if err := os.MkdirAll(w.spaceDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.fileDir = filepath.Join(rootDir, fileDir)
+	w.fileDir = filepath.Join(w.rootDir, fileDir)
 	if err := os.MkdirAll(w.fileDir, configs.FileMode); err != nil {
 		return err
 	}
 
-	w.tmpDir = filepath.Join(rootDir, tmpDir)
+	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
 	if err := os.MkdirAll(w.tmpDir, configs.FileMode); err != nil {
 		return err
 	}
@@ -283,23 +281,6 @@ func (w *Workspace) GetIdleProve() string {
 }
 func (w *Workspace) GetServiceProve() string {
 	return w.service_prove
-}
-func (w *Workspace) SaveRsaPublicKey(pub []byte) error {
-	if len(pub) == 0 {
-		return errors.New("empty rsa public key")
-	}
-	return os.WriteFile(w.podr2_rsa_pub, pub, os.ModePerm)
-}
-func (w *Workspace) LoadRsaPublicKey() ([]byte, error) {
-	buf, err := os.ReadFile(w.podr2_rsa_pub)
-	if err != nil {
-		return nil, err
-	}
-	_, err = x509.ParsePKCS1PublicKey(buf)
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
 }
 
 func (w *Workspace) SaveIdleProve(idleProofRecord idleProofInfo) error {
