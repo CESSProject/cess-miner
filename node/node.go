@@ -149,7 +149,7 @@ func (n *Node) Start() {
 
 			if len(reportFileCh) > 0 {
 				<-reportFileCh
-				go node.ReportFiles(reportFileCh, cli, runtime, l, wspace.GetFileDir(), wspace.GetTmpDir())
+				go n.ReportFiles(reportFileCh)
 			}
 
 			if len(attestationIdleCh) > 0 {

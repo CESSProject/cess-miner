@@ -19,7 +19,6 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 )
 
@@ -33,12 +32,17 @@ func init() {
 	reportedFile = make(map[string]struct{}, 0)
 }
 
-func ReportFiles(ch chan<- bool, cli *chain.ChainClient, r *RunningState, l *logger.Lg, fileDir, tmpDir string) {
-	defer func() { ch <- true }()
+func (n *Node) ReportFiles(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 
-	roothashs, err := utils.Dirs(tmpDir)
+	roothashs, err := utils.Dirs(n.GetReportDir())
 	if err != nil {
-		l.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))
+		n.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))
 		return
 	}
 
@@ -50,42 +54,42 @@ func ReportFiles(ch chan<- bool, cli *chain.ChainClient, r *RunningState, l *log
 		_, ok = reportedFile[fid]
 		reportedFileLock.Unlock()
 		if ok {
-			l.Report("info", fmt.Sprintf("[%s] prepare to check the file", fid))
-			err = check_file(cli, l, file, fileDir, tmpDir)
+			n.Report("info", fmt.Sprintf("[%s] prepare to check the file", fid))
+			err = n.checkfile(file)
 			if err != nil {
-				l.Report("err", fmt.Sprintf("[%s] check the file err: %v", fid, err))
+				n.Report("err", fmt.Sprintf("[%s] check the file err: %v", fid, err))
 			}
 		} else {
-			r.SetReportFileFlag(true)
-			l.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
-			err = report_file(cli, l, file, tmpDir)
+			//n.SetReportFileFlag(true)
+			n.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
+			err = n.reportfile(file)
 			if err != nil {
-				l.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
+				n.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
-			r.SetReportFileFlag(false)
+			//n.SetReportFileFlag(false)
 		}
-		if !cli.GetRpcState() {
+		if !n.GetCurrentRpcst() {
 			return
 		}
 		time.Sleep(chain.BlockInterval)
 	}
 }
 
-func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpDir string) error {
+func (n *Node) checkfile(f string) error {
 	fid := filepath.Base(f)
-	metadata, err := cli.QueryFile(fid, -1)
+	metadata, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 			return err
 		}
-		sorder, err := cli.QueryDealMap(fid, -1)
+		sorder, err := n.QueryDealMap(fid, -1)
 		if err != nil {
 			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 				return err
 			}
 		}
 		for _, v := range sorder.CompleteList {
-			if sutils.CompareSlice(v.Miner[:], cli.GetSignatureAccPulickey()) {
+			if sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {
 				return nil
 			}
 		}
@@ -93,7 +97,7 @@ func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpD
 		delete(reportedFile, fid)
 		reportedFileLock.Unlock()
 		os.RemoveAll(f)
-		l.Del("info", fmt.Sprintf("delete folder: %s", f))
+		n.Del("info", fmt.Sprintf("delete folder: %s", f))
 		return err
 	}
 
@@ -102,7 +106,7 @@ func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpD
 
 	for _, segment := range metadata.SegmentList {
 		for _, fragment := range segment.FragmentList {
-			if sutils.CompareSlice(fragment.Miner[:], cli.GetSignatureAccPulickey()) {
+			if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 				savedFrgment = append(savedFrgment, string(fragment.Hash[:]))
 			} else {
 				deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
@@ -112,42 +116,42 @@ func check_file(cli *chain.ChainClient, l logger.Logger, f string, fileDir, tmpD
 
 	if len(savedFrgment) == 0 {
 		os.RemoveAll(f)
-		l.Del("info", fmt.Sprintf("Delete folder: %s", f))
+		n.Del("info", fmt.Sprintf("Delete folder: %s", f))
 		return nil
 	}
 
-	if _, err = os.Stat(filepath.Join(fileDir, fid)); err != nil {
-		err = os.Mkdir(filepath.Join(fileDir, fid), configs.FileMode)
+	if _, err = os.Stat(filepath.Join(n.GetFileDir(), fid)); err != nil {
+		err = os.Mkdir(filepath.Join(n.GetFileDir(), fid), configs.FileMode)
 		if err != nil {
 			return err
 		}
 	}
 
 	for i := 0; i < len(savedFrgment); i++ {
-		_, err = os.Stat(filepath.Join(tmpDir, fid, savedFrgment[i]))
+		_, err = os.Stat(filepath.Join(n.GetTmpDir(), fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
-		err = os.Rename(filepath.Join(tmpDir, fid, savedFrgment[i]),
-			filepath.Join(fileDir, fid, savedFrgment[i]))
+		err = os.Rename(filepath.Join(n.GetTmpDir(), fid, savedFrgment[i]),
+			filepath.Join(n.GetFileDir(), fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, d := range deletedFrgmentList {
-		err = os.Remove(filepath.Join(tmpDir, fid, d))
+		err = os.Remove(filepath.Join(n.GetTmpDir(), fid, d))
 		if err != nil {
 			continue
 		}
-		l.Del("info", filepath.Join(tmpDir, fid, d))
+		n.Del("info", filepath.Join(n.GetTmpDir(), fid, d))
 	}
 	return nil
 }
 
-func report_file(cli *chain.ChainClient, l logger.Logger, f string, tmpDir string) error {
+func (n *Node) reportfile(f string) error {
 	fid := filepath.Base(f)
-	storageorder, err := cli.QueryDealMap(fid, -1)
+	storageorder, err := n.QueryDealMap(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			return err
@@ -160,7 +164,7 @@ func report_file(cli *chain.ChainClient, l logger.Logger, f string, tmpDir strin
 
 	reReport := true
 	for _, completeMiner := range storageorder.CompleteList {
-		if sutils.CompareSlice(completeMiner.Miner[:], cli.GetSignatureAccPulickey()) {
+		if sutils.CompareSlice(completeMiner.Miner[:], n.GetSignatureAccPulickey()) {
 			reReport = false
 			break
 		}
@@ -178,7 +182,7 @@ func report_file(cli *chain.ChainClient, l logger.Logger, f string, tmpDir strin
 	for idx := uint8(0); idx < uint8(sconfig.DataShards+sconfig.ParShards); idx++ {
 		sucCount = 0
 		for i := 0; i < len(storageorder.SegmentList); i++ {
-			fstat, err := os.Stat(filepath.Join(tmpDir, fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
+			fstat, err := os.Stat(filepath.Join(n.GetTmpDir(), fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
 			if err != nil {
 				break
 			}
@@ -205,12 +209,12 @@ func report_file(cli *chain.ChainClient, l logger.Logger, f string, tmpDir strin
 	}
 	txhash := ""
 	for _, v := range sucIndex {
-		txhash, err = cli.TransferReport(v, fid)
+		txhash, err = n.TransferReport(v, fid)
 		if err != nil {
-			l.Report("err", fmt.Sprintf("[%s] report err: %v bloakhash: %s", fid, err, txhash))
+			n.Report("err", fmt.Sprintf("[%s] report err: %v bloakhash: %s", fid, err, txhash))
 			continue
 		}
-		l.Report("info", fmt.Sprintf("[%s] report successful, blockhash: %s", fid, txhash))
+		n.Report("info", fmt.Sprintf("[%s] report successful, blockhash: %s", fid, txhash))
 		reportedFileLock.Lock()
 		reportedFile[fid] = struct{}{}
 		reportedFileLock.Unlock()
