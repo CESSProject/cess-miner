@@ -37,6 +37,58 @@ func NewFragmentHandler(cli *chain.ChainClient, ws workspace.Workspace) *Fragmen
 func (f *FragmentHandler) RegisterRoutes(server *gin.Engine) {
 	filegroup := server.Group("/fragment")
 	filegroup.PUT("", f.putfragment)
+	filegroup.GET("", f.getfragment)
+}
+
+func (f *FragmentHandler) getfragment(c *gin.Context) {
+	defer c.Request.Body.Close()
+	fid := c.Request.Header.Get("Fid")
+	fragment := c.Request.Header.Get("Fragment")
+
+	if fid == "" || fragment == "" {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 400,
+			Msg:  common.ERR_EmptyHashName,
+		})
+		return
+	}
+
+	if len(fid) != chain.FileHashLen || len(fragment) != chain.FileHashLen {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 400,
+			Msg:  common.ERR_HashLength,
+		})
+		return
+	}
+
+	fragmentpath, err := f.findFragment(fid, fragment)
+	if err != nil {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 404,
+			Msg:  err.Error(),
+		})
+		return
+	}
+
+	fd, err := os.Open(fragmentpath)
+	if err != nil {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 500,
+			Msg:  common.ERR_SystemErr,
+		})
+		return
+	}
+	defer fd.Close()
+
+	finfo, err := fd.Stat()
+	if err != nil {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 500,
+			Msg:  common.ERR_SystemErr,
+		})
+		return
+	}
+	c.DataFromReader(http.StatusOK, finfo.Size(), "application/octet-stream", fd, nil)
 }
 
 func (f *FragmentHandler) putfragment(c *gin.Context) {
@@ -110,6 +162,22 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		Code: http.StatusOK,
 		Msg:  common.OK,
 	})
+}
+
+func (f *FragmentHandler) findFragment(fid, fragment string) (string, error) {
+	fragmentpath := filepath.Join(f.GetFileDir(), fid, fragment)
+	_, err := os.Stat(fragmentpath)
+	if err == nil {
+		return fragmentpath, nil
+	}
+
+	fragmentpath = filepath.Join(f.GetReportDir(), fid, fragment)
+	_, err = os.Stat(fragmentpath)
+	if err == nil {
+		return fragmentpath, nil
+	}
+
+	return "", errors.New(common.ERR_NotFound)
 }
 
 func (f *FragmentHandler) checkFragment(fid, fragment string) (bool, error) {

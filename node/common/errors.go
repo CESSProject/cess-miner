@@ -20,4 +20,7 @@ const (
 	// client err
 	ERR_FragmentSize        = "the fragment size is wrong"
 	ERR_FragmentNotMatchFid = "fragment does not match fid"
+	ERR_NotFound            = "not found"
+	ERR_HashLength          = "invalid fid or fragment"
+	ERR_EmptyHashName       = "empty fid or fragment"
 )
