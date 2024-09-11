@@ -24,6 +24,7 @@ import (
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/web"
+	"github.com/CESSProject/cess-miner/node/workspace"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
@@ -95,7 +96,7 @@ func InitLogs(n *Node, cli *chain.ChainClient) {
 	InitLogger(lg)
 }
 
-func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes) {
+func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, workspace.Workspace, types.Bytes) {
 	cli, err := sdkgo.New(
 		context.Background(),
 		sdkgo.Name(configs.Name),
@@ -140,7 +141,7 @@ func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	return cli, rsakey, poisInfo, pois, teeRecord, st
+	return cli, rsakey, poisInfo, pois, teeRecord, n.Workspace, st
 }
 
 func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes, error) {
@@ -815,8 +816,8 @@ func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowAllOrigins: true,
-			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid"},
-			AllowMethods:    []string{"POST", "GET", "OPTION"},
+			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid", "Fragment"},
+			AllowMethods:    []string{"PUT", "GET", "OPTION"},
 		}),
 		func(ctx *gin.Context) {
 			ok, err := VerifySignature(ctx)

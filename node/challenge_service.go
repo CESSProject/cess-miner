@@ -31,26 +31,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type serviceProofInfo struct {
-	Names               []string              `json:"names"`
-	Us                  []string              `json:"us"`
-	Mus                 []string              `json:"mus"`
-	Usig                [][]byte              `json:"usig"`
-	ServiceBloomFilter  []uint64              `json:"serviceBloomFilter"`
-	Signature           []byte                `json:"signature"`
-	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
-	Sigma               string                `json:"sigma"`
-	Start               uint32                `json:"start"`
-	ServiceResult       bool                  `json:"serviceResult"`
-	SubmitProof         bool                  `json:"submitProof"`
-	SubmitResult        bool                  `json:"submitResult"`
-}
-
-type RandomList struct {
-	Index  []uint32 `json:"index"`
-	Random [][]byte `json:"random"`
-}
-
 func serviceChallenge(
 	cli *chain.ChainClient,
 	r *RunningState,

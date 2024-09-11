@@ -7,21 +7,25 @@
 
 package web
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/node/workspace"
+	"github.com/gin-gonic/gin"
+)
 
 type Handler struct {
-	*FileHandler
+	*FragmentHandler
 	*StatusHandler
 }
 
-func NewHandler() *Handler {
+func NewHandler(cli *chain.ChainClient, ws workspace.Workspace) *Handler {
 	return &Handler{
-		FileHandler:   NewFileHandler(),
-		StatusHandler: NewStatusHandler(),
+		FragmentHandler: NewFragmentHandler(cli, ws),
+		StatusHandler:   NewStatusHandler(),
 	}
 }
 
 func (h *Handler) RegisterRoutes(server *gin.Engine) {
-	h.FileHandler.RegisterRoutes(server)
+	h.FragmentHandler.RegisterRoutes(server)
 	h.StatusHandler.RegisterRoutes(server)
 }

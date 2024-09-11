@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/node/runstatus"
+	"github.com/CESSProject/cess-miner/node/workspace"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/confile"
@@ -31,9 +32,9 @@ type Node struct {
 	TeeRecorder
 	MinerRecord
 	runstatus.Runstatus
+	workspace.Workspace
 	*chain.ChainClient
 	*pb.MinerPoisInfo
-	*Workspace
 	*RSAKeyPair
 	*Pois
 	*gin.Engine
@@ -54,8 +55,8 @@ func InitConfig(cfg confile.Confiler) {
 	GetNode().Confiler = cfg
 }
 
-func InitWorkspace(path string) {
-	GetNode().Workspace = &Workspace{rootDir: path}
+func InitWorkspace(ws string) {
+	GetNode().Workspace = workspace.NewWorkspace(ws)
 }
 
 func InitChainclient(cli *chain.ChainClient) {

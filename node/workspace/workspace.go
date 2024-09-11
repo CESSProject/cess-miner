@@ -5,7 +5,7 @@
 	SPDX-License-Identifier: Apache-2.0
 */
 
-package node
+package workspace
 
 import (
 	"encoding/json"
@@ -17,6 +17,7 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
@@ -24,6 +25,7 @@ import (
 
 const (
 	fileDir       = "file"
+	reportDir     = "report"
 	tmpDir        = "tmp"
 	dbDir         = "db"
 	logDir        = "log"
@@ -36,11 +38,12 @@ const (
 	service_prove = "service_prove"
 )
 
-type Workspacer interface {
+type Workspace interface {
 	Build() error
 	RemoveAndBuild() error
 	GetRootDir() string
 	GetFileDir() string
+	GetReportDir() string
 	GetTmpDir() string
 	GetDbDir() string
 	GetLogDir() string
@@ -52,10 +55,10 @@ type Workspacer interface {
 	GetPodr2Key() string
 	GetIdleProve() string
 	GetServiceProve() string
-	SaveIdleProve(idleProofRecord idleProofInfo) error
-	LoadIdleProve() (idleProofInfo, error)
-	SaveServiceProve(serviceProofRecord serviceProofInfo) error
-	LoadServiceProve() (serviceProofInfo, error)
+	SaveIdleProve(idleProofRecord common.IdleProofInfo) error
+	LoadIdleProve() (common.IdleProofInfo, error)
+	SaveServiceProve(serviceProofRecord common.ServiceProofInfo) error
+	LoadServiceProve() (common.ServiceProofInfo, error)
 	SaveChallRandom(
 		challStart uint32,
 		randomIndexList []types.U32,
@@ -63,9 +66,10 @@ type Workspacer interface {
 	) error
 }
 
-type Workspace struct {
+type workspace struct {
 	rootDir       string
 	fileDir       string
+	reportDir     string
 	tmpDir        string
 	dbDir         string
 	logDir        string
@@ -79,13 +83,13 @@ type Workspace struct {
 	service_prove string
 }
 
-var _ Workspacer = (*Workspace)(nil)
+var _ Workspace = (*workspace)(nil)
 
-func NewWorkspace() *Workspace {
-	return &Workspace{}
+func NewWorkspace(ws string) Workspace {
+	return &workspace{rootDir: ws}
 }
 
-func (w *Workspace) Check() error {
+func (w *workspace) Check() error {
 	dirfreeSpace, err := utils.GetDirFreeSpace(w.rootDir)
 	if err != nil {
 		return fmt.Errorf("check workspace: %v", err)
@@ -97,7 +101,7 @@ func (w *Workspace) Check() error {
 	return nil
 }
 
-func (w *Workspace) RemoveAndBuild() error {
+func (w *workspace) RemoveAndBuild() error {
 	if w.rootDir == "" {
 		return fmt.Errorf("Please initialize the workspace first")
 	}
@@ -105,6 +109,7 @@ func (w *Workspace) RemoveAndBuild() error {
 	w.idle_prove = filepath.Join(w.rootDir, idle_prove)
 	w.service_prove = filepath.Join(w.rootDir, service_prove)
 	w.fileDir = filepath.Join(w.rootDir, fileDir)
+	w.reportDir = filepath.Join(w.rootDir, reportDir)
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
 	w.dbDir = filepath.Join(w.rootDir, dbDir)
 	w.logDir = filepath.Join(w.rootDir, logDir)
@@ -114,6 +119,10 @@ func (w *Workspace) RemoveAndBuild() error {
 	w.randomDir = filepath.Join(w.rootDir, randomDir)
 
 	err := os.RemoveAll(w.fileDir)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(w.reportDir)
 	if err != nil {
 		return err
 	}
@@ -156,6 +165,11 @@ func (w *Workspace) RemoveAndBuild() error {
 		return err
 	}
 
+	err = os.MkdirAll(w.reportDir, configs.FileMode)
+	if err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(w.tmpDir, configs.FileMode)
 	if err != nil {
 		return err
@@ -189,7 +203,7 @@ func (w *Workspace) RemoveAndBuild() error {
 	return os.MkdirAll(w.randomDir, configs.FileMode)
 }
 
-func (w *Workspace) Build() error {
+func (w *workspace) Build() error {
 	if w.rootDir == "" {
 		return fmt.Errorf("Please initialize the workspace first")
 	}
@@ -233,6 +247,11 @@ func (w *Workspace) Build() error {
 		return err
 	}
 
+	w.reportDir = filepath.Join(w.rootDir, reportDir)
+	if err := os.MkdirAll(w.reportDir, configs.FileMode); err != nil {
+		return err
+	}
+
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
 	if err := os.MkdirAll(w.tmpDir, configs.FileMode); err != nil {
 		return err
@@ -240,50 +259,53 @@ func (w *Workspace) Build() error {
 	return nil
 }
 
-func (w *Workspace) GetRootDir() string {
+func (w *workspace) GetRootDir() string {
 	return w.rootDir
 }
-func (w *Workspace) GetFileDir() string {
+func (w *workspace) GetFileDir() string {
 	return w.fileDir
 }
-func (w *Workspace) GetTmpDir() string {
+func (w *workspace) GetReportDir() string {
+	return w.reportDir
+}
+func (w *workspace) GetTmpDir() string {
 	return w.tmpDir
 }
-func (w *Workspace) GetDbDir() string {
+func (w *workspace) GetDbDir() string {
 	return w.dbDir
 }
-func (w *Workspace) GetLogDir() string {
+func (w *workspace) GetLogDir() string {
 	return w.logDir
 }
-func (w *Workspace) GetSpaceDir() string {
+func (w *workspace) GetSpaceDir() string {
 	return w.spaceDir
 }
-func (w *Workspace) GetPoisDir() string {
+func (w *workspace) GetPoisDir() string {
 	return w.poisDir
 }
-func (w *Workspace) GetPoisAccDir() string {
+func (w *workspace) GetPoisAccDir() string {
 	return w.accDir
 }
-func (w *Workspace) GetChallRndomDir() string {
+func (w *workspace) GetChallRndomDir() string {
 	return w.randomDir
 }
-func (w *Workspace) GetChallRandomDir() string {
+func (w *workspace) GetChallRandomDir() string {
 	return w.randomDir
 }
-func (w *Workspace) GetPeerRecord() string {
+func (w *workspace) GetPeerRecord() string {
 	return w.peer_record
 }
-func (w *Workspace) GetPodr2Key() string {
+func (w *workspace) GetPodr2Key() string {
 	return w.podr2_rsa_pub
 }
-func (w *Workspace) GetIdleProve() string {
+func (w *workspace) GetIdleProve() string {
 	return w.idle_prove
 }
-func (w *Workspace) GetServiceProve() string {
+func (w *workspace) GetServiceProve() string {
 	return w.service_prove
 }
 
-func (w *Workspace) SaveIdleProve(idleProofRecord idleProofInfo) error {
+func (w *workspace) SaveIdleProve(idleProofRecord common.IdleProofInfo) error {
 	buf, err := json.Marshal(&idleProofRecord)
 	if err != nil {
 		return err
@@ -291,8 +313,8 @@ func (w *Workspace) SaveIdleProve(idleProofRecord idleProofInfo) error {
 	return sutils.WriteBufToFile(buf, w.idle_prove)
 }
 
-func (w *Workspace) LoadIdleProve() (idleProofInfo, error) {
-	var result idleProofInfo
+func (w *workspace) LoadIdleProve() (common.IdleProofInfo, error) {
+	var result common.IdleProofInfo
 	buf, err := os.ReadFile(w.idle_prove)
 	if err != nil {
 		return result, err
@@ -301,7 +323,7 @@ func (w *Workspace) LoadIdleProve() (idleProofInfo, error) {
 	return result, err
 }
 
-func (w *Workspace) SaveServiceProve(serviceProofRecord serviceProofInfo) error {
+func (w *workspace) SaveServiceProve(serviceProofRecord common.ServiceProofInfo) error {
 	buf, err := json.Marshal(&serviceProofRecord)
 	if err != nil {
 		return err
@@ -309,8 +331,8 @@ func (w *Workspace) SaveServiceProve(serviceProofRecord serviceProofInfo) error 
 	return sutils.WriteBufToFile(buf, w.service_prove)
 }
 
-func (w *Workspace) LoadServiceProve() (serviceProofInfo, error) {
-	var result serviceProofInfo
+func (w *workspace) LoadServiceProve() (common.ServiceProofInfo, error) {
+	var result common.ServiceProofInfo
 	buf, err := os.ReadFile(w.service_prove)
 	if err != nil {
 		return result, err
@@ -319,7 +341,7 @@ func (w *Workspace) LoadServiceProve() (serviceProofInfo, error) {
 	return result, err
 }
 
-func (w *Workspace) SaveChallRandom(
+func (w *workspace) SaveChallRandom(
 	challStart uint32,
 	randomIndexList []types.U32,
 	randomList []chain.Random,
@@ -329,7 +351,7 @@ func (w *Workspace) SaveChallRandom(
 	if err == nil && fstat.Size() > 0 {
 		return nil
 	}
-	var rd RandomList
+	var rd common.RandomList
 	rd.Index = make([]uint32, len(randomIndexList))
 	rd.Random = make([][]byte, len(randomIndexList))
 	for i := 0; i < len(randomIndexList); i++ {
