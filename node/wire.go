@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/web"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
@@ -48,16 +49,28 @@ func InitNode() *Node {
 		GetNode,
 		InitWebServer,
 		InitMiddlewares,
-		web.NewFileHandler,
+		web.NewHandler,
 		InitChainClient,
 		InitRSAKeyPair,
 		InitTeeRecord,
 		InitMinerPoisInfo,
 		InitPois,
+		InitRunStatus,
 		InitLogs,
 		InitCache,
 	)
 	return &Node{}
+}
+
+func InitRunStatus(n *Node, cli *chain.ChainClient, st types.Bytes) {
+	rt := runstatus.NewRunstatus()
+	rt.SetPID(os.Getpid())
+	rt.SetCpucores(int(n.ReadUseCpu()))
+	rt.SetCurrentRpc(cli.GetCurrentRpcAddr())
+	rt.SetCurrentRpcst(cli.GetRpcState())
+	rt.SetSignAcc(cli.GetSignatureAcc())
+	rt.SetState(string(st))
+	InitRunstatus(rt)
 }
 
 func InitCache(n *Node, cli *chain.ChainClient) {
@@ -82,7 +95,7 @@ func InitLogs(n *Node, cli *chain.ChainClient) {
 	InitLogger(lg)
 }
 
-func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord) {
+func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes) {
 	cli, err := sdkgo.New(
 		context.Background(),
 		sdkgo.Name(configs.Name),
@@ -122,42 +135,42 @@ func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, err := checkMiner(n, sip)
+	rsakey, poisInfo, pois, teeRecord, st, err := checkMiner(n, sip)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	return cli, rsakey, poisInfo, pois, teeRecord
+	return cli, rsakey, poisInfo, pois, teeRecord, st
 }
 
-func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, error) {
+func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes, error) {
 	var rsakey *RSAKeyPair
-	var poisInfo *pb.MinerPoisInfo
+	var poisInfo = &pb.MinerPoisInfo{}
 	var p *Pois
 	var teeRecord *TeeRecord
 
 	register, decTib, oldRegInfo, err := checkRegistrationInfo(n.ChainClient, n.ReadSignatureAccount(), n.ReadStakingAcc(), n.ReadUseSpace())
 	if err != nil {
-		return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[checkMiner]")
+		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[checkMiner]")
 	}
 
 	switch register {
 	case Unregistered:
 		_, err = registerMiner(n.ChainClient, n.ReadStakingAcc(), n.ReadEarningsAcc(), sip, decTib)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[registerMiner]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerMiner]")
 		}
 
 		err = n.RemoveAndBuild()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[RemoveAndBuild]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[RemoveAndBuild]")
 		}
 
 		for i := 0; i < 3; i++ {
 			rsakey, poisInfo, teeRecord, err = registerPoisKey(n)
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -165,7 +178,7 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			break
 		}
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 		}
 
 		p, err = NewPOIS(
@@ -175,27 +188,27 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			n.ExpendersInfo,
 			true, 0, 0,
 			int64(n.ReadUseSpace()*1024), 32,
-			n.GetCpuCores(),
+			int(n.ReadUseCpu()),
 			poisInfo.KeyN,
 			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
-		return rsakey, poisInfo, p, teeRecord, nil
+		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
 
 	case UnregisteredPoisKey:
 		err = n.Build()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[Build]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[Build]")
 		}
 		// runtime.SetMinerState(string(oldRegInfo.State))
 		for i := 0; i < 3; i++ {
 			rsakey, poisInfo, teeRecord, err = registerPoisKey(n)
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -203,12 +216,12 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			break
 		}
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 		}
 
 		err = updateMinerRegistertionInfo(n.ChainClient, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc())
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
 		p, err = NewPOIS(
@@ -218,30 +231,30 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			n.ExpendersInfo,
 			true, 0, 0,
 			int64(n.ReadUseSpace()*1024), 32,
-			n.GetCpuCores(),
+			int(n.ReadUseCpu()),
 			poisInfo.KeyN,
 			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
-		return rsakey, poisInfo, p, teeRecord, nil
+		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
 
 	case Registered:
 		err = n.Build()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
 		err = updateMinerRegistertionInfo(n.ChainClient, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc())
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
 		ok, spaceProofInfo := oldRegInfo.SpaceProofInfo.Unwrap()
 		if !ok {
-			return rsakey, poisInfo, p, teeRecord, errors.New("SpaceProofInfo unwrap failed")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.New("SpaceProofInfo unwrap failed")
 		}
 
 		poisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
@@ -259,32 +272,32 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			int64(spaceProofInfo.Front),
 			int64(spaceProofInfo.Rear),
 			int64(n.ReadUseSpace()*1024), 32,
-			n.GetCpuCores(),
+			int(n.ReadUseCpu()),
 			poisInfo.KeyN,
 			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
 		teeRecord, err = saveAllTees(n.ChainClient)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[saveAllTees]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[saveAllTees]")
 		}
 
 		buf, err := queryPodr2KeyFromTee(teeRecord.GetAllTeeEndpoint(), n.GetSignatureAccPulickey(), n.ReadPriorityTeeList())
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[queryPodr2KeyFromTee]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[queryPodr2KeyFromTee]")
 		}
 
 		rsakey, err = NewRsaKey(buf)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, errors.Wrap(err, "[NewRsaKey]")
+			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewRsaKey]")
 		}
-		return rsakey, poisInfo, p, teeRecord, nil
+		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
 	}
-	return rsakey, poisInfo, p, teeRecord, errors.New("system err")
+	return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.New("system err")
 }
 
 func queryPodr2KeyFromTee(teeEndPointList []string, signature_publickey []byte, priorityTeeList []string) ([]byte, error) {
@@ -469,7 +482,7 @@ func registerPoisKey(n *Node) (*RSAKeyPair, *pb.MinerPoisInfo, *TeeRecord, error
 		dialOptions            []grpc.DialOption
 		responseMinerInitParam *pb.ResponseMinerInitParam
 		rsakey                 *RSAKeyPair
-		poisInfo               *pb.MinerPoisInfo
+		poisInfo               = &pb.MinerPoisInfo{}
 		teeRecord              = NewTeeRecord()
 		chainPublickey         = make([]byte, chain.WorkerPublicKeyLen)
 	)
@@ -753,10 +766,10 @@ func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc stri
 	return Registered, 0, &minerInfo, nil
 }
 
-func InitWebServer(n *Node, mdls []gin.HandlerFunc, userHdl *web.FileHandler) string {
+func InitWebServer(n *Node, mdls []gin.HandlerFunc, hdl *web.Handler) string {
 	n.Engine = gin.Default()
 	n.Engine.Use(mdls...)
-	userHdl.RegisterRoutes(n.Engine)
+	hdl.RegisterRoutes(n.Engine)
 	go func() {
 		err := n.Engine.Run(fmt.Sprintf(":%d", n.ReadServicePort()))
 		if err != nil {
@@ -767,7 +780,7 @@ func InitWebServer(n *Node, mdls []gin.HandlerFunc, userHdl *web.FileHandler) st
 	if err != nil {
 		log.Fatal(err)
 	}
-	ip = fmt.Sprint("http://%s:%d", ip, n.ReadServicePort())
+	ip = fmt.Sprintf("http://%s:%d", ip, n.ReadServicePort())
 	// TODO
 	// sip:=Encrypted(ip)
 	return ip
@@ -802,7 +815,7 @@ func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowAllOrigins: true,
-			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature"},
+			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid"},
 			AllowMethods:    []string{"POST", "GET", "OPTION"},
 		}),
 		func(ctx *gin.Context) {

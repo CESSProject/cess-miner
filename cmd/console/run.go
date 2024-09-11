@@ -1440,31 +1440,3 @@ func checkRpcSynchronization(cli *chain.ChainClient) error {
 // 	}
 // 	return nil, errors.New("all tee nodes are busy or unavailable")
 // }
-
-func syncMinerStatus(cli *chain.ChainClient, l *logger.Lg, r *node.RunningState) {
-	l.Log("info", "will QueryStorageMiner")
-	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
-	if err != nil {
-		l.Log("err", err.Error())
-		if err.Error() == chain.ERR_Empty {
-			r.SetMinerState(chain.MINER_STATE_OFFLINE)
-			err = r.SetMinerState(chain.MINER_STATE_OFFLINE)
-			if err != nil {
-				l.Log("err", err.Error())
-			}
-		}
-		return
-	}
-	l.Log("info", fmt.Sprintf("StorageMiner state: %s", minerInfo.State))
-	r.SetMinerState(string(minerInfo.State))
-	err = r.SetMinerState(string(minerInfo.State))
-	if err != nil {
-		l.Log("err", err.Error())
-	}
-	r.SetMinerSpaceInfo(
-		minerInfo.DeclarationSpace.Uint64(),
-		minerInfo.IdleSpace.Uint64(),
-		minerInfo.ServiceSpace.Uint64(),
-		minerInfo.LockSpace.Uint64(),
-	)
-}

@@ -168,25 +168,20 @@ func ProcessTeeEndpoint(endPoint string) string {
 	return teeEndPoint
 }
 
-// func GetFragmentFromOss(fid string, signAcc string) ([]byte, error) {
-// 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", configs.DefaultDeossAddr, fid), nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	req.Header.Set("Account", signAcc)
-// 	req.Header.Set("Operation", "download")
-
-// 	client := &http.Client{}
-// 	client.Transport = utils.GlobalTransport
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
-// 	if resp.StatusCode != http.StatusOK {
-// 		return nil, errors.New("failed")
-// 	}
-// 	data, err := io.ReadAll(resp.Body)
-// 	return data, err
-// }
+func (n *Node) syncMinerStatus() {
+	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
+	if err != nil {
+		n.Log("err", err.Error())
+		if err.Error() == chain.ERR_Empty {
+			n.SetState(chain.MINER_STATE_EXIT)
+		}
+		return
+	}
+	n.SetState(string(minerInfo.State))
+	n.SetSpaceInfo(
+		minerInfo.DeclarationSpace.Uint64(),
+		minerInfo.IdleSpace.Uint64(),
+		minerInfo.ServiceSpace.Uint64(),
+		minerInfo.LockSpace.Uint64(),
+	)
+}

@@ -24,10 +24,11 @@
 
 ## Binaries for programs and plugins
 main
-miner*
 cess-miner*
 *.exe
 *.dll
 *.so
 *.a
+*.gz
+*.zip
 storage
