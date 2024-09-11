@@ -154,7 +154,7 @@ func (n *Node) Start() {
 
 			if len(attestationIdleCh) > 0 {
 				<-attestationIdleCh
-				go node.AttestationIdle(cli, peernode, p, runtime, minerPoisInfo, teeRecord, l, cfg, attestationIdleCh)
+				go n.AttestationIdle(attestationIdleCh)
 			}
 
 			if len(calcTagCh) > 0 {
