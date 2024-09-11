@@ -63,7 +63,7 @@ func InitNode() *Node {
 	return &Node{}
 }
 
-func InitRunStatus(n *Node, cli *chain.ChainClient, st types.Bytes) {
+func InitRunStatus(n *Node, cli *chain.ChainClient, st types.Bytes) runstatus.Runstatus {
 	rt := runstatus.NewRunstatus()
 	rt.SetPID(os.Getpid())
 	rt.SetCpucores(int(n.ReadUseCpu()))
@@ -72,6 +72,7 @@ func InitRunStatus(n *Node, cli *chain.ChainClient, st types.Bytes) {
 	rt.SetSignAcc(cli.GetSignatureAcc())
 	rt.SetState(string(st))
 	InitRunstatus(rt)
+	return rt
 }
 
 func InitCache(n *Node, cli *chain.ChainClient) {

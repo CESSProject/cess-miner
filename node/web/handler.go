@@ -9,6 +9,7 @@ package web
 
 import (
 	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/workspace"
 	"github.com/gin-gonic/gin"
 )
@@ -18,10 +19,10 @@ type Handler struct {
 	*StatusHandler
 }
 
-func NewHandler(cli *chain.ChainClient, ws workspace.Workspace) *Handler {
+func NewHandler(cli *chain.ChainClient, ws workspace.Workspace, rs runstatus.Runstatus) *Handler {
 	return &Handler{
 		FragmentHandler: NewFragmentHandler(cli, ws),
-		StatusHandler:   NewStatusHandler(),
+		StatusHandler:   NewStatusHandler(rs),
 	}
 }
 

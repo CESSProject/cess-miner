@@ -8,37 +8,61 @@
 package web
 
 import (
+	"github.com/CESSProject/cess-miner/node/common"
+	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/gin-gonic/gin"
 )
 
 type StatusHandler struct {
+	runstatus.Runstatus
 }
 
-func NewStatusHandler() *StatusHandler {
-	return &StatusHandler{}
+func NewStatusHandler(rs runstatus.Runstatus) *StatusHandler {
+	return &StatusHandler{Runstatus: rs}
 }
 
 func (s *StatusHandler) RegisterRoutes(server *gin.Engine) {
 	filegroup := server.Group("/status")
-	filegroup.GET("", s.GetStatusHandle)
+	filegroup.GET("", s.getStatus)
 }
 
-// getStatusHandle
-func (s *StatusHandler) GetStatusHandle(c *gin.Context) {
-	// var msg string
+type StatusData struct {
+	PID   int `json:"pid"`
+	Cores int `json:"cores"`
 
-	// msg += fmt.Sprintf("Process ID: %d\n", n.GetPID())
+	CurrentRpc        string `json:"current_rpc"`
+	CurrentRpcSt      bool   `json:"current_rpc_st"`
+	IsConnecting      bool   `json:"is_connecting"`
+	LastConnectedTime string `json:"last_connected_time"`
 
-	// msg += fmt.Sprintf("Miner Signature Account: %s\n", n.GetMinerSignatureAcc())
+	State        string `json:"state"`
+	SignatureAcc string `json:"signature_acc"`
+	StakingAcc   string `json:"staking_acc"`
+	EarningsAcc  string `json:"earnings_acc"`
+}
 
-	// msg += fmt.Sprintf("Miner State: %s\n", n.GetMinerState())
+func (s *StatusHandler) getStatus(c *gin.Context) {
 
-	// if n.GetChainStatus() {
-	// 	msg += fmt.Sprintf("RPC Connection: [ok] %v\n", n.GetCurrentRpc())
-	// } else {
-	// 	msg += fmt.Sprintf("RPC Connection: [fail] %v\n", n.GetCurrentRpc())
-	// }
-	// msg += fmt.Sprintf("Last reconnection: %v\n", n.GetLastReconnectRpcTime())
+	var data = StatusData{
+		PID:   s.GetPID(),
+		Cores: s.GetCpucores(),
+
+		CurrentRpc:        s.GetCurrentRpc(),
+		CurrentRpcSt:      s.GetCurrentRpcst(),
+		IsConnecting:      s.GetRpcConnecting(),
+		LastConnectedTime: s.GetLastConnectedTime(),
+
+		State:        s.GetState(),
+		SignatureAcc: s.GetSignAcc(),
+		StakingAcc:   s.GetStakingAcc(),
+		EarningsAcc:  s.GetEarningsAcc(),
+	}
+
+	c.JSON(200, common.RespType{
+		Code: 200,
+		Msg:  common.OK,
+		Data: data,
+	})
 
 	// msg += fmt.Sprintf("Calculate Tag: %v\n", n.GetCalcTagFlag())
 
@@ -57,6 +81,4 @@ func (s *StatusHandler) GetStatusHandle(c *gin.Context) {
 	// msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
 
 	// msg += fmt.Sprintf("Memory usage: %d", getMemUsage())
-
-	// c.Data(200, "application/octet-stream", []byte(msg))
 }
