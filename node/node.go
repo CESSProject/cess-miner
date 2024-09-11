@@ -159,7 +159,7 @@ func (n *Node) Start() {
 
 			if len(calcTagCh) > 0 {
 				<-calcTagCh
-				go node.CalcTag(cli, cace, l, runtime, teeRecord, cfg, wspace.GetFileDir(), calcTagCh)
+				go n.CalcTag(calcTagCh)
 			}
 
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
