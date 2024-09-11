@@ -243,6 +243,8 @@ func calcSigma(
 ) ([]string, []string, []string, string, [][]byte, error) {
 	var sigma string
 	var roothash string
+	var fragmentPath string
+	var serviceTagPath string
 	var proveResponse GenProofResponse
 	var names = make([]string, 0)
 	var us = make([]string, 0)
@@ -278,7 +280,8 @@ func calcSigma(
 		}
 		l.Schal("info", fmt.Sprintf("fragments: %v", fragments))
 		for j := 0; j < len(fragments); j++ {
-			serviceTagPath := filepath.Join(ws.GetFileDir(), roothash, fragments[j]+".tag")
+			fragmentPath = filepath.Join(ws.GetFileDir(), roothash, fragments[j])
+			serviceTagPath = filepath.Join(ws.GetFileDir(), roothash, fragments[j]+".tag")
 			tag, err := checkTag(cli, ws, teeRecord, cfg, l, roothash, fragments[j])
 			if err != nil {
 				l.Schal("err", fmt.Sprintf("checkTag: %v", err))
@@ -290,7 +293,7 @@ func calcSigma(
 				l.Schal("err", err.Error())
 				return names, us, mus, sigma, usig, err
 			}
-			matrix, _, err := SplitByN(fragments[j], int64(len(tag.Tag.T.Phi)))
+			matrix, _, err := SplitByN(fragmentPath, int64(len(tag.Tag.T.Phi)))
 			if err != nil {
 				l.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
 				return names, us, mus, sigma, usig, err
