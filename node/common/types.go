@@ -18,7 +18,7 @@ type RespType struct {
 	Data any    `json:"data"`
 }
 
-type fileBlockProofInfo struct {
+type FileBlockProofInfo struct {
 	ProofHashSign       []byte         `json:"proofHashSign"`
 	ProofHashSignOrigin []byte         `json:"proofHashSignOrigin"`
 	SpaceProof          *pb.SpaceProof `json:"spaceProof"`
@@ -38,7 +38,7 @@ type IdleProofInfo struct {
 	Acc                 []byte                `json:"acc"`
 	TotalSignature      []byte                `json:"totalSignature"`
 	ChallRandom         []int64               `json:"challRandom"`
-	FileBlockProofInfo  []fileBlockProofInfo
+	FileBlockProofInfo  []FileBlockProofInfo
 	BlocksProof         []*pb.BlocksProof
 }
 

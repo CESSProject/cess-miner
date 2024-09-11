@@ -11,33 +11,14 @@ import (
 	"fmt"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	"github.com/CESSProject/cess-miner/pkg/cache"
-	"github.com/CESSProject/cess-miner/pkg/confile"
-	"github.com/CESSProject/cess-miner/pkg/logger"
-	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/pb"
 )
 
-func ChallengeMgt(
-	cli *chain.ChainClient,
-	l logger.Logger,
-	ws *Workspace,
-	r *RunningState,
-	teeRecord *TeeRecord,
-	peernode *core.PeerNode,
-	m *pb.MinerPoisInfo,
-	rsa *RSAKeyPair,
-	p *Pois,
-	cfg *confile.Confile,
-	cace cache.Cache,
-	idleChallTaskCh chan bool,
-	serviceChallTaskCh chan bool,
-) {
-	haveChall, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
+func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan bool) {
+	haveChall, challenge, err := n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			l.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
-			l.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
+			n.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
+			n.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
 		}
 		return
 	}
@@ -46,31 +27,30 @@ func ChallengeMgt(
 		return
 	}
 
-	latestBlock, err := cli.QueryBlockNumber("")
+	latestBlock, err := n.QueryBlockNumber("")
 	if err != nil {
-		l.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-		l.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+		n.Ichal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+		n.Schal("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 		return
 	}
 
 	if len(idleChallTaskCh) > 0 {
-		l.Ichal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
+		n.Ichal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
 	}
 
 	if len(serviceChallTaskCh) > 0 {
-		l.Schal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
+		n.Schal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
 	}
 
 	if challenge.ProveInfo.IdleProve.HasValue() {
 		_, idleProve := challenge.ProveInfo.IdleProve.Unwrap()
 		if !idleProve.VerifyResult.HasValue() {
 			if uint32(challenge.ChallengeElement.VerifySlip) < latestBlock {
-				l.Ichal("err", fmt.Sprintf("idle data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
+				n.Ichal("err", fmt.Sprintf("idle data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
 			} else {
 				if len(idleChallTaskCh) > 0 {
 					<-idleChallTaskCh
-					go idleChallenge(
-						cli, r, l, m, rsa, p, teeRecord, peernode, ws,
+					go n.idleChallenge(
 						idleChallTaskCh,
 						true,
 						latestBlock,
@@ -88,7 +68,7 @@ func ChallengeMgt(
 		}
 	} else {
 		if uint32(challenge.ChallengeElement.IdleSlip) < latestBlock {
-			l.Ichal("err", fmt.Sprintf("idle data challenge has expired: %v < %v", uint32(challenge.ChallengeElement.IdleSlip), latestBlock))
+			n.Ichal("err", fmt.Sprintf("idle data challenge has expired: %v < %v", uint32(challenge.ChallengeElement.IdleSlip), latestBlock))
 		} else {
 			if len(idleChallTaskCh) > 0 {
 				<-idleChallTaskCh
@@ -115,7 +95,7 @@ func ChallengeMgt(
 		_, serviceProve := challenge.ProveInfo.ServiceProve.Unwrap()
 		if !serviceProve.VerifyResult.HasValue() {
 			if uint32(challenge.ChallengeElement.VerifySlip) < latestBlock {
-				l.Schal("err", fmt.Sprintf("service data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
+				n.Schal("err", fmt.Sprintf("service data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
 			} else {
 				if len(serviceChallTaskCh) > 0 {
 					<-serviceChallTaskCh
@@ -136,7 +116,7 @@ func ChallengeMgt(
 		}
 	} else {
 		if uint32(challenge.ChallengeElement.ServiceSlip) < latestBlock {
-			l.Schal("err", fmt.Sprintf("service challenge has expired: %v < %v", uint32(challenge.ChallengeElement.ServiceSlip), latestBlock))
+			n.Schal("err", fmt.Sprintf("service challenge has expired: %v < %v", uint32(challenge.ChallengeElement.ServiceSlip), latestBlock))
 		} else {
 			if len(serviceChallTaskCh) > 0 {
 				<-serviceChallTaskCh

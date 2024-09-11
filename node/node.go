@@ -163,7 +163,7 @@ func (n *Node) Start() {
 			}
 
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go node.ChallengeMgt(cli, l, wspace, runtime, teeRecord, peernode, minerPoisInfo, rsakey, p, cfg, cace, idleChallCh, serviceChallCh)
+				go n.ChallengeMgt(idleChallCh, serviceChallCh)
 				time.Sleep(chain.BlockInterval)
 			}
 
