@@ -144,7 +144,7 @@ func (n *Node) Start() {
 
 			if len(syncTeeCh) > 0 {
 				<-syncTeeCh
-				go node.SyncTeeInfo(cli, l, peernode, teeRecord, syncTeeCh)
+				go n.SyncTeeInfo(syncTeeCh)
 			}
 
 			if len(reportFileCh) > 0 {

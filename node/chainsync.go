@@ -19,10 +19,9 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/com"
+	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -63,24 +62,24 @@ const (
 	Registered
 )
 
-func SyncTeeInfo(cli *chain.ChainClient, l *logger.Lg, peernode *core.PeerNode, teeRecord *TeeRecord, ch chan<- bool) {
+func (n *Node) SyncTeeInfo(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			l.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 	var dialOptions []grpc.DialOption
 	var chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
-	teelist, err := cli.QueryAllWorkers(-1)
+	teelist, err := n.QueryAllWorkers(-1)
 	if err != nil {
-		l.Log("err", err.Error())
+		n.Log("err", err.Error())
 	} else {
 		for i := 0; i < len(teelist); i++ {
-			l.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
-			endpoint, err := cli.QueryEndpoints(teelist[i].Pubkey, -1)
+			n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
+			endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
 			if err != nil {
-				l.Log("err", err.Error())
+				n.Log("err", err.Error())
 				continue
 			}
 			endpoint = ProcessTeeEndpoint(endpoint)
@@ -92,22 +91,22 @@ func SyncTeeInfo(cli *chain.ChainClient, l *logger.Lg, peernode *core.PeerNode, 
 			}
 
 			// verify identity public key
-			identityPubkeyResponse, err := peernode.GetIdentityPubkey(endpoint,
+			identityPubkeyResponse, err := com.GetIdentityPubkey(endpoint,
 				&pb.Request{
-					StorageMinerAccountId: cli.GetSignatureAccPulickey(),
+					StorageMinerAccountId: n.GetSignatureAccPulickey(),
 				},
 				time.Duration(time.Minute),
 				dialOptions,
 				nil,
 			)
 			if err != nil {
-				l.Log("err", err.Error())
+				n.Log("err", err.Error())
 				continue
 			}
 			//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
 			if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
-				teeRecord.DeleteTee(string(teelist[i].Pubkey[:]))
-				l.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
+				n.DeleteTee(string(teelist[i].Pubkey[:]))
+				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
 				continue
 			}
 
@@ -115,19 +114,37 @@ func SyncTeeInfo(cli *chain.ChainClient, l *logger.Lg, peernode *core.PeerNode, 
 				chainPublickey[j] = byte(teelist[i].Pubkey[j])
 			}
 			if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-				teeRecord.DeleteTee(string(teelist[i].Pubkey[:]))
-				l.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
-				l.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
+				n.DeleteTee(string(teelist[i].Pubkey[:]))
+				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
+				n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
 				continue
 			}
 
-			l.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
-			err = teeRecord.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+			n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
+			err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
 			if err != nil {
-				l.Log("err", err.Error())
+				n.Log("err", err.Error())
 			}
 		}
 	}
+}
+
+func (n *Node) syncMinerStatus() {
+	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
+	if err != nil {
+		n.Log("err", err.Error())
+		if err.Error() == chain.ERR_Empty {
+			n.SetState(chain.MINER_STATE_EXIT)
+		}
+		return
+	}
+	n.SetState(string(minerInfo.State))
+	n.SetSpaceInfo(
+		minerInfo.DeclarationSpace.Uint64(),
+		minerInfo.IdleSpace.Uint64(),
+		minerInfo.ServiceSpace.Uint64(),
+		minerInfo.LockSpace.Uint64(),
+	)
 }
 
 func WatchMem() {
@@ -166,22 +183,4 @@ func ProcessTeeEndpoint(endPoint string) string {
 		}
 	}
 	return teeEndPoint
-}
-
-func (n *Node) syncMinerStatus() {
-	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
-	if err != nil {
-		n.Log("err", err.Error())
-		if err.Error() == chain.ERR_Empty {
-			n.SetState(chain.MINER_STATE_EXIT)
-		}
-		return
-	}
-	n.SetState(string(minerInfo.State))
-	n.SetSpaceInfo(
-		minerInfo.DeclarationSpace.Uint64(),
-		minerInfo.IdleSpace.Uint64(),
-		minerInfo.ServiceSpace.Uint64(),
-		minerInfo.LockSpace.Uint64(),
-	)
 }
