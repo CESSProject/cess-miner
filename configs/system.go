@@ -36,7 +36,7 @@ var ChainVersionInt = [3]int{0, 7, 7}
 var cp *x509.CertPool
 
 // system init
-func SysInit(cpus uint8) int {
+func SysInit(cpus uint32) int {
 	if !RunOnLinuxSystem() {
 		out.Err("Please run on a linux system")
 		os.Exit(1)
@@ -48,7 +48,7 @@ func SysInit(cpus uint8) int {
 	return SetCpuNumber(cpus)
 }
 
-func SetCpuNumber(cpus uint8) int {
+func SetCpuNumber(cpus uint32) int {
 	actualUseCpus := runtime.NumCPU()
 	if cpus == 0 || int(cpus) > actualUseCpus {
 		runtime.GOMAXPROCS(actualUseCpus)

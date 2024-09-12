@@ -1,24 +1,26 @@
-# The rpc endpoint of the chain node
-Rpc:
-  - "wss://testnet-rpc.cess.cloud/ws/"
-# Bootstrap nodes
-Boot:
-  - "_dnsaddr.boot-miner-testnet.cess.cloud" 
-# Signature account mnemonic
-Mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
-# Staking account
-# If you fill in the staking account, the staking will be paid by the staking account,
-# otherwise the staking will be paid by the signature account.
-StakingAcc: ""
-# Earnings account
-EarningsAcc: ""
-# Service workspace
-Workspace: /
-# Service listening port
-Port: 4001
-# Maximum space used, the unit is GiB
-UseSpace: 2000
-# Number of cpus used, 0 means use all
-UseCpu: 0
-# Priority tee list address
-TeeList:
+app:
+  # workspace
+  workspace: "/"
+  # communication port
+  port: 4001
+  # maximum space used, the unit is GiB
+  maxusespace: 2000
+  # number of cpus used, 0 means use all
+  cores: 0
+
+chain:
+  # signature account mnemonic
+  mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk" 
+  # staking account
+  # if you fill in the staking account, the staking will be paid by the staking account,
+  # otherwise the staking will be paid by the signature account.
+  stakingacc: ""
+  # earnings account
+  earningsacc: ""
+  # timeout for waiting for transaction packaging, default 12 seconds
+  timeout: 12
+  # rpc address list
+  rpcs:
+    - "wss://testnet-rpc.cess.cloud/ws/"
+  # priority tee address list
+  tees:

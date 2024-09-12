@@ -238,3 +238,12 @@ func ContainsIpv4(str string) bool {
 	ipAddr := net.ParseIP(matches)
 	return ipAddr != nil && strings.Contains(matches, ".")
 }
+
+func FreeLocalPort(port uint32) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second*3)
+	if err != nil {
+		return true
+	}
+	conn.Close()
+	return false
+}

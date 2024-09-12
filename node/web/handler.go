@@ -19,7 +19,7 @@ type Handler struct {
 	*StatusHandler
 }
 
-func NewHandler(cli *chain.ChainClient, ws workspace.Workspace, rs runstatus.Runstatus) *Handler {
+func NewHandler(cli chain.Chainer, ws workspace.Workspace, rs runstatus.Runstatus) *Handler {
 	return &Handler{
 		FragmentHandler: NewFragmentHandler(cli, ws),
 		StatusHandler:   NewStatusHandler(rs),

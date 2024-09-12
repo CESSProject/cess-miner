@@ -25,8 +25,7 @@ import (
 
 // runCmd is used to start the service
 func runCmd(cmd *cobra.Command, args []string) {
-	node.InitConfig(InitConfigFile(cmd))
-	node.InitNode().Start()
+	node.NewNodeWithConfig(InitConfigFile(cmd)).InitNode().Start()
 }
 
 func InitConfigFile(cmd *cobra.Command) confile.Confiler {
@@ -38,7 +37,7 @@ func InitConfigFile(cmd *cobra.Command) confile.Confiler {
 			out.Err(fmt.Sprintf("build config items err: %v", err))
 			os.Exit(1)
 		}
-		configs.SysInit(cfg.ReadUseCpu())
+		cfg.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 		return cfg
 	}
 	cfg, err := parseConfigFile(config_file)
@@ -46,7 +45,7 @@ func InitConfigFile(cmd *cobra.Command) confile.Confiler {
 		out.Err(fmt.Sprintf("parse config file err: %v", err))
 		os.Exit(1)
 	}
-	configs.SysInit(cfg.ReadUseCpu())
+	cfg.SetCpuCores(configs.SysInit(cfg.ReadUseCpu()))
 	return cfg
 }
 
@@ -130,49 +129,6 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 	}
 
 	out.Ok(fmt.Sprintf("%v", cfg.ReadRpcEndpoints()))
-
-	var boots []string
-	boots, err = cmd.Flags().GetStringSlice("boot")
-	if err != nil {
-		return cfg, err
-	}
-	var bootValus = make([]string, 0)
-	istips = false
-	if len(boots) == 0 {
-		for {
-			if !istips {
-				out.Input(fmt.Sprintf("Enter the boot node address, multiple addresses are separated by spaces, press Enter to skip\nto use [%s] as default boot node address:", configs.DefaultBootNodeAddr))
-				istips = true
-			}
-			lines, err = inputReader.ReadString('\n')
-			if err != nil {
-				out.Err(err.Error())
-				time.Sleep(time.Second)
-				continue
-			} else {
-				lines = strings.ReplaceAll(lines, "\n", "")
-			}
-
-			if lines != "" {
-				inputrpc := strings.Split(lines, " ")
-				for i := 0; i < len(inputrpc); i++ {
-					temp := strings.ReplaceAll(inputrpc[i], " ", "")
-					if temp != "" {
-						bootValus = append(bootValus, temp)
-					}
-				}
-			}
-			if len(bootValus) == 0 {
-				bootValus = []string{configs.DefaultBootNodeAddr}
-			}
-			cfg.SetBootNodes(bootValus)
-			break
-		}
-	} else {
-		cfg.SetBootNodes(boots)
-	}
-
-	out.Ok(fmt.Sprintf("%v", cfg.ReadBootnodes()))
 
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
@@ -375,11 +331,11 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 					}
 				}
 			}
-			cfg.SetBootNodes(priorityTeeListValues)
+			cfg.SetPriorityTeeList(priorityTeeListValues)
 			break
 		}
 	} else {
-		cfg.SetBootNodes(priorityTeeList)
+		cfg.SetPriorityTeeList(priorityTeeList)
 	}
 
 	out.Ok(fmt.Sprintf("%v", cfg.ReadPriorityTeeList()))

@@ -25,12 +25,12 @@ import (
 )
 
 type FragmentHandler struct {
-	*chain.ChainClient
+	chain.Chainer
 	workspace.Workspace
 }
 
-func NewFragmentHandler(cli *chain.ChainClient, ws workspace.Workspace) *FragmentHandler {
-	return &FragmentHandler{ChainClient: cli, Workspace: ws}
+func NewFragmentHandler(cli chain.Chainer, ws workspace.Workspace) *FragmentHandler {
+	return &FragmentHandler{Chainer: cli, Workspace: ws}
 }
 
 func (f *FragmentHandler) RegisterRoutes(server *gin.Engine) {

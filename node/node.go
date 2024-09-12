@@ -10,7 +10,6 @@ package node
 import (
 	"fmt"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -32,7 +31,7 @@ type Node struct {
 	TeeRecorder
 	runstatus.Runstatus
 	workspace.Workspace
-	*chain.ChainClient
+	chain.Chainer
 	*pb.MinerPoisInfo
 	*RSAKeyPair
 	*Pois
@@ -40,54 +39,48 @@ type Node struct {
 	chain.ExpendersInfo
 }
 
-var (
-	n    *Node
-	once sync.Once
-)
-
-func GetNode() *Node {
-	once.Do(func() { n = &Node{} })
-	return n
+func NewEmptyNode() *Node {
+	return &Node{}
 }
 
-func InitConfig(cfg confile.Confiler) {
-	GetNode().Confiler = cfg
+func NewNodeWithConfig(cfg confile.Confiler) *Node {
+	return &Node{Confiler: cfg}
 }
 
-func InitWorkspace(ws string) {
-	GetNode().Workspace = workspace.NewWorkspace(ws)
+func (n *Node) InitWorkspace(ws string) {
+	n.Workspace = workspace.NewWorkspace(ws)
 }
 
-func InitChainclient(cli *chain.ChainClient) {
-	GetNode().ChainClient = cli
+func (n *Node) InitChainclient(cli chain.Chainer) {
+	n.Chainer = cli
 }
 
-func InitRSAKeyPair(key *RSAKeyPair) {
-	GetNode().RSAKeyPair = key
+func (n *Node) InitRSAKeyPair(key *RSAKeyPair) {
+	n.RSAKeyPair = key
 }
 
-func InitTeeRecord(tees *TeeRecord) {
-	GetNode().TeeRecorder = tees
+func (n *Node) InitTeeRecord(tees *TeeRecord) {
+	n.TeeRecorder = tees
 }
 
-func InitMinerPoisInfo(poisInfo *pb.MinerPoisInfo) {
-	GetNode().MinerPoisInfo = poisInfo
+func (n *Node) InitMinerPoisInfo(poisInfo *pb.MinerPoisInfo) {
+	n.MinerPoisInfo = poisInfo
 }
 
-func InitPois(pois *Pois) {
-	GetNode().Pois = pois
+func (n *Node) InitPois(pois *Pois) {
+	n.Pois = pois
 }
 
-func InitRunstatus(rt runstatus.Runstatus) {
-	GetNode().Runstatus = rt
+func (n *Node) InitRunstatus(rt runstatus.Runstatus) {
+	n.Runstatus = rt
 }
 
-func InitLogger(lg logger.Logger) {
-	GetNode().Logger = lg
+func (n *Node) InitLogger(lg logger.Logger) {
+	n.Logger = lg
 }
 
-func InitCacher(cace cache.Cache) {
-	GetNode().Cache = cace
+func (n *Node) InitCacher(cace cache.Cache) {
+	n.Cache = cace
 }
 
 func (n *Node) Start() {

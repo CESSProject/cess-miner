@@ -24,7 +24,6 @@ import (
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/web"
-	"github.com/CESSProject/cess-miner/node/workspace"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
@@ -34,7 +33,6 @@ import (
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/google/wire"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -44,46 +42,38 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
-func InitNode() *Node {
-	wire.Build(
-		GetNode,
-		InitWebServer,
-		InitMiddlewares,
-		web.NewHandler,
-		InitChainClient,
-		InitRSAKeyPair,
-		InitTeeRecord,
-		InitMinerPoisInfo,
-		InitPois,
-		InitRunStatus,
-		InitLogs,
-		InitCache,
+func (n *Node) InitNode() *Node {
+	n.InitChainClient()
+	n.InitWebServer(
+		InitMiddlewares(),
+		web.NewHandler(n.Chainer, n.Workspace, n.Runstatus),
 	)
-	return &Node{}
+	n.InitLogs()
+	n.InitCache()
+	return n
 }
 
-func InitRunStatus(n *Node, cli *chain.ChainClient, st types.Bytes) runstatus.Runstatus {
+func (n *Node) InitRunStatus(st types.Bytes) {
 	rt := runstatus.NewRunstatus()
 	rt.SetPID(os.Getpid())
 	rt.SetCpucores(int(n.ReadUseCpu()))
-	rt.SetCurrentRpc(cli.GetCurrentRpcAddr())
-	rt.SetCurrentRpcst(cli.GetRpcState())
-	rt.SetSignAcc(cli.GetSignatureAcc())
+	rt.SetCurrentRpc(n.GetCurrentRpcAddr())
+	rt.SetCurrentRpcst(n.GetRpcState())
+	rt.SetSignAcc(n.GetSignatureAcc())
 	rt.SetState(string(st))
-	InitRunstatus(rt)
-	return rt
+	n.InitRunstatus(rt)
 }
 
-func InitCache(n *Node, cli *chain.ChainClient) {
+func (n *Node) InitCache() {
 	cace, err := cache.NewCache(n.GetDbDir(), 0, 0, configs.NameSpaces)
 	if err != nil {
 		out.Err(fmt.Sprintf("[NewCache] %v", err))
 		os.Exit(1)
 	}
-	InitCacher(cace)
+	n.InitCacher(cace)
 }
 
-func InitLogs(n *Node, cli *chain.ChainClient) {
+func (n *Node) InitLogs() {
 	var logs_info = make(map[string]string)
 	for _, v := range logger.LogFiles {
 		logs_info[v] = filepath.Join(n.GetLogDir(), v+".log")
@@ -93,10 +83,21 @@ func InitLogs(n *Node, cli *chain.ChainClient) {
 		out.Err(fmt.Sprintf("[NewLogs] %v", err))
 		os.Exit(1)
 	}
-	InitLogger(lg)
+	n.InitLogger(lg)
 }
 
-func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, workspace.Workspace, types.Bytes) {
+func (n *Node) InitChainClient() {
+	ip, err := GetLocalIP()
+	if err != nil {
+		out.Err(fmt.Sprintf("[GetLocalIP] %v", err))
+		os.Exit(1)
+	}
+
+	if !utils.FreeLocalPort(uint32(n.ReadServicePort())) {
+		out.Err(fmt.Sprintf("[FreeLocalPort] %v", err))
+		os.Exit(1)
+	}
+
 	cli, err := sdkgo.New(
 		context.Background(),
 		sdkgo.Name(configs.Name),
@@ -109,8 +110,8 @@ func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.
 		os.Exit(1)
 	}
 
-	InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
-	InitChainclient(cli)
+	n.InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
+	n.InitChainclient(cli)
 
 	err = n.InitExtrinsicsNameForMiner()
 	if err != nil {
@@ -136,28 +137,33 @@ func InitChainClient(n *Node, sip string) (*chain.ChainClient, *RSAKeyPair, *pb.
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, st, err := checkMiner(n, sip)
+	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(fmt.Sprintf("%s:%d", ip, n.ReadServicePort()))
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	return cli, rsakey, poisInfo, pois, teeRecord, n.Workspace, st
+
+	n.InitRSAKeyPair(rsakey)
+	n.InitPois(pois)
+	n.InitMinerPoisInfo(poisInfo)
+	n.InitTeeRecord(teeRecord)
+	n.InitRunStatus(st)
 }
 
-func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes, error) {
+func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *TeeRecord, types.Bytes, error) {
 	var rsakey *RSAKeyPair
 	var poisInfo = &pb.MinerPoisInfo{}
 	var p *Pois
 	var teeRecord *TeeRecord
 
-	register, decTib, oldRegInfo, err := checkRegistrationInfo(n.ChainClient, n.ReadSignatureAccount(), n.ReadStakingAcc(), n.ReadUseSpace())
+	register, decTib, oldRegInfo, err := checkRegistrationInfo(n.Chainer, n.ReadSignatureAccount(), n.ReadStakingAcc(), n.ReadUseSpace())
 	if err != nil {
 		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[checkMiner]")
 	}
 
 	switch register {
 	case Unregistered:
-		_, err = registerMiner(n.ChainClient, n.ReadStakingAcc(), n.ReadEarningsAcc(), sip, decTib)
+		_, err = registerMiner(n.Chainer, n.ReadStakingAcc(), n.ReadEarningsAcc(), addr, decTib)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerMiner]")
 		}
@@ -220,7 +226,7 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 		}
 
-		err = updateMinerRegistertionInfo(n.ChainClient, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc())
+		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), addr)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
@@ -248,7 +254,7 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
-		err = updateMinerRegistertionInfo(n.ChainClient, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc())
+		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), addr)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
@@ -282,7 +288,7 @@ func checkMiner(n *Node, sip string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, *Te
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
-		teeRecord, err = saveAllTees(n.ChainClient)
+		teeRecord, err = saveAllTees(n.Chainer)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[saveAllTees]")
 		}
@@ -348,7 +354,7 @@ func queryPodr2KeyFromTee(teeEndPointList []string, signature_publickey []byte, 
 	return nil, errors.New("all tee nodes are busy or unavailable")
 }
 
-func saveAllTees(cli *chain.ChainClient) (*TeeRecord, error) {
+func saveAllTees(cli chain.Chainer) (*TeeRecord, error) {
 	var (
 		err            error
 		teeList        []chain.WorkerInfo
@@ -415,7 +421,7 @@ func saveAllTees(cli *chain.ChainClient) (*TeeRecord, error) {
 	return teeRecord, nil
 }
 
-func updateMinerRegistertionInfo(cli *chain.ChainClient, oldRegInfo *chain.MinerInfo, useSpace uint64, stakingAcc, earningsAcc string) error {
+func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo, useSpace uint64, stakingAcc, earningsAcc, addr string) error {
 	var err error
 	olddecspace := oldRegInfo.DeclarationSpace.Uint64() / chain.SIZE_1TiB
 	if (*oldRegInfo).DeclarationSpace.Uint64()%chain.SIZE_1TiB != 0 {
@@ -471,6 +477,14 @@ func updateMinerRegistertionInfo(cli *chain.ChainClient, oldRegInfo *chain.Miner
 			}
 			out.Ok(fmt.Sprintf("[%s] Successfully updated earnings account to %s", txhash, earningsAcc))
 		}
+	}
+
+	if string(oldRegInfo.PeerId[:]) != addr {
+		txhash, err := cli.UpdateSminerAddr([]byte(addr))
+		if err != nil {
+			return fmt.Errorf("Update address err: %v, blockhash: %s", err, txhash)
+		}
+		out.Ok(fmt.Sprintf("[%s] Successfully updated address to %s", txhash, addr))
 	}
 
 	return nil
@@ -611,7 +625,7 @@ func registerPoisKey(n *Node) (*RSAKeyPair, *pb.MinerPoisInfo, *TeeRecord, error
 			}
 
 			err = registerMinerPoisKey(
-				n.ChainClient,
+				n.Chainer,
 				poisKey,
 				responseMinerInitParam.SignatureWithTeeController[:],
 				responseMinerInitParam.StatusTeeSign,
@@ -627,7 +641,7 @@ func registerPoisKey(n *Node) (*RSAKeyPair, *pb.MinerPoisInfo, *TeeRecord, error
 	return rsakey, poisInfo, teeRecord, errors.New("all tee nodes are busy or unavailable")
 }
 
-func registerMinerPoisKey(cli *chain.ChainClient, poisKey chain.PoISKeyInfo, teeSignWithAcc types.Bytes, teeSign types.Bytes, teePuk chain.WorkerPublicKey) error {
+func registerMinerPoisKey(cli chain.Chainer, poisKey chain.PoISKeyInfo, teeSignWithAcc types.Bytes, teeSign types.Bytes, teePuk chain.WorkerPublicKey) error {
 	var err error
 	for i := 0; i < 3; i++ {
 		_, err = cli.RegisterPoisKey(
@@ -652,7 +666,7 @@ func registerMinerPoisKey(cli *chain.ChainClient, poisKey chain.PoISKeyInfo, tee
 	return err
 }
 
-func registerMiner(cli *chain.ChainClient, stakingAcc, earningsAcc, sip string, decTib uint64) (string, error) {
+func registerMiner(cli chain.Chainer, stakingAcc, earningsAcc, sip string, decTib uint64) (string, error) {
 	if stakingAcc != "" && stakingAcc != cli.GetSignatureAcc() {
 		out.Ok(fmt.Sprintf("Specify staking account: %s", stakingAcc))
 		txhash, err := cli.RegnstkAssignStaking(earningsAcc, []byte(sip), stakingAcc, uint32(decTib))
@@ -677,7 +691,7 @@ func registerMiner(cli *chain.ChainClient, stakingAcc, earningsAcc, sip string, 
 	return txhash, nil
 }
 
-func checkRpcSynchronization(cli *chain.ChainClient) error {
+func checkRpcSynchronization(cli chain.Chainer) error {
 	out.Tip("Waiting to synchronize the main chain...")
 	var err error
 	var syncSt chain.SysSyncState
@@ -696,7 +710,7 @@ func checkRpcSynchronization(cli *chain.ChainClient) error {
 	return nil
 }
 
-func checkVersion(cli *chain.ChainClient) error {
+func checkVersion(cli chain.Chainer) error {
 	chainVersion, err := cli.SystemVersion()
 	if err != nil {
 		return errors.New("failed to query the chain version: rpc connection is down")
@@ -724,7 +738,7 @@ func checkVersion(cli *chain.ChainClient) error {
 	return nil
 }
 
-func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc string, useSpace uint64) (int, uint64, *chain.MinerInfo, error) {
+func checkRegistrationInfo(cli chain.Chainer, signatureAcc, stakingAcc string, useSpace uint64) (int, uint64, *chain.MinerInfo, error) {
 	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
@@ -767,7 +781,7 @@ func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc stri
 	return Registered, 0, &minerInfo, nil
 }
 
-func InitWebServer(n *Node, mdls []gin.HandlerFunc, hdl *web.Handler) string {
+func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *web.Handler) {
 	n.Engine = gin.Default()
 	n.Engine.Use(mdls...)
 	hdl.RegisterRoutes(n.Engine)
@@ -777,14 +791,6 @@ func InitWebServer(n *Node, mdls []gin.HandlerFunc, hdl *web.Handler) string {
 			log.Fatal(err)
 		}
 	}()
-	ip, err := GetLocalIP()
-	if err != nil {
-		log.Fatal(err)
-	}
-	ip = fmt.Sprintf("http://%s:%d", ip, n.ReadServicePort())
-	// TODO
-	// sip:=Encrypted(ip)
-	return ip
 }
 
 func GetLocalIP() (string, error) {
