@@ -20,8 +20,6 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/cess-miner/pkg/cache"
-	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/pkg/errors"
@@ -37,48 +35,48 @@ func init() {
 	recoveryFailedFiles = make(map[string]int64, 0)
 }
 
-func RestoreFiles(cli *chain.ChainClient, cace cache.Cache, l logger.Logger, fileDir string, ch chan bool) {
+func (n *Node) RestoreFiles(ch chan bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			l.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
-	err := RestoreLocalFiles(cli, l, cace, fileDir)
+	err := n.RestoreLocalFiles()
 	if err != nil {
-		l.Restore("err", err.Error())
+		n.Restore("err", err.Error())
 		time.Sleep(chain.BlockInterval)
 	}
 
-	err = RestoreOtherFiles(cli, l, fileDir)
+	err = n.RestoreOtherFiles()
 	if err != nil {
-		l.Restore("err", err.Error())
+		n.Restore("err", err.Error())
 		time.Sleep(chain.BlockInterval)
 	}
 }
 
-func RestoreLocalFiles(cli *chain.ChainClient, l logger.Logger, cace cache.Cache, fileDir string) error {
-	roothashes, err := utils.Dirs(fileDir)
+func (n *Node) RestoreLocalFiles() error {
+	roothashes, err := utils.Dirs(n.GetFileDir())
 	if err != nil {
-		l.Restore("err", fmt.Sprintf("[Dir %v] %v", fileDir, err))
+		n.Restore("err", fmt.Sprintf("[Dir %v] %v", n.GetFileDir(), err))
 		return err
 	}
 	roothash := ""
 	for _, v := range roothashes {
 		roothash = filepath.Base(v)
-		err = restoreFile(cli, l, fileDir, roothash)
+		err = n.restoreFile(roothash)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("restoreFile: %v err: %v", fileDir, err))
+			n.Restore("err", fmt.Sprintf("restoreFile: %v err: %v", n.GetFileDir(), err))
 		}
 	}
 	return nil
 }
 
-func RestoreOtherFiles(cli *chain.ChainClient, l logger.Logger, fileDir string) error {
-	restoreOrderList, err := cli.QueryAllRestoralOrder(-1)
+func (n *Node) RestoreOtherFiles() error {
+	restoreOrderList, err := n.QueryAllRestoralOrder(-1)
 	if err != nil {
-		l.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
+		n.Restore("err", fmt.Sprintf("[QueryRestoralOrderList] %v", err))
 		return err
 	}
 
@@ -94,49 +92,49 @@ func RestoreOtherFiles(cli *chain.ChainClient, l logger.Logger, fileDir string) 
 			continue
 		}
 		blockhash = ""
-		rsOrder, err := cli.QueryRestoralOrder(string(v.FragmentHash[:]), -1)
+		rsOrder, err := n.QueryRestoralOrder(string(v.FragmentHash[:]), -1)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
+			n.Restore("err", fmt.Sprintf("[QueryRestoralOrder] %v", err))
 			continue
 		}
 
-		latestBlock, err = cli.QueryBlockNumber("")
+		latestBlock, err = n.QueryBlockNumber("")
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
+			n.Restore("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
 			continue
 		}
 		if latestBlock <= uint32(rsOrder.Deadline) {
 			continue
 		}
 
-		_, err = cli.ClaimRestoralOrder(string(v.FragmentHash[:]))
+		_, err = n.ClaimRestoralOrder(string(v.FragmentHash[:]))
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
+			n.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
 			continue
 		}
 
 		// recover fragment
-		err = restoreFragment(cli.GetSignatureAcc(), l, string(v.FileHash[:]), string(v.FragmentHash[:]), fileDir)
+		err = n.restoreFragment(string(v.FileHash[:]), string(v.FragmentHash[:]))
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
+			n.Restore("err", fmt.Sprintf("[ClaimRestoralOrder] %v", err))
 			recoveryFailedFilesLock.Lock()
 			recoveryFailedFiles[string(v.FragmentHash[:])] = time.Now().Unix()
 			recoveryFailedFilesLock.Unlock()
 			continue
 		}
 
-		blockhash, err = cli.RestoralOrderComplete(string(v.FragmentHash[:]))
+		blockhash, err = n.RestoralOrderComplete(string(v.FragmentHash[:]))
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(v.FileHash[:]), string(v.FragmentHash[:]), err))
+			n.Restore("err", fmt.Sprintf("[RestoralComplete %s-%s] %v", string(v.FileHash[:]), string(v.FragmentHash[:]), err))
 			return err
 		}
-		l.Restore("info", fmt.Sprintf("restoral complete: %v", blockhash))
+		n.Restore("info", fmt.Sprintf("restoral complete: %v", blockhash))
 	}
 	return err
 }
 
-func restoreFile(cli *chain.ChainClient, l logger.Logger, fileDir string, fid string) error {
-	metadata, err := cli.QueryFile(fid, -1)
+func (n *Node) restoreFile(fid string) error {
+	metadata, err := n.QueryFile(fid, -1)
 	if err != nil {
 		time.Sleep(chain.BlockInterval)
 		return err
@@ -144,13 +142,13 @@ func restoreFile(cli *chain.ChainClient, l logger.Logger, fileDir string, fid st
 	var chainRecord = make([]string, 0)
 	for i := 0; i < len(metadata.SegmentList); i++ {
 		for j := 0; j < len(metadata.SegmentList[i].FragmentList); j++ {
-			if sutils.CompareSlice(metadata.SegmentList[i].FragmentList[j].Miner[:], cli.GetSignatureAccPulickey()) {
+			if sutils.CompareSlice(metadata.SegmentList[i].FragmentList[j].Miner[:], n.GetSignatureAccPulickey()) {
 				chainRecord = append(chainRecord, string(metadata.SegmentList[i].FragmentList[j].Hash[:]))
 			}
 		}
 	}
 	for _, v := range chainRecord {
-		fstat, err := os.Stat(filepath.Join(fileDir, fid, v))
+		fstat, err := os.Stat(filepath.Join(n.GetFileDir(), fid, v))
 		if err != nil {
 			if !strings.Contains(err.Error(), "no such file") {
 				continue
@@ -167,55 +165,55 @@ func restoreFile(cli *chain.ChainClient, l logger.Logger, fileDir string, fid st
 		}
 
 		// recover fragment
-		err = restoreFragment(cli.GetSignatureAcc(), l, fid, v, fileDir)
+		err = n.restoreFragment(fid, v)
 		if err == nil {
 			continue
 		}
 		recoveryFailedFilesLock.Lock()
 		recoveryFailedFiles[v] = time.Now().Unix()
 		recoveryFailedFilesLock.Unlock()
-		l.Restore("err", fmt.Sprintf("[RestoreFragment(%s.%s)] %v", fid, v, err))
+		n.Restore("err", fmt.Sprintf("[RestoreFragment(%s.%s)] %v", fid, v, err))
 		// report lost
-		_, err = cli.GenerateRestoralOrder(fid, v)
+		_, err = n.GenerateRestoralOrder(fid, v)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[GenerateRestoralOrder(%s.%s)] %v", fid, v, err))
+			n.Restore("err", fmt.Sprintf("[GenerateRestoralOrder(%s.%s)] %v", fid, v, err))
 			continue
 		}
 	}
 	return nil
 }
 
-func restoreFragment(signAcc string, l logger.Logger, roothash, fragmentHash, fileDir string) error {
+func (n *Node) restoreFragment(roothash, fragmentHash string) error {
 	var err error
-	l.Restore("info", fmt.Sprintf("[%s] To restore the fragment: %s", roothash, fragmentHash))
-	_, err = os.Stat(filepath.Join(fileDir, roothash))
+	n.Restore("info", fmt.Sprintf("[%s] To restore the fragment: %s", roothash, fragmentHash))
+	_, err = os.Stat(filepath.Join(n.GetFileDir(), roothash))
 	if err != nil {
-		err = os.MkdirAll(filepath.Join(fileDir, roothash), configs.FileMode)
+		err = os.MkdirAll(filepath.Join(n.GetFileDir(), roothash), configs.FileMode)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: [MkdirAll] %v", roothash, fragmentHash, err))
+			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: [MkdirAll] %v", roothash, fragmentHash, err))
 			return err
 		}
 	}
 	if fragmentHash == core.ZeroFileHash_8M {
-		err = os.WriteFile(filepath.Join(fileDir, roothash, fragmentHash), make([]byte, sconfig.FragmentSize), os.ModePerm)
+		err = os.WriteFile(filepath.Join(n.GetFileDir(), roothash, fragmentHash), make([]byte, sconfig.FragmentSize), os.ModePerm)
 		if err != nil {
-			l.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, fragmentHash, err))
+			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, fragmentHash, err))
 		} else {
-			l.Restore("info", fmt.Sprintf("[%s.%s] Successfully restored fragment", roothash, fragmentHash))
+			n.Restore("info", fmt.Sprintf("[%s.%s] Successfully restored fragment", roothash, fragmentHash))
 		}
 		return err
 	}
 
-	roothashes, err := utils.Dirs(fileDir)
+	roothashes, err := utils.Dirs(n.GetFileDir())
 	if err != nil {
-		l.Restore("err", fmt.Sprintf("[Dir %v] %v", fileDir, err))
+		n.Restore("err", fmt.Sprintf("[Dir %v] %v", n.GetFileDir(), err))
 		return err
 	}
 
 	for _, v := range roothashes {
 		_, err = os.Stat(filepath.Join(v, fragmentHash))
 		if err == nil {
-			return utils.CopyFile(filepath.Join(fileDir, roothash, fragmentHash), filepath.Join(v, fragmentHash))
+			return utils.CopyFile(filepath.Join(n.GetFileDir(), roothash, fragmentHash), filepath.Join(v, fragmentHash))
 		}
 	}
 

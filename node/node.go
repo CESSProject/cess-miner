@@ -191,7 +191,7 @@ func (n *Node) Start() {
 
 			if len(restoreCh) > 0 {
 				<-restoreCh
-				go node.RestoreFiles(cli, cace, l, wspace.GetFileDir(), restoreCh)
+				go n.RestoreFiles(restoreCh)
 			}
 		}
 	}
