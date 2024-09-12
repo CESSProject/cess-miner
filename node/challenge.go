@@ -72,9 +72,8 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 		} else {
 			if len(idleChallTaskCh) > 0 {
 				<-idleChallTaskCh
-				r.SetIdleChallengeFlag(true)
-				go idleChallenge(
-					cli, r, l, m, rsa, p, teeRecord, peernode, ws,
+				//n.SetIdleChallengeFlag(true)
+				go n.idleChallenge(
 					idleChallTaskCh,
 					false,
 					latestBlock,
@@ -99,8 +98,7 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 			} else {
 				if len(serviceChallTaskCh) > 0 {
 					<-serviceChallTaskCh
-					go serviceChallenge(
-						cli, r, l, teeRecord, peernode, ws, cace, rsa, cfg,
+					go n.serviceChallenge(
 						serviceChallTaskCh,
 						true,
 						latestBlock,
@@ -120,9 +118,8 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 		} else {
 			if len(serviceChallTaskCh) > 0 {
 				<-serviceChallTaskCh
-				r.SetServiceChallengeFlag(true)
-				go serviceChallenge(
-					cli, r, l, teeRecord, peernode, ws, cace, rsa, cfg,
+				// n.SetServiceChallengeFlag(true)
+				go n.serviceChallenge(
 					serviceChallTaskCh,
 					false,
 					latestBlock,
