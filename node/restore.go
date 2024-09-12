@@ -17,11 +17,9 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/pkg/errors"
 )
 
@@ -154,7 +152,7 @@ func (n *Node) restoreFile(fid string) error {
 				continue
 			}
 		} else {
-			if fstat.Size() == sconfig.FragmentSize {
+			if fstat.Size() == chain.FragmentSize {
 				continue
 			}
 		}
@@ -194,8 +192,8 @@ func (n *Node) restoreFragment(roothash, fragmentHash string) error {
 			return err
 		}
 	}
-	if fragmentHash == core.ZeroFileHash_8M {
-		err = os.WriteFile(filepath.Join(n.GetFileDir(), roothash, fragmentHash), make([]byte, sconfig.FragmentSize), os.ModePerm)
+	if fragmentHash == chain.ZeroFileHash_8M {
+		err = os.WriteFile(filepath.Join(n.GetFileDir(), roothash, fragmentHash), make([]byte, chain.FragmentSize), os.ModePerm)
 		if err != nil {
 			n.Restore("err", fmt.Sprintf("[%s.%s] Error restoring fragment: %v", roothash, fragmentHash, err))
 		} else {
@@ -321,7 +319,7 @@ func (n *Node) calcFragmentTag(fid, fragment string) error {
 	if err != nil {
 		return err
 	}
-	if len(buf) != sconfig.FragmentSize {
+	if len(buf) != chain.FragmentSize {
 		return errors.New("invalid fragment size")
 	}
 	fragmentHash := filepath.Base(fragment)

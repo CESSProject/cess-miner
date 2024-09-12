@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	"github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/workspace"
@@ -114,7 +113,7 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		return
 	}
 
-	if size != config.FragmentSize {
+	if size != chain.FragmentSize {
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 400,
 			Msg:  common.ERR_FragmentSize,

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/p2p-go/out"
 )
 
 func (n *Node) GenIdle(ch chan<- bool) {
@@ -32,7 +32,7 @@ func (n *Node) GenIdle(ch chan<- bool) {
 		return
 	}
 
-	configSpace := n.ReadUseSpace() * sconfig.SIZE_1GiB
+	configSpace := n.ReadUseSpace() * chain.SIZE_1GiB
 	if configSpace < minSpace {
 		n.Space("err", "The configured space is less than the minimum space requirement")
 		time.Sleep(time.Minute * 10)
@@ -53,7 +53,7 @@ func (n *Node) GenIdle(ch chan<- bool) {
 	}
 
 	if dirfreeSpace < minSpace {
-		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/sconfig.SIZE_1GiB))
+		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/chain.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
 		return
 	}

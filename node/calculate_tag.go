@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
@@ -423,7 +422,7 @@ func checkFragmentsSize(fragments []string) error {
 		if err != nil {
 			return err
 		}
-		if fsata.Size() != sconfig.FragmentSize {
+		if fsata.Size() != chain.FragmentSize {
 			return errors.New("size error")
 		}
 	}

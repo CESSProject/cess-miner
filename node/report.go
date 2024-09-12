@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -179,14 +178,14 @@ func (n *Node) reportfile(f string) error {
 
 	var sucCount int
 	var sucIndex = make([]uint8, 0)
-	for idx := uint8(0); idx < uint8(sconfig.DataShards+sconfig.ParShards); idx++ {
+	for idx := uint8(0); idx < uint8(chain.DataShards+chain.ParShards); idx++ {
 		sucCount = 0
 		for i := 0; i < len(storageorder.SegmentList); i++ {
 			fstat, err := os.Stat(filepath.Join(n.GetTmpDir(), fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
 			if err != nil {
 				break
 			}
-			if fstat.Size() != sconfig.FragmentSize {
+			if fstat.Size() != chain.FragmentSize {
 				break
 			}
 			sucCount++

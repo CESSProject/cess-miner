@@ -28,9 +28,9 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -41,7 +41,6 @@ import (
 
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 )
 
@@ -418,12 +417,12 @@ func saveAllTees(cli *chain.ChainClient) (*TeeRecord, error) {
 
 func updateMinerRegistertionInfo(cli *chain.ChainClient, oldRegInfo *chain.MinerInfo, useSpace uint64, stakingAcc, earningsAcc string) error {
 	var err error
-	olddecspace := oldRegInfo.DeclarationSpace.Uint64() / sconfig.SIZE_1TiB
-	if (*oldRegInfo).DeclarationSpace.Uint64()%sconfig.SIZE_1TiB != 0 {
+	olddecspace := oldRegInfo.DeclarationSpace.Uint64() / chain.SIZE_1TiB
+	if (*oldRegInfo).DeclarationSpace.Uint64()%chain.SIZE_1TiB != 0 {
 		olddecspace = +1
 	}
-	newDecSpace := useSpace / sconfig.SIZE_1KiB
-	if useSpace%sconfig.SIZE_1KiB != 0 {
+	newDecSpace := useSpace / chain.SIZE_1KiB
+	if useSpace%chain.SIZE_1KiB != 0 {
 		newDecSpace += 1
 	}
 	if newDecSpace > olddecspace {
@@ -731,8 +730,8 @@ func checkRegistrationInfo(cli *chain.ChainClient, signatureAcc, stakingAcc stri
 		if err.Error() != chain.ERR_Empty {
 			return Unregistered, 0, &minerInfo, err
 		}
-		decTib := useSpace / sconfig.SIZE_1KiB
-		if useSpace%sconfig.SIZE_1KiB != 0 {
+		decTib := useSpace / chain.SIZE_1KiB
+		if useSpace%chain.SIZE_1KiB != 0 {
 			decTib += 1
 		}
 		token := decTib * chain.StakingStakePerTiB

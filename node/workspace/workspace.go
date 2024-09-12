@@ -14,12 +14,11 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/common"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
@@ -95,7 +94,7 @@ func (w *workspace) Check() error {
 		return fmt.Errorf("check workspace: %v", err)
 	}
 
-	if dirfreeSpace < sconfig.SIZE_1GiB*32 {
+	if dirfreeSpace < chain.SIZE_1GiB*32 {
 		out.Warn("Your free space in workspace is less than 32GiB and cannot generate idle data")
 	}
 	return nil

@@ -30,7 +30,6 @@ type Node struct {
 	logger.Logger
 	cache.Cache
 	TeeRecorder
-	MinerRecord
 	runstatus.Runstatus
 	workspace.Workspace
 	*chain.ChainClient
@@ -178,7 +177,6 @@ func (n *Node) Start() {
 				break
 			}
 
-			// go n.reportLogsMgt(ch_reportLogs)
 			chainState = n.GetRpcState()
 			if !chainState {
 				break

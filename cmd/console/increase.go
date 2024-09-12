@@ -18,7 +18,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/confile"
-	"github.com/CESSProject/p2p-go/out"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/spf13/cobra"
 )
 

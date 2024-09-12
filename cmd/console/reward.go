@@ -16,7 +16,7 @@ import (
 
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/p2p-go/out"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )

@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/com"
@@ -154,7 +153,7 @@ func WatchMem() {
 
 	for range tikProgram.C {
 		runtime.ReadMemStats(memSt)
-		if memSt.HeapSys >= sconfig.SIZE_1GiB*8 {
+		if memSt.HeapSys >= chain.SIZE_1GiB*8 {
 			//log("err", fmt.Sprintf("Mem heigh: %d", memSt.HeapSys))
 			os.Exit(1)
 		}

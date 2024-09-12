@@ -14,11 +14,10 @@ import (
 	"strings"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/pkg/errors"
 )
 
@@ -27,7 +26,7 @@ type Pois struct {
 	*acc.RsaKey
 }
 
-var minSpace = uint64(pois.FileSize * sconfig.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
+var minSpace = uint64(pois.FileSize * chain.SIZE_1MiB * acc.DEFAULT_ELEMS_NUM * 2)
 
 func NewPOIS(poisDir, spaceDir, accDir string, expendersInfo chain.ExpendersInfo, register bool, front, rear, freeSpace, count int64, cpus int, key_n, key_g, signAccPulickey []byte) (*Pois, error) {
 	var err error

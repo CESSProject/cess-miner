@@ -15,10 +15,9 @@ import (
 
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/p2p-go/out"
+	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -102,35 +101,35 @@ func unitConversion(value types.U128) string {
 	var result string
 	if value.IsUint64() {
 		v := value.Uint64()
-		if v >= (sconfig.SIZE_1GiB * 1024 * 1024 * 1024) {
-			result = fmt.Sprintf("%.2f EiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024*1024*1024)))
+		if v >= (chain.SIZE_1GiB * 1024 * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f EiB", float64(float64(v)/float64(chain.SIZE_1GiB*1024*1024*1024)))
 			return result
 		}
-		if v >= (sconfig.SIZE_1GiB * 1024 * 1024) {
-			result = fmt.Sprintf("%.2f PiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024*1024)))
+		if v >= (chain.SIZE_1GiB * 1024 * 1024) {
+			result = fmt.Sprintf("%.2f PiB", float64(float64(v)/float64(chain.SIZE_1GiB*1024*1024)))
 			return result
 		}
-		if v >= (sconfig.SIZE_1GiB * 1024) {
-			result = fmt.Sprintf("%.2f TiB", float64(float64(v)/float64(sconfig.SIZE_1GiB*1024)))
+		if v >= (chain.SIZE_1GiB * 1024) {
+			result = fmt.Sprintf("%.2f TiB", float64(float64(v)/float64(chain.SIZE_1GiB*1024)))
 			return result
 		}
-		if v >= (sconfig.SIZE_1GiB) {
-			result = fmt.Sprintf("%.2f GiB", float64(float64(v)/float64(sconfig.SIZE_1GiB)))
+		if v >= (chain.SIZE_1GiB) {
+			result = fmt.Sprintf("%.2f GiB", float64(float64(v)/float64(chain.SIZE_1GiB)))
 			return result
 		}
-		if v >= (sconfig.SIZE_1MiB) {
-			result = fmt.Sprintf("%.2f MiB", float64(float64(v)/float64(sconfig.SIZE_1MiB)))
+		if v >= (chain.SIZE_1MiB) {
+			result = fmt.Sprintf("%.2f MiB", float64(float64(v)/float64(chain.SIZE_1MiB)))
 			return result
 		}
-		if v >= (sconfig.SIZE_1KiB) {
-			result = fmt.Sprintf("%.2f KiB", float64(float64(v)/float64(sconfig.SIZE_1KiB)))
+		if v >= (chain.SIZE_1KiB) {
+			result = fmt.Sprintf("%.2f KiB", float64(float64(v)/float64(chain.SIZE_1KiB)))
 			return result
 		}
 		result = fmt.Sprintf("%v Bytes", v)
 		return result
 	}
 	v := new(big.Int).SetBytes(value.Bytes())
-	v.Quo(v, new(big.Int).SetUint64((sconfig.SIZE_1GiB * 1024 * 1024 * 1024)))
+	v.Quo(v, new(big.Int).SetUint64((chain.SIZE_1GiB * 1024 * 1024 * 1024)))
 	result = fmt.Sprintf("%v EiB", v)
 	return result
 }
