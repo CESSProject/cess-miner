@@ -322,7 +322,7 @@ func (n *Node) checkServiceProofRecord(
 				serviceProofRecord.Us,
 				serviceProofRecord.Mus,
 				serviceProofRecord.Sigma,
-				serviceProofRecord.Usig, err = calcSigma(cli, ws, l, teeRecord, rasKey, cfg, challStart, randomIndexList, randomList)
+				serviceProofRecord.Usig, err = n.calcSigma(challStart, randomIndexList, randomList)
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("[calcSigma] %v", err))
 				return nil

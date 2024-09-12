@@ -167,9 +167,9 @@ func (n *Node) Start() {
 				time.Sleep(chain.BlockInterval)
 			}
 
-			if len(genIdleCh) > 0 && !runtime.GetServiceChallengeFlag() && !runtime.GetIdleChallengeFlag() {
+			if len(genIdleCh) > 0 && !n.GetIdleChallenging() && !n.GetServiceChallenging() {
 				<-genIdleCh
-				go node.GenIdle(l, p.Prover, runtime, peernode.Workspace(), cfg.ReadUseSpace(), genIdleCh)
+				go n.GenIdle(genIdleCh)
 			}
 
 		case <-tick_Hour.C:

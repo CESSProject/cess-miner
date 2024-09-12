@@ -13,66 +13,64 @@ import (
 	"time"
 
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/CESSProject/cess_pois/pois"
 	"github.com/CESSProject/p2p-go/out"
 )
 
-func GenIdle(l *logger.Lg, prover *pois.Prover, r *RunningState, workspace string, useSpace uint64, ch chan<- bool) {
+func (n *Node) GenIdle(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			l.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
-	decSpace, validSpace, usedSpace, lockSpace := r.GetMinerSpaceInfo()
+	decSpace, validSpace, usedSpace, lockSpace := n.GetMinerSpaceInfo()
 	if (validSpace + usedSpace + lockSpace) >= decSpace {
-		l.Space("info", "The declared space has been authenticated")
+		n.Space("info", "The declared space has been authenticated")
 		time.Sleep(time.Minute * 10)
 		return
 	}
 
-	configSpace := useSpace * sconfig.SIZE_1GiB
+	configSpace := n.ReadUseSpace() * sconfig.SIZE_1GiB
 	if configSpace < minSpace {
-		l.Space("err", "The configured space is less than the minimum space requirement")
+		n.Space("err", "The configured space is less than the minimum space requirement")
 		time.Sleep(time.Minute * 10)
 		return
 	}
 
 	if (validSpace + usedSpace + lockSpace) > (configSpace - minSpace) {
-		l.Space("info", "The space for authentication has reached the configured space size")
+		n.Space("info", "The space for authentication has reached the configured space size")
 		time.Sleep(time.Hour)
 		return
 	}
 
-	dirfreeSpace, err := utils.GetDirFreeSpace(workspace)
+	dirfreeSpace, err := utils.GetDirFreeSpace(n.GetRootDir())
 	if err != nil {
-		l.Space("err", fmt.Sprintf("[GetDirFreeSpace] %v", err))
+		n.Space("err", fmt.Sprintf("[GetDirFreeSpace] %v", err))
 		time.Sleep(time.Minute)
 		return
 	}
 
 	if dirfreeSpace < minSpace {
-		l.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/sconfig.SIZE_1GiB))
+		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/sconfig.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
 		return
 	}
 
-	l.Space("info", "Start generating idle files")
-	r.SetGenIdleFlag(true)
-	err = prover.GenerateIdleFileSet()
-	r.SetGenIdleFlag(false)
+	n.Space("info", "Start generating idle files")
+	// n.SetGenIdleFlag(true)
+	err = n.GenerateIdleFileSet()
+	// n.SetGenIdleFlag(false)
 	if err != nil {
 		if strings.Contains(err.Error(), "not enough space") {
 			out.Err("Your workspace is out of capacity")
-			l.Space("err", "workspace is out of capacity")
+			n.Space("err", "workspace is out of capacity")
 		} else {
-			l.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
+			n.Space("err", fmt.Sprintf("[GenerateIdleFileSet] %v", err))
 		}
 		time.Sleep(time.Minute * 10)
 		return
 	}
-	l.Space("info", "generate a idle file")
+	n.Space("info", "generate a idle file")
 }
