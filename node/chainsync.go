@@ -138,6 +138,14 @@ func (n *Node) syncMinerStatus() {
 		return
 	}
 	n.SetState(string(minerInfo.State))
+	acc, err := sutils.EncodePublicKeyAsCessAccount(minerInfo.StakingAccount[:])
+	if err == nil {
+		n.SetStakingAcc(acc)
+	}
+	acc, err = sutils.EncodePublicKeyAsCessAccount(minerInfo.BeneficiaryAccount[:])
+	if err == nil {
+		n.SetEarningsAcc(acc)
+	}
 	n.SetSpaceInfo(
 		minerInfo.DeclarationSpace.Uint64(),
 		minerInfo.IdleSpace.Uint64(),

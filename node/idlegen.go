@@ -59,9 +59,9 @@ func (n *Node) GenIdle(ch chan<- bool) {
 	}
 
 	n.Space("info", "Start generating idle files")
-	// n.SetGenIdleFlag(true)
+	n.SetGeneratingIdle(true)
 	err = n.GenerateIdleFileSet()
-	// n.SetGenIdleFlag(false)
+	n.SetGeneratingIdle(false)
 	if err != nil {
 		if strings.Contains(err.Error(), "not enough space") {
 			out.Err("Your workspace is out of capacity")

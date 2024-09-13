@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (n *Node) AttestationIdle(ch chan<- bool) {
+func (n *Node) CertIdle(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -35,6 +35,7 @@ func (n *Node) AttestationIdle(ch chan<- bool) {
 	}()
 	for {
 		err := n.attestationidle()
+		n.SetCertifyingIdle(false)
 		if err != nil {
 			n.Space("err", err.Error())
 			time.Sleep(time.Minute)
@@ -49,10 +50,9 @@ func (n *Node) attestationidle() error {
 			if n.CommitDataIsReady() {
 				break
 			}
-			//n.SetAuthIdleFlag(false)
 			time.Sleep(chain.BlockInterval)
 		}
-		//n.SetAuthIdleFlag(true)
+		n.SetCertifyingIdle(true)
 
 		minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
 		if err != nil {

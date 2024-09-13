@@ -72,7 +72,6 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 		} else {
 			if len(idleChallTaskCh) > 0 {
 				<-idleChallTaskCh
-				//n.SetIdleChallengeFlag(true)
 				go n.idleChallenge(
 					idleChallTaskCh,
 					false,
@@ -118,7 +117,6 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 		} else {
 			if len(serviceChallTaskCh) > 0 {
 				<-serviceChallTaskCh
-				// n.SetServiceChallengeFlag(true)
 				go n.serviceChallenge(
 					serviceChallTaskCh,
 					false,

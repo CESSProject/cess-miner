@@ -16,12 +16,14 @@ type Minerst interface {
 	SetStakingAcc(acc string)
 	SetEarningsAcc(acc string)
 	SetState(st string)
+	// declaration_space, idle_space, service_space, locked_space
 	SetSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64)
 
 	GetSignAcc() string
 	GetStakingAcc() string
 	GetEarningsAcc() string
 	GetState() string
+	// declaration_space, idle_space, service_space, locked_space
 	GetMinerSpaceInfo() (uint64, uint64, uint64, uint64)
 }
 

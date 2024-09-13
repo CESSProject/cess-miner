@@ -14,15 +14,18 @@ import (
 type Processst interface {
 	SetPID(pid int)
 	SetCpucores(cores int)
+	SetComAddr(addr string)
 
 	GetPID() int
 	GetCpucores() int
+	GetComAddr() string
 }
 
 type ProcessSt struct {
 	lock     *sync.RWMutex
 	cpucores int
 	pid      int
+	addr     string
 }
 
 func NewProcessSt() *ProcessSt {
@@ -53,6 +56,19 @@ func (p *ProcessSt) SetCpucores(cores int) {
 func (p *ProcessSt) GetCpucores() int {
 	p.lock.RLock()
 	value := p.cpucores
+	p.lock.RUnlock()
+	return value
+}
+
+func (p *ProcessSt) SetComAddr(addr string) {
+	p.lock.Lock()
+	p.addr = addr
+	p.lock.Unlock()
+}
+
+func (p *ProcessSt) GetComAddr() string {
+	p.lock.RLock()
+	value := p.addr
 	p.lock.RUnlock()
 	return value
 }

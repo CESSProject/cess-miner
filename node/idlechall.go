@@ -42,7 +42,7 @@ func (n *Node) idleChallenge(
 ) {
 	defer func() {
 		ch <- true
-		// n.SetIdleChallengeFlag(false)
+		n.SetIdleChallenging(false)
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
@@ -65,6 +65,8 @@ func (n *Node) idleChallenge(
 	if err == nil {
 		return
 	}
+
+	n.SetIdleChallenging(true)
 
 	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challStart))
 

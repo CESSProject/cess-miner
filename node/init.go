@@ -53,7 +53,7 @@ func (n *Node) InitNode() *Node {
 	return n
 }
 
-func (n *Node) InitRunStatus(st types.Bytes) {
+func (n *Node) InitRunStatus(st types.Bytes, addr string, t string) {
 	rt := runstatus.NewRunstatus()
 	rt.SetPID(os.Getpid())
 	rt.SetCpucores(int(n.ReadUseCpu()))
@@ -61,6 +61,15 @@ func (n *Node) InitRunStatus(st types.Bytes) {
 	rt.SetCurrentRpcst(n.GetRpcState())
 	rt.SetSignAcc(n.GetSignatureAcc())
 	rt.SetState(string(st))
+	rt.SetComAddr(addr)
+	stakingAcc := n.ReadStakingAcc()
+	if stakingAcc == "" {
+		rt.SetStakingAcc(n.GetSignatureAcc())
+	} else {
+		rt.SetStakingAcc(stakingAcc)
+	}
+	rt.SetEarningsAcc(n.ReadEarningsAcc())
+	rt.SetLastConnectedTime(t)
 	n.InitRunstatus(rt)
 }
 
@@ -87,7 +96,7 @@ func (n *Node) InitLogs() {
 }
 
 func (n *Node) InitChainClient() {
-	ip, err := GetLocalIP()
+	addr, err := GetLocalIP()
 	if err != nil {
 		out.Err(fmt.Sprintf("[GetLocalIP] %v", err))
 		os.Exit(1)
@@ -97,6 +106,7 @@ func (n *Node) InitChainClient() {
 		out.Err(fmt.Sprintf("[FreeLocalPort] %v", err))
 		os.Exit(1)
 	}
+	addr = fmt.Sprintf("%s:%d", addr, n.ReadServicePort())
 
 	cli, err := sdkgo.New(
 		context.Background(),
@@ -109,7 +119,7 @@ func (n *Node) InitChainClient() {
 		out.Err(fmt.Sprintf("[sdkgo.New] %v", err))
 		os.Exit(1)
 	}
-
+	t := time.Now().Format(time.DateTime)
 	n.InitChainclient(cli)
 	n.InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
 
@@ -137,7 +147,7 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(fmt.Sprintf("%s:%d", ip, n.ReadServicePort()))
+	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(fmt.Sprintf("%s:%d", addr, n.ReadServicePort()))
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -147,7 +157,7 @@ func (n *Node) InitChainClient() {
 	n.InitPois(pois)
 	n.InitMinerPoisInfo(poisInfo)
 	n.InitTeeRecord(teeRecord)
-	n.InitRunStatus(st)
+	n.InitRunStatus(st, addr, t)
 }
 
 func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, record.TeeRecorder, types.Bytes, error) {

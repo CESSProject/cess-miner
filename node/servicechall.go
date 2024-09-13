@@ -41,7 +41,7 @@ func (n *Node) serviceChallenge(
 ) {
 	defer func() {
 		ch <- true
-		//n.SetServiceChallengeFlag(false)
+		n.SetServiceChallenging(false)
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
@@ -59,6 +59,8 @@ func (n *Node) serviceChallenge(
 	if serviceProofSubmited {
 		return
 	}
+
+	n.SetServiceChallenging(true)
 
 	n.Schal("info", fmt.Sprintf("Service file chain challenge: %v", challStart))
 

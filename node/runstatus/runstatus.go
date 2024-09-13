@@ -18,6 +18,7 @@ type Runstatus interface {
 	Processst
 	Challengest
 	Minerst
+	Idlest
 }
 
 type runstatus struct {
@@ -25,6 +26,7 @@ type runstatus struct {
 	*ProcessSt
 	*ChallengeSt
 	*MinerSt
+	*IdleSt
 }
 
 var _ Runstatus = (*runstatus)(nil)
@@ -35,5 +37,6 @@ func NewRunstatus() Runstatus {
 		ProcessSt:   NewProcessSt(),
 		ChallengeSt: NewChallengeSt(),
 		MinerSt:     NewMinerSt(),
+		IdleSt:      NewIdleSt(),
 	}
 }

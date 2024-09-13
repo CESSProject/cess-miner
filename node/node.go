@@ -147,7 +147,7 @@ func (n *Node) Start() {
 
 			if len(attestationIdleCh) > 0 {
 				<-attestationIdleCh
-				go n.AttestationIdle(attestationIdleCh)
+				go n.CertIdle(attestationIdleCh)
 			}
 
 			if len(calcTagCh) > 0 {
