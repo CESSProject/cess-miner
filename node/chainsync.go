@@ -73,57 +73,57 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 	teelist, err := n.QueryAllWorkers(-1)
 	if err != nil {
 		n.Log("err", err.Error())
-	} else {
-		for i := 0; i < len(teelist); i++ {
-			n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
-			endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
-			if err != nil {
-				n.Log("err", err.Error())
-				continue
-			}
-			endpoint = ProcessTeeEndpoint(endpoint)
+		return
+	}
+	for i := 0; i < len(teelist); i++ {
+		n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
+		endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
+		if err != nil {
+			n.Log("err", err.Error())
+			continue
+		}
+		endpoint = ProcessTeeEndpoint(endpoint)
 
-			if !strings.Contains(endpoint, "443") {
-				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-			} else {
-				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-			}
+		if !strings.Contains(endpoint, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
 
-			// verify identity public key
-			identityPubkeyResponse, err := com.GetIdentityPubkey(endpoint,
-				&pb.Request{
-					StorageMinerAccountId: n.GetSignatureAccPulickey(),
-				},
-				time.Duration(time.Minute),
-				dialOptions,
-				nil,
-			)
-			if err != nil {
-				n.Log("err", err.Error())
-				continue
-			}
-			//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
-			if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
-				n.DeleteTee(string(teelist[i].Pubkey[:]))
-				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
-				continue
-			}
+		// verify identity public key
+		identityPubkeyResponse, err := com.GetIdentityPubkey(endpoint,
+			&pb.Request{
+				StorageMinerAccountId: n.GetSignatureAccPulickey(),
+			},
+			time.Duration(time.Minute),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			n.Log("err", err.Error())
+			continue
+		}
+		//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
+		if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
+			n.DeleteTee(string(teelist[i].Pubkey[:]))
+			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
+			continue
+		}
 
-			for j := 0; j < chain.WorkerPublicKeyLen; j++ {
-				chainPublickey[j] = byte(teelist[i].Pubkey[j])
-			}
-			if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-				n.DeleteTee(string(teelist[i].Pubkey[:]))
-				n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
-				n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
-				continue
-			}
+		for j := 0; j < chain.WorkerPublicKeyLen; j++ {
+			chainPublickey[j] = byte(teelist[i].Pubkey[j])
+		}
+		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+			n.DeleteTee(string(teelist[i].Pubkey[:]))
+			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
+			n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
+			continue
+		}
 
-			n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
-			err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
-			if err != nil {
-				n.Log("err", err.Error())
-			}
+		n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
+		err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+		if err != nil {
+			n.Log("err", err.Error())
 		}
 	}
 }

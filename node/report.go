@@ -59,13 +59,11 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 				n.Report("err", fmt.Sprintf("[%s] check the file err: %v", fid, err))
 			}
 		} else {
-			//n.SetReportFileFlag(true)
 			n.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
 			err = n.reportfile(file)
 			if err != nil {
 				n.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
-			//n.SetReportFileFlag(false)
 		}
 		if !n.GetCurrentRpcst() {
 			return
@@ -86,6 +84,7 @@ func (n *Node) checkfile(f string) error {
 			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 				return err
 			}
+			return nil
 		}
 		for _, v := range sorder.CompleteList {
 			if sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/logger"
 	"github.com/CESSProject/cess-miner/node/record"
 	"github.com/CESSProject/cess-miner/node/runstatus"
@@ -147,7 +148,7 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(fmt.Sprintf("%s:%d", addr, n.ReadServicePort()))
+	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(addr)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -298,12 +299,12 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
-		teeRecord, err = n.saveAllTees()
-		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[saveAllTees]")
-		}
-
-		buf, err := queryPodr2KeyFromTee(teeRecord.GetAllTeeEndpoint(), n.GetSignatureAccPulickey(), n.ReadPriorityTeeList())
+		// teeRecord, err = n.saveAllTees()
+		// if err != nil {
+		// 	return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[saveAllTees]")
+		// }
+		var buf []byte
+		buf, teeRecord, err = n.queryPodr2KeyFromTee()
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[queryPodr2KeyFromTee]")
 		}
@@ -317,32 +318,63 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 	return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.New("system err")
 }
 
-func queryPodr2KeyFromTee(teeEndPointList []string, signature_publickey []byte, priorityTeeList []string) ([]byte, error) {
+func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
 	var err error
 	var podr2PubkeyResponse *pb.Podr2PubkeyResponse
 	var dialOptions []grpc.DialOption
+	var teeRecord = record.NewTeeRecord()
 	delay := time.Duration(30)
 
-	var allTee []string
-
-	if len(priorityTeeList) > 0 {
-		allTee = append(allTee, priorityTeeList...)
-		allTee = append(allTee, priorityTeeList...)
-		allTee = append(allTee, priorityTeeList...)
+	ptee := n.ReadPriorityTeeList()
+	for i := 0; i < len(ptee); i++ {
+		if !strings.Contains(ptee[i], "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
+		podr2PubkeyResponse, err = com.GetPodr2Pubkey(
+			ptee[i],
+			&pb.Request{StorageMinerAccountId: n.GetSignatureAccPulickey()},
+			time.Duration(time.Second*delay),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			if strings.Contains(err.Error(), configs.Err_ctx_exceeded) {
+				delay += 30
+				continue
+			}
+			if strings.Contains(err.Error(), configs.Err_tee_Busy) {
+				delay += 10
+				continue
+			}
+			continue
+		}
+		return podr2PubkeyResponse.Pubkey, teeRecord, nil
 	}
-	allTee = append(allTee, teeEndPointList...)
-	for i := 0; i < len(allTee); i++ {
+
+	teelist, err := n.QueryAllWorkers(-1)
+	if err != nil {
+		return nil, teeRecord, errors.New("rpc err: failed to query tee list")
+	}
+	for i := 0; i < len(teelist); i++ {
 		delay = 30
-		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", allTee[i]))
+		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
 		for tryCount := uint8(0); tryCount <= 3; tryCount++ {
-			if !strings.Contains(allTee[i], "443") {
+			endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
+			if err != nil {
+				n.Log("err", err.Error())
+				continue
+			}
+			endpoint = ProcessTeeEndpoint(endpoint)
+			if !strings.Contains(endpoint, "443") {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 			} else {
 				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 			}
 			podr2PubkeyResponse, err = com.GetPodr2Pubkey(
-				allTee[i],
-				&pb.Request{StorageMinerAccountId: signature_publickey},
+				endpoint,
+				&pb.Request{StorageMinerAccountId: n.GetSignatureAccPulickey()},
 				time.Duration(time.Second*delay),
 				dialOptions,
 				nil,
@@ -358,10 +390,11 @@ func queryPodr2KeyFromTee(teeEndPointList []string, signature_publickey []byte, 
 				}
 				continue
 			}
-			return podr2PubkeyResponse.Pubkey, nil
+			n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+			return podr2PubkeyResponse.Pubkey, teeRecord, nil
 		}
 	}
-	return nil, errors.New("all tee nodes are busy or unavailable")
+	return nil, teeRecord, errors.New("all tee nodes are busy or unavailable")
 }
 
 func (n *Node) saveAllTees() (record.TeeRecorder, error) {
@@ -795,6 +828,7 @@ func (n *Node) checkRegistrationInfo() (int, uint64, *chain.MinerInfo, error) {
 }
 
 func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *web.Handler) {
+	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
 	n.Engine.Use(mdls...)
 	hdl.RegisterRoutes(n.Engine)
@@ -835,8 +869,16 @@ func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowAllOrigins: true,
-			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid", "Fragment", "X-Forwarded-For"},
-			AllowMethods:    []string{"PUT", "GET", "OPTION"},
+			AllowHeaders: []string{
+				common.Header_Account,
+				common.Header_Message,
+				common.Header_Signature,
+				common.Header_Fid,
+				common.Header_Fragment,
+				common.Header_ContentType,
+				common.Header_X_Forwarded_For,
+			},
+			AllowMethods: []string{"PUT", "GET", "OPTION"},
 		}),
 	}
 }

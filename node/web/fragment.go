@@ -9,6 +9,7 @@ package web
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -51,13 +52,14 @@ func (f *FragmentHandler) RegisterRoutes(server *gin.Engine) {
 
 func (f *FragmentHandler) getfragment(c *gin.Context) {
 	defer c.Request.Body.Close()
-	fid := c.Request.Header.Get("Fid")
-	fragment := c.Request.Header.Get("Fragment")
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	fid := c.Request.Header.Get(common.Header_Fid)
+	fragment := c.Request.Header.Get(common.Header_Fragment)
+	clientIp := c.Request.Header.Get(common.Header_X_Forwarded_For)
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 	if fid == "" || fragment == "" {
+		f.Getf("err", clientIp+" fid or fragment is empty")
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 400,
 			Msg:  common.ERR_EmptyHashName,
@@ -65,16 +67,18 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 		return
 	}
 
-	// if len(fid) != chain.FileHashLen || len(fragment) != chain.FileHashLen {
-	// 	c.JSON(http.StatusOK, common.RespType{
-	// 		Code: 400,
-	// 		Msg:  common.ERR_HashLength,
-	// 	})
-	// 	return
-	// }
+	if len(fid) != chain.FileHashLen || len(fragment) != chain.FileHashLen {
+		f.Getf("err", clientIp+" fid or fragment is invalid")
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 400,
+			Msg:  common.ERR_HashLength,
+		})
+		return
+	}
 
 	fragmentpath, err := f.findFragment(fid, fragment)
 	if err != nil {
+		f.Getf("err", clientIp+" not found")
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 404,
 			Msg:  err.Error(),
@@ -84,6 +88,7 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 
 	fd, err := os.Open(fragmentpath)
 	if err != nil {
+		f.Getf("err", fmt.Sprintf(" %s open(%s): %v", clientIp, fragmentpath, err))
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
@@ -94,6 +99,7 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 
 	finfo, err := fd.Stat()
 	if err != nil {
+		f.Getf("err", fmt.Sprintf(" %s stat(%s): %v", clientIp, fragmentpath, err))
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
@@ -105,8 +111,8 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 
 func (f *FragmentHandler) putfragment(c *gin.Context) {
 	defer c.Request.Body.Close()
-	fid := c.Request.Header.Get("Fid")
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	fid := c.Request.Header.Get(common.Header_Fid)
+	clientIp := c.Request.Header.Get(common.Header_X_Forwarded_For)
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
@@ -140,34 +146,32 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		return
 	}
 
-	_ = size
+	if size != chain.FragmentSize {
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 400,
+			Msg:  common.ERR_FragmentSize,
+		})
+		return
+	}
 
-	// if size != chain.FragmentSize {
-	// 	c.JSON(http.StatusOK, common.RespType{
-	// 		Code: 400,
-	// 		Msg:  common.ERR_FragmentSize,
-	// 	})
-	// 	return
-	// }
+	ok, err := f.checkFragment(fid, fragment)
+	if err != nil {
+		f.Putf("err", clientIp+" checkFragment: "+err.Error())
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 403,
+			Msg:  common.ERR_RPCConnection,
+		})
+		return
+	}
 
-	// ok, err := f.checkFragment(fid, fragment)
-	// if err != nil {
-	// 	// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
-	// 	c.JSON(http.StatusOK, common.RespType{
-	// 		Code: 403,
-	// 		Msg:  common.ERR_RPCConnection,
-	// 	})
-	// 	return
-	// }
-
-	// if !ok {
-	// 	// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
-	// 	c.JSON(http.StatusOK, common.RespType{
-	// 		Code: 403,
-	// 		Msg:  common.ERR_FragmentNotMatchFid,
-	// 	})
-	// 	return
-	// }
+	if !ok {
+		f.Putf("err", clientIp+" checkFragment false")
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 400,
+			Msg:  common.ERR_FragmentNotMatchFid,
+		})
+		return
+	}
 
 	err = os.MkdirAll(filepath.Join(f.GetReportDir(), fid), 0755)
 	if err != nil {
@@ -274,8 +278,12 @@ func (f *FragmentHandler) saveFormFile(c *gin.Context, fid string) (string, int6
 }
 
 func VerifySignature(ctx *gin.Context) (bool, error) {
-	account := ctx.Request.Header.Get("Account")
-	message := ctx.Request.Header.Get("Message")
-	signature := ctx.Request.Header.Get("Signature")
-	return sutils.VerifySR25519WithPublickey(message, []byte(signature), account)
+	account := ctx.Request.Header.Get(common.Header_Account)
+	message := ctx.Request.Header.Get(common.Header_Message)
+	signature := ctx.Request.Header.Get(common.Header_Signature)
+	ok, _ := sutils.VerifySR25519WithPublickey(message, []byte(signature), account)
+	if !ok {
+		return sutils.VerifyPolkadotJsHexSign(account, message, signature)
+	}
+	return ok, nil
 }
