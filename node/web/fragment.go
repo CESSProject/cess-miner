@@ -9,7 +9,6 @@ package web
 
 import (
 	"crypto/rand"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -20,30 +19,44 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/workspace"
+	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 type FragmentHandler struct {
 	chain.Chainer
 	workspace.Workspace
+	logger.Logger
 }
 
-func NewFragmentHandler(cli chain.Chainer, ws workspace.Workspace) *FragmentHandler {
-	return &FragmentHandler{Chainer: cli, Workspace: ws}
+func NewFragmentHandler(cli chain.Chainer, ws workspace.Workspace, lg logger.Logger) *FragmentHandler {
+	return &FragmentHandler{Chainer: cli, Workspace: ws, Logger: lg}
 }
 
 func (f *FragmentHandler) RegisterRoutes(server *gin.Engine) {
-	filegroup := server.Group("/fragment")
-	filegroup.PUT("", f.putfragment)
-	filegroup.GET("", f.getfragment)
+	fragmentgroup := server.Group("/fragment")
+	fragmentgroup.Use(func(ctx *gin.Context) {
+		ok, err := VerifySignature(ctx)
+		if !ok || err != nil {
+			ctx.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+		ctx.Next()
+	})
+	fragmentgroup.PUT("", f.putfragment)
+	fragmentgroup.GET("", f.getfragment)
 }
 
 func (f *FragmentHandler) getfragment(c *gin.Context) {
 	defer c.Request.Body.Close()
 	fid := c.Request.Header.Get("Fid")
 	fragment := c.Request.Header.Get("Fragment")
-
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
 	if fid == "" || fragment == "" {
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 400,
@@ -52,13 +65,13 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 		return
 	}
 
-	if len(fid) != chain.FileHashLen || len(fragment) != chain.FileHashLen {
-		c.JSON(http.StatusOK, common.RespType{
-			Code: 400,
-			Msg:  common.ERR_HashLength,
-		})
-		return
-	}
+	// if len(fid) != chain.FileHashLen || len(fragment) != chain.FileHashLen {
+	// 	c.JSON(http.StatusOK, common.RespType{
+	// 		Code: 400,
+	// 		Msg:  common.ERR_HashLength,
+	// 	})
+	// 	return
+	// }
 
 	fragmentpath, err := f.findFragment(fid, fragment)
 	if err != nil {
@@ -93,9 +106,13 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 func (f *FragmentHandler) putfragment(c *gin.Context) {
 	defer c.Request.Body.Close()
 	fid := c.Request.Header.Get("Fid")
-
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
 	err := os.MkdirAll(filepath.Join(f.GetTmpDir(), fid), 0755)
 	if err != nil {
+		f.Putf("err", clientIp+" mk tmp dir: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
@@ -103,9 +120,9 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		return
 	}
 
-	fragment, fragmentpath, size, code, err := f.saveFormFile(c, fid)
+	fragmentpath, size, code, err := f.saveFormFile(c, fid)
 	if err != nil {
-		// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
+		f.Putf("err", clientIp+" saveFormFile: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
 			Code: code,
 			Msg:  err.Error(),
@@ -113,35 +130,48 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		return
 	}
 
-	if size != chain.FragmentSize {
-		c.JSON(http.StatusOK, common.RespType{
-			Code: 400,
-			Msg:  common.ERR_FragmentSize,
-		})
-		return
-	}
-
-	ok, err := f.checkFragment(fid, fragment)
+	fragment, err := sutils.CalcPathSHA256(fragmentpath)
 	if err != nil {
-		// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
+		f.Putf("err", clientIp+" CalcPathSHA256: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
-			Code: 403,
-			Msg:  common.ERR_RPCConnection,
+			Code: 500,
+			Msg:  common.ERR_SystemErr,
 		})
 		return
 	}
 
-	if !ok {
-		// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
-		c.JSON(http.StatusOK, common.RespType{
-			Code: 403,
-			Msg:  common.ERR_FragmentNotMatchFid,
-		})
-		return
-	}
+	_ = size
+
+	// if size != chain.FragmentSize {
+	// 	c.JSON(http.StatusOK, common.RespType{
+	// 		Code: 400,
+	// 		Msg:  common.ERR_FragmentSize,
+	// 	})
+	// 	return
+	// }
+
+	// ok, err := f.checkFragment(fid, fragment)
+	// if err != nil {
+	// 	// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
+	// 	c.JSON(http.StatusOK, common.RespType{
+	// 		Code: 403,
+	// 		Msg:  common.ERR_RPCConnection,
+	// 	})
+	// 	return
+	// }
+
+	// if !ok {
+	// 	// n.Logput("err", clientIp+" saveFormFile: "+err.Error())
+	// 	c.JSON(http.StatusOK, common.RespType{
+	// 		Code: 403,
+	// 		Msg:  common.ERR_FragmentNotMatchFid,
+	// 	})
+	// 	return
+	// }
 
 	err = os.MkdirAll(filepath.Join(f.GetReportDir(), fid), 0755)
 	if err != nil {
+		f.Putf("err", clientIp+" mk report dir: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
@@ -151,6 +181,7 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 
 	err = os.Rename(fragmentpath, filepath.Join(f.GetReportDir(), fid, fragment))
 	if err != nil {
+		f.Putf("err", clientIp+" Rename: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
@@ -198,7 +229,7 @@ func (f *FragmentHandler) checkFragment(fid, fragment string) (bool, error) {
 	return false, nil
 }
 
-func (f *FragmentHandler) saveFormFile(c *gin.Context, fid string) (string, string, int64, int, error) {
+func (f *FragmentHandler) saveFormFile(c *gin.Context, fid string) (string, int64, int, error) {
 	tmpPath := ""
 	var err error
 	var uid uuid.UUID
@@ -216,33 +247,35 @@ func (f *FragmentHandler) saveFormFile(c *gin.Context, fid string) (string, stri
 	}
 	fd, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return "", "", 0, http.StatusInternalServerError, err
+		return "", 0, http.StatusInternalServerError, errors.Wrapf(err, "[OpenFile]")
 	}
 	defer fd.Close()
 	formfile, _, err := c.Request.FormFile("file")
 	if err != nil {
-		return "", "", 0, http.StatusBadRequest, err
+		return "", 0, http.StatusBadRequest, errors.Wrapf(err, "[FormFile]")
 	}
 
 	_, err = io.Copy(fd, formfile)
 	if err != nil {
-		return "", "", 0, http.StatusBadRequest, err
-	}
-
-	fragment, err := sutils.CalcFileSHA256(fd)
-	if err != nil {
-		return "", "", 0, http.StatusInternalServerError, err
+		return "", 0, http.StatusBadRequest, errors.Wrapf(err, "[Copy]")
 	}
 
 	finfo, err := fd.Stat()
 	if err != nil {
-		return "", "", 0, http.StatusInternalServerError, err
+		return "", 0, http.StatusInternalServerError, errors.Wrapf(err, "[Stat]")
 	}
 
 	err = fd.Sync()
 	if err != nil {
-		return "", "", 0, http.StatusInternalServerError, err
+		return "", 0, http.StatusInternalServerError, errors.Wrapf(err, "[Sync]")
 	}
 
-	return fragment, tmpPath, finfo.Size(), http.StatusOK, nil
+	return tmpPath, finfo.Size(), http.StatusOK, nil
+}
+
+func VerifySignature(ctx *gin.Context) (bool, error) {
+	account := ctx.Request.Header.Get("Account")
+	message := ctx.Request.Header.Get("Message")
+	signature := ctx.Request.Header.Get("Signature")
+	return sutils.VerifySR25519WithPublickey(message, []byte(signature), account)
 }

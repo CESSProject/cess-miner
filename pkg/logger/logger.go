@@ -22,22 +22,30 @@ import (
 )
 
 type Logger interface {
-	Log(level string, msg string)
+	// panic log
 	Pnc(msg string)
+	// level: info | err
+	Log(level string, msg string)
+	// level: info | err
 	Space(level string, msg string)
+	// level: info | err
 	Report(level string, msg string)
+	// level: info | err
 	Replace(level string, msg string)
+	// level: info | err
 	Ichal(level string, msg string)
+	// level: info | err
 	Schal(level string, msg string)
+	// level: info | err
 	Stag(level string, msg string)
+	// level: info | err
 	Restore(level string, msg string)
+	// level: info | err
 	Del(level string, msg string)
-	Discover(level, msg string)
-}
-
-type Lg struct {
-	logpath map[string]string
-	log     map[string]*zap.Logger
+	// level: info | err
+	Putf(level, msg string)
+	// level: info | err
+	Getf(level, msg string)
 }
 
 var LogFiles = []string{
@@ -50,16 +58,33 @@ var LogFiles = []string{
 	"schal",
 	"stag",
 	"restore",
-	"del",
-	"discover",
+	"delete",
+	"putf",
+	"getf",
 }
 
-var _ Logger = (*Lg)(nil)
+type logs struct {
+	logpath     map[string]string
+	log_log     *zap.Logger
+	log_pnc     *zap.Logger
+	log_space   *zap.Logger
+	log_report  *zap.Logger
+	log_replace *zap.Logger
+	log_ichal   *zap.Logger
+	log_schal   *zap.Logger
+	log_stag    *zap.Logger
+	log_restore *zap.Logger
+	log_del     *zap.Logger
+	log_putf    *zap.Logger
+	log_getf    *zap.Logger
+}
 
-func NewLogs(logfiles map[string]string) (*Lg, error) {
+var _ Logger = (*logs)(nil)
+
+func NewLogs(logfiles map[string]string) (Logger, error) {
 	var (
+		l       = &logs{}
 		logpath = make(map[string]string, 0)
-		logCli  = make(map[string]*zap.Logger)
 	)
 	for name, fpath := range logfiles {
 		dir := getFilePath(fpath)
@@ -67,7 +92,7 @@ func NewLogs(logfiles map[string]string) (*Lg, error) {
 		if err != nil {
 			err = os.MkdirAll(dir, configs.FileMode)
 			if err != nil {
-				return &Lg{}, errors.Errorf("%v,%v", dir, err)
+				return nil, errors.Errorf("%v,%v", dir, err)
 			}
 		}
 		Encoder := getEncoder()
@@ -75,150 +100,161 @@ func NewLogs(logfiles map[string]string) (*Lg, error) {
 			zapcore.NewCore(Encoder, getWriteSyncer(fpath), zap.NewAtomicLevel()),
 		)
 		logpath[name] = fpath
-		logCli[name] = zap.New(newCore, zap.AddCaller())
-		logCli[name].Sugar().Infof("%v", fpath)
-	}
-	return &Lg{
-		logpath: logpath,
-		log:     logCli,
-	}, nil
-}
-
-func (l *Lg) Log(level string, msg string) {
-	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["log"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+		switch name {
+		case "log":
+			l.log_log = zap.New(newCore, zap.AddCaller())
+			l.log_log.Sugar().Infof("%v", fpath)
+		case "panic":
+			l.log_pnc = zap.New(newCore, zap.AddCaller())
+			l.log_pnc.Sugar().Infof("%v", fpath)
+		case "space":
+			l.log_space = zap.New(newCore, zap.AddCaller())
+			l.log_space.Sugar().Infof("%v", fpath)
+		case "report":
+			l.log_report = zap.New(newCore, zap.AddCaller())
+			l.log_report.Sugar().Infof("%v", fpath)
+		case "replace":
+			l.log_replace = zap.New(newCore, zap.AddCaller())
+			l.log_replace.Sugar().Infof("%v", fpath)
+		case "ichal":
+			l.log_ichal = zap.New(newCore, zap.AddCaller())
+			l.log_ichal.Sugar().Infof("%v", fpath)
+		case "schal":
+			l.log_schal = zap.New(newCore, zap.AddCaller())
+			l.log_schal.Sugar().Infof("%v", fpath)
+		case "stag":
+			l.log_stag = zap.New(newCore, zap.AddCaller())
+			l.log_stag.Sugar().Infof("%v", fpath)
+		case "restore":
+			l.log_restore = zap.New(newCore, zap.AddCaller())
+			l.log_restore.Sugar().Infof("%v", fpath)
+		case "delete":
+			l.log_del = zap.New(newCore, zap.AddCaller())
+			l.log_del.Sugar().Infof("%v", fpath)
+		case "putf":
+			l.log_putf = zap.New(newCore, zap.AddCaller())
+			l.log_putf.Sugar().Infof("%v", fpath)
+		case "getf":
+			l.log_getf = zap.New(newCore, zap.AddCaller())
+			l.log_getf.Sugar().Infof("%v", fpath)
 		}
 	}
+	l.logpath = logpath
+	return l, nil
 }
 
-func (l *Lg) Pnc(msg string) {
+func (l *logs) Log(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["panic"]
-	if ok {
-		v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+	switch level {
+	case "info":
+		l.log_log.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_log.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Space(level string, msg string) {
+func (l *logs) Pnc(msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["space"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	l.log_pnc.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+}
+
+func (l *logs) Space(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	switch level {
+	case "info":
+		l.log_space.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_space.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Report(level string, msg string) {
+func (l *logs) Report(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["report"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_report.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_report.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Replace(level string, msg string) {
+func (l *logs) Replace(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["replace"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_replace.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_replace.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Ichal(level string, msg string) {
+func (l *logs) Ichal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["ichal"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_ichal.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_ichal.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Schal(level string, msg string) {
+func (l *logs) Schal(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["schal"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_schal.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_schal.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Stag(level string, msg string) {
+func (l *logs) Stag(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["stag"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_stag.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_stag.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Restore(level string, msg string) {
+func (l *logs) Restore(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["restore"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_restore.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_restore.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Del(level string, msg string) {
+func (l *logs) Del(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["del"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_del.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_del.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 
-func (l *Lg) Discover(level, msg string) {
+func (l *logs) Putf(level, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["discover"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-		case "err":
-			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
-		}
+	switch level {
+	case "info":
+		l.log_putf.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_putf.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
+	}
+}
+
+func (l *logs) Getf(level, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	switch level {
+	case "info":
+		l.log_getf.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
+	case "err":
+		l.log_getf.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 

@@ -25,7 +25,7 @@ const TempleteProfile = `app:
   # workspace
   workspace: "/"
   # communication port
-  port: 4001
+  port: 15001
   # maximum space used, the unit is GiB
   maxusespace: 2000
   # number of cpus used, 0 means use all

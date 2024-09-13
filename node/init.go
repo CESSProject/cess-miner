@@ -14,7 +14,6 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -46,7 +45,7 @@ func (n *Node) InitNode() *Node {
 	n.InitChainClient()
 	n.InitWebServer(
 		InitMiddlewares(),
-		web.NewHandler(n.Chainer, n.Workspace, n.Runstatus),
+		web.NewHandler(n.Chainer, n.Workspace, n.Runstatus, n.Logger),
 	)
 	n.InitLogs()
 	n.InitCache()
@@ -110,8 +109,8 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	n.InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
 	n.InitChainclient(cli)
+	n.InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
 
 	err = n.InitExtrinsicsNameForMiner()
 	if err != nil {
@@ -822,23 +821,8 @@ func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
 			AllowAllOrigins: true,
-			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid", "Fragment"},
+			AllowHeaders:    []string{"Content-Type", "Account", "Message", "Signature", "Fid", "Fragment", "X-Forwarded-For"},
 			AllowMethods:    []string{"PUT", "GET", "OPTION"},
 		}),
-		func(ctx *gin.Context) {
-			ok, err := VerifySignature(ctx)
-			if !ok || err != nil {
-				ctx.AbortWithStatus(http.StatusForbidden)
-				return
-			}
-			ctx.Next()
-		},
 	}
-}
-
-func VerifySignature(ctx *gin.Context) (bool, error) {
-	account := ctx.Request.Header.Get("Account")
-	message := ctx.Request.Header.Get("Message")
-	signature := ctx.Request.Header.Get("Signature")
-	return sutils.VerifySR25519WithPublickey(message, []byte(signature), account)
 }
