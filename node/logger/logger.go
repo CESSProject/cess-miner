@@ -81,7 +81,7 @@ type logs struct {
 
 var _ Logger = (*logs)(nil)
 
-func NewLogs(logfiles map[string]string) (Logger, error) {
+func NewLogger(logfiles map[string]string) (Logger, error) {
 	var (
 		l       = &logs{}
 		logpath = make(map[string]string, 0)

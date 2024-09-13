@@ -9,9 +9,9 @@ package web
 
 import (
 	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/node/logger"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/workspace"
-	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 

@@ -13,13 +13,14 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/node/logger"
+	"github.com/CESSProject/cess-miner/node/record"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/workspace"
 	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/confile"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
-	"github.com/CESSProject/cess-miner/pkg/logger"
 	"github.com/gin-gonic/gin"
 	sprocess "github.com/shirou/gopsutil/process"
 )
@@ -28,7 +29,7 @@ type Node struct {
 	confile.Confiler
 	logger.Logger
 	cache.Cache
-	TeeRecorder
+	record.TeeRecorder
 	runstatus.Runstatus
 	workspace.Workspace
 	chain.Chainer
@@ -59,7 +60,7 @@ func (n *Node) InitRSAKeyPair(key *RSAKeyPair) {
 	n.RSAKeyPair = key
 }
 
-func (n *Node) InitTeeRecord(tees *TeeRecord) {
+func (n *Node) InitTeeRecord(tees record.TeeRecorder) {
 	n.TeeRecorder = tees
 }
 

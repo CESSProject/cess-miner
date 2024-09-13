@@ -5,7 +5,7 @@
 	SPDX-License-Identifier: Apache-2.0
 */
 
-package node
+package record
 
 import (
 	"errors"
@@ -45,7 +45,7 @@ type TeeRecord struct {
 
 var _ TeeRecorder = (*TeeRecord)(nil)
 
-func NewTeeRecord() *TeeRecord {
+func NewTeeRecord() TeeRecorder {
 	return &TeeRecord{
 		lock:                 new(sync.RWMutex),
 		priorityTeeEndpoints: make([]string, 0),
