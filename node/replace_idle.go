@@ -16,30 +16,29 @@ import (
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/cess-miner/pkg/logger"
+	"github.com/CESSProject/cess-miner/pkg/com"
+	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/pb"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
-func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPoisInfo, teeRecord *TeeRecord, peernode *core.PeerNode, ch chan<- bool) {
+func (n *Node) ReplaceIdle(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
-			l.Pnc(utils.RecoverError(err))
+			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
-	replaceSize, err := cli.QueryPendingReplacements(cli.GetSignatureAccPulickey(), -1)
+	replaceSize, err := n.QueryPendingReplacements(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			l.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 		}
 		return
 	}
@@ -49,62 +48,62 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	}
 
 	if !replaceSize.IsUint64() {
-		l.Replace("err", "replaceSize is not uint64")
+		n.Replace("err", "replaceSize is not uint64")
 		return
 	}
 
-	l.Replace("info", fmt.Sprintf("replace size: %v", replaceSize.Uint64()))
+	n.Replace("info", fmt.Sprintf("replace size: %v", replaceSize.Uint64()))
 	num := uint64(replaceSize.Uint64() / 1024 / 1024 / uint64(pois.FileSize))
 	if num == 0 {
-		l.Replace("info", "no files to replace")
+		n.Replace("info", "no files to replace")
 		return
 	}
 
-	if int64(num) > int64((int64(acc.DEFAULT_ELEMS_NUM) - p.GetFront()%int64(acc.DEFAULT_ELEMS_NUM))) {
-		num = uint64((int64(acc.DEFAULT_ELEMS_NUM) - p.GetFront()%int64(acc.DEFAULT_ELEMS_NUM)))
+	if int64(num) > int64((int64(acc.DEFAULT_ELEMS_NUM) - n.Prover.GetFront()%int64(acc.DEFAULT_ELEMS_NUM))) {
+		num = uint64((int64(acc.DEFAULT_ELEMS_NUM) - n.Prover.GetFront()%int64(acc.DEFAULT_ELEMS_NUM)))
 	}
 
-	l.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
+	n.Replace("info", fmt.Sprintf("Will replace %d idle files", num))
 
-	delProof, err := p.Prover.ProveDeletion(int64(num))
+	delProof, err := n.Prover.ProveDeletion(int64(num))
 	if err != nil {
-		l.Replace("err", err.Error())
-		p.Prover.AccRollback(true)
+		n.Replace("err", err.Error())
+		n.Prover.AccRollback(true)
 		return
 	}
 
 	if delProof == nil {
-		l.Replace("err", "delProof is nil")
-		p.Prover.AccRollback(true)
+		n.Replace("err", "delProof is nil")
+		n.Prover.AccRollback(true)
 		return
 	}
 
 	if delProof.Roots == nil || delProof.AccPath == nil || delProof.WitChain == nil {
-		l.Replace("err", "delProof have nil field")
-		p.Prover.AccRollback(true)
+		n.Replace("err", "delProof have nil field")
+		n.Prover.AccRollback(true)
 		return
 	}
 
-	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
+	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		l.Replace("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
-		p.Prover.AccRollback(true)
+		n.Replace("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+		n.Prover.AccRollback(true)
 		return
 	}
 	if minerInfo.SpaceProofInfo.HasValue() {
 		_, spaceProofInfo := minerInfo.SpaceProofInfo.Unwrap()
-		if spaceProofInfo.Front > types.U64(p.Prover.GetFront()) {
-			err = p.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
+		if spaceProofInfo.Front > types.U64(n.Prover.GetFront()) {
+			err = n.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 			if err != nil {
-				l.Replace("err", err.Error())
-				p.Prover.AccRollback(true)
+				n.Replace("err", err.Error())
+				n.Prover.AccRollback(true)
 				return
 			}
 		}
-		m.Front = int64(spaceProofInfo.Front)
-		m.Rear = int64(spaceProofInfo.Rear)
-		m.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-		m.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
+		n.Front = int64(spaceProofInfo.Front)
+		n.Rear = int64(spaceProofInfo.Rear)
+		n.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+		n.StatusTeeSign = []byte(string(minerInfo.TeeSig[:]))
 	}
 
 	var witChain = &pb.AccWitnessNode{
@@ -123,19 +122,19 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 		Roots:    delProof.Roots,
 		WitChain: witChain,
 		AccPath:  delProof.AccPath,
-		MinerId:  cli.GetSignatureAccPulickey(),
-		PoisInfo: m,
+		MinerId:  n.GetSignatureAccPulickey(),
+		PoisInfo: n.MinerPoisInfo,
 	}
 	buf, err := proto.Marshal(requestVerifyDeletionProof)
 	if err != nil {
-		p.Prover.AccRollback(true)
-		l.Replace("err", fmt.Sprintf("[Marshal-2] %v", err))
+		n.Prover.AccRollback(true)
+		n.Replace("err", fmt.Sprintf("[Marshal-2] %v", err))
 		return
 	}
-	signData, err := cli.Sign(buf)
+	signData, err := n.Sign(buf)
 	if err != nil {
-		p.Prover.AccRollback(true)
-		l.Replace("err", fmt.Sprintf("[Sign-2] %v", err))
+		n.Prover.AccRollback(true)
+		n.Replace("err", fmt.Sprintf("[Sign-2] %v", err))
 		return
 	}
 	requestVerifyDeletionProof.MinerSign = signData
@@ -145,17 +144,17 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	var timeout time.Duration
 	var timeoutStep time.Duration = 3
 	var dialOptions []grpc.DialOption
-	teeEndPoints := teeRecord.GetAllMarkerTeeEndpoint()
+	teeEndPoints := n.GetAllMarkerTeeEndpoint()
 	for _, t := range teeEndPoints {
 		timeout = time.Duration(time.Minute * timeoutStep)
-		l.Replace("info", fmt.Sprintf("Will use tee: %v", t))
+		n.Replace("info", fmt.Sprintf("Will use tee: %v", t))
 		if !strings.Contains(t, "443") {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 		} else {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
 		}
 		for try := 2; try <= 6; try += 2 {
-			verifyCommitOrDeletionProof, err = peernode.RequestVerifyDeletionProof(
+			verifyCommitOrDeletionProof, err = com.RequestVerifyDeletionProof(
 				t,
 				requestVerifyDeletionProof,
 				time.Duration(timeout),
@@ -168,13 +167,13 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 					time.Sleep(time.Minute)
 					continue
 				}
-				l.Replace("err", fmt.Sprintf("[RequestVerifyDeletionProof] %v", err))
+				n.Replace("err", fmt.Sprintf("[RequestVerifyDeletionProof] %v", err))
 				break
 			}
 			usedTeeEndPoint = t
-			usedTeeWorkAccount, err = teeRecord.GetTeeWorkAccount(usedTeeEndPoint)
+			usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
 			if err != nil {
-				l.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
+				n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
 			}
 			break
 		}
@@ -184,28 +183,28 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	}
 
 	if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
-		p.AccRollback(true)
-		l.Replace("err", "No available tee")
+		n.AccRollback(true)
+		n.Replace("err", "No available tee")
 		return
 	}
 
 	var idleSignInfo chain.SpaceProofInfo
-	minerAcc, _ := types.NewAccountID(cli.GetSignatureAccPulickey())
+	minerAcc, _ := types.NewAccountID(n.GetSignatureAccPulickey())
 	idleSignInfo.Miner = *minerAcc
 	idleSignInfo.Front = types.U64(verifyCommitOrDeletionProof.PoisStatus.Front)
 	idleSignInfo.Rear = types.U64(verifyCommitOrDeletionProof.PoisStatus.Rear)
 
 	if len(verifyCommitOrDeletionProof.StatusTeeSign) != chain.TeeSigLen {
-		p.AccRollback(true)
-		l.Replace("err", "invalid tee sign length")
+		n.AccRollback(true)
+		n.Replace("err", "invalid tee sign length")
 		return
 	}
 
 	for i := 0; i < len(verifyCommitOrDeletionProof.PoisStatus.Acc); i++ {
 		idleSignInfo.Accumulator[i] = types.U8(verifyCommitOrDeletionProof.PoisStatus.Acc[i])
 	}
-	g_byte := p.RsaKey.G.Bytes()
-	n_byte := p.RsaKey.N.Bytes()
+	g_byte := n.RsaKey.G.Bytes()
+	n_byte := n.RsaKey.N.Bytes()
 	for i := 0; i < len(g_byte); i++ {
 		idleSignInfo.PoisKey.G[i] = types.U8(g_byte[i])
 	}
@@ -232,46 +231,45 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	}
 	wpuk, err := chain.BytesToWorkPublickey([]byte(usedTeeWorkAccount))
 	if err != nil {
-		p.AccRollback(true)
-		l.Replace("err", err.Error())
+		n.AccRollback(true)
+		n.Replace("err", err.Error())
 		return
 	}
-	txhash, err := cli.ReplaceIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
+	txhash, err := n.ReplaceIdleSpace(idleSignInfo, signWithAccBytes, teeSignBytes, wpuk)
 	if err != nil || txhash == "" {
-		p.AccRollback(true)
-		l.Replace("err", err.Error())
+		n.AccRollback(true)
+		n.Replace("err", err.Error())
 		return
 	}
 
-	l.Replace("info", fmt.Sprintf("Replace files suc: %v", txhash))
+	n.Replace("info", fmt.Sprintf("Replace files suc: %v", txhash))
 
-	err = p.Prover.UpdateStatus(int64(num), true)
+	err = n.Prover.UpdateStatus(int64(num), true)
 	if err != nil {
-		l.Replace("err", err.Error())
+		n.Replace("err", err.Error())
 	}
-	l.Replace("info", fmt.Sprintf("front: %v rear: %v", p.Prover.GetFront(), p.Prover.GetRear()))
-	l.Replace("info", fmt.Sprintf("new acc value: %s", hex.EncodeToString(p.Prover.GetAccValue())))
+	n.Replace("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
+	n.Replace("info", fmt.Sprintf("new acc value: %s", hex.EncodeToString(n.Prover.GetAccValue())))
 
-	ok, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
+	ok, challenge, err := n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			l.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 			return
 		}
 	}
 
 	if ok {
-		err = p.Prover.SetChallengeState(*p.RsaKey, []byte(string(challenge.MinerSnapshot.SpaceProofInfo.Accumulator[:])), int64(challenge.MinerSnapshot.SpaceProofInfo.Front), int64(challenge.MinerSnapshot.SpaceProofInfo.Rear))
+		err = n.Prover.SetChallengeState(*n.RsaKey, []byte(string(challenge.MinerSnapshot.SpaceProofInfo.Accumulator[:])), int64(challenge.MinerSnapshot.SpaceProofInfo.Front), int64(challenge.MinerSnapshot.SpaceProofInfo.Rear))
 		if err != nil {
-			l.Replace("err", err.Error())
+			n.Replace("err", err.Error())
 			return
 		}
 	}
 
-	err = p.Prover.DeleteFiles()
+	err = n.Prover.DeleteFiles()
 	if err != nil {
-		l.Replace("err", err.Error())
+		n.Replace("err", err.Error())
 	}
-	l.Replace("info", fmt.Sprintf("Successfully replaced %d idle files", num))
-
+	n.Replace("info", fmt.Sprintf("Successfully replaced %d idle files", num))
 }

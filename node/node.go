@@ -173,20 +173,20 @@ func (n *Node) Start() {
 			}
 
 		case <-tick_Hour.C:
-			if runtime.GetMinerState() == chain.MINER_STATE_EXIT ||
-				runtime.GetMinerState() == chain.MINER_STATE_OFFLINE {
+			if n.GetState() == chain.MINER_STATE_EXIT ||
+				n.GetState() == chain.MINER_STATE_OFFLINE {
 				break
 			}
 
 			// go n.reportLogsMgt(ch_reportLogs)
-			chainState = cli.GetRpcState()
+			chainState = n.GetRpcState()
 			if !chainState {
 				break
 			}
 
 			if len(replaceIdleCh) > 0 {
 				<-replaceIdleCh
-				go node.ReplaceIdle(cli, l, p, minerPoisInfo, teeRecord, peernode, replaceIdleCh)
+				go n.ReplaceIdle(replaceIdleCh)
 			}
 
 			if len(restoreCh) > 0 {
