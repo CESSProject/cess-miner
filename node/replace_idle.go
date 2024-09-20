@@ -273,4 +273,5 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 		l.Replace("err", err.Error())
 	}
 	l.Replace("info", fmt.Sprintf("Successfully replaced %d idle files", num))
+
 }
