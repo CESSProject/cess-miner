@@ -249,7 +249,7 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	if err != nil {
 		l.Replace("err", err.Error())
 	}
-
+	l.Replace("info", fmt.Sprintf("front: %v rear: %v", p.Prover.GetFront(), p.Prover.GetRear()))
 	l.Replace("info", fmt.Sprintf("new acc value: %s", hex.EncodeToString(p.Prover.GetAccValue())))
 
 	ok, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
