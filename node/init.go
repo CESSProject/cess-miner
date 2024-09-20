@@ -184,6 +184,8 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[RemoveAndBuild]")
 		}
 
+		time.Sleep(time.Minute)
+
 		for i := 0; i < 3; i++ {
 			rsakey, poisInfo, teeRecord, err = n.registerPoisKey()
 			if err != nil {
@@ -390,7 +392,7 @@ func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
 				}
 				continue
 			}
-			n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+			teeRecord.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
 			return podr2PubkeyResponse.Pubkey, teeRecord, nil
 		}
 	}
@@ -521,8 +523,14 @@ func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo,
 			out.Ok(fmt.Sprintf("[%s] Successfully updated earnings account to %s", txhash, earningsAcc))
 		}
 	}
-
-	if string(oldRegInfo.PeerId[:]) != addr {
+	var updateAddr bool
+	for i := 0; i < len(addr); i++ {
+		if types.U8(addr[i]) != oldRegInfo.PeerId[i] {
+			updateAddr = true
+			break
+		}
+	}
+	if updateAddr {
 		txhash, err := cli.UpdateSminerAddr([]byte(addr))
 		if err != nil {
 			return fmt.Errorf("Update address err: %v, blockhash: %s", err, txhash)
@@ -542,7 +550,6 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 		rsakey                 *RSAKeyPair
 		poisInfo               = &pb.MinerPoisInfo{}
 		teeRecord              = record.NewTeeRecord()
-		chainPublickey         = make([]byte, chain.WorkerPublicKeyLen)
 	)
 
 	teeEndPointList := n.ReadPriorityTeeList()
@@ -561,40 +568,10 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 	}
 
 	for _, v := range teeList {
-		out.Tip(fmt.Sprintf("Checking the tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
-		endPoint, err := n.QueryEndpoints(v.Pubkey, -1)
+		out.Tip(fmt.Sprintf("Check tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+		endPoint, err := n.checkTee(v.Pubkey)
 		if err != nil {
-			out.Err(fmt.Sprintf("Failed to query endpoints for this tee: %v", err))
-			continue
-		}
-		endPoint = ProcessTeeEndpoint(endPoint)
-		if !strings.Contains(endPoint, "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-		}
-		// verify identity public key
-		identityPubkeyResponse, err := com.GetIdentityPubkey(endPoint,
-			&pb.Request{
-				StorageMinerAccountId: n.GetSignatureAccPulickey(),
-			},
-			time.Duration(time.Minute),
-			dialOptions,
-			nil,
-		)
-		if err != nil {
-			out.Err(fmt.Sprintf("Failed to query the identity pubkey for this tee: %v", err))
-			continue
-		}
-		if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
-			out.Err(fmt.Sprintf("The identity pubkey length of this tee is incorrect: %d", len(identityPubkeyResponse.Pubkey)))
-			continue
-		}
-		for j := 0; j < chain.WorkerPublicKeyLen; j++ {
-			chainPublickey[j] = byte(v.Pubkey[j])
-		}
-		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-			out.Err("The IdentityPubkey returned by this tee doesn't match the one in the chain")
+			out.Err(fmt.Sprintf("Check tee failed: %v", err))
 			continue
 		}
 		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
@@ -682,6 +659,53 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 		}
 	}
 	return rsakey, poisInfo, teeRecord, errors.New("all tee nodes are busy or unavailable")
+}
+
+func (n *Node) checkTee(pubkey chain.WorkerPublicKey) (string, error) {
+	endPoint, err := n.QueryEndpoints(pubkey, -1)
+	if err != nil {
+		return "", fmt.Errorf("query endpoint err: %v", err)
+	}
+	var dialOptions []grpc.DialOption
+	var identityPubkeyResponse *pb.IdentityPubkeyResponse
+	var chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
+	endPoint = ProcessTeeEndpoint(endPoint)
+	if !strings.Contains(endPoint, "443") {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	} else {
+		dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+	}
+	for i := 0; i < 3; i++ {
+		// verify identity public key
+		identityPubkeyResponse, err = com.GetIdentityPubkey(endPoint,
+			&pb.Request{
+				StorageMinerAccountId: n.GetSignatureAccPulickey(),
+			},
+			time.Duration(time.Minute),
+			dialOptions,
+			nil,
+		)
+		if err != nil {
+			if strings.Contains(err.Error(), "not registered") {
+				time.Sleep(time.Second * 15)
+				continue
+			}
+			return "", err
+		}
+	}
+	if err != nil {
+		return "", err
+	}
+	if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
+		return "", errors.New("identity public key length err")
+	}
+	for j := 0; j < chain.WorkerPublicKeyLen; j++ {
+		chainPublickey[j] = byte(pubkey[j])
+	}
+	if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+		return "", errors.New("invalid tee identity public key")
+	}
+	return endPoint, nil
 }
 
 func registerMinerPoisKey(cli chain.Chainer, poisKey chain.PoISKeyInfo, teeSignWithAcc types.Bytes, teeSign types.Bytes, teePuk chain.WorkerPublicKey) error {

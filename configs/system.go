@@ -50,7 +50,7 @@ func SysInit(cpus uint32) int {
 
 func SetCpuNumber(cpus uint32) int {
 	actualUseCpus := runtime.NumCPU()
-	if cpus == 0 || int(cpus) > actualUseCpus {
+	if cpus == 0 || int(cpus) >= actualUseCpus {
 		runtime.GOMAXPROCS(actualUseCpus)
 		return actualUseCpus
 	}
