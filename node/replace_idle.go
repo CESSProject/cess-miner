@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -68,22 +69,26 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	delProof, err := p.Prover.ProveDeletion(int64(num))
 	if err != nil {
 		l.Replace("err", err.Error())
+		p.Prover.AccRollback(true)
 		return
 	}
 
 	if delProof == nil {
 		l.Replace("err", "delProof is nil")
+		p.Prover.AccRollback(true)
 		return
 	}
 
 	if delProof.Roots == nil || delProof.AccPath == nil || delProof.WitChain == nil {
 		l.Replace("err", "delProof have nil field")
+		p.Prover.AccRollback(true)
 		return
 	}
 
 	minerInfo, err := cli.QueryMinerItems(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		l.Replace("err", fmt.Sprintf("[QueryStorageMiner] %v", err))
+		p.Prover.AccRollback(true)
 		return
 	}
 	if minerInfo.SpaceProofInfo.HasValue() {
@@ -91,6 +96,8 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 		if spaceProofInfo.Front > types.U64(p.Prover.GetFront()) {
 			err = p.Prover.SyncChainPoisStatus(int64(spaceProofInfo.Front), int64(spaceProofInfo.Rear))
 			if err != nil {
+				l.Replace("err", err.Error())
+				p.Prover.AccRollback(true)
 				return
 			}
 		}
@@ -121,13 +128,13 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	}
 	buf, err := proto.Marshal(requestVerifyDeletionProof)
 	if err != nil {
-		p.Prover.CommitRollback()
+		p.Prover.AccRollback(true)
 		l.Replace("err", fmt.Sprintf("[Marshal-2] %v", err))
 		return
 	}
 	signData, err := cli.Sign(buf)
 	if err != nil {
-		p.Prover.CommitRollback()
+		p.Prover.AccRollback(true)
 		l.Replace("err", fmt.Sprintf("[Sign-2] %v", err))
 		return
 	}
@@ -243,6 +250,8 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 		l.Replace("err", err.Error())
 	}
 
+	l.Replace("info", fmt.Sprintf("new acc value: %s", hex.EncodeToString(p.Prover.GetAccValue())))
+
 	ok, challenge, err := cli.QueryChallengeSnapShot(cli.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
@@ -254,6 +263,7 @@ func ReplaceIdle(cli *chain.ChainClient, l logger.Logger, p *Pois, m *pb.MinerPo
 	if ok {
 		err = p.Prover.SetChallengeState(*p.RsaKey, []byte(string(challenge.MinerSnapshot.SpaceProofInfo.Accumulator[:])), int64(challenge.MinerSnapshot.SpaceProofInfo.Front), int64(challenge.MinerSnapshot.SpaceProofInfo.Rear))
 		if err != nil {
+			l.Replace("err", err.Error())
 			return
 		}
 	}

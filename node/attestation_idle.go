@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -396,7 +397,8 @@ func attestation_idle(cli *chain.ChainClient, peernode *core.PeerNode, p *Pois, 
 		if err != nil {
 			return errors.Wrapf(err, "[UpdateStatus]")
 		}
-		l.Space("info", "update pois status")
+		l.Space("info", fmt.Sprintf("update status success, new acc value: %s", hex.EncodeToString(p.Prover.GetAccValue())))
+
 		m.Front = verifyCommitOrDeletionProof.PoisStatus.Front
 		m.Rear = verifyCommitOrDeletionProof.PoisStatus.Rear
 		m.Acc = verifyCommitOrDeletionProof.PoisStatus.Acc
