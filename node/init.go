@@ -45,12 +45,12 @@ import (
 
 func (n *Node) InitNode() *Node {
 	n.InitChainClient()
+	n.InitLogs()
+	n.InitCache()
 	n.InitWebServer(
 		InitMiddlewares(),
 		web.NewHandler(n.Chainer, n.Workspace, n.Runstatus, n.Logger),
 	)
-	n.InitLogs()
-	n.InitCache()
 	return n
 }
 
