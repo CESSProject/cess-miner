@@ -79,24 +79,18 @@ func (n *Node) checkfile(f string) error {
 		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 			return err
 		}
-		sorder, err := n.QueryDealMap(fid, -1)
+		_, err = n.QueryDealMap(fid, -1)
 		if err != nil {
 			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 				return err
 			}
-			return nil
 		}
-		for _, v := range sorder.CompleteList {
-			if sutils.CompareSlice(v.Miner[:], n.GetSignatureAccPulickey()) {
-				return nil
-			}
-		}
+		os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
+		n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
 		reportedFileLock.Lock()
 		delete(reportedFile, fid)
 		reportedFileLock.Unlock()
-		os.RemoveAll(f)
-		n.Del("info", fmt.Sprintf("delete folder: %s", f))
-		return err
+		return nil
 	}
 
 	var deletedFrgmentList []string
@@ -112,8 +106,15 @@ func (n *Node) checkfile(f string) error {
 		}
 	}
 
+	for _, d := range deletedFrgmentList {
+		err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
+		if err != nil {
+			continue
+		}
+		n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
+	}
+
 	if len(savedFrgment) == 0 {
-		os.RemoveAll(f)
 		n.Del("info", fmt.Sprintf("Delete folder: %s", f))
 		return nil
 	}
@@ -126,24 +127,17 @@ func (n *Node) checkfile(f string) error {
 	}
 
 	for i := 0; i < len(savedFrgment); i++ {
-		_, err = os.Stat(filepath.Join(n.GetTmpDir(), fid, savedFrgment[i]))
+		_, err = os.Stat(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
-		err = os.Rename(filepath.Join(n.GetTmpDir(), fid, savedFrgment[i]),
+		err = os.Rename(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]),
 			filepath.Join(n.GetFileDir(), fid, savedFrgment[i]))
 		if err != nil {
 			return err
 		}
 	}
 
-	for _, d := range deletedFrgmentList {
-		err = os.Remove(filepath.Join(n.GetTmpDir(), fid, d))
-		if err != nil {
-			continue
-		}
-		n.Del("info", filepath.Join(n.GetTmpDir(), fid, d))
-	}
 	return nil
 }
 
@@ -180,7 +174,7 @@ func (n *Node) reportfile(f string) error {
 	for idx := uint8(0); idx < uint8(chain.DataShards+chain.ParShards); idx++ {
 		sucCount = 0
 		for i := 0; i < len(storageorder.SegmentList); i++ {
-			fstat, err := os.Stat(filepath.Join(n.GetTmpDir(), fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
+			fstat, err := os.Stat(filepath.Join(n.GetReportDir(), fid, string(storageorder.SegmentList[i].FragmentHash[idx][:])))
 			if err != nil {
 				break
 			}

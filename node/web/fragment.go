@@ -9,11 +9,13 @@ package web
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -112,16 +114,58 @@ func (f *FragmentHandler) getfragment(c *gin.Context) {
 func (f *FragmentHandler) putfragment(c *gin.Context) {
 	defer c.Request.Body.Close()
 	fid := c.Request.Header.Get(common.Header_Fid)
+	fragment := c.Request.Header.Get(common.Header_Fragment)
 	clientIp := c.Request.Header.Get(common.Header_X_Forwarded_For)
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
+
+	if fragment != "" {
+		_, err := f.findFragment(fid, fragment)
+		if err == nil {
+			f.Putf("err", clientIp+" repeat upload: "+fid+" "+fragment)
+			c.JSON(http.StatusOK, common.RespType{
+				Code: 200,
+				Msg:  common.OK,
+			})
+			return
+		}
+	}
+
 	err := os.MkdirAll(filepath.Join(f.GetTmpDir(), fid), 0755)
 	if err != nil {
 		f.Putf("err", clientIp+" mk tmp dir: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
 			Code: 500,
 			Msg:  common.ERR_SystemErr,
+		})
+		return
+	}
+
+	if fragment == chain.ZeroFileHash_8M {
+		err = os.MkdirAll(filepath.Join(f.GetReportDir(), fid), 0755)
+		if err != nil {
+			f.Putf("err", clientIp+" mk report dir: "+err.Error())
+			c.JSON(http.StatusOK, common.RespType{
+				Code: 500,
+				Msg:  common.ERR_SystemErr,
+			})
+			return
+		}
+
+		err = sutils.WriteBufToFile(make([]byte, chain.FragmentSize), filepath.Join(f.GetReportDir(), fid, fragment))
+		if err != nil {
+			f.Putf("err", clientIp+" WriteBufToFile(ZeroFileHash_8M): "+err.Error())
+			c.JSON(http.StatusOK, common.RespType{
+				Code: 500,
+				Msg:  common.ERR_SystemErr,
+			})
+			return
+		}
+		f.Putf("err", clientIp+" upload ZeroFileHash_8M suc "+fid)
+		c.JSON(http.StatusOK, common.RespType{
+			Code: 200,
+			Msg:  common.OK,
 		})
 		return
 	}
@@ -136,7 +180,7 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 		return
 	}
 
-	fragment, err := sutils.CalcPathSHA256(fragmentpath)
+	fragment_upload, err := sutils.CalcPathSHA256(fragmentpath)
 	if err != nil {
 		f.Putf("err", clientIp+" CalcPathSHA256: "+err.Error())
 		c.JSON(http.StatusOK, common.RespType{
@@ -152,6 +196,16 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 			Msg:  common.ERR_FragmentSize,
 		})
 		return
+	}
+
+	if fragment != "" {
+		if fragment_upload != fragment {
+			c.JSON(http.StatusOK, common.RespType{
+				Code: 400,
+				Msg:  common.ERR_FragmentSize,
+			})
+			return
+		}
 	}
 
 	ok, err := f.checkFragment(fid, fragment)
@@ -281,7 +335,11 @@ func VerifySignature(ctx *gin.Context) (bool, error) {
 	account := ctx.Request.Header.Get(common.Header_Account)
 	message := ctx.Request.Header.Get(common.Header_Message)
 	signature := ctx.Request.Header.Get(common.Header_Signature)
-	ok, _ := sutils.VerifySR25519WithPublickey(message, []byte(signature), account)
+	sign, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+	if err != nil {
+		return false, err
+	}
+	ok, _ := sutils.VerifySR25519WithPublickey(message, sign, account)
 	if !ok {
 		return sutils.VerifyPolkadotJsHexSign(account, message, signature)
 	}

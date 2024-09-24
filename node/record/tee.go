@@ -25,6 +25,8 @@ type TeeRecorder interface {
 	//
 	DeleteTee(workAccount string)
 	//
+	GetAllTeePublickey() []string
+	//
 	GetAllTeeEndpoint() []string
 	//
 	GetAllMarkerTeeEndpoint() []string
@@ -119,49 +121,55 @@ func (t *TeeRecord) GetTeeWorkAccount(endpoint string) (string, error) {
 
 func (t *TeeRecord) DeleteTee(workAccount string) {
 	t.lock.Lock()
-	defer t.lock.Unlock()
 	if _, ok := t.teeList[workAccount]; ok {
 		delete(t.teeList, workAccount)
 	}
+	t.lock.Unlock()
 }
 
 func (t *TeeRecord) GetAllTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
-	defer t.lock.RUnlock()
 	result = t.priorityTeeEndpoints
 	for _, v := range t.teeList {
-		if v.EndPoint == "" {
-			continue
-		}
 		result = append(result, v.EndPoint)
 	}
+	t.lock.RUnlock()
+	return result
+}
+
+func (t *TeeRecord) GetAllTeePublickey() []string {
+	var index int
+	t.lock.RLock()
+	var result = make([]string, len(t.teeList))
+	for k := range t.teeList {
+		result[index] = k
+		index++
+	}
+	t.lock.RUnlock()
 	return result
 }
 
 func (t *TeeRecord) GetAllMarkerTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
-	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
 		if v.Type == chain.TeeType_Full || v.Type == chain.TeeType_Marker {
-			if v.EndPoint == "" {
-				continue
-			}
 			result = append(result, v.EndPoint)
 		}
 	}
+	t.lock.RUnlock()
 	return result
 }
 
 func (t *TeeRecord) GetAllVerifierTeeEndpoint() []string {
 	var result = make([]string, 0)
 	t.lock.RLock()
-	defer t.lock.RUnlock()
 	for _, v := range t.teeList {
 		if v.Type == chain.TeeType_Full || v.Type == chain.TeeType_Verifier {
 			result = append(result, v.EndPoint)
 		}
 	}
+	t.lock.RUnlock()
 	return result
 }
