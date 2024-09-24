@@ -106,16 +106,14 @@ func (n *Node) checkfile(f string) error {
 		}
 	}
 
-	for _, d := range deletedFrgmentList {
-		err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
-		if err != nil {
-			continue
-		}
-		n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
-	}
-
 	if len(savedFrgment) == 0 {
-		n.Del("info", fmt.Sprintf("Delete folder: %s", f))
+		for _, d := range deletedFrgmentList {
+			err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
+			if err != nil {
+				continue
+			}
+			n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
+		}
 		return nil
 	}
 
@@ -138,6 +136,13 @@ func (n *Node) checkfile(f string) error {
 		}
 	}
 
+	for _, d := range deletedFrgmentList {
+		err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
+		if err != nil {
+			continue
+		}
+		n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
+	}
 	return nil
 }
 
