@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -20,16 +19,6 @@ import (
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/pkg/utils"
 )
-
-var (
-	reportedFileLock *sync.Mutex
-	reportedFile     map[string]struct{}
-)
-
-func init() {
-	reportedFileLock = new(sync.Mutex)
-	reportedFile = make(map[string]struct{}, 0)
-}
 
 func (n *Node) ReportFiles(ch chan<- bool) {
 	defer func() {
@@ -45,26 +34,23 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 		return
 	}
 
-	ok := false
+	report := false
 	fid := ""
 	for _, file := range roothashs {
 		fid = filepath.Base(file)
-		reportedFileLock.Lock()
-		_, ok = reportedFile[fid]
-		reportedFileLock.Unlock()
-		if ok {
-			n.Report("info", fmt.Sprintf("[%s] prepare to check the file", fid))
-			err = n.checkfile(file)
-			if err != nil {
-				n.Report("err", fmt.Sprintf("[%s] check the file err: %v", fid, err))
-			}
-		} else {
-			n.Report("info", fmt.Sprintf("[%s] prepare to report the file", fid))
+		report, err = n.checkfile(file)
+		if err != nil {
+			n.Report("err", fmt.Sprintf("[%s] check file err: %v", fid, err))
+		}
+
+		if report {
+			n.Report("info", fmt.Sprintf("[%s] will report file", fid))
 			err = n.reportfile(file)
 			if err != nil {
 				n.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
 		}
+
 		if !n.GetCurrentRpcst() {
 			return
 		}
@@ -72,25 +58,23 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 	}
 }
 
-func (n *Node) checkfile(f string) error {
+func (n *Node) checkfile(f string) (bool, error) {
 	fid := filepath.Base(f)
 	metadata, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
-			return err
+			return false, err
 		}
 		_, err = n.QueryDealMap(fid, -1)
 		if err != nil {
 			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
-				return err
+				return false, err
 			}
 			os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
 			n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
-			reportedFileLock.Lock()
-			delete(reportedFile, fid)
-			reportedFileLock.Unlock()
+			return false, errors.New("not found")
 		}
-		return nil
+		return true, nil
 	}
 
 	var deletedFrgmentList []string
@@ -114,25 +98,25 @@ func (n *Node) checkfile(f string) error {
 			}
 			n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
 		}
-		return nil
+		return false, nil
 	}
 
 	if _, err = os.Stat(filepath.Join(n.GetFileDir(), fid)); err != nil {
 		err = os.Mkdir(filepath.Join(n.GetFileDir(), fid), configs.FileMode)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	for i := 0; i < len(savedFrgment); i++ {
 		_, err = os.Stat(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]))
 		if err != nil {
-			return err
+			return false, err
 		}
 		err = os.Rename(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]),
 			filepath.Join(n.GetFileDir(), fid, savedFrgment[i]))
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
@@ -143,7 +127,7 @@ func (n *Node) checkfile(f string) error {
 		}
 		n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
 	}
-	return nil
+	return false, nil
 }
 
 func (n *Node) reportfile(f string) error {
@@ -153,9 +137,6 @@ func (n *Node) reportfile(f string) error {
 		if err.Error() != chain.ERR_Empty {
 			return err
 		}
-		reportedFileLock.Lock()
-		reportedFile[fid] = struct{}{}
-		reportedFileLock.Unlock()
 		return nil
 	}
 
@@ -168,9 +149,6 @@ func (n *Node) reportfile(f string) error {
 	}
 
 	if !reReport {
-		reportedFileLock.Lock()
-		reportedFile[fid] = struct{}{}
-		reportedFileLock.Unlock()
 		return nil
 	}
 
@@ -212,9 +190,6 @@ func (n *Node) reportfile(f string) error {
 			continue
 		}
 		n.Report("info", fmt.Sprintf("[%s] report successful, blockhash: %s", fid, txhash))
-		reportedFileLock.Lock()
-		reportedFile[fid] = struct{}{}
-		reportedFileLock.Unlock()
 		break
 	}
 	return nil

@@ -37,59 +37,49 @@ type TagfileType struct {
 }
 
 func (n *Node) CalcTag(ch chan<- bool) {
-	//n.SetCalcTagFlag(true)
 	defer func() {
 		ch <- true
-		//n.SetCalcTagFlag(false)
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
 
+	for {
+		if n.GetRpcState() {
+			n.getAllFileDirs()
+		}
+		time.Sleep(time.Minute)
+	}
+}
+
+func (n *Node) getAllFileDirs() {
 	roothashs, err := utils.Dirs(n.GetFileDir())
 	if err != nil {
 		n.Stag("err", fmt.Sprintf("[Dirs(%s)] %v", n.GetFileDir(), err))
 		return
 	}
 
-	n.Stag("info", fmt.Sprintf("[roothashs] %v", roothashs))
-
 	for _, fileDir := range roothashs {
 		err = n.calctag(fileDir)
 		if err != nil {
-			n.Stag("err", fmt.Sprintf("[%s] [calc_tag] %v", filepath.Base(fileDir), roothashs))
+			n.Stag("err", fmt.Sprintf("[%s] [calctag] %v", filepath.Base(fileDir), roothashs))
 		}
-		time.Sleep(time.Minute)
 	}
 }
 
 func (n *Node) calctag(file string) error {
-	var ok bool
 	var isReportTag bool
 	var err error
 	var tagPath string
 	var fragments, tags []string
 
 	fid := filepath.Base(file)
-	n.Stag("info", fmt.Sprintf("[%s] Start calc file tag", fid))
-
-	reportedFileLock.Lock()
-	_, ok = reportedFile[fid]
-	reportedFileLock.Unlock()
-	if !ok {
-		n.Stag("info", fmt.Sprintf("[%s] file not report", fid))
-		return nil
-	}
-
-	ok, _ = n.Has([]byte(Cach_prefix_Tag + fid))
-	if ok {
-		n.Stag("info", fmt.Sprintf("[%s] the file's tag already report", fid))
-		return nil
-	}
 
 	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
-		n.Stag("info", fmt.Sprintf("[%s] QueryFileMetadata: %v", fid, err))
+		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+			return err
+		}
 		return nil
 	}
 
@@ -164,10 +154,6 @@ func (n *Node) calctag(file string) error {
 			for _, fragment := range segment.FragmentList {
 				if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 					if fragment.Tag.HasValue() {
-						err = n.Put([]byte(Cach_prefix_Tag+fid), nil)
-						if err != nil {
-							n.Stag("err", fmt.Sprintf("[%s] [Cache.Put] %v", fid, err))
-						}
 						return nil
 					}
 					isReportTag = true
@@ -198,10 +184,8 @@ func (n *Node) calctag(file string) error {
 			n.Del("info", tags[k])
 		}
 		n.Stag("err", fmt.Sprintf("[%s] [reportFileTag] %v", fid, err))
-	} else {
-		n.Put([]byte(Cach_prefix_Tag+fid), nil)
-		n.Stag("info", fmt.Sprintf("[%s] [reportFileTag] %v", fid, txhash))
 	}
+	n.Stag("info", fmt.Sprintf("[%s] [reportFileTag] %v", fid, txhash))
 	return nil
 }
 
