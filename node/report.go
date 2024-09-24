@@ -84,12 +84,12 @@ func (n *Node) checkfile(f string) error {
 			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
 				return err
 			}
+			os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
+			n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
+			reportedFileLock.Lock()
+			delete(reportedFile, fid)
+			reportedFileLock.Unlock()
 		}
-		os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
-		n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
-		reportedFileLock.Lock()
-		delete(reportedFile, fid)
-		reportedFileLock.Unlock()
 		return nil
 	}
 
