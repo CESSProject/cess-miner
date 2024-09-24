@@ -38,14 +38,14 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 	fid := ""
 	for _, file := range roothashs {
 		fid = filepath.Base(file)
-		report, err = n.checkfile(file)
+		report, err = n.checkfile(fid)
 		if err != nil {
 			n.Report("err", fmt.Sprintf("[%s] check file err: %v", fid, err))
 		}
 
 		if report {
 			n.Report("info", fmt.Sprintf("[%s] will report file", fid))
-			err = n.reportfile(file)
+			err = n.reportfile(fid)
 			if err != nil {
 				n.Report("err", fmt.Sprintf("[%s] report file err: %v", fid, err))
 			}
@@ -58,8 +58,7 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 	}
 }
 
-func (n *Node) checkfile(f string) (bool, error) {
-	fid := filepath.Base(f)
+func (n *Node) checkfile(fid string) (bool, error) {
 	metadata, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
@@ -77,27 +76,19 @@ func (n *Node) checkfile(f string) (bool, error) {
 		return true, nil
 	}
 
-	var deletedFrgmentList []string
 	var savedFrgment []string
 
 	for _, segment := range metadata.SegmentList {
 		for _, fragment := range segment.FragmentList {
 			if sutils.CompareSlice(fragment.Miner[:], n.GetSignatureAccPulickey()) {
 				savedFrgment = append(savedFrgment, string(fragment.Hash[:]))
-			} else {
-				deletedFrgmentList = append(deletedFrgmentList, string(fragment.Hash[:]))
 			}
 		}
 	}
 
 	if len(savedFrgment) == 0 {
-		for _, d := range deletedFrgmentList {
-			err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
-			if err != nil {
-				continue
-			}
-			n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
-		}
+		os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
+		n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
 		return false, nil
 	}
 
@@ -120,18 +111,12 @@ func (n *Node) checkfile(f string) (bool, error) {
 		}
 	}
 
-	for _, d := range deletedFrgmentList {
-		err = os.Remove(filepath.Join(n.GetReportDir(), fid, d))
-		if err != nil {
-			continue
-		}
-		n.Del("info", filepath.Join(n.GetReportDir(), fid, d))
-	}
+	os.RemoveAll(filepath.Join(n.GetReportDir(), fid))
+	n.Del("info", fmt.Sprintf("remove dir: %s", filepath.Join(n.GetReportDir(), fid)))
 	return false, nil
 }
 
-func (n *Node) reportfile(f string) error {
-	fid := filepath.Base(f)
+func (n *Node) reportfile(fid string) error {
 	storageorder, err := n.QueryDealMap(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
@@ -149,8 +134,11 @@ func (n *Node) reportfile(f string) error {
 	}
 
 	if !reReport {
+		n.Report("info", fmt.Sprintf("[%s] already reported", fid))
 		return nil
 	}
+
+	n.Report("info", fmt.Sprintf("[%s] will report file", fid))
 
 	var sucCount int
 	var sucIndex = make([]uint8, 0)
@@ -178,7 +166,7 @@ func (n *Node) reportfile(f string) error {
 			}
 		}
 	}
-
+	n.Report("info", fmt.Sprintf("[%s] sucIndex: %v", fid, sucIndex))
 	if len(sucIndex) == 0 {
 		return nil
 	}
