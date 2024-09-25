@@ -10,6 +10,7 @@ package common
 import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
+	"github.com/gin-gonic/gin"
 )
 
 type RespType struct {
@@ -60,4 +61,12 @@ type ServiceProofInfo struct {
 type RandomList struct {
 	Index  []uint32 `json:"index"`
 	Random [][]byte `json:"random"`
+}
+
+func ReturnJSON(c *gin.Context, code int, msg string, data any) {
+	c.JSON(200, RespType{
+		Code: code,
+		Msg:  msg,
+		Data: data,
+	})
 }

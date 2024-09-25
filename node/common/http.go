@@ -13,6 +13,7 @@ const (
 	Header_Signature       = "Signature"
 	Header_Fid             = "Fid"
 	Header_Fragment        = "Fragment"
+	Header_Range           = "Range"
 	Header_ContentType     = "Content-Type"
 	Header_X_Forwarded_For = "X-Forwarded-For"
 )

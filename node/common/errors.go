@@ -19,8 +19,18 @@ const (
 
 	// client err
 	ERR_FragmentSize        = "the fragment size is wrong"
+	ERR_FragmentHash        = "the fragment hash is wrong"
 	ERR_FragmentNotMatchFid = "fragment does not match fid"
 	ERR_NotFound            = "not found"
 	ERR_HashLength          = "invalid fid or fragment"
 	ERR_EmptyHashName       = "empty fid or fragment"
+
+	// signature err
+	ERR_InvalidSignature = "invalid signature"
+
+	// range err
+	ERR_InvalidRangeValue = "invalid range request"
+	ERR_InvalidRangeTotal = "invalid range total"
+	ERR_InvalidRangeStart = "invalid range start"
+	ERR_InvalidRangeEnd   = "invalid range end"
 )

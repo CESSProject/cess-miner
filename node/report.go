@@ -100,9 +100,9 @@ func (n *Node) checkfile(fid string) (bool, error) {
 	}
 
 	for i := 0; i < len(savedFrgment); i++ {
-		_, err = os.Stat(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]))
-		if err != nil {
-			return false, err
+		_, err = os.Stat(filepath.Join(n.GetFileDir(), fid, savedFrgment[i]))
+		if err == nil {
+			continue
 		}
 		err = os.Rename(filepath.Join(n.GetReportDir(), fid, savedFrgment[i]),
 			filepath.Join(n.GetFileDir(), fid, savedFrgment[i]))
