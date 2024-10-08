@@ -105,7 +105,7 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 	}
 
 	if fragment != "" {
-		_, err := f.findFragment(fid, fragment)
+		_, err := f.findUnreportedFragment(fid, fragment)
 		if err == nil {
 			f.Putf("err", clientIp+" repeat upload: "+fid+" "+fragment)
 			common.ReturnJSON(c, 200, common.OK, nil)
@@ -197,6 +197,22 @@ func (f *FragmentHandler) putfragment(c *gin.Context) {
 
 func (f *FragmentHandler) findFragment(fid, fragment string) (string, error) {
 	fragmentpath := filepath.Join(f.GetFileDir(), fid, fragment)
+	_, err := os.Stat(fragmentpath)
+	if err == nil {
+		return fragmentpath, nil
+	}
+
+	fragmentpath = filepath.Join(f.GetReportDir(), fid, fragment)
+	_, err = os.Stat(fragmentpath)
+	if err == nil {
+		return fragmentpath, nil
+	}
+
+	return "", errors.New(common.ERR_NotFound)
+}
+
+func (f *FragmentHandler) findUnreportedFragment(fid, fragment string) (string, error) {
+	fragmentpath := filepath.Join(f.GetTmpDir(), fid, fragment)
 	_, err := os.Stat(fragmentpath)
 	if err == nil {
 		return fragmentpath, nil

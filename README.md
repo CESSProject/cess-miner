@@ -10,10 +10,6 @@ If you find any system errors or you have better suggestions, please submit an i
 ```
 wss://testnet-rpc.cess.network/ws/
 ```
-**CESS test network bootstrap node**
-```
-_dnsaddr.boot-miner-testnet.cess.network
-```
 
 ## 🚰 CESS test network faucet
 ```
@@ -204,24 +200,34 @@ Enter the `miner run` command to run directly, and enter the information accordi
 
 ```bash
 # ./miner run
->> Please enter the rpc address of the chain, multiple addresses are separated by spaces:
-wss://testnet-rpc.cess.network/ws/
->> Please enter the workspace, press enter to use / by default workspace:
-/
->> Please enter your earnings account, if you are already registered and do not want to update, please press enter to skip:
-cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y
->> Please enter your service port:
-15001
+!! 2024-10-08 16:07:30 No configuration file was found, so enter the manual configuration process:
+>> Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip
+to use [wss://testnet-rpc.cess.network/ws/] as default rpc address:
+
+OK 2024-10-08 16:07:37 [wss://testnet-rpc.cess.network/ws/]
+>> Enter the workspace path, press Enter to skip to use / as default workspace:
+
+OK 2024-10-08 16:07:51 /
+>> Enter the earnings account, if you have already registered and don't want to update, press Enter to skip:
+cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV
+OK 2024-10-08 16:08:44 cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV
+>> Enter the service port, press Enter to skip to use 15001 as default port:
+
+OK 2024-10-08 16:08:55 15001
 >> Please enter the maximum space used by the storage node in GiB:
 2000
+OK 2024-10-08 16:09:02 2000
+>> Enter priority tee address, multiple addresses are separated by spaces, press Enter to skip:
+
+OK 2024-10-08 16:09:11 []
 >> Please enter the mnemonic of the staking account:
-*******************************************************************************
+***********************************************************************************
 ```
 
 **method two**
 
 ```bash
-# ./miner run --rpc wss://testnet-rpc.cess.network/ws/ --ws / --earnings cXfyomKDABfehLkvARFE854wgDJFMbsxwAJEHezRb6mfcAi2y --port 4001 --space 2000
+# ./miner run --rpc wss://testnet-rpc.cess.network/ws/ --ws / --earnings cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV --port 15001 --space 2000
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 ```
@@ -251,9 +257,9 @@ If the configuration file is named conf.yaml and is located in the same director
 *******************************************************************************
 +-------------------+------------------------------------------------------+
 | name              | storage miner                                        |
-| peer id           | 12D3KooWSEX3UkyU2R6S1wERs4iH7yp2yVCWX2YkReaokvCg7uxU |
+| peer id           | 8HL8C22GpiR9KN8KJpz3Bj19R6yFguG3g8GCb9w29PcVU9eMXGQX |
 | state             | positive                                             |
-| staking amount    | 2400 TCESS                                           |
+| staking amount    | 4000 TCESS                                           |
 | staking start     | 3123                                                 |
 | debt amount       | 0 TCESS                                              |
 | declaration space | 1.00 TiB                                             |
@@ -268,7 +274,7 @@ If the configuration file is named conf.yaml and is located in the same director
 
 - increase staking
 ```bash
-# ./miner increase staking 1000000000000000000000 --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner increase staking 10000 --rpc wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
