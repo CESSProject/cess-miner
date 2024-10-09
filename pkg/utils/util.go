@@ -239,7 +239,7 @@ func ContainsIpv4(str string) bool {
 	return ipAddr != nil && strings.Contains(matches, ".")
 }
 
-func FreeLocalPort(port uint32) bool {
+func FreeLocalPort(port uint16) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second*3)
 	if err != nil {
 		return true

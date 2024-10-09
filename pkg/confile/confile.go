@@ -51,7 +51,7 @@ chain:
 type Confiler interface {
 	Parse(fpath string) error
 	ReadRpcEndpoints() []string
-	ReadServicePort() uint64
+	ReadServicePort() uint16
 	ReadWorkspace() string
 	ReadMnemonic() string
 	ReadStakingAcc() string
@@ -65,7 +65,7 @@ type Confiler interface {
 
 type App struct {
 	Workspace   string `name:"workspace" toml:"workspace" yaml:"workspace"`
-	Port        uint64 `name:"port" toml:"port" yaml:"port"`
+	Port        uint16 `name:"port" toml:"port" yaml:"port"`
 	Maxusespace uint64 `name:"maxusespace" toml:"maxusespace" yaml:"maxusespace"`
 	Cores       uint32 `name:"cores" toml:"cores" yaml:"cores"`
 }
@@ -121,10 +121,6 @@ func (c *Confile) Parse(fpath string) error {
 
 	if c.Port < 1024 {
 		return errors.Errorf("prohibit the use of system reserved port: %v", c.Port)
-	}
-
-	if c.Port > 65535 {
-		return errors.New("the port number cannot exceed 65535")
 	}
 
 	if c.Stakingacc != "" {
@@ -197,14 +193,11 @@ func (c *Confile) SetCpuCores(cores int) {
 	c.Cores = uint32(cores)
 }
 
-func (c *Confile) SetServicePort(port int) error {
+func (c *Confile) SetServicePort(port uint16) error {
 	if port < 1024 {
 		return errors.Errorf("Prohibit the use of system reserved port: %v", port)
 	}
-	if port > 65535 {
-		return errors.New("The port number cannot exceed 65535")
-	}
-	c.Port = uint64(port)
+	c.Port = port
 	return nil
 }
 
@@ -252,7 +245,7 @@ func (c *Confile) ReadRpcEndpoints() []string {
 	return c.Rpcs
 }
 
-func (c *Confile) ReadServicePort() uint64 {
+func (c *Confile) ReadServicePort() uint16 {
 	return c.Port
 }
 

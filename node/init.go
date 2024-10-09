@@ -103,7 +103,7 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	if !utils.FreeLocalPort(uint32(n.ReadServicePort())) {
+	if !utils.FreeLocalPort(n.ReadServicePort()) {
 		out.Err(fmt.Sprintf("[FreeLocalPort] %v", err))
 		os.Exit(1)
 	}

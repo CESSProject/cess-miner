@@ -210,10 +210,10 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 
 	out.Ok(fmt.Sprintf("%v", cfg.ReadEarningsAcc()))
 
-	var listenPort int
-	listenPort, err = cmd.Flags().GetInt("port")
+	var listenPort uint16
+	listenPort, err = cmd.Flags().GetUint16("port")
 	if err != nil {
-		listenPort, err = cmd.Flags().GetInt("p")
+		listenPort, err = cmd.Flags().GetUint16("p")
 		if err != nil {
 			return cfg, err
 		}
@@ -235,8 +235,13 @@ func buildConfigItems(cmd *cobra.Command) (*confile.Confile, error) {
 			if lines == "" {
 				listenPort = configs.DefaultServicePort
 			} else {
-				listenPort, err = strconv.Atoi(lines)
-				if err != nil || listenPort < 1024 {
+				n, err := strconv.Atoi(lines)
+				if err != nil {
+					out.Err("Please enter a number between 1024~65535:")
+					continue
+				}
+				listenPort = uint16(n)
+				if listenPort < 1024 {
 					listenPort = 0
 					out.Err("Please enter a number between 1024~65535:")
 					continue
