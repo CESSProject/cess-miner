@@ -54,7 +54,7 @@ func (n *Node) InitNode() *Node {
 	return n
 }
 
-func (n *Node) InitRunStatus(st types.Bytes, addr string, t string) {
+func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string) {
 	rt := runstatus.NewRunstatus()
 	rt.SetPID(os.Getpid())
 	rt.SetCpucores(int(n.ReadUseCpu()))
@@ -62,7 +62,7 @@ func (n *Node) InitRunStatus(st types.Bytes, addr string, t string) {
 	rt.SetCurrentRpcst(n.GetRpcState())
 	rt.SetSignAcc(n.GetSignatureAcc())
 	rt.SetState(string(st))
-	rt.SetComAddr(addr)
+	rt.SetComAddr(apiEndpoint)
 	stakingAcc := n.ReadStakingAcc()
 	if stakingAcc == "" {
 		rt.SetStakingAcc(n.GetSignatureAcc())
@@ -97,17 +97,12 @@ func (n *Node) InitLogs() {
 }
 
 func (n *Node) InitChainClient() {
-	addr, err := GetLocalIP()
-	if err != nil {
-		out.Err(fmt.Sprintf("[GetLocalIP] %v", err))
-		os.Exit(1)
-	}
-
 	if !utils.FreeLocalPort(n.ReadServicePort()) {
-		out.Err(fmt.Sprintf("[FreeLocalPort] %v", err))
+		out.Err(fmt.Sprintf("[FreeLocalPort] listener port: %d already in use", n.ReadServicePort()))
 		os.Exit(1)
 	}
-	addr = fmt.Sprintf("%s:%d", addr, n.ReadServicePort())
+	apiEndpoint := n.ReadApiEndpoint()
+	out.Ok(fmt.Sprintf("ApiEndpoint: %s", apiEndpoint))
 
 	cli, err := sdkgo.New(
 		context.Background(),
@@ -148,7 +143,7 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(addr)
+	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(apiEndpoint)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -158,10 +153,10 @@ func (n *Node) InitChainClient() {
 	n.InitPois(pois)
 	n.InitMinerPoisInfo(poisInfo)
 	n.InitTeeRecord(teeRecord)
-	n.InitRunStatus(st, addr, t)
+	n.InitRunStatus(st, apiEndpoint, t)
 }
 
-func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, record.TeeRecorder, types.Bytes, error) {
+func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, record.TeeRecorder, types.Bytes, error) {
 	var rsakey *RSAKeyPair
 	var poisInfo = &pb.MinerPoisInfo{}
 	var p *Pois
@@ -174,7 +169,7 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 
 	switch register {
 	case Unregistered:
-		_, err = registerMiner(n.Chainer, n.ReadStakingAcc(), n.ReadEarningsAcc(), addr, decTib)
+		_, err = registerMiner(n.Chainer, n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint, decTib)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerMiner]")
 		}
@@ -239,7 +234,7 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
 		}
 
-		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), addr)
+		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
@@ -267,7 +262,7 @@ func (n *Node) checkMiner(addr string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, r
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
 		}
 
-		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), addr)
+		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
 			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
@@ -857,7 +852,9 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *web.Handler) {
 	n.Engine.Use(mdls...)
 	hdl.RegisterRoutes(n.Engine)
 	go func() {
-		err := n.Engine.Run(fmt.Sprintf(":%d", n.ReadServicePort()))
+		listenerAddr := fmt.Sprintf(":%d", n.ReadServicePort())
+		out.Ok(fmt.Sprintf("server listener on: %s", listenerAddr))
+		err := n.Engine.Run(listenerAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -886,7 +883,7 @@ func GetLocalIP() (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("No available ip address found")
+	return "", errors.New("No available ip address found")
 }
 
 func InitMiddlewares() []gin.HandlerFunc {

@@ -30,6 +30,8 @@ const TempleteProfile = `app:
   maxusespace: 2000
   # number of cpus used, 0 means use all
   cores: 0
+  # the server API endpoint
+  apiendpoint: ""
 
 chain:
   # signature account mnemonic
@@ -61,6 +63,7 @@ type Confiler interface {
 	ReadSignatureAccount() string
 	ReadUseCpu() uint32
 	ReadPriorityTeeList() []string
+	ReadApiEndpoint() string
 }
 
 type App struct {
@@ -68,6 +71,7 @@ type App struct {
 	Port        uint16 `name:"port" toml:"port" yaml:"port"`
 	Maxusespace uint64 `name:"maxusespace" toml:"maxusespace" yaml:"maxusespace"`
 	Cores       uint32 `name:"cores" toml:"cores" yaml:"cores"`
+	ApiEndpoint string `name:"apiendpoint" toml:"apiendpoint" yaml:"apiendpoint"`
 }
 
 type Chain struct {
@@ -98,7 +102,6 @@ func (c *Confile) Parse(fpath string) error {
 	if fstat.IsDir() {
 		return errors.Errorf("The '%v' is not a file", fpath)
 	}
-
 	viper.SetConfigFile(fpath)
 	viper.SetConfigType(path.Ext(fpath)[1:])
 
@@ -110,6 +113,11 @@ func (c *Confile) Parse(fpath string) error {
 	if err != nil {
 		return errors.Errorf("[Unmarshal] %v", err)
 	}
+
+	if len(c.ApiEndpoint) <= 0 {
+		return errors.New("'apiendpoint' can not be empty")
+	}
+
 	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	if err != nil {
 		return errors.Errorf("invalid mnemonic: %v", err)
@@ -285,4 +293,8 @@ func (c *Confile) ReadUseCpu() uint32 {
 
 func (c *Confile) ReadPriorityTeeList() []string {
 	return c.Tees
+}
+
+func (c *Confile) ReadApiEndpoint() string {
+	return c.ApiEndpoint
 }
