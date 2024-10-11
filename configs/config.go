@@ -19,11 +19,9 @@ const (
 	//
 	DefaultWorkspace = "/"
 	//
-	DefaultServicePort = 4001
+	DefaultServicePort = 15001
 	//
 	DefaultRpcAddr = "wss://testnet-rpc.cess.network/ws/"
-	//
-	DefaultBootNodeAddr = "_dnsaddr.boot-miner-testnet.cess.network"
 	//
 	MinTagFileSize = 600000
 	//

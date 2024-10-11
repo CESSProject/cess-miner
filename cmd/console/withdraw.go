@@ -17,8 +17,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	withdraw_cmd       = "withdraw"
+	withdraw_cmd_use   = "withdraw"
+	withdraw_cmd_short = "Withdraw staking"
+)
+
+var withdrawCmd = &cobra.Command{
+	Use:                   withdraw_cmd_use,
+	Short:                 withdraw_cmd_short,
+	Run:                   withdrawCmdFunc,
+	DisableFlagsInUseLine: true,
+}
+
+func init() {
+	rootCmd.AddCommand(withdrawCmd)
+}
+
 // Withdraw the staking
-func Command_Withdraw_Runfunc(cmd *cobra.Command, args []string) {
+func withdrawCmdFunc(cmd *cobra.Command, args []string) {
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())

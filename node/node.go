@@ -9,7 +9,11 @@ package node
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -85,6 +89,11 @@ func (n *Node) InitCacher(cace cache.Cache) {
 }
 
 func (n *Node) Start() {
+	defer log.Println("Service has exited")
+	exitCh := make(chan os.Signal, 1)
+	signal.Notify(exitCh, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go exitHandle(exitCh)
+
 	reportFileCh := make(chan bool, 1)
 	reportFileCh <- true
 	idleChallCh := make(chan bool, 1)
@@ -216,6 +225,15 @@ func (n *Node) Reconnectrpc() {
 	n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.SetCurrentRpc(n.GetCurrentRpcAddr())
 	n.SetCurrentRpcst(true)
+}
+
+func exitHandle(exitCh chan os.Signal) {
+	for {
+		select {
+		case sig := <-exitCh:
+			panic(sig.String())
+		}
+	}
 }
 
 func getCpuUsage(pid int32) float64 {

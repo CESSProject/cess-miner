@@ -7,6 +7,8 @@ app:
   maxusespace: 2000
   # number of cpus used, 0 means use all
   cores: 0
+  # the server API endpoint
+  apiendpoint: ""
 
 chain:
   # signature account mnemonic

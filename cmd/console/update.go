@@ -20,37 +20,43 @@ import (
 
 const update_cmd = "update"
 const update_cmd_use = update_cmd
-const update_cmd_short = "update inforation"
+const update_cmd_short = "Update inforation [earnings | endpoint]"
+
 const update_earnings_cmd = "earnings"
 const update_earnings_cmd_use = update_earnings_cmd
-const update_earnings_cmd_short = "update earnings account"
+const update_earnings_cmd_short = "Update earnings account"
+
+const update_endpoint_cmd = "endpoint"
+const update_endpoint_cmd_use = update_endpoint_cmd
+const update_endpoint_cmd_short = "Update endpoint"
 
 var updateCmd = &cobra.Command{
-	Use:   update_cmd_use,
-	Short: update_cmd_short,
-	Run: func(cmd *cobra.Command, args []string) {
-		updateEarningsAccount(cmd)
-		cmd.Help()
-	},
+	Use:                   update_cmd_use,
+	Short:                 update_cmd_short,
 	DisableFlagsInUseLine: true,
 }
 
 var updateEarningsCmd = &cobra.Command{
-	Use:   update_earnings_cmd_use,
-	Short: update_earnings_cmd_short,
-	Run: func(cmd *cobra.Command, args []string) {
-		updateEarningsAccount(cmd)
-	},
+	Use:                update_earnings_cmd_use,
+	Short:              update_earnings_cmd_short,
+	Run:                updearningsCmdFunc,
+	DisableSuggestions: true,
+}
+
+var updateEndpointCmd = &cobra.Command{
+	Use:                update_endpoint_cmd_use,
+	Short:              update_endpoint_cmd_short,
+	Run:                updendpointCmdFunc,
 	DisableSuggestions: true,
 }
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.AddCommand(updateEarningsCmd)
+	updateCmd.AddCommand(updateEndpointCmd)
 }
 
-// updateIncomeAccount
-func updateEarningsAccount(cmd *cobra.Command) {
+func updearningsCmdFunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) < 3 {
 		out.Err("Please enter your earnings account")
 		os.Exit(1)
@@ -88,6 +94,56 @@ func updateEarningsAccount(cmd *cobra.Command) {
 	}
 
 	txhash, err := cli.UpdateBeneficiary(os.Args[3])
+	if err != nil {
+		if txhash == "" {
+			out.Err(err.Error())
+			os.Exit(1)
+		}
+		out.Warn(txhash)
+		os.Exit(0)
+	}
+
+	out.Ok(txhash)
+	os.Exit(0)
+}
+
+func updendpointCmdFunc(cmd *cobra.Command, args []string) {
+	if len(os.Args) < 3 {
+		out.Err("Please enter your earnings account")
+		os.Exit(1)
+	}
+
+	if len(os.Args[3]) <= 0 {
+		out.Err("empty endponit")
+		os.Exit(1)
+	}
+
+	cfg, err := buildAuthenticationConfig(cmd)
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+
+	cli, err := cess.New(
+		context.Background(),
+		cess.Name(configs.Name),
+		cess.ConnectRpcAddrs(cfg.ReadRpcEndpoints()),
+		cess.Mnemonic(cfg.ReadMnemonic()),
+		cess.TransactionTimeout(configs.TimeToWaitEvent),
+	)
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+	defer cli.Close()
+
+	err = cli.InitExtrinsicsNameForMiner()
+	if err != nil {
+		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
+
+	txhash, err := cli.UpdateSminerAddr([]byte(os.Args[3]))
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

@@ -8,6 +8,7 @@
 package web
 
 import (
+	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/gin-gonic/gin"
@@ -27,9 +28,10 @@ func (s *StatusHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 type StatusData struct {
-	PID   int    `json:"pid"`
-	Cores int    `json:"cores"`
-	Addr  string `json:"addr"`
+	PID      int    `json:"pid"`
+	Version  string `json:"version"`
+	Cores    int    `json:"cores"`
+	Endpoint string `json:"endpoint"`
 
 	CurrentRpc        string `json:"current_rpc"`
 	CurrentRpcStatus  bool   `json:"current_rpc_status"`
@@ -57,9 +59,10 @@ func (s *StatusHandler) getStatus(c *gin.Context) {
 	declaration_space, idle_space, service_space, locked_space := s.GetMinerSpaceInfo()
 
 	var data = StatusData{
-		PID:   s.GetPID(),
-		Cores: s.GetCpucores(),
-		Addr:  s.GetComAddr(),
+		PID:      s.GetPID(),
+		Version:  configs.Version,
+		Cores:    s.GetCpucores(),
+		Endpoint: s.GetComAddr(),
 
 		CurrentRpc:        s.GetCurrentRpc(),
 		CurrentRpcStatus:  s.GetCurrentRpcst(),

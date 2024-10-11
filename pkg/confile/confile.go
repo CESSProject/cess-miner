@@ -243,6 +243,10 @@ func (c *Confile) SetEarningsAcc(earningsAcc string) error {
 	return nil
 }
 
+func (c *Confile) SetEndpoint(endpoint string) {
+	c.ApiEndpoint = endpoint
+}
+
 func (c *Confile) SetPriorityTeeList(tees []string) {
 	c.Tees = tees
 }

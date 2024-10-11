@@ -38,12 +38,12 @@ For the Fedora, RedHat and CentOS families of linux systems:
 ```
 
 ### Firewall configuration
-By default, cess-miner uses port `4001` to listen for incoming connections, if your platform blocks these two ports by default, you may need to enable access to these port.
+By default, cess-miner uses port `15001` to listen for incoming connections, if your platform blocks these two ports by default, you may need to enable access to these port.
 
 #### ufw
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
 ```bash
-# ufw allow 4001
+# ufw allow 15001
 ```
 
 #### firewall-cmd
@@ -53,7 +53,7 @@ For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd comma
 ```
 This command gets the active zone(s). Now, apply port rules to the relevant zones returned above. For example if the zone is public, use
 ```bash
-# firewall-cmd --zone=public --add-port=4001/tcp --permanent
+# firewall-cmd --zone=public --add-port=15001/tcp --permanent
 ```
 Note that permanent makes sure the rules are persistent across firewall start, restart or reload. Finally reload the firewall for changes to take effect.
 ```bash
@@ -63,7 +63,7 @@ Note that permanent makes sure the rules are persistent across firewall start, r
 #### iptables
 For hosts with iptables enabled (RHEL, CentOS, etc.), you can use the iptables command to enable all traffic to a specific port. Use the following command to allow access to a port:
 ```
-iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
+iptables -A INPUT -p tcp --dport 15001 -j ACCEPT
 service iptables restart
 ```
 
@@ -147,23 +147,30 @@ The `miner` has many functions, you can use `./miner -h` or `./miner --help` to 
 | -h,--help   | help for cess-miner                                |
 | --earnings  | earnings account                                   |
 | --port      | listening port                                     |
-| --rpc       | rpc endpoint list                                  |
-| --space     | maximum space used(GiB)                            |
-| --ws        | workspace                                          |
+| --rpcs      | rpc endpoint list                                  |
+| --tees      | priority use of tee endpoint list                  |
+| --space     | maximum space used(TiB)                            |
+| --cpu       | number of cpus used, 0 means use all               |
+| --endpoint  | endpoint of miner communication                    |
+| --mnemonic  | signature account mnemonic                         |
+| --staking   | staking account                                    |
+| --workspace | workspace                                          |
 
 - Available Commands
 
 | Command  | Subcommand | Description                                    |
 | -------- | ---------- | ---------------------------------------------- |
-| version  |            | Print version number                           |
+| version  |            | Show version                                   |
 | config   |            | Generate configuration file                    |
 | stat     |            | Query storage miner information                |
-| run      |            | Automatically register and run                 |
+| run      |            | Running through a configuration file           |
+| start    |            | Running without a configuration file           |
 | exit     |            | Unregister the storage miner role              |
-| increase | staking    | Increase the staking                           |
-| increase | space      | Increase the declaration space                 |
-| withdraw |            | Withdraw stakes                                |
+| increase | staking    | Increase the staking (TCESS)                   |
+| increase | space      | Increase the declaration space (TiB)           |
+| withdraw |            | Withdraw staking                               |
 | update   | earnings   | Update earnings account                        |
+| update   | endpoint   | Update endpoint                                |
 | reward   |            | Query reward information                       |
 | claim    |            | Claim reward                                   |
 
@@ -196,11 +203,10 @@ Re-enter the miner window command:
 
 **method one**
 
-Enter the `miner run` command to run directly, and enter the information according to the prompt to complete the startup:
+Enter the `miner start` command to run directly, and enter the information according to the prompt to complete the startup:
 
 ```bash
 # ./miner run
-!! 2024-10-08 16:07:30 No configuration file was found, so enter the manual configuration process:
 >> Enter the rpc address of the chain, multiple addresses are separated by spaces, press Enter to skip
 to use [wss://testnet-rpc.cess.network/ws/] as default rpc address:
 
@@ -220,6 +226,9 @@ OK 2024-10-08 16:09:02 2000
 >> Enter priority tee address, multiple addresses are separated by spaces, press Enter to skip:
 
 OK 2024-10-08 16:09:11 []
+>> Enter the endpoint, if you have already registered and don't want to update, press Enter to skip:
+xxx.xxx.xxx.xxx:15001
+OK 2024-10-11 11:53:55 xxx.xxx.xxx.xxx:15001
 >> Please enter the mnemonic of the staking account:
 ***********************************************************************************
 ```
@@ -227,7 +236,14 @@ OK 2024-10-08 16:09:11 []
 **method two**
 
 ```bash
-# ./miner run --rpc wss://testnet-rpc.cess.network/ws/ --ws / --earnings cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV --port 15001 --space 2000
+# ./miner start --rpcs wss://testnet-rpc.cess.network/ws/ --workspace / --earnings cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV --port 15001 --space 2000 --endpoint xxx.xxx.xxx.xxx:15001 --tees xxx.xxx.xxx.xxx:19999
+OK 2024-10-11 13:59:08 [wss://testnet-rpc.cess.network/ws/]
+OK 2024-10-11 13:59:08 /
+OK 2024-10-11 13:59:08 cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV
+OK 2024-10-11 13:59:08 15001
+OK 2024-10-11 13:59:08 2000
+OK 2024-10-11 13:59:08 [xxx.xxx.xxx.xxx:19999]
+OK 2024-10-11 13:59:08 xxx.xxx.xxx.xxx:15001
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 ```
@@ -252,7 +268,7 @@ If the configuration file is named conf.yaml and is located in the same director
 
 - stat
 ```bash
-# ./miner stat --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner stat --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +-------------------+------------------------------------------------------+
@@ -274,7 +290,7 @@ If the configuration file is named conf.yaml and is located in the same director
 
 - increase staking
 ```bash
-# ./miner increase staking 10000 --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner increase staking 10000 --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
@@ -282,7 +298,7 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 
 - increase space
 ```bash
-# ./miner increase space 10 --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner increase space 10 --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
@@ -290,21 +306,15 @@ OK 0xe098179a4a668690f28947d20083014e5a510b8907aac918e7b96efe1845e053
 
 - update earnings
 ```bash
-# ./miner update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner update earnings cXgDBpxj2vHhR9qP8wTkZ5ZST9YMu6WznFsEAZi3SZPD4b4qw --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x0fa67b89d9f8ff134b45e4e507ccda00c0923d43c3b8166a2d75d3f42e5a269a
 ```
 
-- version
-```shell
-./miner version
-miner v0.7.11
-```
-
 - exit
 ```bash
-# ./miner exit --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner exit --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
@@ -312,7 +322,7 @@ OK 0xf6e9573ba53a90c4bbd8c3784ef97bbf74bdb1cf8c01df697310a64c2a7d4513
 
 - withdraw
 ```bash
-# ./miner withdraw --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner withdraw --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
@@ -320,7 +330,7 @@ OK 0xfbcc77c072f88668a83f2dd3ea00f3ba2e5806aae8265cfba1582346d6ada3f1
 
 - claim
 ```bash
-# ./miner claim --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner claim --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
@@ -328,7 +338,7 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 
 - reward
 ```bash
-# ./miner reward --rpc wss://testnet-rpc.cess.network/ws/
+# ./miner reward --rpcs wss://testnet-rpc.cess.network/ws/
 >> Please enter the mnemonic of the staking account:
 *******************************************************************************
 +------------------+---------------------------+
@@ -336,6 +346,12 @@ OK 0x59096fd095b66665c838f89ae4f1384ab31255cdc9c80003b05b50124cfdcfee
 | claimed reward   | 534_235_750_855_578_370   |
 | unclaimed reward | 0                         |
 +------------------+---------------------------+
+```
+
+- version
+```shell
+./miner version
+miner vx.x.x
 ```
 
 ## License

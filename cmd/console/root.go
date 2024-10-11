@@ -40,63 +40,15 @@ func Execute() {
 
 // init
 func init() {
-	rootCmd.AddCommand(
-		Command_Version(),
-		Command_State(),
-		Command_Run(),
-		Command_Withdraw(),
-	)
 	rootCmd.PersistentFlags().StringP("config", "c", "", "custom configuration file")
-	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint list")
-	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
+	rootCmd.PersistentFlags().StringSliceP("rpcs", "", nil, "rpc endpoint list")
+	rootCmd.PersistentFlags().StringP("workspace", "", "", "workspace")
 	rootCmd.PersistentFlags().StringP("staking", "", "", "staking account")
 	rootCmd.PersistentFlags().StringP("earnings", "", "", "earnings account")
-	rootCmd.PersistentFlags().IntP("port", "", 0, "listening port")
+	rootCmd.PersistentFlags().Uint16P("port", "", 0, "listening port")
 	rootCmd.PersistentFlags().IntP("cpu", "", 0, "number of cpus used, 0 means use all")
 	rootCmd.PersistentFlags().Uint64P("space", "", 0, "maximum space used (TiB)")
-	rootCmd.PersistentFlags().StringP("mnemonic", "m", "", "staking account mnemonic")
-	rootCmd.PersistentFlags().StringSliceP("tees", "", nil, "priority tee list address")
-}
-
-func Command_Version() *cobra.Command {
-	cc := &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(configs.Name + " " + configs.Version)
-			os.Exit(0)
-		},
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_State() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "stat",
-		Short:                 "Query storage miner information",
-		Run:                   Command_State_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Run() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "run",
-		Short:                 "Automatically register and run",
-		Run:                   runCmd,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Withdraw() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "withdraw",
-		Short:                 "withdraw staking",
-		Run:                   Command_Withdraw_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
+	rootCmd.PersistentFlags().StringP("mnemonic", "", "", "signature account mnemonic")
+	rootCmd.PersistentFlags().StringSliceP("tees", "", nil, "priority use of tee endpoint list")
+	rootCmd.PersistentFlags().StringP("endpoint", "", "", "endpoint of miner communication")
 }

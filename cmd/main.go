@@ -8,28 +8,10 @@
 package main
 
 import (
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/CESSProject/cess-miner/cmd/console"
 )
 
 // program entry
 func main() {
-	defer log.Println("Service has exited")
-	exitCh := make(chan os.Signal)
-	signal.Notify(exitCh, os.Interrupt, os.Kill, syscall.SIGTERM)
-	go exitHandle(exitCh)
 	console.Execute()
-}
-
-func exitHandle(exitCh chan os.Signal) {
-	for {
-		select {
-		case sig := <-exitCh:
-			panic(sig.String())
-		}
-	}
 }

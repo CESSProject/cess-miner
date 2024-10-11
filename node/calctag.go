@@ -582,7 +582,9 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 			if onChainFlag {
 				break
 			}
-			n.Stag("err", err.Error())
+			if err != nil {
+				n.Stag("err", err.Error())
+			}
 			if (j + 1) >= 10 {
 				break
 			}

@@ -30,7 +30,7 @@ const (
 var rewardCmd = &cobra.Command{
 	Use:                   reward_cmd_use,
 	Short:                 reward_cmd_short,
-	Run:                   Command_Reward_Runfunc,
+	Run:                   rewardCmdFunc,
 	DisableFlagsInUseLine: true,
 }
 
@@ -38,8 +38,7 @@ func init() {
 	rootCmd.AddCommand(rewardCmd)
 }
 
-// Exit
-func Command_Reward_Runfunc(cmd *cobra.Command, args []string) {
+func rewardCmdFunc(cmd *cobra.Command, args []string) {
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())

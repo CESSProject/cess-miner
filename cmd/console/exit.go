@@ -26,7 +26,7 @@ const (
 var exitCmd = &cobra.Command{
 	Use:                   exit_cmd_use,
 	Short:                 exit_cmd_short,
-	Run:                   Command_Exit_Runfunc,
+	Run:                   exitCmdFunc,
 	DisableFlagsInUseLine: true,
 }
 
@@ -34,8 +34,7 @@ func init() {
 	rootCmd.AddCommand(exitCmd)
 }
 
-// Exit
-func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
+func exitCmdFunc(cmd *cobra.Command, args []string) {
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())

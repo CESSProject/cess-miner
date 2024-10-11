@@ -20,13 +20,13 @@ import (
 const (
 	claim_cmd       = "claim"
 	claim_cmd_use   = "claim"
-	claim_cmd_short = "claim reward"
+	claim_cmd_short = "Claim reward"
 )
 
 var claimCmd = &cobra.Command{
 	Use:                   claim_cmd_use,
 	Short:                 claim_cmd_short,
-	Run:                   Command_Claim_Runfunc,
+	Run:                   claimCmdFunc,
 	DisableFlagsInUseLine: true,
 }
 
@@ -34,8 +34,8 @@ func init() {
 	rootCmd.AddCommand(claimCmd)
 }
 
-// Exit
-func Command_Claim_Runfunc(cmd *cobra.Command, args []string) {
+// claimCmdFunc claim rewards
+func claimCmdFunc(cmd *cobra.Command, args []string) {
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())

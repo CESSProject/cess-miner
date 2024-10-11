@@ -24,8 +24,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Query miner state
-func Command_State_Runfunc(cmd *cobra.Command, args []string) {
+const (
+	stat_cmd       = "stat"
+	stat_cmd_use   = "stat"
+	stat_cmd_short = "Query storage miner information"
+)
+
+var statCmd = &cobra.Command{
+	Use:                   stat_cmd_use,
+	Short:                 stat_cmd_short,
+	Run:                   statCmdFunc,
+	DisableFlagsInUseLine: true,
+}
+
+func init() {
+	rootCmd.AddCommand(statCmd)
+}
+
+func statCmdFunc(cmd *cobra.Command, args []string) {
 	cfg, err := buildAuthenticationConfig(cmd)
 	if err != nil {
 		out.Err(err.Error())

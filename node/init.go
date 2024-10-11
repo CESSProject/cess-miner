@@ -102,7 +102,6 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 	apiEndpoint := n.ReadApiEndpoint()
-	out.Ok(fmt.Sprintf("ApiEndpoint: %s", apiEndpoint))
 
 	cli, err := sdkgo.New(
 		context.Background(),
@@ -853,12 +852,12 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *web.Handler) {
 	hdl.RegisterRoutes(n.Engine)
 	go func() {
 		listenerAddr := fmt.Sprintf(":%d", n.ReadServicePort())
-		out.Ok(fmt.Sprintf("server listener on: %s", listenerAddr))
 		err := n.Engine.Run(listenerAddr)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}()
+	time.Sleep(time.Millisecond * 10)
 }
 
 func GetLocalIP() (string, error) {

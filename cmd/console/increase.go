@@ -24,15 +24,15 @@ import (
 
 const increase_cmd = "increase"
 const increase_cmd_use = increase_cmd
-const increase_cmd_short = "increase [staking | space]"
+const increase_cmd_short = "Increase [staking | space]"
 
 const increaseStaking_cmd = "staking"
 const increaseStaking_cmd_use = increaseStaking_cmd
-const increaseStaking_cmd_short = "increase staking, the unit is TCESS"
+const increaseStaking_cmd_short = "Increase staking, the unit is TCESS"
 
 const increaseSpace_cmd = "space"
 const increaseSpace_cmd_use = increaseSpace_cmd
-const increaseSpace_cmd_short = "increase space, the unit is TiB"
+const increaseSpace_cmd_short = "Increase space, the unit is TiB"
 
 var increaseCmd = &cobra.Command{
 	Use:                   increase_cmd_use,
@@ -44,7 +44,7 @@ var increaseStakingCmd = &cobra.Command{
 	Use:   increaseStaking_cmd_use,
 	Short: increaseStaking_cmd_short,
 	Run: func(cmd *cobra.Command, args []string) {
-		increaseStakingCmd_Runfunc(cmd, args)
+		incstakingCmdFunc(cmd, args)
 	},
 	DisableFlagsInUseLine: true,
 }
@@ -53,7 +53,7 @@ var increaseSpaceCmd = &cobra.Command{
 	Use:   increaseSpace_cmd_use,
 	Short: increaseSpace_cmd_short,
 	Run: func(cmd *cobra.Command, args []string) {
-		increaseSpaceCmd_Runfunc(cmd, args)
+		incspaceCmdFunc(cmd, args)
 	},
 	DisableFlagsInUseLine: true,
 }
@@ -65,7 +65,7 @@ func init() {
 }
 
 // increase staking
-func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
+func incstakingCmdFunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) < 4 {
 		out.Err("Please enter the staking amount, the unit is TCESS")
 		os.Exit(1)
@@ -117,7 +117,7 @@ func increaseStakingCmd_Runfunc(cmd *cobra.Command, args []string) {
 }
 
 // increase space
-func increaseSpaceCmd_Runfunc(cmd *cobra.Command, args []string) {
+func incspaceCmdFunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) < 4 {
 		out.Err("Please enter the space size to be increased in TiB")
 		os.Exit(1)
