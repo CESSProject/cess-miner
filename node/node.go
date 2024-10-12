@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,6 +26,9 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/confile"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
+	"github.com/CESSProject/cess-miner/pkg/utils"
+	"github.com/CESSProject/cess_pois/acc"
+	"github.com/CESSProject/cess_pois/pois"
 	"github.com/gin-gonic/gin"
 	sprocess "github.com/shirou/gopsutil/process"
 )
@@ -39,7 +43,8 @@ type Node struct {
 	chain.Chainer
 	*pb.MinerPoisInfo
 	*RSAKeyPair
-	*Pois
+	*pois.Prover
+	*acc.RsaKey
 	*gin.Engine
 	chain.ExpendersInfo
 }
@@ -72,8 +77,12 @@ func (n *Node) InitMinerPoisInfo(poisInfo *pb.MinerPoisInfo) {
 	n.MinerPoisInfo = poisInfo
 }
 
-func (n *Node) InitPois(pois *Pois) {
-	n.Pois = pois
+func (n *Node) InitPoisProver(p *pois.Prover) {
+	n.Prover = p
+}
+
+func (n *Node) InitAccRsaKey(key *acc.RsaKey) {
+	n.RsaKey = key
 }
 
 func (n *Node) InitRunstatus(rt runstatus.Runstatus) {
@@ -124,6 +133,13 @@ func (n *Node) Start() {
 	chainState := true
 
 	out.Ok("Service started successfully")
+
+	err := n.CheckPois()
+	if err != nil {
+		out.Err(fmt.Sprintf("Check pois err: %v", err))
+		os.Exit(1)
+	}
+
 	for {
 		select {
 		case <-tick_twoblock.C:
@@ -225,6 +241,58 @@ func (n *Node) Reconnectrpc() {
 	n.Schal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.SetCurrentRpc(n.GetCurrentRpcAddr())
 	n.SetCurrentRpcst(true)
+}
+
+func (n *Node) CheckPois() error {
+	cfg := pois.Config{
+		AccPath:        n.GetPoisDir(),
+		IdleFilePath:   n.GetSpaceDir(),
+		ChallAccPath:   n.GetPoisAccDir(),
+		MaxProofThread: int(n.ReadUseCpu()),
+	}
+	if n.GetRegister() {
+		fmt.Println("1")
+		//Please initialize prover for the first time
+		err := n.Prover.Init(*n.RsaKey, cfg)
+		if err != nil {
+			return fmt.Errorf("pois prover init: %v", err)
+		}
+	} else {
+		fmt.Println("2")
+		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
+		err := n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
+		if err != nil {
+			fmt.Println("3")
+			if strings.Contains(err.Error(), "read element data") {
+				fmt.Println("4")
+				num := 2
+				m, err := utils.GetSysMemAvailable()
+				cpuNum := runtime.NumCPU()
+				if err == nil {
+					m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
+					if int(m) < cpuNum {
+						cpuNum = int(m)
+					}
+					if cpuNum > num {
+						num = cpuNum
+					}
+				}
+				out.Tip(fmt.Sprintf("Check and restore idle data, use %d cpus", num))
+				err = n.Prover.CheckAndRestoreIdleData(n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, num)
+				if err != nil {
+					return fmt.Errorf("check and restore idle data: %v", err)
+				}
+				err = n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
+				if err != nil {
+					return fmt.Errorf("pois prover recovery: %v", err)
+				}
+			} else {
+				return fmt.Errorf("pois prover recovery: %v", err)
+			}
+		}
+	}
+	n.Prover.AccManager.GetSnapshot()
+	return nil
 }
 
 func exitHandle(exitCh chan os.Signal) {

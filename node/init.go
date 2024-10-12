@@ -31,6 +31,8 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/utils"
+	"github.com/CESSProject/cess_pois/acc"
+	"github.com/CESSProject/cess_pois/pois"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -54,7 +56,7 @@ func (n *Node) InitNode() *Node {
 	return n
 }
 
-func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string) {
+func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string, register bool) {
 	rt := runstatus.NewRunstatus()
 	rt.SetPID(os.Getpid())
 	rt.SetCpucores(int(n.ReadUseCpu()))
@@ -63,6 +65,7 @@ func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string) {
 	rt.SetSignAcc(n.GetSignatureAcc())
 	rt.SetState(string(st))
 	rt.SetComAddr(apiEndpoint)
+	rt.SetRegister(register)
 	stakingAcc := n.ReadStakingAcc()
 	if stakingAcc == "" {
 		rt.SetStakingAcc(n.GetSignatureAcc())
@@ -142,49 +145,49 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, pois, teeRecord, st, err := n.checkMiner(apiEndpoint)
+	rsakey, poisInfo, prover, teeRecord, st, register, err := n.checkMiner(apiEndpoint)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
 	n.InitRSAKeyPair(rsakey)
-	n.InitPois(pois)
+	n.InitPoisProver(prover)
 	n.InitMinerPoisInfo(poisInfo)
 	n.InitTeeRecord(teeRecord)
-	n.InitRunStatus(st, apiEndpoint, t)
+	n.InitRunStatus(st, apiEndpoint, t, register)
 }
 
-func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *Pois, record.TeeRecorder, types.Bytes, error) {
+func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *pois.Prover, record.TeeRecorder, types.Bytes, bool, error) {
 	var rsakey *RSAKeyPair
-	var poisInfo = &pb.MinerPoisInfo{}
-	var p *Pois
+	var minerPois = &pb.MinerPoisInfo{}
+	var prover *pois.Prover
 	var teeRecord record.TeeRecorder
 
 	register, decTib, oldRegInfo, err := n.checkRegistrationInfo()
 	if err != nil {
-		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[checkMiner]")
+		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[checkMiner]")
 	}
 
 	switch register {
 	case Unregistered:
 		_, err = registerMiner(n.Chainer, n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint, decTib)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerMiner]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerMiner]")
 		}
 
 		err = n.RemoveAndBuild()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[RemoveAndBuild]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[RemoveAndBuild]")
 		}
 
 		time.Sleep(time.Minute)
 
 		for i := 0; i < 3; i++ {
-			rsakey, poisInfo, teeRecord, err = n.registerPoisKey()
+			rsakey, minerPois, teeRecord, err = n.registerPoisKey()
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -192,37 +195,36 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			break
 		}
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 		}
 
-		p, err = NewPOIS(
-			n.GetPoisDir(),
-			n.GetSpaceDir(),
-			n.GetPoisAccDir(),
+		n.InitAccRsaKey(&acc.RsaKey{
+			N: *new(big.Int).SetBytes(minerPois.KeyN),
+			G: *new(big.Int).SetBytes(minerPois.KeyG),
+		})
+
+		prover, err = NewPoisProver(
 			n.ExpendersInfo,
-			true, 0, 0,
 			int64(n.ReadUseSpace()*1024), 32,
-			int(n.ReadUseCpu()),
-			poisInfo.KeyN,
-			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
 		}
-		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
+
+		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, nil
 
 	case UnregisteredPoisKey:
 		err = n.Build()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[Build]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[Build]")
 		}
 		// runtime.SetMinerState(string(oldRegInfo.State))
 		for i := 0; i < 3; i++ {
-			rsakey, poisInfo, teeRecord, err = n.registerPoisKey()
+			rsakey, minerPois, teeRecord, err = n.registerPoisKey()
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -230,88 +232,78 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			break
 		}
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 		}
 
 		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
-		p, err = NewPOIS(
-			n.GetPoisDir(),
-			n.GetSpaceDir(),
-			n.GetPoisAccDir(),
+		n.InitAccRsaKey(&acc.RsaKey{
+			N: *new(big.Int).SetBytes(minerPois.KeyN),
+			G: *new(big.Int).SetBytes(minerPois.KeyG),
+		})
+
+		prover, err = NewPoisProver(
 			n.ExpendersInfo,
-			true, 0, 0,
 			int64(n.ReadUseSpace()*1024), 32,
-			int(n.ReadUseCpu()),
-			poisInfo.KeyN,
-			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
 		}
-		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
+		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, nil
 
 	case Registered:
 		err = n.Build()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
 		}
 
 		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
 		ok, spaceProofInfo := oldRegInfo.SpaceProofInfo.Unwrap()
 		if !ok {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.New("SpaceProofInfo unwrap failed")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.New("SpaceProofInfo unwrap failed")
 		}
 
-		poisInfo.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
-		poisInfo.Front = int64(spaceProofInfo.Front)
-		poisInfo.Rear = int64(spaceProofInfo.Rear)
-		poisInfo.KeyN = []byte(string(spaceProofInfo.PoisKey.N[:]))
-		poisInfo.KeyG = []byte(string(spaceProofInfo.PoisKey.G[:]))
-		poisInfo.StatusTeeSign = []byte(string(oldRegInfo.TeeSig[:]))
+		minerPois.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
+		minerPois.Front = int64(spaceProofInfo.Front)
+		minerPois.Rear = int64(spaceProofInfo.Rear)
+		minerPois.KeyN = []byte(string(spaceProofInfo.PoisKey.N[:]))
+		minerPois.KeyG = []byte(string(spaceProofInfo.PoisKey.G[:]))
+		minerPois.StatusTeeSign = []byte(string(oldRegInfo.TeeSig[:]))
 
-		p, err = NewPOIS(
-			n.GetPoisDir(),
-			n.GetSpaceDir(),
-			n.GetPoisAccDir(),
-			n.ExpendersInfo, false,
-			int64(spaceProofInfo.Front),
-			int64(spaceProofInfo.Rear),
+		n.InitAccRsaKey(&acc.RsaKey{
+			N: *new(big.Int).SetBytes(minerPois.KeyN),
+			G: *new(big.Int).SetBytes(minerPois.KeyG),
+		})
+
+		prover, err = NewPoisProver(
+			n.ExpendersInfo,
 			int64(n.ReadUseSpace()*1024), 32,
-			int(n.ReadUseCpu()),
-			poisInfo.KeyN,
-			poisInfo.KeyG,
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
 		}
-
-		// teeRecord, err = n.saveAllTees()
-		// if err != nil {
-		// 	return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[saveAllTees]")
-		// }
 		var buf []byte
 		buf, teeRecord, err = n.queryPodr2KeyFromTee()
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[queryPodr2KeyFromTee]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[queryPodr2KeyFromTee]")
 		}
 
 		rsakey, err = NewRsaKey(buf)
 		if err != nil {
-			return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.Wrap(err, "[NewRsaKey]")
+			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewRsaKey]")
 		}
-		return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, nil
+		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, nil
 	}
-	return rsakey, poisInfo, p, teeRecord, oldRegInfo.State, errors.New("system err")
+	return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.New("system err")
 }
 
 func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {

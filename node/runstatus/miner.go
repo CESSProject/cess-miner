@@ -18,6 +18,7 @@ type Minerst interface {
 	SetState(st string)
 	// declaration_space, idle_space, service_space, locked_space
 	SetSpaceInfo(decSpace, validSpace, usedSpace, lockedSpace uint64)
+	SetRegister(register bool)
 
 	GetSignAcc() string
 	GetStakingAcc() string
@@ -25,6 +26,7 @@ type Minerst interface {
 	GetState() string
 	// declaration_space, idle_space, service_space, locked_space
 	GetMinerSpaceInfo() (uint64, uint64, uint64, uint64)
+	GetRegister() bool
 }
 
 type MinerSt struct {
@@ -41,6 +43,7 @@ type MinerSt struct {
 	reportFileFlag bool
 	genIdleFlag    bool
 	authIdleFlag   bool
+	register       bool
 }
 
 func NewMinerSt() *MinerSt {
@@ -118,4 +121,17 @@ func (m *MinerSt) GetMinerSpaceInfo() (uint64, uint64, uint64, uint64) {
 	lockedSpace := m.lockedSpace
 	m.lock.RUnlock()
 	return decSpace, validSpace, usedSpace, lockedSpace
+}
+
+func (m *MinerSt) SetRegister(register bool) {
+	m.lock.Lock()
+	m.register = register
+	m.lock.Unlock()
+}
+
+func (m *MinerSt) GetRegister() bool {
+	m.lock.RLock()
+	value := m.register
+	m.lock.RUnlock()
+	return value
 }
