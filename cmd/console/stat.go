@@ -18,7 +18,6 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -94,7 +93,7 @@ func statCmdFunc(cmd *cobra.Command, args []string) {
 
 	var tableRows = []table.Row{
 		{"name", "storage miner"},
-		{"peer id", base58.Encode([]byte(string(minerInfo.PeerId[:])))},
+		{"endpoint", string(minerInfo.Endpoint[:])},
 		{"state", string(minerInfo.State)},
 		{"staking amount", fmt.Sprintf("%v %s", minerInfo.Collaterals, cli.GetTokenSymbol())},
 		{"staking start", startBlock},

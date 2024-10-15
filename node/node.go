@@ -251,20 +251,16 @@ func (n *Node) CheckPois() error {
 		MaxProofThread: int(n.ReadUseCpu()),
 	}
 	if n.GetRegister() {
-		fmt.Println("1")
 		//Please initialize prover for the first time
 		err := n.Prover.Init(*n.RsaKey, cfg)
 		if err != nil {
 			return fmt.Errorf("pois prover init: %v", err)
 		}
 	} else {
-		fmt.Println("2")
 		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
 		err := n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
 		if err != nil {
-			fmt.Println("3")
 			if strings.Contains(err.Error(), "read element data") {
-				fmt.Println("4")
 				num := 2
 				m, err := utils.GetSysMemAvailable()
 				cpuNum := runtime.NumCPU()

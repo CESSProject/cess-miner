@@ -143,7 +143,7 @@ func updendpointCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := cli.UpdateSminerAddr([]byte(os.Args[3]))
+	txhash, err := cli.UpdateSminerEndpoint([]byte(os.Args[3]))
 	if err != nil {
 		if txhash == "" {
 			out.Err(err.Error())

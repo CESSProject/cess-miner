@@ -509,19 +509,13 @@ func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo,
 			out.Ok(fmt.Sprintf("[%s] Successfully updated earnings account to %s", txhash, earningsAcc))
 		}
 	}
-	var updateAddr bool
-	for i := 0; i < len(addr); i++ {
-		if types.U8(addr[i]) != oldRegInfo.PeerId[i] {
-			updateAddr = true
-			break
-		}
-	}
-	if updateAddr {
-		txhash, err := cli.UpdateSminerAddr([]byte(addr))
+
+	if addr != string(oldRegInfo.Endpoint[:]) {
+		txhash, err := cli.UpdateSminerEndpoint([]byte(addr))
 		if err != nil {
-			return fmt.Errorf("Update address err: %v, blockhash: %s", err, txhash)
+			return fmt.Errorf("Update endpoint err: %v, blockhash: %s", err, txhash)
 		}
-		out.Ok(fmt.Sprintf("[%s] Successfully updated address to %s", txhash, addr))
+		out.Ok(fmt.Sprintf("[%s] Successfully updated endpoint to %s", txhash, addr))
 	}
 
 	return nil
