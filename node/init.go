@@ -219,7 +219,7 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 		if err != nil {
 			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[Build]")
 		}
-		// runtime.SetMinerState(string(oldRegInfo.State))
+
 		for i := 0; i < 3; i++ {
 			rsakey, minerPois, teeRecord, err = n.registerPoisKey()
 			if err != nil {

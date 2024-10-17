@@ -5,9 +5,8 @@ go 1.21
 toolchain go1.21.12
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.6.4-0.20241015084310-3552cef74beb
+	github.com/CESSProject/cess-go-sdk v0.6.4-0.20241016035758-24703dcde9d9
 	github.com/CESSProject/cess_pois v0.5.16
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
@@ -32,6 +31,7 @@ require (
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2 // indirect
+	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/bytedance/sonic v1.11.3 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.1 // indirect
