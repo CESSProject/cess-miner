@@ -136,7 +136,7 @@ func (n *Node) Start() {
 
 	err := n.CheckPois()
 	if err != nil {
-		out.Err(fmt.Sprintf("Check pois err: %v", err))
+		out.Err(fmt.Sprintf("check pois err: %v", err))
 		os.Exit(1)
 	}
 
