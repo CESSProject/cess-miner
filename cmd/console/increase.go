@@ -174,21 +174,28 @@ func incspaceCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	accInfo, err := cli.QueryAccountInfoByAccountID(minerInfo.StakingAccount[:], -1)
-	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			out.Err(err.Error())
-			os.Exit(1)
-		}
-		out.Err("staking account does not exist, possible: 1.balance is empty 2.rpc address error")
+	token := space * chain.StakingStakePerTiB
+	token_cess, ok := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
+	if !ok {
+		out.Err("system error")
 		os.Exit(1)
 	}
 
-	token := space * chain.StakingStakePerTiB
-	token_cess, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
-	if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
-		out.Err(fmt.Sprintf("staking account balance less than %d %s", token, cli.GetTokenSymbol()))
-		os.Exit(1)
+	if minerInfo.Collaterals.CmpAbs(token_cess) < 0 {
+		accInfo, err := cli.QueryAccountInfoByAccountID(minerInfo.StakingAccount[:], -1)
+		if err != nil {
+			if err.Error() != chain.ERR_Empty {
+				out.Err(err.Error())
+				os.Exit(1)
+			}
+			out.Err("staking account does not exist, possible: 1.balance is empty 2.rpc address error")
+			os.Exit(1)
+		}
+		token_cess.Sub(token_cess, minerInfo.Collaterals.Int)
+		if accInfo.Data.Free.CmpAbs(token_cess) < 0 {
+			out.Err(fmt.Sprintf("staking account balance less than %v %s", token_cess, cli.GetTokenSymbol()))
+			os.Exit(1)
+		}
 	}
 
 	txhash, err := cli.IncreaseDeclarationSpace(uint32(space))
