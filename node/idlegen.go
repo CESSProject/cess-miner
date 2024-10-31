@@ -9,6 +9,9 @@ package node
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +55,13 @@ func (n *Node) GenIdle(ch chan<- bool) {
 		return
 	}
 
+	if dirfreeSpace < chain.SIZE_1GiB {
+		n.removeZipLogs()
+		n.removeRandoms()
+		time.Sleep(time.Minute * 10)
+		return
+	}
+
 	if dirfreeSpace < minSpace {
 		n.Space("err", fmt.Sprintf("The disk space is less than %dG", minSpace/chain.SIZE_1GiB))
 		time.Sleep(time.Minute * 10)
@@ -73,4 +83,46 @@ func (n *Node) GenIdle(ch chan<- bool) {
 		return
 	}
 	n.Space("info", "generate a idle file")
+}
+
+func (n *Node) removeZipLogs() {
+	filse, err := utils.DirFiles(n.GetLogDir(), 0)
+	if err != nil {
+		n.Space("err", fmt.Sprintf("DirFiles(%s): %v", n.GetLogDir(), err))
+		return
+	}
+	for _, v := range filse {
+		if strings.Contains(v, ".gz") {
+			os.Remove(v)
+		}
+	}
+}
+
+func (n *Node) removeRandoms() {
+	filse, err := utils.DirFiles(n.GetChallRndomDir(), 0)
+	if err != nil {
+		n.Space("err", fmt.Sprintf("DirFiles(%s): %v", n.GetLogDir(), err))
+		return
+	}
+	bheader, err := n.GetSubstrateAPI().RPC.Chain.GetHeaderLatest()
+	if err != nil {
+		n.Space("err", fmt.Sprintf("GetHeaderLatest: %v", err))
+		return
+	}
+	removed := int(bheader.Number) * 4 / 5
+	for _, v := range filse {
+		temp := strings.Split(filepath.Base(v), ".")
+		if len(temp) != 2 {
+			os.Remove(v)
+			continue
+		}
+		blocknumber, err := strconv.Atoi(temp[1])
+		if err != nil {
+			os.Remove(v)
+			continue
+		}
+		if blocknumber < removed {
+			os.Remove(v)
+		}
+	}
 }

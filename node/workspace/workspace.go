@@ -32,9 +32,8 @@ const (
 	poisDir       = "pois"
 	accDir        = "acc"
 	randomDir     = "random"
-	peer_record   = "peer_record"
-	idle_prove    = "idle_prove"
-	service_prove = "service_prove"
+	idle_proof    = "idle_proof"
+	service_proof = "service_proof"
 )
 
 type Workspace interface {
@@ -50,7 +49,6 @@ type Workspace interface {
 	GetPoisDir() string
 	GetPoisAccDir() string
 	GetChallRndomDir() string
-	GetPeerRecord() string
 	GetPodr2Key() string
 	GetIdleProve() string
 	GetServiceProve() string
@@ -76,7 +74,6 @@ type workspace struct {
 	poisDir       string
 	accDir        string
 	randomDir     string
-	peer_record   string
 	podr2_rsa_pub string
 	idle_prove    string
 	service_prove string
@@ -104,9 +101,8 @@ func (w *workspace) RemoveAndBuild() error {
 	if w.rootDir == "" {
 		return fmt.Errorf("Please initialize the workspace first")
 	}
-	w.peer_record = filepath.Join(w.rootDir, peer_record)
-	w.idle_prove = filepath.Join(w.rootDir, idle_prove)
-	w.service_prove = filepath.Join(w.rootDir, service_prove)
+	w.idle_prove = filepath.Join(w.rootDir, idle_proof)
+	w.service_prove = filepath.Join(w.rootDir, service_proof)
 	w.fileDir = filepath.Join(w.rootDir, fileDir)
 	w.reportDir = filepath.Join(w.rootDir, reportDir)
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
@@ -154,7 +150,10 @@ func (w *workspace) RemoveAndBuild() error {
 		return err
 	}
 
-	os.Remove(w.peer_record)
+	os.Remove(filepath.Join(w.rootDir, "idle_prove"))
+	os.Remove(filepath.Join(w.rootDir, "service_prove"))
+	os.Remove(filepath.Join(w.rootDir, "podr2_rsa.pub"))
+	os.Remove(filepath.Join(w.rootDir, "peer_record"))
 	os.Remove(w.podr2_rsa_pub)
 	os.Remove(w.idle_prove)
 	os.Remove(w.service_prove)
@@ -207,9 +206,12 @@ func (w *workspace) Build() error {
 		return fmt.Errorf("Please initialize the workspace first")
 	}
 
-	w.peer_record = filepath.Join(w.rootDir, peer_record)
-	w.idle_prove = filepath.Join(w.rootDir, idle_prove)
-	w.service_prove = filepath.Join(w.rootDir, service_prove)
+	os.Remove(filepath.Join(w.rootDir, "idle_prove"))
+	os.Remove(filepath.Join(w.rootDir, "service_prove"))
+	os.Remove(filepath.Join(w.rootDir, "podr2_rsa.pub"))
+	os.Remove(filepath.Join(w.rootDir, "peer_record"))
+	w.idle_prove = filepath.Join(w.rootDir, idle_proof)
+	w.service_prove = filepath.Join(w.rootDir, service_proof)
 
 	w.logDir = filepath.Join(w.rootDir, logDir)
 	if err := os.MkdirAll(w.logDir, configs.FileMode); err != nil {
@@ -252,6 +254,7 @@ func (w *workspace) Build() error {
 	}
 
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
+	os.RemoveAll(w.tmpDir)
 	if err := os.MkdirAll(w.tmpDir, configs.FileMode); err != nil {
 		return err
 	}
@@ -290,9 +293,6 @@ func (w *workspace) GetChallRndomDir() string {
 }
 func (w *workspace) GetChallRandomDir() string {
 	return w.randomDir
-}
-func (w *workspace) GetPeerRecord() string {
-	return w.peer_record
 }
 func (w *workspace) GetPodr2Key() string {
 	return w.podr2_rsa_pub
