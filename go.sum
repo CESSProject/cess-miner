@@ -4,6 +4,8 @@ github.com/CESSProject/cess-go-sdk v0.6.4-0.20241016035758-24703dcde9d9 h1:FwFf9
 github.com/CESSProject/cess-go-sdk v0.6.4-0.20241016035758-24703dcde9d9/go.mod h1:PhEkkRp+2YqgZJnVvB4dnU183pBMmDBxvaLrD3KB2Tw=
 github.com/CESSProject/cess_pois v0.5.16 h1:OYPmmuvGH9ikTyDS2BlmcNw3ZBX8udew+gNnIBTJSa8=
 github.com/CESSProject/cess_pois v0.5.16/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
+github.com/CESSProject/cess_pois v0.5.17 h1:jzAw5A64SkhB39b+aRCJBnbTQ1EK75PD6lLhG7skw5o=
+github.com/CESSProject/cess_pois v0.5.17/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
