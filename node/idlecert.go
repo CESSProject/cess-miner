@@ -110,11 +110,9 @@ func (n *Node) attestationidle() error {
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
 		var teeEndPoints = n.ReadPriorityTeeList()
-		if len(teeEndPoints) > 0 {
-			teeEndPoints = append(teeEndPoints, n.ReadPriorityTeeList()...)
-			teeEndPoints = append(teeEndPoints, n.ReadPriorityTeeList()...)
+		if len(teeEndPoints) <= 0 {
+			teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 		}
-		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 
 		var usedTeeEndPoint string
 		var usedTeeWorkAccount string

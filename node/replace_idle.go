@@ -144,7 +144,12 @@ func (n *Node) ReplaceIdle(ch chan<- bool) {
 	var timeout time.Duration
 	var timeoutStep time.Duration = 3
 	var dialOptions []grpc.DialOption
-	teeEndPoints := n.GetAllMarkerTeeEndpoint()
+
+	var teeEndPoints = n.ReadPriorityTeeList()
+	if len(teeEndPoints) <= 0 {
+		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
+	}
+
 	for _, t := range teeEndPoints {
 		timeout = time.Duration(time.Minute * timeoutStep)
 		n.Replace("info", fmt.Sprintf("Will use tee: %v", t))

@@ -54,14 +54,11 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 						idleChallTaskCh,
 						true,
 						latestBlock,
-						uint32(challenge.ChallengeElement.VerifySlip),
-						uint32(challenge.ChallengeElement.Start),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 						challenge.ChallengeElement.SpaceParam,
 						challenge.MinerSnapshot.SpaceProofInfo.Accumulator,
 						challenge.MinerSnapshot.TeeSig,
-						idleProve.TeePubkey,
 					)
 				}
 			}
@@ -76,14 +73,11 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					idleChallTaskCh,
 					false,
 					latestBlock,
-					uint32(challenge.ChallengeElement.VerifySlip),
-					uint32(challenge.ChallengeElement.Start),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 					challenge.ChallengeElement.SpaceParam,
 					challenge.MinerSnapshot.SpaceProofInfo.Accumulator,
 					challenge.MinerSnapshot.TeeSig,
-					chain.WorkerPublicKey{},
 				)
 			}
 		}
@@ -107,7 +101,6 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 						challenge.ChallengeElement.ServiceParam.Value,
 						serviceProve.TeePubkey,
 					)
-
 				}
 			}
 		}

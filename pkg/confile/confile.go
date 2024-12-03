@@ -35,7 +35,7 @@ const TempleteProfile = `app:
 
 chain:
   # signature account mnemonic
-  mnemonic: "" 
+  mnemonic: ""
   # staking account
   # if you fill in the staking account, the staking will be paid by the staking account,
   # otherwise the staking will be paid by the signature account.

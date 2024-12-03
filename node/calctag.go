@@ -249,11 +249,9 @@ func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest [
 	var teePubkey string
 	var tagInfo pb.GenTagMsg
 	var teeEndPoints = n.ReadPriorityTeeList()
-	if len(teeEndPoints) > 0 {
-		teeEndPoints = append(teeEndPoints, n.ReadPriorityTeeList()...)
-		teeEndPoints = append(teeEndPoints, n.ReadPriorityTeeList()...)
+	if len(teeEndPoints) <= 0 {
+		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 	}
-	teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
 
 	n.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
 	for j := 0; j < len(teeEndPoints); j++ {

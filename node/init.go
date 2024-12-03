@@ -341,6 +341,10 @@ func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
 		return podr2PubkeyResponse.Pubkey, teeRecord, nil
 	}
 
+	if len(ptee) > 0 {
+		return nil, teeRecord, errors.New("all configured tees are unavailable")
+	}
+
 	teelist, err := n.QueryAllWorkers(-1)
 	if err != nil {
 		return nil, teeRecord, errors.New("rpc err: failed to query tee list")
@@ -534,32 +538,33 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 
 	teeEndPointList := n.ReadPriorityTeeList()
 
-	for {
-		teeList, err = n.QueryAllWorkers(-1)
-		if err != nil {
-			if err.Error() == chain.ERR_Empty {
-				out.Err("No tee found, waiting for the next minute's query...")
-				time.Sleep(time.Minute)
+	if len(teeEndPointList) <= 0 {
+		for {
+			teeList, err = n.QueryAllWorkers(-1)
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					out.Err("No tee found, waiting for the next minute's query...")
+					time.Sleep(time.Minute)
+					continue
+				}
+				return rsakey, poisInfo, teeRecord, err
+			}
+			break
+		}
+		for _, v := range teeList {
+			out.Tip(fmt.Sprintf("Check tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+			endPoint, err := n.checkTee(v.Pubkey)
+			if err != nil {
+				out.Err(fmt.Sprintf("Check tee failed: %v", err))
 				continue
 			}
-			return rsakey, poisInfo, teeRecord, err
+			err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
+			if err != nil {
+				out.Err(fmt.Sprintf("Save tee err: %v", err))
+				continue
+			}
+			teeEndPointList = append(teeEndPointList, endPoint)
 		}
-		break
-	}
-
-	for _, v := range teeList {
-		out.Tip(fmt.Sprintf("Check tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
-		endPoint, err := n.checkTee(v.Pubkey)
-		if err != nil {
-			out.Err(fmt.Sprintf("Check tee failed: %v", err))
-			continue
-		}
-		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
-		if err != nil {
-			out.Err(fmt.Sprintf("Save tee err: %v", err))
-			continue
-		}
-		teeEndPointList = append(teeEndPointList, endPoint)
 	}
 
 	delay := time.Duration(30)
