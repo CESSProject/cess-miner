@@ -70,13 +70,43 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 	}()
 	var dialOptions []grpc.DialOption
 	var chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
+
+	if len(n.ReadPriorityTeeList()) > 0 {
+		pubkeyhexs := n.TeeRecorder.GetAllTeePubkeyHex()
+		for i := 0; i < len(pubkeyhexs); i++ {
+			pubkey, err := hex.DecodeString(pubkeyhexs[i])
+			if err != nil {
+				continue
+			}
+			teeWorkPubkey, err := chain.BytesToWorkPublickey(pubkey)
+			if err != nil {
+				continue
+			}
+			endpoint, err := n.QueryEndpoints(teeWorkPubkey, -1)
+			if err != nil {
+				continue
+			}
+			workinfo, err := n.QueryWorkers(teeWorkPubkey, -1)
+			if err != nil {
+				continue
+			}
+			err = n.SaveTee(pubkeyhexs[i], endpoint, uint8(workinfo.Role))
+			if err != nil {
+				n.Log("err", err.Error())
+			}
+		}
+		return
+	}
+
 	teelist, err := n.QueryAllWorkers(-1)
 	if err != nil {
 		n.Log("err", err.Error())
 		return
 	}
+	pubkeyhex := ""
 	for i := 0; i < len(teelist); i++ {
-		n.Log("info", fmt.Sprintf("check tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
+		pubkeyhex = hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))
+		n.Log("info", fmt.Sprintf("check tee: %s", pubkeyhex))
 		endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
 		if err != nil {
 			n.Log("err", err.Error())
@@ -105,7 +135,7 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 		}
 		//n.Log("info", fmt.Sprintf("get identityPubkeyResponse: %v", identityPubkeyResponse.Pubkey))
 		if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
-			n.DeleteTee(string(teelist[i].Pubkey[:]))
+			n.DeleteTee(pubkeyhex)
 			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey length err: %d", len(identityPubkeyResponse.Pubkey)))
 			continue
 		}
@@ -114,14 +144,14 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 			chainPublickey[j] = byte(teelist[i].Pubkey[j])
 		}
 		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-			n.DeleteTee(string(teelist[i].Pubkey[:]))
-			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", hex.EncodeToString(identityPubkeyResponse.Pubkey)))
+			n.DeleteTee(pubkeyhex)
+			n.Log("err", fmt.Sprintf("identityPubkeyResponse.Pubkey: %s", pubkeyhex))
 			n.Log("err", "identityPubkeyResponse.Pubkey err: not qual to chain")
 			continue
 		}
 
 		n.Log("info", fmt.Sprintf("Save a tee: %s  %d", endpoint, teelist[i].Role))
-		err = n.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
+		err = n.SaveTee(pubkeyhex, endpoint, uint8(teelist[i].Role))
 		if err != nil {
 			n.Log("err", err.Error())
 		}

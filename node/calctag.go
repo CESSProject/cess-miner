@@ -194,7 +194,7 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 	var isReportTag bool
 	//var teeSign chain.TeeSig
 	var genTag pb.GenTagMsg
-	var teePubkey string
+	var teePubkey []byte
 	var fragmentHash = filepath.Base(fragmentFile)
 
 	genTag, teePubkey, err = n.requestTeeTag(fid, fragmentFile, lastSign, digest)
@@ -218,7 +218,7 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 		USig:         genTag.USig,
 		Signature:    genTag.Signature,
 		FragmentName: []byte(fragmentHash),
-		TeeAccountId: []byte(teePubkey),
+		TeeAccountId: teePubkey,
 		Index:        (maxIndex + 1),
 	}
 	buf, err := json.Marshal(tfile)
@@ -244,19 +244,16 @@ func (n *Node) calcTheFragmentTag(fid, fragmentFile string, maxIndex uint16, las
 	return isReportTag, nil
 }
 
-func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, string, error) {
+func (n *Node) requestTeeTag(fid, fragmentFile string, lastSign []byte, digest []*pb.DigestInfo) (pb.GenTagMsg, []byte, error) {
 	var err error
-	var teePubkey string
+	var teePubkey []byte
 	var tagInfo pb.GenTagMsg
-	var teeEndPoints = n.ReadPriorityTeeList()
-	if len(teeEndPoints) <= 0 {
-		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
-	}
+	var teeEndPoints = n.GetAllMarkerTeeEndpoint()
 
 	n.Stag("info", fmt.Sprintf("[%s] To calc the fragment tag: %v", fid, filepath.Base(fragmentFile)))
 	for j := 0; j < len(teeEndPoints); j++ {
 		n.Stag("info", fmt.Sprintf("[%s] Will use tee: %v", fid, teeEndPoints[j]))
-		teePubkey, err = n.GetTeeWorkAccount(teeEndPoints[j])
+		teePubkey, err = n.GetTeePubkeyByEndpoint(teeEndPoints[j])
 		if err != nil {
 			n.Stag("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", teeEndPoints[j], err))
 			continue

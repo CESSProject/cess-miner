@@ -116,14 +116,11 @@ func (n *Node) Start() {
 	attestationIdleCh := make(chan bool, 1)
 	attestationIdleCh <- true
 	syncTeeCh := make(chan bool, 1)
+	syncTeeCh <- true
 	calcTagCh := make(chan bool, 1)
 	calcTagCh <- true
 	restoreCh := make(chan bool, 1)
 	restoreCh <- true
-
-	if len(n.ReadPriorityTeeList()) <= 0 {
-		syncTeeCh <- true
-	}
 
 	tick_twoblock := time.NewTicker(chain.BlockInterval * 2)
 	defer tick_twoblock.Stop()

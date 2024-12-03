@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
@@ -47,7 +46,7 @@ chain:
   # rpc address list
   rpcs:
     - "wss://testnet-rpc.cess.cloud/ws/"
-  # priority tee address list
+  # hexadecimal encoded tee public keys
   tees:`
 
 type Confiler interface {
@@ -152,28 +151,6 @@ func (c *Confile) Parse(fpath string) error {
 	} else {
 		if !fstat.IsDir() {
 			return errors.Errorf("the '%v' is not a directory", c.Workspace)
-		}
-	}
-
-	if len(c.Tees) > 0 {
-		for i := 0; i < len(c.Tees); i++ {
-			if strings.HasPrefix(c.Tees[i], "http://") {
-				c.Tees[i] = strings.TrimPrefix(c.Tees[i], "http://")
-				c.Tees[i] = strings.TrimSuffix(c.Tees[i], "/")
-				if !strings.Contains(c.Tees[i], ":") {
-					c.Tees[i] = c.Tees[i] + ":80"
-				}
-			} else if strings.HasPrefix(c.Tees[i], "https://") {
-				c.Tees[i] = strings.TrimPrefix(c.Tees[i], "https://")
-				c.Tees[i] = strings.TrimSuffix(c.Tees[i], "/")
-				if !strings.Contains(c.Tees[i], ":") {
-					c.Tees[i] = c.Tees[i] + ":443"
-				}
-			} else {
-				if !strings.Contains(c.Tees[i], ":") {
-					c.Tees[i] = c.Tees[i] + ":80"
-				}
-			}
 		}
 	}
 

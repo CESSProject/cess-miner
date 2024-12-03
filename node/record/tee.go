@@ -8,6 +8,7 @@
 package record
 
 import (
+	"encoding/hex"
 	"errors"
 	"strings"
 	"sync"
@@ -17,21 +18,25 @@ import (
 
 type TeeRecorder interface {
 	// SaveTee saves or updates tee information
-	SaveTee(workAccount, endPoint string, teeType uint8) error
+	SaveTee(pubkeyhex, endPoint string, teeType uint8) error
 	//
-	GetTee(workAccount string) (TeeInfo, error)
+	GetTee(pubkeyhex string) (TeeInfo, error)
 	//
-	GetTeeWorkAccount(endpoint string) (string, error)
+	GetTeePubkeyHexByEndpoint(endpoint string) (string, error)
 	//
-	DeleteTee(workAccount string)
+	GetTeePubkeyByEndpoint(endpoint string) ([]byte, error)
 	//
-	GetAllTeePublickey() []string
+	DeleteTee(pubkeyhex string)
+	//
+	GetAllTeePubkeyHex() []string
 	//
 	GetAllTeeEndpoint() []string
 	//
 	GetAllMarkerTeeEndpoint() []string
 	//
 	GetAllVerifierTeeEndpoint() []string
+	//
+	Length() int
 }
 
 type TeeInfo struct {
@@ -56,9 +61,9 @@ func NewTeeRecord() TeeRecorder {
 }
 
 // SaveTee saves or updates tee information
-func (t *TeeRecord) SaveTee(workAccount, endPoint string, teeType uint8) error {
-	if workAccount == "" {
-		return errors.New("work account is empty")
+func (t *TeeRecord) SaveTee(pubkeyhex, endPoint string, teeType uint8) error {
+	if pubkeyhex == "" {
+		return errors.New("publickey is empty")
 	}
 	if endPoint == "" {
 		return errors.New("endPoint is empty")
@@ -93,14 +98,21 @@ func (t *TeeRecord) SaveTee(workAccount, endPoint string, teeType uint8) error {
 		Type:     teeType,
 	}
 	t.lock.Lock()
-	t.teeList[workAccount] = data
+	t.teeList[pubkeyhex] = data
 	t.lock.Unlock()
 	return nil
 }
 
-func (t *TeeRecord) GetTee(workAccount string) (TeeInfo, error) {
+func (t *TeeRecord) Length() int {
 	t.lock.RLock()
-	result, ok := t.teeList[workAccount]
+	length := len(t.teeList)
+	t.lock.RUnlock()
+	return length
+}
+
+func (t *TeeRecord) GetTee(pubkeyhex string) (TeeInfo, error) {
+	t.lock.RLock()
+	result, ok := t.teeList[pubkeyhex]
 	t.lock.RUnlock()
 	if !ok {
 		return TeeInfo{}, errors.New("not found")
@@ -108,21 +120,42 @@ func (t *TeeRecord) GetTee(workAccount string) (TeeInfo, error) {
 	return result, nil
 }
 
-func (t *TeeRecord) GetTeeWorkAccount(endpoint string) (string, error) {
+func (t *TeeRecord) GetTeePubkeyHexByEndpoint(endpoint string) (string, error) {
+	pubkeyHex := ""
 	t.lock.RLock()
-	defer t.lock.RUnlock()
 	for k, v := range t.teeList {
 		if v.EndPoint == endpoint {
-			return k, nil
+			pubkeyHex = k
+			break
 		}
 	}
-	return "", errors.New("not found")
+	t.lock.RUnlock()
+	if pubkeyHex == "" {
+		return "", errors.New("not found")
+	}
+	return pubkeyHex, nil
 }
 
-func (t *TeeRecord) DeleteTee(workAccount string) {
+func (t *TeeRecord) GetTeePubkeyByEndpoint(endpoint string) ([]byte, error) {
+	pubkeyHex := ""
+	t.lock.RLock()
+	for k, v := range t.teeList {
+		if v.EndPoint == endpoint {
+			pubkeyHex = k
+			break
+		}
+	}
+	t.lock.RUnlock()
+	if pubkeyHex == "" {
+		return nil, errors.New("not found")
+	}
+	return hex.DecodeString(pubkeyHex)
+}
+
+func (t *TeeRecord) DeleteTee(pubkeyhex string) {
 	t.lock.Lock()
-	if _, ok := t.teeList[workAccount]; ok {
-		delete(t.teeList, workAccount)
+	if _, ok := t.teeList[pubkeyhex]; ok {
+		delete(t.teeList, pubkeyhex)
 	}
 	t.lock.Unlock()
 }
@@ -138,7 +171,7 @@ func (t *TeeRecord) GetAllTeeEndpoint() []string {
 	return result
 }
 
-func (t *TeeRecord) GetAllTeePublickey() []string {
+func (t *TeeRecord) GetAllTeePubkeyHex() []string {
 	var index int
 	t.lock.RLock()
 	var result = make([]string, len(t.teeList))

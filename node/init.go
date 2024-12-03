@@ -145,7 +145,10 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	rsakey, poisInfo, prover, teeRecord, st, register, err := n.checkMiner(apiEndpoint)
+	teeRcored := n.checkConfiguredTees()
+	n.InitTeeRecord(teeRcored)
+
+	rsakey, poisInfo, prover, st, register, err := n.checkMiner(apiEndpoint)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
@@ -154,40 +157,82 @@ func (n *Node) InitChainClient() {
 	n.InitRSAKeyPair(rsakey)
 	n.InitPoisProver(prover)
 	n.InitMinerPoisInfo(poisInfo)
-	n.InitTeeRecord(teeRecord)
 	n.InitRunStatus(st, apiEndpoint, t, register)
 }
 
-func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *pois.Prover, record.TeeRecorder, types.Bytes, bool, error) {
+func (n *Node) checkConfiguredTees() record.TeeRecorder {
+	teeRecord := record.NewTeeRecord()
+	ctees := n.ReadPriorityTeeList()
+	if len(ctees) <= 0 {
+		return teeRecord
+	}
+
+	var workerPublicKey chain.WorkerPublicKey
+	for i := 0; i < len(ctees); i++ {
+		pk, err := hex.DecodeString(strings.TrimPrefix(ctees[i], "0x"))
+		if err != nil {
+			out.Warn(fmt.Sprintf("Invalid tee: %s", ctees[i]))
+			continue
+		}
+
+		for j := 0; j < chain.WorkerPublicKeyLen; j++ {
+			workerPublicKey[j] = types.U8(pk[j])
+		}
+
+		workerInfo, err := n.QueryWorkers(workerPublicKey, -1)
+		if err != nil {
+			out.Warn(fmt.Sprintf("Invalid tee: %v", err))
+			continue
+		}
+
+		endpoint, err := n.QueryEndpoints(workerInfo.Pubkey, -1)
+		if err != nil {
+			out.Warn(fmt.Sprintf("Invalid tee: %v", err))
+			continue
+		}
+
+		err = teeRecord.SaveTee(strings.TrimPrefix(ctees[i], "0x"), endpoint, uint8(workerInfo.Role))
+		if err != nil {
+			out.Warn(fmt.Sprintf("Save tee: %v", err))
+			continue
+		}
+	}
+	if teeRecord.Length() == 0 {
+		out.Err("All configured tee nodes are invalid")
+		os.Exit(1)
+	}
+	return teeRecord
+}
+
+func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *pois.Prover, types.Bytes, bool, error) {
 	var rsakey *RSAKeyPair
 	var minerPois = &pb.MinerPoisInfo{}
 	var prover *pois.Prover
-	var teeRecord record.TeeRecorder
 
 	register, decTib, oldRegInfo, err := n.checkRegistrationInfo()
 	if err != nil {
-		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[checkMiner]")
+		return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[checkMiner]")
 	}
 
 	switch register {
 	case Unregistered:
 		_, err = registerMiner(n.Chainer, n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint, decTib)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerMiner]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[registerMiner]")
 		}
 
 		err = n.RemoveAndBuild()
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[RemoveAndBuild]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[RemoveAndBuild]")
 		}
 
 		time.Sleep(time.Minute)
 
 		for i := 0; i < 3; i++ {
-			rsakey, minerPois, teeRecord, err = n.registerPoisKey()
+			rsakey, minerPois, err = n.registerPoisKey()
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -195,7 +240,7 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			break
 		}
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 		}
 
 		n.InitAccRsaKey(&acc.RsaKey{
@@ -209,22 +254,22 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
 		}
 
-		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, nil
+		return rsakey, minerPois, prover, oldRegInfo.State, true, nil
 
 	case UnregisteredPoisKey:
 		err = n.Build()
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[Build]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[Build]")
 		}
 
 		for i := 0; i < 3; i++ {
-			rsakey, minerPois, teeRecord, err = n.registerPoisKey()
+			rsakey, minerPois, err = n.registerPoisKey()
 			if err != nil {
 				if !strings.Contains(err.Error(), "storage miner is not registered") {
-					return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
+					return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 				}
 				time.Sleep(chain.BlockInterval)
 				continue
@@ -232,12 +277,12 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			break
 		}
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[registerPoisKey]")
 		}
 
 		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
 		n.InitAccRsaKey(&acc.RsaKey{
@@ -251,24 +296,24 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, oldRegInfo.State, true, errors.Wrap(err, "[NewPOIS]")
 		}
-		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, true, nil
+		return rsakey, minerPois, prover, oldRegInfo.State, true, nil
 
 	case Registered:
 		err = n.Build()
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
 		}
 
 		err = updateMinerRegistertionInfo(n.Chainer, oldRegInfo, n.ReadUseSpace(), n.ReadStakingAcc(), n.ReadEarningsAcc(), apiEndpoint)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[updateMinerRegistertionInfo]")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[updateMinerRegistertionInfo]")
 		}
 
 		ok, spaceProofInfo := oldRegInfo.SpaceProofInfo.Unwrap()
 		if !ok {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.New("SpaceProofInfo unwrap failed")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.New("SpaceProofInfo unwrap failed")
 		}
 
 		minerPois.Acc = []byte(string(spaceProofInfo.Accumulator[:]))
@@ -289,31 +334,29 @@ func (n *Node) checkMiner(apiEndpoint string) (*RSAKeyPair, *pb.MinerPoisInfo, *
 			n.GetSignatureAccPulickey(),
 		)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[NewPOIS]")
 		}
 		var buf []byte
-		buf, teeRecord, err = n.queryPodr2KeyFromTee()
+		buf, err = n.queryPodr2KeyFromTee()
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[queryPodr2KeyFromTee]")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[queryPodr2KeyFromTee]")
 		}
 
 		rsakey, err = NewRsaKey(buf)
 		if err != nil {
-			return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.Wrap(err, "[NewRsaKey]")
+			return rsakey, minerPois, prover, oldRegInfo.State, false, errors.Wrap(err, "[NewRsaKey]")
 		}
-		return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, nil
+		return rsakey, minerPois, prover, oldRegInfo.State, false, nil
 	}
-	return rsakey, minerPois, prover, teeRecord, oldRegInfo.State, false, errors.New("system err")
+	return rsakey, minerPois, prover, oldRegInfo.State, false, errors.New("system err")
 }
 
-func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
+func (n *Node) queryPodr2KeyFromTee() ([]byte, error) {
 	var err error
 	var podr2PubkeyResponse *pb.Podr2PubkeyResponse
 	var dialOptions []grpc.DialOption
-	var teeRecord = record.NewTeeRecord()
 	delay := time.Duration(30)
-
-	ptee := n.ReadPriorityTeeList()
+	ptee := n.TeeRecorder.GetAllTeeEndpoint()
 	for i := 0; i < len(ptee); i++ {
 		if !strings.Contains(ptee[i], "443") {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
@@ -338,20 +381,26 @@ func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
 			}
 			continue
 		}
-		return podr2PubkeyResponse.Pubkey, teeRecord, nil
+		return podr2PubkeyResponse.Pubkey, nil
 	}
 
 	if len(ptee) > 0 {
-		return nil, teeRecord, errors.New("all configured tees are unavailable")
+		return nil, errors.New("all configured tees are unavailable")
 	}
 
 	teelist, err := n.QueryAllWorkers(-1)
 	if err != nil {
-		return nil, teeRecord, errors.New("rpc err: failed to query tee list")
+		return nil, errors.New("rpc err: failed to query tee list")
 	}
+	pubkeyHex := ""
 	for i := 0; i < len(teelist); i++ {
 		delay = 30
-		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))))
+		pubkeyHex = hex.EncodeToString([]byte(string(teelist[i].Pubkey[:])))
+		_, err = n.TeeRecorder.GetTee(pubkeyHex)
+		if err == nil {
+			continue
+		}
+		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", pubkeyHex))
 		for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 			endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
 			if err != nil {
@@ -382,79 +431,79 @@ func (n *Node) queryPodr2KeyFromTee() ([]byte, record.TeeRecorder, error) {
 				}
 				continue
 			}
-			teeRecord.SaveTee(string(teelist[i].Pubkey[:]), endpoint, uint8(teelist[i].Role))
-			return podr2PubkeyResponse.Pubkey, teeRecord, nil
+			n.TeeRecorder.SaveTee(pubkeyHex, endpoint, uint8(teelist[i].Role))
+			return podr2PubkeyResponse.Pubkey, nil
 		}
 	}
-	return nil, teeRecord, errors.New("all tee nodes are busy or unavailable")
+	return nil, errors.New("all tee nodes are busy or unavailable")
 }
 
-func (n *Node) saveAllTees() (record.TeeRecorder, error) {
-	var (
-		err            error
-		teeList        []chain.WorkerInfo
-		dialOptions    []grpc.DialOption
-		teeRecord      = record.NewTeeRecord()
-		chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
-	)
-	for {
-		teeList, err = n.QueryAllWorkers(-1)
-		if err != nil {
-			if err.Error() == chain.ERR_Empty {
-				out.Err("No tee found, waiting for the next minute's query...")
-				time.Sleep(time.Minute)
-				continue
-			}
-			return teeRecord, err
-		}
-		break
-	}
+// func (n *Node) saveAllTees() (record.TeeRecorder, error) {
+// 	var (
+// 		err            error
+// 		teeList        []chain.WorkerInfo
+// 		dialOptions    []grpc.DialOption
+// 		teeRecord      = record.NewTeeRecord()
+// 		chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
+// 	)
+// 	for {
+// 		teeList, err = n.QueryAllWorkers(-1)
+// 		if err != nil {
+// 			if err.Error() == chain.ERR_Empty {
+// 				out.Err("No tee found, waiting for the next minute's query...")
+// 				time.Sleep(time.Minute)
+// 				continue
+// 			}
+// 			return teeRecord, err
+// 		}
+// 		break
+// 	}
 
-	for _, v := range teeList {
-		out.Tip(fmt.Sprintf("Checking the tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
-		endPoint, err := n.QueryEndpoints(v.Pubkey, -1)
-		if err != nil {
-			out.Err(fmt.Sprintf("Failed to query endpoints for this tee: %v", err))
-			continue
-		}
-		endPoint = ProcessTeeEndpoint(endPoint)
-		if !strings.Contains(endPoint, "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-		}
-		// verify identity public key
-		identityPubkeyResponse, err := com.GetIdentityPubkey(endPoint,
-			&pb.Request{
-				StorageMinerAccountId: n.GetSignatureAccPulickey(),
-			},
-			time.Duration(time.Minute),
-			dialOptions,
-			nil,
-		)
-		if err != nil {
-			out.Err(fmt.Sprintf("Failed to query the identity pubkey for this tee: %v", err))
-			continue
-		}
-		if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
-			out.Err(fmt.Sprintf("The identity pubkey length of this tee is incorrect: %d", len(identityPubkeyResponse.Pubkey)))
-			continue
-		}
-		for j := 0; j < chain.WorkerPublicKeyLen; j++ {
-			chainPublickey[j] = byte(v.Pubkey[j])
-		}
-		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
-			out.Err("The IdentityPubkey returned by this tee doesn't match the one in the chain")
-			continue
-		}
-		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
-		if err != nil {
-			out.Err(fmt.Sprintf("Save tee err: %v", err))
-			continue
-		}
-	}
-	return teeRecord, nil
-}
+// 	for _, v := range teeList {
+// 		out.Tip(fmt.Sprintf("Checking the tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+// 		endPoint, err := n.QueryEndpoints(v.Pubkey, -1)
+// 		if err != nil {
+// 			out.Err(fmt.Sprintf("Failed to query endpoints for this tee: %v", err))
+// 			continue
+// 		}
+// 		endPoint = ProcessTeeEndpoint(endPoint)
+// 		if !strings.Contains(endPoint, "443") {
+// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+// 		} else {
+// 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+// 		}
+// 		// verify identity public key
+// 		identityPubkeyResponse, err := com.GetIdentityPubkey(endPoint,
+// 			&pb.Request{
+// 				StorageMinerAccountId: n.GetSignatureAccPulickey(),
+// 			},
+// 			time.Duration(time.Minute),
+// 			dialOptions,
+// 			nil,
+// 		)
+// 		if err != nil {
+// 			out.Err(fmt.Sprintf("Failed to query the identity pubkey for this tee: %v", err))
+// 			continue
+// 		}
+// 		if len(identityPubkeyResponse.Pubkey) != chain.WorkerPublicKeyLen {
+// 			out.Err(fmt.Sprintf("The identity pubkey length of this tee is incorrect: %d", len(identityPubkeyResponse.Pubkey)))
+// 			continue
+// 		}
+// 		for j := 0; j < chain.WorkerPublicKeyLen; j++ {
+// 			chainPublickey[j] = byte(v.Pubkey[j])
+// 		}
+// 		if !sutils.CompareSlice(identityPubkeyResponse.Pubkey, chainPublickey) {
+// 			out.Err("The IdentityPubkey returned by this tee doesn't match the one in the chain")
+// 			continue
+// 		}
+// 		err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
+// 		if err != nil {
+// 			out.Err(fmt.Sprintf("Save tee err: %v", err))
+// 			continue
+// 		}
+// 	}
+// 	return teeRecord, nil
+// }
 
 func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo, useSpace uint64, stakingAcc, earningsAcc, addr string) error {
 	var err error
@@ -525,20 +574,18 @@ func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo,
 	return nil
 }
 
-func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeRecorder, error) {
+func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, error) {
 	var (
 		err                    error
+		pubkeyHex              string
 		teeList                []chain.WorkerInfo
 		dialOptions            []grpc.DialOption
 		responseMinerInitParam *pb.ResponseMinerInitParam
 		rsakey                 *RSAKeyPair
 		poisInfo               = &pb.MinerPoisInfo{}
-		teeRecord              = record.NewTeeRecord()
 	)
 
-	teeEndPointList := n.ReadPriorityTeeList()
-
-	if len(teeEndPointList) <= 0 {
+	if n.TeeRecorder.Length() <= 0 {
 		for {
 			teeList, err = n.QueryAllWorkers(-1)
 			if err != nil {
@@ -547,26 +594,30 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 					time.Sleep(time.Minute)
 					continue
 				}
-				return rsakey, poisInfo, teeRecord, err
+				return rsakey, poisInfo, err
 			}
 			break
 		}
 		for _, v := range teeList {
-			out.Tip(fmt.Sprintf("Check tee: %s", hex.EncodeToString([]byte(string(v.Pubkey[:])))))
+			pubkeyHex = hex.EncodeToString([]byte(string(v.Pubkey[:])))
+			_, err = n.TeeRecorder.GetTee(pubkeyHex)
+			if err == nil {
+				continue
+			}
+			out.Tip(fmt.Sprintf("Check tee: %s", pubkeyHex))
 			endPoint, err := n.checkTee(v.Pubkey)
 			if err != nil {
 				out.Err(fmt.Sprintf("Check tee failed: %v", err))
 				continue
 			}
-			err = teeRecord.SaveTee(string(v.Pubkey[:]), endPoint, uint8(v.Role))
+			err = n.TeeRecorder.SaveTee(pubkeyHex, endPoint, uint8(v.Role))
 			if err != nil {
 				out.Err(fmt.Sprintf("Save tee err: %v", err))
 				continue
 			}
-			teeEndPointList = append(teeEndPointList, endPoint)
 		}
 	}
-
+	teeEndPointList := n.TeeRecorder.GetAllTeeEndpoint()
 	delay := time.Duration(30)
 	for i := 0; i < len(teeEndPointList); i++ {
 		delay = 30
@@ -612,7 +663,7 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 			poisInfo.KeyG = responseMinerInitParam.KeyG
 			poisInfo.StatusTeeSign = responseMinerInitParam.StatusTeeSign
 
-			workpublickey, err := teeRecord.GetTeeWorkAccount(teeEndPointList[i])
+			workpublickey, err := n.TeeRecorder.GetTeePubkeyByEndpoint(teeEndPointList[i])
 			if err != nil {
 				break
 			}
@@ -623,7 +674,7 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 				continue
 			}
 
-			teeWorkPubkey, err := chain.BytesToWorkPublickey([]byte(workpublickey))
+			teeWorkPubkey, err := chain.BytesToWorkPublickey(workpublickey)
 			if err != nil {
 				out.Err(fmt.Sprintf("Request err: %v", err))
 				continue
@@ -640,10 +691,10 @@ func (n *Node) registerPoisKey() (*RSAKeyPair, *pb.MinerPoisInfo, record.TeeReco
 				out.Err(fmt.Sprintf("register miner pois key err: %v", err))
 				break
 			}
-			return rsakey, poisInfo, teeRecord, err
+			return rsakey, poisInfo, err
 		}
 	}
-	return rsakey, poisInfo, teeRecord, errors.New("all tee nodes are busy or unavailable")
+	return rsakey, poisInfo, errors.New("all tee nodes are busy or unavailable")
 }
 
 func (n *Node) checkTee(pubkey chain.WorkerPublicKey) (string, error) {

@@ -140,15 +140,12 @@ func (n *Node) ReplaceIdle(ch chan<- bool) {
 	requestVerifyDeletionProof.MinerSign = signData
 	var verifyCommitOrDeletionProof *pb.ResponseVerifyCommitOrDeletionProof
 	var usedTeeEndPoint string
-	var usedTeeWorkAccount string
+	var usedTeeWorkPubkey []byte
 	var timeout time.Duration
 	var timeoutStep time.Duration = 3
 	var dialOptions []grpc.DialOption
 
-	var teeEndPoints = n.ReadPriorityTeeList()
-	if len(teeEndPoints) <= 0 {
-		teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
-	}
+	var teeEndPoints = n.GetAllMarkerTeeEndpoint()
 
 	for _, t := range teeEndPoints {
 		timeout = time.Duration(time.Minute * timeoutStep)
@@ -176,18 +173,18 @@ func (n *Node) ReplaceIdle(ch chan<- bool) {
 				break
 			}
 			usedTeeEndPoint = t
-			usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
+			usedTeeWorkPubkey, err = n.GetTeePubkeyByEndpoint(usedTeeEndPoint)
 			if err != nil {
 				n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
 			}
 			break
 		}
-		if usedTeeEndPoint != "" && usedTeeWorkAccount != "" {
+		if usedTeeEndPoint != "" && usedTeeWorkPubkey != nil {
 			break
 		}
 	}
 
-	if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
+	if usedTeeEndPoint == "" || usedTeeWorkPubkey == nil {
 		n.AccRollback(true)
 		n.Replace("err", "No available tee")
 		return
@@ -234,7 +231,7 @@ func (n *Node) ReplaceIdle(ch chan<- bool) {
 	for j := 0; j < len(sign); j++ {
 		signWithAccBytes[j] = byte(signWithAcc[j])
 	}
-	wpuk, err := chain.BytesToWorkPublickey([]byte(usedTeeWorkAccount))
+	wpuk, err := chain.BytesToWorkPublickey(usedTeeWorkPubkey)
 	if err != nil {
 		n.AccRollback(true)
 		n.Replace("err", err.Error())

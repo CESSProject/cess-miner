@@ -109,13 +109,10 @@ func (n *Node) attestationidle() error {
 		}
 
 		n.Space("info", fmt.Sprintf("front: %v rear: %v", n.Prover.GetFront(), n.Prover.GetRear()))
-		var teeEndPoints = n.ReadPriorityTeeList()
-		if len(teeEndPoints) <= 0 {
-			teeEndPoints = append(teeEndPoints, n.GetAllMarkerTeeEndpoint()...)
-		}
 
+		var teeEndPoints = n.GetAllMarkerTeeEndpoint()
 		var usedTeeEndPoint string
-		var usedTeeWorkAccount string
+		var usedTeeWorkPubkey []byte
 		var timeout time.Duration
 		var timeoutStep = 0
 		var dialOptions []grpc.DialOption
@@ -144,18 +141,18 @@ func (n *Node) attestationidle() error {
 					break
 				}
 				usedTeeEndPoint = teeEndPoints[i]
-				usedTeeWorkAccount, err = n.GetTeeWorkAccount(usedTeeEndPoint)
+				usedTeeWorkPubkey, err = n.GetTeePubkeyByEndpoint(usedTeeEndPoint)
 				if err != nil {
 					n.Space("err", fmt.Sprintf("[GetTeeWorkAccount(%s)] %v", usedTeeEndPoint, err))
 				}
 				break
 			}
-			if usedTeeEndPoint != "" && usedTeeWorkAccount != "" {
+			if usedTeeEndPoint != "" && usedTeeWorkPubkey != nil {
 				break
 			}
 		}
 
-		if usedTeeEndPoint == "" || usedTeeWorkAccount == "" {
+		if usedTeeEndPoint == "" || usedTeeWorkPubkey == nil {
 			n.Prover.CommitRollback()
 			return errors.New("no worked tee")
 		}
@@ -349,7 +346,7 @@ func (n *Node) attestationidle() error {
 		n.Space("info", "Submit idle space")
 		var wpuk chain.WorkerPublicKey
 		for i := 0; i < chain.WorkerPublicKeyLen; i++ {
-			wpuk[i] = types.U8(usedTeeWorkAccount[i])
+			wpuk[i] = types.U8(usedTeeWorkPubkey[i])
 		}
 		var teeSignBytes = make(types.Bytes, len(sign))
 		for j := 0; j < len(sign); j++ {
