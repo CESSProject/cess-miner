@@ -94,12 +94,12 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					go n.serviceChallenge(
 						serviceChallTaskCh,
 						true,
-						latestBlock,
-						uint32(challenge.ChallengeElement.VerifySlip),
+						//latestBlock,
+						//uint32(challenge.ChallengeElement.VerifySlip),
 						uint32(challenge.ChallengeElement.Start),
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
-						serviceProve.TeePubkey,
+						//serviceProve.TeePubkey,
 					)
 				}
 			}
@@ -113,12 +113,12 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 				go n.serviceChallenge(
 					serviceChallTaskCh,
 					false,
-					latestBlock,
-					uint32(challenge.ChallengeElement.VerifySlip),
+					//latestBlock,
+					//uint32(challenge.ChallengeElement.VerifySlip),
 					uint32(challenge.ChallengeElement.Start),
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
-					chain.WorkerPublicKey{},
+					//chain.WorkerPublicKey{},
 				)
 			}
 		}

@@ -16,7 +16,7 @@ import (
 )
 
 func NewPodr2ApiClient(addr string, opts ...grpc.DialOption) (pb.Podr2ApiClient, error) {
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func NewPodr2ApiClient(addr string, opts ...grpc.DialOption) (pb.Podr2ApiClient,
 }
 
 func NewPodr2VerifierApiClient(addr string, opts ...grpc.DialOption) (pb.Podr2VerifierApiClient, error) {
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func RequestEcho(
 	dialOpts []grpc.DialOption,
 	callOpts []grpc.CallOption,
 ) (*pb.EchoMessage, error) {
-	conn, err := grpc.Dial(addr, dialOpts...)
+	conn, err := grpc.NewClient(addr, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func RequestBatchVerify(
 	dialOpts []grpc.DialOption,
 	callOpts []grpc.CallOption,
 ) (*pb.ResponseBatchVerify, error) {
-	conn, err := grpc.Dial(addr, dialOpts...)
+	conn, err := grpc.NewClient(addr, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,5 +76,27 @@ func RequestBatchVerify(
 	defer cancel()
 
 	result, err := c.RequestBatchVerify(ctx, requestBatchVerify, callOpts...)
+	return result, err
+}
+
+func RequestAggregateSignature(
+	addr string,
+	requestBatchVerify *pb.RequestAggregateSignature,
+	timeout time.Duration,
+	dialOpts []grpc.DialOption,
+	callOpts []grpc.CallOption,
+) (*pb.ResponseAggregateSignature, error) {
+	conn, err := grpc.NewClient(addr, dialOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+	c := pb.NewPodr2VerifierApiClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	result, err := c.RequestAggregateSignature(ctx, requestBatchVerify, callOpts...)
 	return result, err
 }
