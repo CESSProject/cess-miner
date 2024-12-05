@@ -36,7 +36,7 @@ type IdleProofInfo struct {
 	SubmintProof        bool                  `json:"submintProof"`
 	SubmintResult       bool                  `json:"submintResult"`
 	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
-	IdleProof           []byte                `json:"idleProof"`
+	IdleProof           []types.U8            `json:"idleProof"`
 	Acc                 []byte                `json:"acc"`
 	TotalSignature      []byte                `json:"totalSignature"`
 	ChallRandom         []int64               `json:"challRandom"`

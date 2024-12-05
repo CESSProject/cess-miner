@@ -43,10 +43,13 @@ func (n *Node) serviceChallenge(
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+	var err error
 
-	err := n.checkServiceProofRecord(challStart)
-	if err == nil {
-		return
+	if serviceProofSubmited {
+		err = n.checkServiceProofRecord(challStart)
+		if err == nil {
+			return
+		}
 	}
 
 	var serviceProofRecord common.ServiceProofInfo
@@ -63,37 +66,15 @@ func (n *Node) serviceChallenge(
 		n.Schal("err", fmt.Sprintf("Save service file challenge random err: %v", err))
 	}
 
-	responseAggregateSignature, bloomFilter, proof, err := n.batchGenProofAndVerify(challStart, randomIndexList, randomList)
+	teePuk, teeSignBytes, bloomFilter, proof, err := n.batchGenProofAndVerify(challStart, randomIndexList, randomList)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("batchGenProofAndVerify err: %v", err))
 		return
 	}
 
-	if len(responseAggregateSignature.TeeAccountId) != chain.WorkerPublicKeyLen {
-		n.Schal("err", fmt.Sprintf("Invalid tee work public key from tee returned: %v", len(responseAggregateSignature.TeeAccountId)))
-		return
-	}
-
-	var teePuk chain.WorkerPublicKey
-	for i := 0; i < chain.WorkerPublicKeyLen; i++ {
-		teePuk[i] = types.U8(responseAggregateSignature.TeeAccountId[i])
-	}
-
-	// bloom filter
-	var bloomFilterChain chain.BloomFilter
-	for i := 0; i < len(bloomFilter); i++ {
-		bloomFilterChain[i] = types.U64(bloomFilter[i])
-	}
-
-	// signature
-	var teeSignBytes = make(types.Bytes, chain.TeeSignatureLen)
-	for i := 0; i < len(responseAggregateSignature.Signature); i++ {
-		teeSignBytes[i] = byte(responseAggregateSignature.Signature[i])
-	}
 	serviceProofRecord.Proof = proof
-	serviceProofRecord.SubmitProof = false
 	serviceProofRecord.ServiceResult = true
-	serviceProofRecord.BloomFilter = bloomFilterChain
+	serviceProofRecord.BloomFilter = bloomFilter
 	serviceProofRecord.TeeWorkerPublicKey = teePuk
 	serviceProofRecord.Signature = teeSignBytes
 	n.SaveServiceProve(serviceProofRecord)
@@ -121,7 +102,7 @@ func (n *Node) serviceChallenge(
 		txhash, err := n.SubmitVerifyServiceResult(
 			types.Bool(true),
 			teeSignBytes,
-			bloomFilterChain,
+			bloomFilter,
 			teePuk,
 		)
 		if err != nil {
@@ -463,7 +444,7 @@ func calcQSlicePb(randomIndexList []types.U32, randomList []chain.Random) pb.Qsl
 	return qslice
 }
 
-func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types.U32, randomList []chain.Random) (*pb.ResponseAggregateSignature, []uint64, []types.U8, error) {
+func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types.U32, randomList []chain.Random) (chain.WorkerPublicKey, types.Bytes, chain.BloomFilter, []types.U8, error) {
 	var ok bool
 	var sigma string
 	var sigmaOnChian string
@@ -483,7 +464,7 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 	serviceRoothashDir, err := utils.Dirs(n.GetFileDir())
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[Dirs] %v", err))
-		return nil, nil, nil, err
+		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 	}
 
 	var stackedBloomFilters = make([]uint64, 0)
@@ -491,6 +472,7 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 	timeout := time.NewTicker(time.Duration(time.Minute))
 	defer timeout.Stop()
 
+	totalFile := 0
 	index := 1
 	for i := int(0); i < len(serviceRoothashDir); i++ {
 		fid = filepath.Base(serviceRoothashDir[i])
@@ -500,7 +482,7 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 		fragments, err := n.calcChallengeFragments(fid, challStart)
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("calcChallengeFragments(%s): %v", fid, err))
-			return nil, nil, nil, err
+			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 		}
 
 		n.Schal("info", fmt.Sprintf("number of challenged fragments: %v", len(fragments)))
@@ -512,20 +494,20 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("checkTag: %v", err))
 				n.GenerateRestoralOrder(fid, fragments[j])
-				return nil, nil, nil, fmt.Errorf("This challenge has failed due to an invalid tag: %s", fragments[j])
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, fmt.Errorf("This challenge has failed due to an invalid tag: %s", fragments[j])
 			}
 
 			_, err = os.Stat(fragmentPath)
 			if err != nil {
 				n.Schal("err", err.Error())
 				n.GenerateRestoralOrder(fid, fragments[j])
-				return nil, nil, nil, fmt.Errorf("This challenge has failed due to missing fragment: %s", fragments[j])
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, fmt.Errorf("This challenge has failed due to missing fragment: %s", fragments[j])
 			}
 
 			matrix, _, err := SplitByN(fragmentPath, int64(len(tag.Tag.T.Phi)))
 			if err != nil {
 				n.Schal("err", fmt.Sprintf("SplitByN %v err: %v", serviceTagPath, err))
-				return nil, nil, nil, err
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 			}
 
 			proveResponseCh := n.GenProof(qElement, nil, tag.Tag.T.Phi, matrix)
@@ -533,23 +515,23 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 			select {
 			case proveResponse = <-proveResponseCh:
 			case <-timeout.C:
-				return nil, nil, nil, errors.New("GenProof timeout")
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, errors.New("GenProof timeout")
 			}
 
 			if proveResponse.StatueMsg.StatusCode != Success {
-				return nil, nil, nil, fmt.Errorf("GenProof failed: %d", proveResponse.StatueMsg.StatusCode)
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, fmt.Errorf("GenProof failed: %d", proveResponse.StatueMsg.StatusCode)
 			}
 
 			sigma, ok = n.AggrAppendProof(sigma, proveResponse.Sigma)
 			if !ok {
-				return nil, nil, nil, errors.New("AggrAppendProof for sigma failed")
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, errors.New("AggrAppendProof for sigma failed")
 			}
 
 			sigmaOnChian, ok = n.AggrAppendProof(sigmaOnChian, proveResponse.Sigma)
 			if !ok {
-				return nil, nil, nil, errors.New("AggrAppendProof for sigmaOnChian failed")
+				return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, errors.New("AggrAppendProof for sigmaOnChian failed")
 			}
-
+			totalFile += 1
 			names = append(names, tag.Tag.T.Name)
 			us = append(us, tag.Tag.T.U)
 			mus = append(mus, proveResponse.MU)
@@ -571,7 +553,7 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 
 				batchVerifyResponse, err := n.requestBatchVerify(request)
 				if err != nil {
-					return nil, nil, nil, err
+					return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 				}
 
 				stackedBloomFilters = batchVerifyResponse.GetServiceBloomFilter()
@@ -609,7 +591,7 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 
 		batchVerifyResponse, err := n.requestBatchVerify(request)
 		if err != nil {
-			return nil, nil, nil, err
+			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 		}
 
 		stackedBloomFilters = batchVerifyResponse.GetServiceBloomFilter()
@@ -628,34 +610,79 @@ func (n *Node) batchGenProofAndVerify(challStart uint32, randomIndexList []types
 		sigma = ""
 	}
 
-	if len(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter) > chain.BloomFilterLen {
-		return nil, nil, nil, fmt.Errorf("The length of the Bloom filter returned by tee is illegal: %d > %d", len(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter), chain.BloomFilterLen)
+	if totalFile > 0 {
+		request := &pb.RequestAggregateSignature{
+			VerifyInserviceFileHistory: verifyInServiceFileStructureList,
+			Qslices:                    &qSlicePb,
+		}
+
+		//fmt.Println(hex.EncodeToString(request.VerifyInserviceFileHistory[0].Signature))
+
+		aggregateSignatureResponse, err := n.requestAggregateSignature(request)
+		if err != nil {
+			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
+		}
+
+		if len(aggregateSignatureResponse.Signature) > chain.TeeSigLen {
+			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, fmt.Errorf("The length of the signature returned by tee is illegal: %d > %d", len(aggregateSignatureResponse.Signature), chain.TeeSigLen)
+		}
+
+		n.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", true))
+
+		var serviceProof = make([]types.U8, len(sigmaOnChian))
+		for i := 0; i < len(sigmaOnChian); i++ {
+			serviceProof[i] = types.U8(sigmaOnChian[i])
+		}
+
+		if len(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter) > chain.BloomFilterLen {
+			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, fmt.Errorf("The length of the Bloom filter returned by tee is illegal: %d > %d", len(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter), chain.BloomFilterLen)
+		}
+		var bloomFilterChain chain.BloomFilter
+		for i := 0; i < len(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter); i++ {
+			bloomFilterChain[i] = types.U64(verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter[i])
+		}
+
+		var teePuk chain.WorkerPublicKey
+		for i := 0; i < chain.WorkerPublicKeyLen; i++ {
+			teePuk[i] = types.U8(aggregateSignatureResponse.TeeAccountId[i])
+		}
+
+		// signature
+		var teeSignBytes = make(types.Bytes, chain.TeeSignatureLen)
+		for i := 0; i < len(aggregateSignatureResponse.Signature); i++ {
+			teeSignBytes[i] = byte(aggregateSignatureResponse.Signature[i])
+		}
+		return teePuk, teeSignBytes, bloomFilterChain, serviceProof, nil
 	}
 
-	request := &pb.RequestAggregateSignature{
-		VerifyInserviceFileHistory: verifyInServiceFileStructureList,
-		Qslices:                    &qSlicePb,
+	var request = &pb.RequestBatchVerify{
+		AggProof: &pb.RequestBatchVerify_BatchVerifyParam{
+			Names: names,
+			Us:    us,
+			Mus:   mus,
+			Sigma: sigmaOnChian,
+		},
+		Qslices: &qSlicePb,
+		USigs:   usig,
+		MinerId: n.GetSignatureAccPulickey(),
 	}
 
-	//fmt.Println(hex.EncodeToString(request.VerifyInserviceFileHistory[0].Signature))
-
-	aggregateSignatureResponse, err := n.requestAggregateSignature(request)
+	batchVerifyResponse, err := n.requestBatchVerify(request)
 	if err != nil {
-		return nil, nil, nil, err
+		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, []types.U8{}, nil
 	}
 
-	if len(aggregateSignatureResponse.Signature) > chain.TeeSigLen {
-		return nil, nil, nil, fmt.Errorf("The length of the signature returned by tee is illegal: %d > %d", len(aggregateSignatureResponse.Signature), chain.TeeSigLen)
+	var teePuk chain.WorkerPublicKey
+	for i := 0; i < chain.WorkerPublicKeyLen; i++ {
+		teePuk[i] = types.U8(batchVerifyResponse.TeeAccountId[i])
 	}
 
-	n.Schal("info", fmt.Sprintf("Batch verification results of service files: %v", true))
-
-	var serviceProof = make([]types.U8, len(sigmaOnChian))
-	for i := 0; i < len(sigmaOnChian); i++ {
-		serviceProof[i] = types.U8(sigmaOnChian[i])
+	// signature
+	var teeSignBytes = make(types.Bytes, chain.TeeSignatureLen)
+	for i := 0; i < len(batchVerifyResponse.Signature); i++ {
+		teeSignBytes[i] = byte(batchVerifyResponse.Signature[i])
 	}
-
-	return aggregateSignatureResponse, verifyInServiceFileStructureList[len(verifyInServiceFileStructureList)-1].ServiceBloomFilter, serviceProof, nil
+	return teePuk, teeSignBytes, chain.BloomFilter{}, []types.U8{}, nil
 }
 
 func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify) (*pb.ResponseBatchVerify, error) {

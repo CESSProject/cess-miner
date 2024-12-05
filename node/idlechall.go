@@ -30,15 +30,12 @@ import (
 func (n *Node) idleChallenge(
 	ch chan<- bool,
 	idleProofSubmited bool,
-	//latestBlock uint32,
-	//challVerifyExpiration uint32,
 	challStart uint32,
 	minerChallFront int64,
 	minerChallRear int64,
 	spaceChallengeParam chain.SpaceChallengeParam,
 	minerAccumulator chain.Accumulator,
 	teeSign chain.TeeSig,
-	//teePubkey chain.WorkerPublicKey,
 ) {
 	defer func() {
 		ch <- true
@@ -48,14 +45,17 @@ func (n *Node) idleChallenge(
 		}
 	}()
 
-	err := n.checkIdleProofRecord(challStart)
-	if err == nil {
-		return
+	var err error
+	if idleProofSubmited {
+		err = n.checkIdleProofRecord(challStart)
+		if err == nil {
+			return
+		}
 	}
 
 	n.SetIdleChallenging(true)
 
-	n.Ichal("info", fmt.Sprintf("Idle file chain challenge: %v", challStart))
+	n.Ichal("info", fmt.Sprintf("Start counting idle challenges: %d", challStart))
 
 	var idleProofRecord common.IdleProofInfo
 	idleProofRecord.Start = challStart
@@ -97,7 +97,6 @@ func (n *Node) idleChallenge(
 
 	idleProofRecord.ChallRandom = challRandom
 
-	n.Ichal("info", "start calc challenge...")
 	idleProofRecord.FileBlockProofInfo = make([]common.FileBlockProofInfo, 0)
 	var idleproof = make([]byte, 0)
 
@@ -119,7 +118,7 @@ func (n *Node) idleChallenge(
 		n.SaveIdleProve(idleProofRecord)
 		return
 	}
-
+	n.Ichal("info", fmt.Sprintf("[start] %v", time.Now()))
 	for {
 		var fileBlockProofInfoEle common.FileBlockProofInfo
 		left, right := challengeHandle(previousHash)
@@ -213,31 +212,32 @@ func (n *Node) idleChallenge(
 		n.Ichal("err", fmt.Sprintf("[h.Write] %v", err))
 		return
 	}
-	idleProofRecord.IdleProof = h.Sum(nil)
-	var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-	for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-		idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+	idleProof := h.Sum(nil)
+	var idleProofChain = make([]types.U8, len(idleProof))
+	for i := 0; i < len(idleProof); i++ {
+		idleProofChain[i] = types.U8(idleProof[i])
 	}
-
-	n.SaveIdleProve(idleProofRecord)
 
 	txhash := ""
 	for i := 0; i < 5; i++ {
 		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
-		txhash, err = n.SubmitIdleProof(idleProve)
+		txhash, err = n.SubmitIdleProof(idleProofChain)
 		n.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
 		if err != nil {
 			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
 			time.Sleep(time.Minute)
 			continue
 		}
+		idleProofRecord.SubmintProof = false
+		idleProofRecord.IdleProof = idleProofChain
+		n.SaveIdleProve(idleProofRecord)
 		break
 	}
-	idleProofRecord.SubmintProof = false
-	n.SaveIdleProve(idleProofRecord)
 
-	//
-	time.Sleep(chain.BlockInterval * 2)
+	if idleProofRecord.SubmintProof {
+		n.Ichal("err", "SubmitIdleProof failed")
+		return
+	}
 
 	teeSignBytes, pkchain, result, err := n.verifyIdleProof(minerChallFront, minerChallRear, minerPoisInfo, idleProofRecord, acc, challRandom)
 	if err != nil {
@@ -247,7 +247,7 @@ func (n *Node) idleChallenge(
 
 	for i := 0; i < 5; i++ {
 		txHash, err := n.SubmitVerifyIdleResult(
-			idleProve,
+			idleProofChain,
 			types.U64(idleProofRecord.ChainFront),
 			types.U64(idleProofRecord.ChainRear),
 			minerAccumulator,
@@ -336,12 +336,12 @@ func (n *Node) verifyIdleProof(
 			continue
 		}
 
-		n.Ichal("info", fmt.Sprintf("spaceProofVerifyTotal.IdleResult is %v", spaceProofVerifyTotal.IdleResult))
-
 		if len(spaceProofVerifyTotal.Signature) != chain.TeeSigLen {
 			n.Ichal("err", "invalid spaceProofVerifyTotal signature")
 			continue
 		}
+
+		n.Ichal("info", fmt.Sprintf("SpaceProofVerifyTotal result: %v", spaceProofVerifyTotal.IdleResult))
 
 		for i := 0; i < chain.TeeSigLen; i++ {
 			teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])

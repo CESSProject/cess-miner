@@ -53,7 +53,7 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					go n.idleChallenge(
 						idleChallTaskCh,
 						true,
-						latestBlock,
+						uint32(challenge.ChallengeElement.Start),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 						challenge.ChallengeElement.SpaceParam,
@@ -72,7 +72,7 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 				go n.idleChallenge(
 					idleChallTaskCh,
 					false,
-					latestBlock,
+					uint32(challenge.ChallengeElement.Start),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 					challenge.ChallengeElement.SpaceParam,
@@ -94,12 +94,9 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					go n.serviceChallenge(
 						serviceChallTaskCh,
 						true,
-						//latestBlock,
-						//uint32(challenge.ChallengeElement.VerifySlip),
 						uint32(challenge.ChallengeElement.Start),
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
-						//serviceProve.TeePubkey,
 					)
 				}
 			}
@@ -113,12 +110,9 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 				go n.serviceChallenge(
 					serviceChallTaskCh,
 					false,
-					//latestBlock,
-					//uint32(challenge.ChallengeElement.VerifySlip),
 					uint32(challenge.ChallengeElement.Start),
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
-					//chain.WorkerPublicKey{},
 				)
 			}
 		}
