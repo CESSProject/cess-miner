@@ -45,19 +45,14 @@ type IdleProofInfo struct {
 }
 
 type ServiceProofInfo struct {
-	// Names              []string              `json:"names"`
-	// Us                 []string              `json:"us"`
-	// Mus                []string              `json:"mus"`
-	// Usig               [][]byte              `json:"usig"`
-	Signature          []byte                `json:"signature"`
-	Proof              []types.U8            `json:"proof"`
-	BloomFilter        chain.BloomFilter     `json:"bloom_filter"`
-	TeeWorkerPublicKey chain.WorkerPublicKey `json:"tee_worker_public_key"`
-	Sigma              string                `json:"sigma"`
-	Start              uint32                `json:"start"`
-	ServiceResult      bool                  `json:"serviceResult"`
-	SubmitProof        bool                  `json:"submitProof"`
-	SubmitResult       bool                  `json:"submitResult"`
+	SignatureHex    string                `json:"signature_hex"`
+	Proof           []types.U8            `json:"proof"`
+	BloomFilter     chain.BloomFilter     `json:"bloom_filter"`
+	TeePublicKey    chain.WorkerPublicKey `json:"tee_public_key"`
+	Start           uint32                `json:"start"`
+	Result          bool                  `json:"result"`
+	CanSubmitProof  bool                  `json:"can_submit_proof"`
+	CanSubmitResult bool                  `json:"can_submit_result"`
 }
 
 type RandomList struct {

@@ -218,26 +218,15 @@ func (n *Node) idleChallenge(
 		idleProofChain[i] = types.U8(idleProof[i])
 	}
 
-	txhash := ""
-	for i := 0; i < 5; i++ {
-		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
-		txhash, err = n.SubmitIdleProof(idleProofChain)
-		n.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-			time.Sleep(time.Minute)
-			continue
-		}
-		idleProofRecord.SubmintProof = false
-		idleProofRecord.IdleProof = idleProofChain
-		n.SaveIdleProve(idleProofRecord)
-		break
-	}
-
-	if idleProofRecord.SubmintProof {
-		n.Ichal("err", "SubmitIdleProof failed")
+	err = n.submitIdleProof(idleProofChain)
+	if err != nil {
+		n.Ichal("err", err.Error())
 		return
 	}
+
+	idleProofRecord.SubmintProof = false
+	idleProofRecord.IdleProof = idleProofChain
+	n.SaveIdleProve(idleProofRecord)
 
 	teeSignBytes, pkchain, result, err := n.verifyIdleProof(minerChallFront, minerChallRear, minerPoisInfo, idleProofRecord, acc, challRandom)
 	if err != nil {
@@ -265,6 +254,40 @@ func (n *Node) idleChallenge(
 	}
 	idleProofRecord.SubmintResult = false
 	n.SaveIdleProve(idleProofRecord)
+}
+
+func (n *Node) submitIdleProof(idleProof []types.U8) error {
+	var (
+		err       error
+		blockHash string
+		challInfo chain.ChallengeInfo
+	)
+	for i := 0; i < 5; i++ {
+		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
+		blockHash, err = n.SubmitIdleProof(idleProof)
+		n.Ichal("info", fmt.Sprintf("[end sub]: %s", blockHash))
+		if err == nil && blockHash != "" {
+			return nil
+		}
+
+		time.Sleep(chain.BlockInterval * 3)
+
+		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
+		if err != nil {
+			if err.Error() != chain.ERR_Empty {
+				n.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
+			}
+			return err
+		}
+
+		if challInfo.ProveInfo.IdleProve.HasValue() {
+			_, idleProve := challInfo.ProveInfo.IdleProve.Unwrap()
+			if len(idleProve.IdleProve) > 0 {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("submitIdleProof failed: %v", err)
 }
 
 func (n *Node) verifyIdleProof(
