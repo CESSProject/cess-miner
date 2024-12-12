@@ -91,22 +91,4 @@ func (s *StatusHandler) getStatus(c *gin.Context) {
 		Msg:  common.OK,
 		Data: data,
 	})
-
-	// msg += fmt.Sprintf("Calculate Tag: %v\n", n.GetCalcTagFlag())
-
-	// msg += fmt.Sprintf("Report file: %v\n", n.GetReportFileFlag())
-
-	// msg += fmt.Sprintf("Generate idle: %v\n", n.GetGenIdleFlag())
-
-	// msg += fmt.Sprintf("Report idle: %v\n", n.GetAuthIdleFlag())
-
-	// msg += fmt.Sprintf("Calc idle challenge: %v\n", n.GetIdleChallengeFlag())
-
-	// msg += fmt.Sprintf("Calc service challenge: %v\n", n.GetServiceChallengeFlag())
-
-	// msg += fmt.Sprintf("Receiving data: %v\n", n.GetReceiveFlag())
-
-	// msg += fmt.Sprintf("Cpu usage: %.2f%%\n", getCpuUsage(int32(n.GetPID())))
-
-	// msg += fmt.Sprintf("Memory usage: %d", getMemUsage())
 }

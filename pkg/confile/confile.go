@@ -154,15 +154,6 @@ func (c *Confile) Parse(fpath string) error {
 		}
 	}
 
-	// dirFreeSpace, err := utils.GetDirFreeSpace(c.Workspace)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "[GetDirFreeSpace]")
-	// }
-
-	// if dirFreeSpace/1024/1024/1024 < c.UseSpace {
-	// 	out.Warn(fmt.Sprintf("The available space is less than %dG", c.UseSpace))
-	// }
-
 	return nil
 }
 
