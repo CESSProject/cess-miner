@@ -93,10 +93,10 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					<-serviceChallTaskCh
 					go n.serviceChallenge(
 						serviceChallTaskCh,
-						true,
-						uint32(challenge.ChallengeElement.Start),
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
+						uint32(challenge.ChallengeElement.Start),
+						true,
 					)
 				}
 			}
@@ -109,10 +109,10 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 				<-serviceChallTaskCh
 				go n.serviceChallenge(
 					serviceChallTaskCh,
-					false,
-					uint32(challenge.ChallengeElement.Start),
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
+					uint32(challenge.ChallengeElement.Start),
+					false,
 				)
 			}
 		}
