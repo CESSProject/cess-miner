@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.12
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.6.4-0.20241126033601-270a46e31bcc
+	github.com/CESSProject/cess-go-sdk v0.6.4-0.20241212035336-417e552e9bca
 	github.com/CESSProject/cess_pois v0.6.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
 	github.com/gin-contrib/cors v1.7.1

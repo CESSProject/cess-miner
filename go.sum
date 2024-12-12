@@ -1,9 +1,7 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/CESSProject/cess-go-sdk v0.6.4-0.20241126033601-270a46e31bcc h1:pq0m4PEInJae2/6pNeLohM5YOkT4pe8nHZHaa6Co+5U=
-github.com/CESSProject/cess-go-sdk v0.6.4-0.20241126033601-270a46e31bcc/go.mod h1:PhEkkRp+2YqgZJnVvB4dnU183pBMmDBxvaLrD3KB2Tw=
-github.com/CESSProject/cess_pois v0.5.17 h1:jzAw5A64SkhB39b+aRCJBnbTQ1EK75PD6lLhG7skw5o=
-github.com/CESSProject/cess_pois v0.5.17/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
+github.com/CESSProject/cess-go-sdk v0.6.4-0.20241212035336-417e552e9bca h1:6G0WV6+8wUDaBcIzvp7rc9zxRhVyRjAb+q4MN3w7dbg=
+github.com/CESSProject/cess-go-sdk v0.6.4-0.20241212035336-417e552e9bca/go.mod h1:PhEkkRp+2YqgZJnVvB4dnU183pBMmDBxvaLrD3KB2Tw=
 github.com/CESSProject/cess_pois v0.6.0 h1:OVy4B2N5MVbFryaQvdjXf9MnIVuoN1hZviKd+yCOF3I=
 github.com/CESSProject/cess_pois v0.6.0/go.mod h1:rztEZjjG+MbKzVgh5WtQcZc/7ZDkBvDNABc7Em8BKPc=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
