@@ -273,7 +273,7 @@ If the configuration file is named conf.yaml and is located in the same director
 *******************************************************************************
 +-------------------+------------------------------------------------------+
 | name              | storage miner                                        |
-| peer id           | 8HL8C22GpiR9KN8KJpz3Bj19R6yFguG3g8GCb9w29PcVU9eMXGQX |
+| endpoint          | ******                                               |
 | state             | positive                                             |
 | staking amount    | 4000 TCESS                                           |
 | staking start     | 3123                                                 |
