@@ -517,14 +517,14 @@ func updateMinerRegistertionInfo(cli chain.Chainer, oldRegInfo *chain.MinerInfo,
 	}
 	if newDecSpace > olddecspace {
 		token := (newDecSpace - olddecspace) * chain.StakingStakePerTiB
-		if stakingAcc != "" && stakingAcc != cli.GetSignatureAcc() {
+		if stakingAcc == "" || stakingAcc == cli.GetSignatureAcc() {
 			signAccInfo, err := cli.QueryAccountInfo(cli.GetSignatureAcc(), -1)
 			if err != nil {
 				if err.Error() != chain.ERR_Empty {
 					out.Err(err.Error())
 					os.Exit(1)
 				}
-				out.Err("Failed to expand space: account does not exist or balance is empty")
+				out.Err("Failed to expand space: signature account does not exist or balance is empty")
 				os.Exit(1)
 			}
 			incToken, _ := new(big.Int).SetString(fmt.Sprintf("%d%s", token, chain.TokenPrecision_CESS), 10)
