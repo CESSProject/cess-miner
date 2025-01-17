@@ -12,9 +12,9 @@ import (
 	"os"
 	"path"
 
+	"github.com/AstaFrode/go-substrate-rpc-client/v4/signature"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
