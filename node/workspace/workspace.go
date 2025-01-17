@@ -13,13 +13,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/AstaFrode/go-substrate-rpc-client/v4/types"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/common"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
 const (

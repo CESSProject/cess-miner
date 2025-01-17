@@ -13,12 +13,12 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/AstaFrode/go-substrate-rpc-client/v4/types"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )

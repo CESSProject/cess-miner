@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AstaFrode/go-substrate-rpc-client/v4/types"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/logger"
@@ -33,7 +34,6 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -133,11 +133,11 @@ func (n *Node) InitChainClient() {
 		os.Exit(1)
 	}
 
-	err = checkVersion(cli)
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
+	// err = checkVersion(cli)
+	// if err != nil {
+	// 	out.Err(err.Error())
+	// 	os.Exit(1)
+	// }
 
 	n.ExpendersInfo, err = cli.QueryExpenders(-1)
 	if err != nil {

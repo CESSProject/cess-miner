@@ -8,9 +8,9 @@
 package common
 
 import (
+	"github.com/AstaFrode/go-substrate-rpc-client/v4/types"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/gin-gonic/gin"
 )
 
