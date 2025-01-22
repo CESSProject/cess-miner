@@ -93,17 +93,17 @@ func updearningsCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := cli.UpdateBeneficiary(os.Args[3])
+	blockhash, err := cli.UpdateBeneficiary(os.Args[3])
 	if err != nil {
-		if txhash == "" {
+		if blockhash == "" {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Warn(txhash)
+		out.Warn(blockhash)
 		os.Exit(0)
 	}
 
-	out.Ok(txhash)
+	out.Ok(blockhash)
 	os.Exit(0)
 }
 
@@ -143,16 +143,16 @@ func updendpointCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := cli.UpdateSminerEndpoint([]byte(os.Args[3]))
+	blockhash, err := cli.UpdateSminerEndpoint([]byte(os.Args[3]))
 	if err != nil {
-		if txhash == "" {
+		if blockhash == "" {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Warn(txhash)
+		out.Warn(blockhash)
 		os.Exit(0)
 	}
 
-	out.Ok(txhash)
+	out.Ok(blockhash)
 	os.Exit(0)
 }

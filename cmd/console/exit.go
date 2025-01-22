@@ -59,16 +59,16 @@ func exitCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := cli.MinerExitPrep()
+	blockhash, err := cli.MinerExitPrep()
 	if err != nil {
-		if txhash == "" {
+		if blockhash == "" {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Warn(txhash)
+		out.Warn(blockhash)
 		os.Exit(0)
 	}
 
-	out.Ok(txhash)
+	out.Ok(blockhash)
 	os.Exit(0)
 }

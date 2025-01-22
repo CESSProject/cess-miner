@@ -102,17 +102,17 @@ func incstakingCmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	addStaking := os.Args[3] + chain.TokenPrecision_CESS
-	txhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), addStaking)
+	blockhash, err := cli.IncreaseCollateral(cli.GetSignatureAccPulickey(), addStaking)
 	if err != nil {
-		if txhash == "" {
+		if blockhash == "" {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Warn(txhash)
+		out.Warn(blockhash)
 		os.Exit(0)
 	}
 
-	out.Ok(txhash)
+	out.Ok(blockhash)
 	os.Exit(0)
 }
 
@@ -198,16 +198,16 @@ func incspaceCmdFunc(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	txhash, err := cli.IncreaseDeclarationSpace(uint32(space))
+	blockhash, err := cli.IncreaseDeclarationSpace(uint32(space))
 	if err != nil {
-		if txhash == "" {
+		if blockhash == "" {
 			out.Err(err.Error())
 			os.Exit(1)
 		}
-		out.Warn(txhash)
+		out.Warn(blockhash)
 		os.Exit(0)
 	}
 
-	out.Ok(txhash)
+	out.Ok(blockhash)
 	os.Exit(0)
 }
