@@ -96,7 +96,6 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
 						uint32(challenge.ChallengeElement.Start),
-						true,
 					)
 				}
 			}
@@ -112,7 +111,6 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
 					uint32(challenge.ChallengeElement.Start),
-					false,
 				)
 			}
 		}

@@ -21,7 +21,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
-	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -37,7 +36,7 @@ type challengedFile struct {
 	Fragments []string
 }
 
-func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chain.Random, chlgStart uint32, isSubmitProof bool) {
+func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chain.Random, chlgStart uint32) {
 	defer func() {
 		ch <- true
 		n.SetServiceChallenging(false)
@@ -47,12 +46,40 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 	}()
 
 	var err error
-	if isSubmitProof {
-		err = n.checkServiceProofRecord(chlgStart)
-		if err == nil {
+
+	serviceProofRecord, err := n.LoadServiceProve()
+	if err == nil {
+		if serviceProofRecord.Start != chlgStart {
+			os.Remove(n.GetServiceProve())
+			n.Del("info", n.GetServiceProve())
+		}
+
+		if !serviceProofRecord.CanSubmitProof {
+			if serviceProofRecord.CanSubmitResult {
+				if serviceProofRecord.SignatureHex != "" {
+					teeSignBytes, err := hex.DecodeString(serviceProofRecord.SignatureHex)
+					if err != nil {
+						return
+					}
+					err = n.submitServiceResult(types.Bool(serviceProofRecord.Result), teeSignBytes, serviceProofRecord.BloomFilter, serviceProofRecord.TeePublicKey)
+					if err != nil {
+						n.Schal("err", err.Error())
+					}
+					serviceProofRecord.CanSubmitResult = false
+					n.SaveServiceProve(serviceProofRecord)
+					return
+				}
+			}
 			return
 		}
 	}
+
+	//if isSubmitProof {
+	//err = n.checkServiceProofRecord(chlgStart)
+	//if err == nil {
+	//	return
+	//}
+	//}
 
 	n.SetServiceChallenging(true)
 
@@ -71,28 +98,27 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		n.Schal("err", fmt.Sprintf("Save service file challenge random err: %v", err))
 	}
 
-	var serviceProofRecord common.ServiceProofInfo
+	//var serviceProofRecord common.ServiceProofInfo
 	serviceProofRecord.Start = chlgStart
 	serviceProofRecord.CanSubmitProof = true
 	serviceProofRecord.CanSubmitResult = true
 
 	if totalChallengedLength <= 0 {
-		err = n.submitServiceProof([]types.U8{})
-		if err != nil {
-			n.Schal("err", err.Error())
-			return
-		}
-
-		serviceProofRecord.Proof = []types.U8{}
-		serviceProofRecord.CanSubmitProof = false
-		n.SaveServiceProve(serviceProofRecord)
-
-		time.Sleep(chain.BlockInterval * 2)
 		teePuk, teeSign, bloomFilter, result, err := n.verifyEmpty(rndIndex, rnd)
 		if err != nil {
 			n.Schal("err", err.Error())
 			return
 		}
+
+		err = n.submitServiceProof([]types.U8{})
+		if err != nil {
+			n.Schal("err", err.Error())
+			//return
+		}
+
+		serviceProofRecord.Proof = []types.U8{}
+		serviceProofRecord.CanSubmitProof = false
+		//n.SaveServiceProve(serviceProofRecord)
 
 		serviceProofRecord.Result = result
 		serviceProofRecord.BloomFilter = bloomFilter
@@ -100,6 +126,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
 		n.SaveServiceProve(serviceProofRecord)
 
+		time.Sleep(chain.BlockInterval * 2)
 		err = n.submitServiceResult(types.Bool(result), teeSign, bloomFilter, teePuk)
 		if err != nil {
 			n.Schal("err", err.Error())
@@ -129,7 +156,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		err = n.submitServiceProof(proof)
 		if err != nil {
 			n.Schal("err", err.Error())
-			return
+			//return
 		}
 
 		serviceProofRecord.CanSubmitProof = false
@@ -162,7 +189,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		err = n.submitServiceProof(proof)
 		if err != nil {
 			n.Schal("err", err.Error())
-			return
+			//return
 		}
 
 		serviceProofRecord.CanSubmitProof = false
@@ -329,24 +356,27 @@ func (n *Node) checkServiceProofRecord(challStart uint32) error {
 		return errors.New("Local service file challenge record is outdated")
 	}
 
-	if !serviceProofRecord.CanSubmitResult {
-		return nil
+	if serviceProofRecord.CanSubmitProof {
+		return errors.New("not submit proof")
 	}
 
-	n.Schal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
+	if serviceProofRecord.CanSubmitResult {
 
-	if serviceProofRecord.SignatureHex != "" {
-		teeSignBytes, err := hex.DecodeString(serviceProofRecord.SignatureHex)
-		if err != nil {
-			return err
+		n.Schal("info", fmt.Sprintf("local service proof file challenge: %v", serviceProofRecord.Start))
+
+		if serviceProofRecord.SignatureHex != "" {
+			teeSignBytes, err := hex.DecodeString(serviceProofRecord.SignatureHex)
+			if err != nil {
+				return err
+			}
+			err = n.submitServiceResult(types.Bool(serviceProofRecord.Result), teeSignBytes, serviceProofRecord.BloomFilter, serviceProofRecord.TeePublicKey)
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
+			serviceProofRecord.CanSubmitResult = false
+			n.SaveServiceProve(serviceProofRecord)
+			return nil
 		}
-		err = n.submitServiceResult(types.Bool(serviceProofRecord.Result), teeSignBytes, serviceProofRecord.BloomFilter, serviceProofRecord.TeePublicKey)
-		if err != nil {
-			n.Schal("err", err.Error())
-		}
-		serviceProofRecord.CanSubmitResult = false
-		n.SaveServiceProve(serviceProofRecord)
-		return nil
 	}
 
 	return errors.New("Service proof result not submited")
