@@ -73,7 +73,7 @@ func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string, regis
 		rt.SetStakingAcc(stakingAcc)
 	}
 	rt.SetEarningsAcc(n.ReadEarningsAcc())
-	rt.SetLastConnectedTime(t)
+	rt.SetStartTime(t)
 	n.InitRunstatus(rt)
 }
 

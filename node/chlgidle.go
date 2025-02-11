@@ -29,8 +29,9 @@ import (
 
 func (n *Node) idleChallenge(
 	ch chan<- bool,
-	idleProofSubmited bool,
 	challStart uint32,
+	slip uint32,
+	verifySlip uint32,
 	minerChallFront int64,
 	minerChallRear int64,
 	spaceChallengeParam chain.SpaceChallengeParam,
@@ -45,10 +46,48 @@ func (n *Node) idleChallenge(
 		}
 	}()
 
-	var err error
-	if idleProofSubmited {
-		err = n.checkIdleProofRecord(challStart)
-		if err == nil {
+	idleProofRecord, err := n.LoadIdleProve()
+	if err == nil {
+		if idleProofRecord.Start != challStart {
+			os.Remove(n.GetIdleProve())
+			n.Del("info", n.GetIdleProve())
+		} else {
+			if idleProofRecord.CanSubmintProof {
+				err = n.submitIdleProof(idleProofRecord.IdleProof, slip)
+				if err != nil {
+					n.Ichal("err", err.Error())
+				}
+				idleProofRecord.CanSubmintResult = false
+				n.SaveIdleProve(idleProofRecord)
+			}
+			if idleProofRecord.CanSubmintResult && idleProofRecord.TotalSignature != nil {
+				var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+				for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+					idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+				}
+				var teeSignBytes = make(types.Bytes, len(idleProofRecord.TotalSignature))
+				for j := 0; j < len(idleProofRecord.TotalSignature); j++ {
+					teeSignBytes[j] = byte(idleProofRecord.TotalSignature[j])
+				}
+				var minerAccumulator chain.Accumulator
+				for i := 0; i < chain.AccumulatorLen; i++ {
+					minerAccumulator[i] = types.U8(idleProofRecord.Acc[i])
+				}
+
+				_ = n.submitIdleResult(
+					idleProve,
+					types.U64(idleProofRecord.ChainFront),
+					types.U64(idleProofRecord.ChainRear),
+					minerAccumulator,
+					types.Bool(idleProofRecord.IdleResult),
+					teeSignBytes,
+					idleProofRecord.AllocatedTeeWorkpuk,
+					verifySlip,
+				)
+
+				idleProofRecord.CanSubmintResult = false
+				n.SaveIdleProve(idleProofRecord)
+			}
 			return
 		}
 	}
@@ -57,12 +96,11 @@ func (n *Node) idleChallenge(
 
 	n.Ichal("info", fmt.Sprintf("Start counting idle challenges: %d", challStart))
 
-	var idleProofRecord common.IdleProofInfo
 	idleProofRecord.Start = challStart
 	idleProofRecord.ChainFront = minerChallFront
 	idleProofRecord.ChainRear = minerChallRear
-	idleProofRecord.SubmintProof = true
-	idleProofRecord.SubmintResult = true
+	idleProofRecord.CanSubmintProof = true
+	idleProofRecord.CanSubmintResult = true
 
 	var acc = make([]byte, len(chain.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
@@ -104,7 +142,8 @@ func (n *Node) idleChallenge(
 	challengeHandle := n.Prover.NewChallengeHandle(teeID, challRandom)
 	var previousHash []byte
 	if minerChallFront == minerChallRear {
-		for i := 0; i < 5; i++ {
+		idleProofRecord.IdleProof = []types.U8{}
+		for i := 0; i < 3; i++ {
 			txhash, err := n.SubmitIdleProof([]types.U8{})
 			if err != nil {
 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
@@ -114,7 +153,8 @@ func (n *Node) idleChallenge(
 			n.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
 			break
 		}
-		idleProofRecord.SubmintResult = false
+		idleProofRecord.CanSubmintProof = false
+		idleProofRecord.CanSubmintResult = false
 		n.SaveIdleProve(idleProofRecord)
 		return
 	}
@@ -218,51 +258,57 @@ func (n *Node) idleChallenge(
 		idleProofChain[i] = types.U8(idleProof[i])
 	}
 
-	err = n.submitIdleProof(idleProofChain)
-	if err != nil {
-		n.Ichal("err", err.Error())
-		return
-	}
-
-	idleProofRecord.SubmintProof = false
-	idleProofRecord.IdleProof = idleProofChain
-	n.SaveIdleProve(idleProofRecord)
-
 	teeSignBytes, pkchain, result, err := n.verifyIdleProof(minerChallFront, minerChallRear, minerPoisInfo, idleProofRecord, acc, challRandom)
 	if err != nil {
 		n.Ichal("err", fmt.Sprintf("[verifyIdleProof] %v", err))
 		return
 	}
 
-	for i := 0; i < 5; i++ {
-		txHash, err := n.SubmitVerifyIdleResult(
-			idleProofChain,
-			types.U64(idleProofRecord.ChainFront),
-			types.U64(idleProofRecord.ChainRear),
-			minerAccumulator,
-			types.Bool(result),
-			teeSignBytes,
-			pkchain,
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-			time.Sleep(time.Minute)
-			continue
-		}
-		n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-		break
+	idleProofRecord.IdleProof = idleProofChain
+	idleProofRecord.AllocatedTeeWorkpuk = pkchain
+	idleProofRecord.IdleResult = result
+	idleProofRecord.TotalSignature = teeSignBytes
+	n.SaveIdleProve(idleProofRecord)
+
+	err = n.submitIdleProof(idleProofChain, slip)
+	if err != nil {
+		n.Ichal("err", err.Error())
 	}
-	idleProofRecord.SubmintResult = false
+
+	idleProofRecord.CanSubmintProof = false
+	n.SaveIdleProve(idleProofRecord)
+
+	err = n.submitIdleResult(
+		idleProofChain,
+		types.U64(idleProofRecord.ChainFront),
+		types.U64(idleProofRecord.ChainRear),
+		minerAccumulator,
+		types.Bool(result),
+		teeSignBytes,
+		pkchain,
+		verifySlip,
+	)
+	if err != nil {
+		n.Ichal("err", err.Error())
+	}
+
+	idleProofRecord.CanSubmintResult = false
 	n.SaveIdleProve(idleProofRecord)
 }
 
-func (n *Node) submitIdleProof(idleProof []types.U8) error {
+func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) error {
 	var (
 		err       error
 		blockHash string
 		challInfo chain.ChallengeInfo
 	)
-	for i := 0; i < 5; i++ {
+	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+	if err == nil {
+		if slip < uint32(latestBlock.Block.Header.Number) {
+			return nil
+		}
+	}
+	for i := 0; i < 3; i++ {
 		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
 		blockHash, err = n.SubmitIdleProof(idleProof)
 		n.Ichal("info", fmt.Sprintf("[end sub]: %s", blockHash))
@@ -286,6 +332,33 @@ func (n *Node) submitIdleProof(idleProof []types.U8) error {
 				return nil
 			}
 		}
+	}
+	return fmt.Errorf("submitIdleProof failed: %v", err)
+}
+
+func (n *Node) submitIdleResult(totalProofHash []types.U8, front types.U64, rear types.U64, accumulator chain.Accumulator, result types.Bool, sig types.Bytes, teePuk chain.WorkerPublicKey, verifySlip uint32) error {
+	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+	if err == nil {
+		if verifySlip < uint32(latestBlock.Block.Header.Number) {
+			return nil
+		}
+	}
+	for i := 0; i < 3; i++ {
+		txHash, err := n.SubmitVerifyIdleResult(
+			totalProofHash,
+			types.U64(front),
+			types.U64(rear),
+			accumulator,
+			types.Bool(result),
+			sig,
+			teePuk,
+		)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+			time.Sleep(time.Minute)
+			continue
+		}
+		n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
 	}
 	return fmt.Errorf("submitIdleProof failed: %v", err)
 }
@@ -412,60 +485,60 @@ func verifyIdleSingleBlock(teeEndpoint string, requestSpaceProofVerify *pb.Reque
 	return blocksProof, nil
 }
 
-func (n *Node) checkIdleProofRecord(challStart uint32) error {
-	var err error
-	var idleProofRecord common.IdleProofInfo
+// func (n *Node) checkIdleProofRecord(challStart uint32) error {
+// 	var err error
+// 	var idleProofRecord common.IdleProofInfo
 
-	idleProofRecord, err = n.LoadIdleProve()
-	if err != nil {
-		return err
-	}
+// 	idleProofRecord, err = n.LoadIdleProve()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if idleProofRecord.Start != challStart {
-		os.Remove(n.GetIdleProve())
-		n.Del("info", n.GetIdleProve())
-		return errors.New("Local service file challenge record is outdated")
-	}
+// 	if idleProofRecord.Start != challStart {
+// 		os.Remove(n.GetIdleProve())
+// 		n.Del("info", n.GetIdleProve())
+// 		return errors.New("Local service file challenge record is outdated")
+// 	}
 
-	if !idleProofRecord.SubmintResult {
-		return nil
-	}
+// 	if !idleProofRecord.SubmintResult {
+// 		return nil
+// 	}
 
-	if idleProofRecord.SubmintProof && idleProofRecord.TotalSignature != nil {
-		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
-		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
-			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
-		}
-		var teeSignBytes = make(types.Bytes, len(idleProofRecord.TotalSignature))
-		for j := 0; j < len(idleProofRecord.TotalSignature); j++ {
-			teeSignBytes[j] = byte(idleProofRecord.TotalSignature[j])
-		}
-		var minerAccumulator chain.Accumulator
-		for i := 0; i < chain.AccumulatorLen; i++ {
-			minerAccumulator[i] = types.U8(idleProofRecord.Acc[i])
-		}
-		for i := 0; i < 5; i++ {
-			txHash, err := n.SubmitVerifyIdleResult(
-				idleProve,
-				types.U64(idleProofRecord.ChainFront),
-				types.U64(idleProofRecord.ChainRear),
-				minerAccumulator,
-				types.Bool(idleProofRecord.IdleResult),
-				teeSignBytes,
-				idleProofRecord.AllocatedTeeWorkpuk,
-			)
-			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
-				time.Sleep(time.Minute)
-				continue
-			}
-			n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
-			break
-		}
-		idleProofRecord.SubmintResult = false
-		n.SaveIdleProve(idleProofRecord)
-		return nil
-	}
+// 	if idleProofRecord.SubmintProof && idleProofRecord.TotalSignature != nil {
+// 		var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
+// 		for i := 0; i < len(idleProofRecord.IdleProof); i++ {
+// 			idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
+// 		}
+// 		var teeSignBytes = make(types.Bytes, len(idleProofRecord.TotalSignature))
+// 		for j := 0; j < len(idleProofRecord.TotalSignature); j++ {
+// 			teeSignBytes[j] = byte(idleProofRecord.TotalSignature[j])
+// 		}
+// 		var minerAccumulator chain.Accumulator
+// 		for i := 0; i < chain.AccumulatorLen; i++ {
+// 			minerAccumulator[i] = types.U8(idleProofRecord.Acc[i])
+// 		}
+// 		for i := 0; i < 5; i++ {
+// 			txHash, err := n.SubmitVerifyIdleResult(
+// 				idleProve,
+// 				types.U64(idleProofRecord.ChainFront),
+// 				types.U64(idleProofRecord.ChainRear),
+// 				minerAccumulator,
+// 				types.Bool(idleProofRecord.IdleResult),
+// 				teeSignBytes,
+// 				idleProofRecord.AllocatedTeeWorkpuk,
+// 			)
+// 			if err != nil {
+// 				n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", txHash, err))
+// 				time.Sleep(time.Minute)
+// 				continue
+// 			}
+// 			n.Ichal("info", fmt.Sprintf("submit idle proof result suc: %s", txHash))
+// 			break
+// 		}
+// 		idleProofRecord.SubmintResult = false
+// 		n.SaveIdleProve(idleProofRecord)
+// 		return nil
+// 	}
 
-	return errors.New("Idle proof not submited")
-}
+// 	return errors.New("Idle proof not submited")
+// }

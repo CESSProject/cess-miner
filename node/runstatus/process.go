@@ -15,17 +15,20 @@ type Processst interface {
 	SetPID(pid int)
 	SetCpucores(cores int)
 	SetComAddr(addr string)
+	SetCheckPois(st bool)
 
 	GetPID() int
 	GetCpucores() int
 	GetComAddr() string
+	GetCheckPois() bool
 }
 
 type ProcessSt struct {
-	lock     *sync.RWMutex
-	cpucores int
-	pid      int
-	addr     string
+	lock      *sync.RWMutex
+	cpucores  int
+	pid       int
+	addr      string
+	checkPois bool
 }
 
 func NewProcessSt() *ProcessSt {
@@ -69,6 +72,19 @@ func (p *ProcessSt) SetComAddr(addr string) {
 func (p *ProcessSt) GetComAddr() string {
 	p.lock.RLock()
 	value := p.addr
+	p.lock.RUnlock()
+	return value
+}
+
+func (p *ProcessSt) SetCheckPois(st bool) {
+	p.lock.Lock()
+	p.checkPois = st
+	p.lock.Unlock()
+}
+
+func (p *ProcessSt) GetCheckPois() bool {
+	p.lock.RLock()
+	value := p.checkPois
 	p.lock.RUnlock()
 	return value
 }

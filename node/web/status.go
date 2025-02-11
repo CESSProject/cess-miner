@@ -33,10 +33,10 @@ type StatusData struct {
 	Cores    int    `json:"cores"`
 	Endpoint string `json:"endpoint"`
 
-	CurrentRpc        string `json:"current_rpc"`
-	CurrentRpcStatus  bool   `json:"current_rpc_status"`
-	IsConnectingRpc   bool   `json:"is_connecting_rpc"`
-	LastConnectedTime string `json:"last_connected_time"`
+	CurrentRpc       string `json:"current_rpc"`
+	CurrentRpcStatus bool   `json:"current_rpc_status"`
+	IsConnectingRpc  bool   `json:"is_connecting_rpc"`
+	StartTime        string `json:"start_time"`
 
 	State            string `json:"state"`
 	SignatureAcc     string `json:"signature_acc"`
@@ -52,6 +52,8 @@ type StatusData struct {
 
 	GeneratingIdle bool `json:"generating_idle"`
 	CertifyingIdle bool `json:"certifying_idle"`
+
+	CheckingIdle bool `json:"checking_idle"`
 }
 
 func (s *StatusHandler) getStatus(c *gin.Context) {
@@ -64,10 +66,10 @@ func (s *StatusHandler) getStatus(c *gin.Context) {
 		Cores:    s.GetCpucores(),
 		Endpoint: s.GetComAddr(),
 
-		CurrentRpc:        s.GetCurrentRpc(),
-		CurrentRpcStatus:  s.GetCurrentRpcst(),
-		IsConnectingRpc:   s.GetRpcConnecting(),
-		LastConnectedTime: s.GetLastConnectedTime(),
+		CurrentRpc:       s.GetCurrentRpc(),
+		CurrentRpcStatus: s.GetCurrentRpcst(),
+		IsConnectingRpc:  s.GetRpcConnecting(),
+		StartTime:        s.GetStartTime(),
 
 		State:        s.GetState(),
 		SignatureAcc: s.GetSignAcc(),
@@ -84,6 +86,8 @@ func (s *StatusHandler) getStatus(c *gin.Context) {
 
 		GeneratingIdle: s.GetGeneratingIdle(),
 		CertifyingIdle: s.GetCertifyingIdle(),
+
+		CheckingIdle: s.GetCheckPois(),
 	}
 
 	c.JSON(200, common.RespType{

@@ -33,8 +33,8 @@ type IdleProofInfo struct {
 	ChainFront          int64                 `json:"chainFront"`
 	ChainRear           int64                 `json:"chainRear"`
 	IdleResult          bool                  `json:"idleResult"`
-	SubmintProof        bool                  `json:"submintProof"`
-	SubmintResult       bool                  `json:"submintResult"`
+	CanSubmintProof     bool                  `json:"submintProof"`
+	CanSubmintResult    bool                  `json:"submintResult"`
 	AllocatedTeeWorkpuk chain.WorkerPublicKey `json:"allocatedTeeWorkpuk"`
 	IdleProof           []types.U8            `json:"idleProof"`
 	Acc                 []byte                `json:"acc"`

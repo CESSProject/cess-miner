@@ -6,7 +6,7 @@ toolchain go1.22.10
 
 require (
 	github.com/AstaFrode/go-substrate-rpc-client/v4 v4.2.4
-	github.com/CESSProject/cess-go-sdk v0.7.1-0.20250204032707-babee66b5bcd
+	github.com/CESSProject/cess-go-sdk v0.7.1-0.20250210085828-e5828b43cd15
 	github.com/CESSProject/cess_pois v0.6.1-0.20250121033243-b6cc55aef221
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1

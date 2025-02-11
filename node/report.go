@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -54,7 +53,6 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 		if !n.GetCurrentRpcst() {
 			return
 		}
-		time.Sleep(chain.BlockInterval)
 	}
 }
 

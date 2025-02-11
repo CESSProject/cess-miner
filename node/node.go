@@ -105,64 +105,31 @@ func (n *Node) Start() {
 
 	reportFileCh := make(chan bool, 1)
 	reportFileCh <- true
-	idleChallCh := make(chan bool, 1)
-	idleChallCh <- true
-	serviceChallCh := make(chan bool, 1)
-	serviceChallCh <- true
-	replaceIdleCh := make(chan bool, 1)
-	replaceIdleCh <- true
 	genIdleCh := make(chan bool, 1)
 	genIdleCh <- true
 	attestationIdleCh := make(chan bool, 1)
 	attestationIdleCh <- true
-	syncTeeCh := make(chan bool, 1)
-	syncTeeCh <- true
 	calcTagCh := make(chan bool, 1)
 	calcTagCh <- true
-	restoreCh := make(chan bool, 1)
-	restoreCh <- true
 
-	tick_twoblock := time.NewTicker(chain.BlockInterval * 2)
-	defer tick_twoblock.Stop()
+	tick_57s := time.NewTicker(chain.BlockInterval * 57)
+	defer tick_57s.Stop()
 
-	tick_sixblock := time.NewTicker(chain.BlockInterval * 6)
-	defer tick_sixblock.Stop()
+	n.syncMinerStatus()
 
-	tick_Hour := time.NewTicker(time.Second * time.Duration(3597))
-	defer tick_Hour.Stop()
-	chainState := true
+	go n.CheckPois()
+	go n.TaskPeriod_15s()
+	go n.TaskPeriod_10m()
+	go n.TaskPeriod_1h()
 
 	out.Ok("Service started successfully")
 
-	err := n.CheckPois()
-	if err != nil {
-		out.Err(fmt.Sprintf("check pois err: %v", err))
-		os.Exit(1)
-	}
-
 	for {
 		select {
-		case <-tick_twoblock.C:
-			chainState = n.GetRpcState()
-			if !chainState {
-				go n.Reconnectrpc()
-			}
-
-		case <-tick_sixblock.C:
-			chainState = n.GetRpcState()
-			if !chainState {
-				break
-			}
-
-			n.syncMinerStatus()
+		case <-tick_57s.C:
 			if n.GetState() == chain.MINER_STATE_EXIT ||
 				n.GetState() == chain.MINER_STATE_OFFLINE {
 				break
-			}
-
-			if len(syncTeeCh) > 0 {
-				<-syncTeeCh
-				go n.SyncTeeInfo(syncTeeCh)
 			}
 
 			if len(reportFileCh) > 0 {
@@ -180,32 +147,78 @@ func (n *Node) Start() {
 				go n.CalcTag(calcTagCh)
 			}
 
-			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go n.ChallengeMgt(idleChallCh, serviceChallCh)
-				time.Sleep(chain.BlockInterval)
-			}
-
 			if len(genIdleCh) > 0 && !n.GetIdleChallenging() && !n.GetServiceChallenging() {
 				<-genIdleCh
 				go n.GenIdle(genIdleCh)
 			}
+		}
+	}
+}
 
-		case <-tick_Hour.C:
+func (n *Node) TaskPeriod_15s() {
+	n.Log("info", "start TaskPeriod_15s")
+	tick_15s := time.NewTicker(time.Second * 15)
+	defer tick_15s.Stop()
+	idleChallCh := make(chan bool, 1)
+	idleChallCh <- true
+	serviceChallCh := make(chan bool, 1)
+	serviceChallCh <- true
+	for {
+		select {
+		case <-tick_15s.C:
 			if n.GetState() == chain.MINER_STATE_EXIT ||
 				n.GetState() == chain.MINER_STATE_OFFLINE {
 				break
 			}
+			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
+				go n.ChallengeMgt(idleChallCh, serviceChallCh)
+				time.Sleep(time.Second)
+			}
+		}
+	}
+}
 
-			chainState = n.GetRpcState()
-			if !chainState {
+func (n *Node) TaskPeriod_10m() {
+	n.Log("info", "start TaskPeriod_10m")
+	tick_10m := time.NewTicker(time.Minute * 10)
+	defer tick_10m.Stop()
+	syncTeeCh := make(chan bool, 1)
+	syncTeeCh <- true
+	replaceIdleCh := make(chan bool, 1)
+	replaceIdleCh <- true
+	for {
+		select {
+		case <-tick_10m.C:
+			n.syncMinerStatus()
+			if n.GetState() == chain.MINER_STATE_EXIT ||
+				n.GetState() == chain.MINER_STATE_OFFLINE {
 				break
 			}
-
+			if len(syncTeeCh) > 0 {
+				<-syncTeeCh
+				go n.SyncTeeInfo(syncTeeCh)
+			}
 			if len(replaceIdleCh) > 0 {
 				<-replaceIdleCh
 				go n.ReplaceIdle(replaceIdleCh)
 			}
+		}
+	}
+}
 
+func (n *Node) TaskPeriod_1h() {
+	n.Log("info", "start TaskPeriod_1h")
+	tick_1h := time.NewTicker(time.Hour)
+	defer tick_1h.Stop()
+	restoreCh := make(chan bool, 1)
+	restoreCh <- true
+	for {
+		select {
+		case <-tick_1h.C:
+			if n.GetState() == chain.MINER_STATE_EXIT ||
+				n.GetState() == chain.MINER_STATE_OFFLINE {
+				break
+			}
 			if len(restoreCh) > 0 {
 				<-restoreCh
 				go n.RestoreFiles(restoreCh)
@@ -227,14 +240,14 @@ func (n *Node) Reconnectrpc() {
 	out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), chain.ERR_RPC_CONNECTION))
 	err := n.ReconnectRpc()
 	if err != nil {
-		n.SetLastConnectedTime(time.Now().Format(time.DateTime))
+		// n.SetLastConnectedTime(time.Now().Format(time.DateTime))
 		n.Log("err", "All RPCs failed to reconnect")
 		n.Ichal("err", "All RPCs failed to reconnect")
 		n.Schal("err", "All RPCs failed to reconnect")
 		out.Err("All RPCs failed to reconnect")
 		return
 	}
-	n.SetLastConnectedTime(time.Now().Format(time.DateTime))
+	// n.SetLastConnectedTime(time.Now().Format(time.DateTime))
 	out.Ok(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 	n.Ichal("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
@@ -243,52 +256,63 @@ func (n *Node) Reconnectrpc() {
 	n.SetCurrentRpcst(true)
 }
 
-func (n *Node) CheckPois() error {
+func (n *Node) CheckPois() {
+	n.SetCheckPois(true)
+	defer n.SetCheckPois(false)
+
 	cfg := pois.Config{
 		AccPath:        n.GetPoisDir(),
 		IdleFilePath:   n.GetSpaceDir(),
 		ChallAccPath:   n.GetPoisAccDir(),
 		MaxProofThread: int(n.ReadUseCpu()),
 	}
+
 	if n.GetRegister() {
 		//Please initialize prover for the first time
 		err := n.Prover.Init(*n.RsaKey, cfg)
 		if err != nil {
-			return fmt.Errorf("pois prover init: %v", err)
+			out.Err(fmt.Sprintf("pois prover init: %v", err))
+			panic(fmt.Sprintf("pois prover init: %v", err))
 		}
-	} else {
-		// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
-		err := n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
-		if err != nil {
-			if strings.Contains(err.Error(), "read element data") {
-				num := 2
-				m, err := utils.GetSysMemAvailable()
-				cpuNum := runtime.NumCPU()
-				if err == nil {
-					m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
-					if int(m) < cpuNum {
-						cpuNum = int(m)
-					}
-					if cpuNum > num {
-						num = cpuNum
-					}
+		n.Prover.AccManager.GetSnapshot()
+		return
+	}
+
+	// If it is downtime recovery, call the recovery method.front and rear are read from minner info on chain
+	err := n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
+	if err != nil {
+		if strings.Contains(err.Error(), "read element data") {
+			num := 2
+			m, err := utils.GetSysMemAvailable()
+			cpuNum := runtime.NumCPU()
+			if err == nil {
+				m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
+				if int(m) < cpuNum {
+					cpuNum = int(m)
 				}
-				out.Tip(fmt.Sprintf("Check and restore idle data, use %d cpus", num))
-				err = n.Prover.CheckAndRestoreIdleData(n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, num)
-				if err != nil {
-					return fmt.Errorf("check and restore idle data: %v", err)
+				if cpuNum > num {
+					num = cpuNum
 				}
-				err = n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
-				if err != nil {
-					return fmt.Errorf("pois prover recovery: %v", err)
-				}
-			} else {
-				return fmt.Errorf("pois prover recovery: %v", err)
 			}
+			out.Tip(fmt.Sprintf("Check and restore idle data, use %d cpus", num))
+			err = n.Prover.CheckAndRestoreIdleData(n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, num)
+			if err != nil {
+				out.Err(fmt.Sprintf("check and restore idle data: %v", err))
+				panic(fmt.Sprintf("check and restore idle data: %v", err))
+			}
+			err = n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
+			if err != nil {
+				out.Err(fmt.Sprintf("pois prover recovery: %v", err))
+				panic(fmt.Sprintf("pois prover recovery: %v", err))
+			}
+		} else {
+			out.Err(fmt.Sprintf("pois prover recovery: %v", err))
+			panic(fmt.Sprintf("pois prover recovery: %v", err))
 		}
 	}
+
 	n.Prover.AccManager.GetSnapshot()
-	return nil
+	return
 }
 
 func exitHandle(exitCh chan os.Signal) {

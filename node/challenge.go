@@ -52,8 +52,9 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					<-idleChallTaskCh
 					go n.idleChallenge(
 						idleChallTaskCh,
-						true,
 						uint32(challenge.ChallengeElement.Start),
+						uint32(challenge.ChallengeElement.IdleSlip),
+						uint32(challenge.ChallengeElement.VerifySlip),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 						int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 						challenge.ChallengeElement.SpaceParam,
@@ -71,8 +72,9 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 				<-idleChallTaskCh
 				go n.idleChallenge(
 					idleChallTaskCh,
-					false,
 					uint32(challenge.ChallengeElement.Start),
+					uint32(challenge.ChallengeElement.IdleSlip),
+					uint32(challenge.ChallengeElement.VerifySlip),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Front),
 					int64(challenge.MinerSnapshot.SpaceProofInfo.Rear),
 					challenge.ChallengeElement.SpaceParam,
@@ -96,6 +98,8 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 						challenge.ChallengeElement.ServiceParam.Index,
 						challenge.ChallengeElement.ServiceParam.Value,
 						uint32(challenge.ChallengeElement.Start),
+						uint32(challenge.ChallengeElement.ServiceSlip),
+						uint32(challenge.ChallengeElement.VerifySlip),
 					)
 				}
 			}
@@ -111,6 +115,8 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 					challenge.ChallengeElement.ServiceParam.Index,
 					challenge.ChallengeElement.ServiceParam.Value,
 					uint32(challenge.ChallengeElement.Start),
+					uint32(challenge.ChallengeElement.ServiceSlip),
+					uint32(challenge.ChallengeElement.VerifySlip),
 				)
 			}
 		}

@@ -13,23 +13,23 @@ import (
 
 type Rpcst interface {
 	SetCurrentRpc(rpc string)
-	SetLastConnectedTime(t string)
+	SetStartTime(t string)
 	SetCurrentRpcst(st bool)
 	SetRpcConnecting(st bool)
 
 	GetCurrentRpc() string
-	GetLastConnectedTime() string
+	GetStartTime() string
 	GetCurrentRpcst() bool
 	GetRpcConnecting() bool
 	GetAndSetRpcConnecting() bool
 }
 
 type RpcSt struct {
-	lock              *sync.RWMutex
-	currentRpc        string
-	lastConnectedTime string
-	currentRpcSt      bool
-	isitconnecting    bool
+	lock           *sync.RWMutex
+	currentRpc     string
+	startTime      string
+	currentRpcSt   bool
+	isitconnecting bool
 }
 
 func NewRpcSt() *RpcSt {
@@ -51,15 +51,15 @@ func (r *RpcSt) GetCurrentRpc() string {
 	return value
 }
 
-func (r *RpcSt) SetLastConnectedTime(t string) {
+func (r *RpcSt) SetStartTime(t string) {
 	r.lock.Lock()
-	r.lastConnectedTime = t
+	r.startTime = t
 	r.lock.Unlock()
 }
 
-func (r *RpcSt) GetLastConnectedTime() string {
+func (r *RpcSt) GetStartTime() string {
 	r.lock.RLock()
-	value := r.lastConnectedTime
+	value := r.startTime
 	r.lock.RUnlock()
 	return value
 }
