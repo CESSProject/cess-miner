@@ -11,9 +11,16 @@ import (
 	"fmt"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 )
 
 func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan bool) {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	haveChall, challenge, err := n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {

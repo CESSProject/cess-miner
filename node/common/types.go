@@ -40,8 +40,8 @@ type IdleProofInfo struct {
 	Acc                 []byte                `json:"acc"`
 	TotalSignature      []byte                `json:"totalSignature"`
 	ChallRandom         []int64               `json:"challRandom"`
-	FileBlockProofInfo  []FileBlockProofInfo
-	BlocksProof         []*pb.BlocksProof
+	FileBlockProofInfo  []FileBlockProofInfo  `json:"fileBlockProofInfo"`
+	BlocksProof         []*pb.BlocksProof     `json:"blocksProof"`
 }
 
 type ServiceProofInfo struct {

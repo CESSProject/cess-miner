@@ -118,6 +118,10 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		err = n.submitServiceProof([]types.U8{}, slip)
 		if err != nil {
 			n.Schal("err", err.Error())
+			serviceProofRecord.CanSubmitProof = false
+			serviceProofRecord.CanSubmitResult = false
+			n.SaveServiceProve(serviceProofRecord)
+			return
 		}
 
 		serviceProofRecord.CanSubmitProof = false
@@ -154,6 +158,10 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		err = n.submitServiceProof(proof, slip)
 		if err != nil {
 			n.Schal("err", err.Error())
+			serviceProofRecord.CanSubmitProof = false
+			serviceProofRecord.CanSubmitResult = false
+			n.SaveServiceProve(serviceProofRecord)
+			return
 		}
 
 		serviceProofRecord.CanSubmitProof = false
@@ -184,6 +192,10 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		err = n.submitServiceProof(proof, slip)
 		if err != nil {
 			n.Schal("err", err.Error())
+			serviceProofRecord.CanSubmitProof = false
+			serviceProofRecord.CanSubmitResult = false
+			n.SaveServiceProve(serviceProofRecord)
+			return
 		}
 
 		serviceProofRecord.CanSubmitProof = false
@@ -221,7 +233,7 @@ func (n *Node) submitServiceResult(result types.Bool, sign []byte, bloomFilter c
 			return nil
 		}
 		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", blockHash, err))
-		time.Sleep(time.Minute)
+		time.Sleep(time.Second * 6)
 		continue
 	}
 	return fmt.Errorf("submitServiceProof failed: %v", err)
@@ -236,19 +248,16 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
-			return nil
+			return fmt.Errorf("challenge expired")
 		}
 	}
 
 	for i := 0; i < 3; i++ {
 		n.Schal("info", fmt.Sprintf("[start SubmitServiceProof] %v", time.Now()))
 		blockHash, err = n.SubmitServiceProof(serviceProof)
-		n.Schal("info", fmt.Sprintf("[end SubmitServiceProof] %v %s", time.Now(), blockHash))
-		if err == nil && blockHash != "" {
-			return nil
-		}
+		n.Schal("info", fmt.Sprintf("[end SubmitServiceProof] hash: %s err: %v", blockHash, err))
 
-		time.Sleep(chain.BlockInterval * 3)
+		time.Sleep(chain.BlockInterval)
 
 		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 		if err != nil {
@@ -259,10 +268,7 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
 		}
 
 		if challInfo.ProveInfo.ServiceProve.HasValue() {
-			_, serviceProve := challInfo.ProveInfo.ServiceProve.Unwrap()
-			if len(serviceProve.ServiceProve) > 0 {
-				return nil
-			}
+			return nil
 		}
 	}
 	return fmt.Errorf("submitServiceProof failed: %v", err)

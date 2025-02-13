@@ -143,15 +143,9 @@ func (n *Node) idleChallenge(
 	var previousHash []byte
 	if minerChallFront == minerChallRear {
 		idleProofRecord.IdleProof = []types.U8{}
-		for i := 0; i < 3; i++ {
-			txhash, err := n.SubmitIdleProof([]types.U8{})
-			if err != nil {
-				n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
-				time.Sleep(time.Minute)
-				continue
-			}
-			n.Ichal("info", fmt.Sprintf("SubmitIdleProof: %s", txhash))
-			break
+		err = n.submitIdleProof([]types.U8{}, slip)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
 		}
 		idleProofRecord.CanSubmintProof = false
 		idleProofRecord.CanSubmintResult = false
@@ -273,6 +267,10 @@ func (n *Node) idleChallenge(
 	err = n.submitIdleProof(idleProofChain, slip)
 	if err != nil {
 		n.Ichal("err", err.Error())
+		idleProofRecord.CanSubmintProof = false
+		idleProofRecord.CanSubmintResult = false
+		n.SaveIdleProve(idleProofRecord)
+		return
 	}
 
 	idleProofRecord.CanSubmintProof = false
@@ -305,18 +303,15 @@ func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) error {
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
-			return nil
+			return fmt.Errorf("challenge expired")
 		}
 	}
 	for i := 0; i < 3; i++ {
 		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
 		blockHash, err = n.SubmitIdleProof(idleProof)
-		n.Ichal("info", fmt.Sprintf("[end sub]: %s", blockHash))
-		if err == nil && blockHash != "" {
-			return nil
-		}
+		n.Ichal("info", fmt.Sprintf("[end sub] hash: %s err: %v", blockHash, err))
 
-		time.Sleep(chain.BlockInterval * 3)
+		time.Sleep(chain.BlockInterval)
 
 		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
 		if err != nil {
@@ -327,10 +322,7 @@ func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) error {
 		}
 
 		if challInfo.ProveInfo.IdleProve.HasValue() {
-			_, idleProve := challInfo.ProveInfo.IdleProve.Unwrap()
-			if len(idleProve.IdleProve) > 0 {
-				return nil
-			}
+			return nil
 		}
 	}
 	return fmt.Errorf("submitIdleProof failed: %v", err)
