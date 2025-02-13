@@ -22,7 +22,7 @@ const (
 	// Name is the name of the program
 	Name = "miner"
 	// version
-	Version = "v0.8.2 2502131402-1739426530376"
+	Version = "v0.8.2 2502131653-1739436791719"
 	// Description is the description of the program
 	Description = "Storage miner implementation in CESS networks"
 	// NameSpace is the cached namespace

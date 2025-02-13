@@ -534,7 +534,7 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 		tagSigInfo.Digest[j].TeePubkey, _ = chain.BytesToWorkPublickey(digest[j].TeeAccountId)
 	}
 	n.Stag("info", fmt.Sprintf("[%s] Will report file tag", fid))
-	for j := 0; j < 10; j++ {
+	for j := 0; j < 3; j++ {
 		txhash, err = n.CalculateReport(latestSig, tagSigInfo)
 		if err != nil || txhash == "" {
 			n.Stag("err", fmt.Sprintf("[%s] ReportTagCalculated: %s %v", fid, txhash, err))
@@ -576,7 +576,13 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 			if err != nil {
 				n.Stag("err", err.Error())
 			}
-			if (j + 1) >= 10 {
+			if (j + 1) >= 3 {
+				if !onChainFlag {
+					for _, v := range tags {
+						os.Remove(v)
+					}
+					return "", fmt.Errorf("report file tag failed")
+				}
 				break
 			}
 			time.Sleep(time.Minute)

@@ -183,9 +183,10 @@ func (n *Node) TaskPeriod_10m() {
 	tick_10m := time.NewTicker(time.Minute * 10)
 	defer tick_10m.Stop()
 	syncTeeCh := make(chan bool, 1)
-	syncTeeCh <- true
 	replaceIdleCh := make(chan bool, 1)
 	replaceIdleCh <- true
+
+	go n.SyncTeeInfo(syncTeeCh)
 	for {
 		select {
 		case <-tick_10m.C:
