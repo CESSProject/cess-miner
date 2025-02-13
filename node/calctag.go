@@ -43,13 +43,7 @@ func (n *Node) CalcTag(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	for {
-		if n.GetRpcState() {
-			n.getAllFileDirs()
-		}
-		time.Sleep(time.Minute)
-	}
+	n.getAllFileDirs()
 }
 
 func (n *Node) getAllFileDirs() {
@@ -522,6 +516,8 @@ func (n *Node) reportFileTag(fid string, tags []string) (string, error) {
 		}
 		if int(tag.Index) > len(tags) {
 			msg := fmt.Sprintf("[%s] invalid tag.Index: %d maxIndex: %d", fid, tag.Index, len(tags))
+			os.Remove(v)
+			n.Del("info", v)
 			return "", errors.New(msg)
 		}
 		var dig = &pb.DigestInfo{

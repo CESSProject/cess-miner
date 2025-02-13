@@ -33,14 +33,13 @@ func (n *Node) CertIdle(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-	for {
-		err := n.attestationidle()
-		n.SetCertifyingIdle(false)
-		if err != nil {
-			n.Space("err", err.Error())
-			time.Sleep(time.Minute)
-		}
-		time.Sleep(chain.BlockInterval)
+	if n.GetState() != chain.MINER_STATE_POSITIVE {
+		return
+	}
+	err := n.attestationidle()
+	n.SetCertifyingIdle(false)
+	if err != nil {
+		n.Space("err", err.Error())
 	}
 }
 
