@@ -53,9 +53,13 @@ func (n *Node) idleChallenge(
 			n.Del("info", n.GetIdleProve())
 		} else {
 			if idleProofRecord.CanSubmintProof {
-				err = n.submitIdleProof(idleProofRecord.IdleProof, slip)
+				_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)))
 				if err != nil {
-					n.Ichal("err", err.Error())
+					err = n.submitIdleProof(idleProofRecord.IdleProof, slip)
+					if err != nil {
+						n.Ichal("err", err.Error())
+					}
+					n.Cache.Put([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)), []byte("true"))
 				}
 				idleProofRecord.CanSubmintResult = false
 				n.SaveIdleProve(idleProofRecord)
@@ -73,18 +77,20 @@ func (n *Node) idleChallenge(
 				for i := 0; i < chain.AccumulatorLen; i++ {
 					minerAccumulator[i] = types.U8(idleProofRecord.Acc[i])
 				}
-
-				_ = n.submitIdleResult(
-					idleProve,
-					types.U64(idleProofRecord.ChainFront),
-					types.U64(idleProofRecord.ChainRear),
-					minerAccumulator,
-					types.Bool(idleProofRecord.IdleResult),
-					teeSignBytes,
-					idleProofRecord.AllocatedTeeWorkpuk,
-					verifySlip,
-				)
-
+				_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)))
+				if err != nil {
+					_ = n.submitIdleResult(
+						idleProve,
+						types.U64(idleProofRecord.ChainFront),
+						types.U64(idleProofRecord.ChainRear),
+						minerAccumulator,
+						types.Bool(idleProofRecord.IdleResult),
+						teeSignBytes,
+						idleProofRecord.AllocatedTeeWorkpuk,
+						verifySlip,
+					)
+					n.Cache.Put([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)), []byte("true"))
+				}
 				idleProofRecord.CanSubmintResult = false
 				n.SaveIdleProve(idleProofRecord)
 			}
@@ -263,31 +269,37 @@ func (n *Node) idleChallenge(
 	idleProofRecord.IdleResult = result
 	idleProofRecord.TotalSignature = teeSignBytes
 	n.SaveIdleProve(idleProofRecord)
-
-	err = n.submitIdleProof(idleProofChain, slip)
+	_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)))
 	if err != nil {
-		n.Ichal("err", err.Error())
-		idleProofRecord.CanSubmintProof = false
-		idleProofRecord.CanSubmintResult = false
-		n.SaveIdleProve(idleProofRecord)
-		return
+		err = n.submitIdleProof(idleProofChain, slip)
+		n.Cache.Put([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)), []byte("true"))
+		if err != nil {
+			n.Ichal("err", err.Error())
+			idleProofRecord.CanSubmintProof = false
+			idleProofRecord.CanSubmintResult = false
+			n.SaveIdleProve(idleProofRecord)
+			return
+		}
 	}
 
 	idleProofRecord.CanSubmintProof = false
 	n.SaveIdleProve(idleProofRecord)
-
-	err = n.submitIdleResult(
-		idleProofChain,
-		types.U64(idleProofRecord.ChainFront),
-		types.U64(idleProofRecord.ChainRear),
-		minerAccumulator,
-		types.Bool(result),
-		teeSignBytes,
-		pkchain,
-		verifySlip,
-	)
+	_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)))
 	if err != nil {
-		n.Ichal("err", err.Error())
+		err = n.submitIdleResult(
+			idleProofChain,
+			types.U64(idleProofRecord.ChainFront),
+			types.U64(idleProofRecord.ChainRear),
+			minerAccumulator,
+			types.Bool(result),
+			teeSignBytes,
+			pkchain,
+			verifySlip,
+		)
+		n.Cache.Put([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)), []byte("true"))
+		if err != nil {
+			n.Ichal("err", err.Error())
+		}
 	}
 
 	idleProofRecord.CanSubmintResult = false

@@ -23,7 +23,7 @@ type Handler struct {
 func NewHandler(cli chain.Chainer, ws workspace.Workspace, rs runstatus.Runstatus, lg logger.Logger) *Handler {
 	return &Handler{
 		FragmentHandler: NewFragmentHandler(cli, ws, lg),
-		StatusHandler:   NewStatusHandler(rs),
+		StatusHandler:   NewStatusHandler(rs, ws),
 	}
 }
 
