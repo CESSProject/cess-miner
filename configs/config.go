@@ -7,7 +7,10 @@
 
 package configs
 
-import "time"
+import (
+	"net/http"
+	"time"
+)
 
 const (
 	//
@@ -40,3 +43,13 @@ const (
 	TestNet = "testnet"
 	MainNet = "mainnet"
 )
+
+const (
+	DefaultGW1 = "https://deoss-sgp.cess.network"
+	DefaultGW2 = "https://deoss-sv.cess.network"
+	DefaultGW3 = "https://deoss-fra.cess.network"
+)
+
+var GlobalTransport = &http.Transport{
+	DisableKeepAlives: true,
+}

@@ -159,6 +159,12 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 }
 
 func (n *Node) syncMinerStatus() {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		n.Log("err", err.Error())

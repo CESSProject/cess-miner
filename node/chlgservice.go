@@ -11,7 +11,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,7 +121,6 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		if err != nil {
 			n.Schal("err", err.Error())
 			serviceProofRecord.CanSubmitProof = false
-			serviceProofRecord.CanSubmitResult = false
 			n.SaveServiceProve(serviceProofRecord)
 			return
 		}
@@ -159,7 +160,6 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		if err != nil {
 			n.Schal("err", err.Error())
 			serviceProofRecord.CanSubmitProof = false
-			serviceProofRecord.CanSubmitResult = false
 			n.SaveServiceProve(serviceProofRecord)
 			return
 		}
@@ -193,7 +193,6 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		if err != nil {
 			n.Schal("err", err.Error())
 			serviceProofRecord.CanSubmitProof = false
-			serviceProofRecord.CanSubmitResult = false
 			n.SaveServiceProve(serviceProofRecord)
 			return
 		}
@@ -525,6 +524,14 @@ func (n *Node) checkTag(fid, fragment string) (TagfileType, error) {
 	//fragmentPath := filepath.Join(n.GetFileDir(), fid, fragment)
 	buf, err := os.ReadFile(serviceTagPath)
 	if err != nil {
+		_, err = os.Stat(fragment)
+		if err != nil {
+			err = n.DownloadFragment(fid, filepath.Base(fragment), fragment)
+			if err != nil {
+				n.GenerateRestoralOrder(fid, fragment)
+				return TagfileType{}, err
+			}
+		}
 		err = n.calcFragmentTag(fid, fragment)
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("calc the fragment tag failed: %v", err))
@@ -834,4 +841,95 @@ func (n *Node) requestAggregateSignature(request *pb.RequestAggregateSignature) 
 	}
 
 	return nil, errors.New("RequestAggregateSignature failed")
+}
+
+func (n *Node) DownloadFragment(fid, fragment_hash, savepath string) error {
+	fstat, err := os.Stat(savepath)
+	if err == nil {
+		if fstat.Size() == chain.FragmentSize {
+			return nil
+		}
+	}
+
+	var gwlist = []string{configs.DefaultGW1, configs.DefaultGW2, configs.DefaultGW3}
+	ossList, err := n.QueryAllOss(-1)
+	if err == nil {
+		for i := 0; i < len(ossList); i++ {
+			if string(ossList[i].Domain) == configs.DefaultGW1 || string(ossList[i].Domain) == configs.DefaultGW2 || string(ossList[i].Domain) == configs.DefaultGW3 {
+				continue
+			}
+			gwlist = append(gwlist, string(ossList[i].Domain))
+		}
+	}
+	url := ""
+	message := sutils.GetRandomcode(16)
+	sig, err := sutils.SignedSR25519WithMnemonic(n.GetURI(), message)
+	if err != nil {
+		return fmt.Errorf("[SignedSR25519WithMnemonic] %v", err)
+	}
+	for i := 0; i < len(gwlist); i++ {
+		if strings.HasSuffix(gwlist[i], "/") {
+			url = fmt.Sprintf("%sfragment/download?fid=%s&fragment=%s", url, fid, fragment_hash)
+		} else {
+			url = fmt.Sprintf("%s/fragment/download?fid=%s&fragment=%s", url, fid, fragment_hash)
+		}
+		err = DownloadFragmentFromGW(url, savepath, n.GetSignatureAcc(), message, string(sig))
+		if err != nil {
+			continue
+		}
+		return nil
+	}
+	return errors.New("Failed to download the fragment from all gateways")
+}
+
+func DownloadFragmentFromGW(url, fpath, account, message, signature string) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Account", account)
+	req.Header.Set("Message", message)
+	req.Header.Set("Signature", signature)
+
+	client := &http.Client{
+		Timeout:   time.Minute * 3,
+		Transport: configs.GlobalTransport,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed code: %d", resp.StatusCode)
+	}
+
+	fd, err := os.Create(fpath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if fd != nil {
+			fd.Close()
+		}
+	}()
+
+	length, err := io.Copy(fd, resp.Body)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	if length != chain.FragmentSize {
+		fd.Close()
+		fd = nil
+		os.Remove(fpath)
+		return fmt.Errorf("invalid fragment size: %d", length)
+	}
+	err = fd.Sync()
+	if err != nil {
+		return err
+	}
+	return nil
 }

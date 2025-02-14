@@ -36,6 +36,9 @@ func (n *Node) CertIdle(ch chan<- bool) {
 	if n.GetState() != chain.MINER_STATE_POSITIVE {
 		return
 	}
+	if n.GetCheckPois() {
+		return
+	}
 	err := n.attestationidle()
 	n.SetCertifyingIdle(false)
 	if err != nil {

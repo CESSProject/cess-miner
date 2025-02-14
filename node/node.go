@@ -151,6 +151,8 @@ func (n *Node) Start() {
 				<-genIdleCh
 				go n.GenIdle(genIdleCh)
 			}
+		default:
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -174,6 +176,8 @@ func (n *Node) TaskPeriod_15s() {
 				go n.ChallengeMgt(idleChallCh, serviceChallCh)
 				time.Sleep(time.Second)
 			}
+		default:
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -203,6 +207,8 @@ func (n *Node) TaskPeriod_10m() {
 				<-replaceIdleCh
 				go n.ReplaceIdle(replaceIdleCh)
 			}
+		default:
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -224,6 +230,8 @@ func (n *Node) TaskPeriod_1h() {
 				<-restoreCh
 				go n.RestoreFiles(restoreCh)
 			}
+		default:
+			time.Sleep(time.Second)
 		}
 	}
 }
@@ -313,6 +321,7 @@ func (n *Node) CheckPois() {
 	}
 
 	n.Prover.AccManager.GetSnapshot()
+	out.Ok("Idle space check completed")
 	return
 }
 

@@ -28,6 +28,10 @@ func (n *Node) GenIdle(ch chan<- bool) {
 		}
 	}()
 
+	if n.GetCheckPois() {
+		return
+	}
+
 	decSpace, validSpace, usedSpace, lockSpace := n.GetMinerSpaceInfo()
 	if (validSpace + usedSpace + lockSpace) >= decSpace {
 		n.Space("info", "The declared space has been authenticated")

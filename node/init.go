@@ -123,7 +123,7 @@ func (n *Node) InitChainClient() {
 
 	err = n.InitExtrinsicsNameForMiner()
 	if err != nil {
-		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		out.Err("Please verify the RPC version and ensure it has been synchronized to the latest state.")
 		os.Exit(1)
 	}
 

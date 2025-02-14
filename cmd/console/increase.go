@@ -98,7 +98,7 @@ func incstakingCmdFunc(cmd *cobra.Command, args []string) {
 
 	err = cli.InitExtrinsicsNameForMiner()
 	if err != nil {
-		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		out.Err("Please verify the RPC version and ensure it has been synchronized to the latest state.")
 		os.Exit(1)
 	}
 	addStaking := os.Args[3] + chain.TokenPrecision_CESS
@@ -160,7 +160,7 @@ func incspaceCmdFunc(cmd *cobra.Command, args []string) {
 
 	err = cli.InitExtrinsicsNameForMiner()
 	if err != nil {
-		out.Err("The rpc address does not match the software version, please check the rpc address.")
+		out.Err("Please verify the RPC version and ensure it has been synchronized to the latest state.")
 		os.Exit(1)
 	}
 
