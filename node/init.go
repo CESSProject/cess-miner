@@ -780,7 +780,7 @@ func (n *Node) checkRegistrationInfo() (int, uint64, *chain.MinerInfo, error) {
 		if err.Error() != chain.ERR_Empty {
 			return Unregistered, 0, &minerInfo, err
 		}
-		useSpace := uint64(n.ReadUseCpu())
+		useSpace := uint64(n.ReadUseSpace())
 		stakingAcc := n.ReadStakingAcc()
 		signatureAcc := n.ReadSignatureAccount()
 		decTib := useSpace / chain.SIZE_1KiB

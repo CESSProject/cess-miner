@@ -48,34 +48,45 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 	}()
 
 	var err error
-
+	blockhash := ""
+	verifySuc := false
+	var latestBlock *types.SignedBlock
 	serviceProofRecord, err := n.LoadServiceProve()
 	if err == nil {
 		if serviceProofRecord.Start != chlgStart {
 			os.Remove(n.GetServiceProve())
 			n.Del("info", n.GetServiceProve())
+			n.Delete([]byte(fmt.Sprintf("service_chall_proof:%d", serviceProofRecord.Start)))
+			n.Delete([]byte(fmt.Sprintf("service_chall_result:%d", serviceProofRecord.Start)))
 		} else {
-			if serviceProofRecord.CanSubmitProof {
-				err = n.submitServiceProof(serviceProofRecord.Proof, slip)
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+			if err != nil {
+				blockhash, err = n.submitServiceProof(serviceProofRecord.Proof, slip)
 				if err != nil {
 					n.Schal("err", err.Error())
 				}
-				serviceProofRecord.CanSubmitProof = false
-				n.SaveServiceProve(serviceProofRecord)
+				if blockhash != "" {
+					n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+					serviceProofRecord.CanSubmitProof = false
+					n.SaveServiceProve(serviceProofRecord)
+				}
 			}
-			if serviceProofRecord.CanSubmitResult {
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)))
+			if err != nil {
 				if serviceProofRecord.SignatureHex != "" {
 					teeSignBytes, err := hex.DecodeString(serviceProofRecord.SignatureHex)
 					if err != nil {
 						return
 					}
-					err = n.submitServiceResult(types.Bool(serviceProofRecord.Result), teeSignBytes, serviceProofRecord.BloomFilter, serviceProofRecord.TeePublicKey, verifySlip)
+					blockhash, err = n.submitServiceResult(types.Bool(serviceProofRecord.Result), teeSignBytes, serviceProofRecord.BloomFilter, serviceProofRecord.TeePublicKey, verifySlip)
 					if err != nil {
 						n.Schal("err", err.Error())
 					}
-					serviceProofRecord.CanSubmitResult = false
-					n.SaveServiceProve(serviceProofRecord)
-					return
+					if blockhash != "" {
+						n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+						serviceProofRecord.CanSubmitResult = false
+						n.SaveServiceProve(serviceProofRecord)
+					}
 				}
 			}
 			return
@@ -107,75 +118,133 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		teePuk, teeSign, bloomFilter, result, err := n.verifyEmpty(rndIndex, rnd)
 		if err != nil {
 			n.Schal("err", err.Error())
-			return
+		} else {
+			serviceProofRecord.Result = result
+			serviceProofRecord.BloomFilter = bloomFilter
+			serviceProofRecord.TeePublicKey = teePuk
+			serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
+			verifySuc = true
 		}
 
 		serviceProofRecord.Proof = []types.U8{}
-		serviceProofRecord.Result = result
-		serviceProofRecord.BloomFilter = bloomFilter
-		serviceProofRecord.TeePublicKey = teePuk
-		serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
 		n.SaveServiceProve(serviceProofRecord)
 
-		err = n.submitServiceProof([]types.U8{}, slip)
+		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
 		if err != nil {
-			n.Schal("err", err.Error())
+			blockhash, err = n.submitServiceProof([]types.U8{}, slip)
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				serviceProofRecord.CanSubmitProof = false
+				n.SaveServiceProve(serviceProofRecord)
+			}
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
+		}
+
+		if !verifySuc {
+			for {
+				latestBlock, err = n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+				if err != nil {
+					n.Schal("err", err.Error())
+					time.Sleep(time.Second * 6)
+					continue
+				}
+				if verifySlip < uint32(latestBlock.Block.Header.Number)+3 {
+					return
+				}
+				teePuk, teeSign, bloomFilter, result, err = n.verifyEmpty(rndIndex, rnd)
+				if err != nil {
+					n.Schal("err", err.Error())
+					verifySuc = false
+					time.Sleep(time.Second * 6)
+					continue
+				}
+				serviceProofRecord.Result = result
+				serviceProofRecord.BloomFilter = bloomFilter
+				serviceProofRecord.TeePublicKey = teePuk
+				serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
+				verifySuc = true
+				break
+			}
+		}
+
+		blockhash, err = n.submitServiceResult(types.Bool(result), teeSign, bloomFilter, teePuk, verifySlip)
+		if blockhash != "" {
+			n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
 			serviceProofRecord.CanSubmitProof = false
 			n.SaveServiceProve(serviceProofRecord)
-			return
 		}
-
-		serviceProofRecord.CanSubmitProof = false
-		n.SaveServiceProve(serviceProofRecord)
-
-		err = n.submitServiceResult(types.Bool(result), teeSign, bloomFilter, teePuk, verifySlip)
 		if err != nil {
 			n.Schal("err", err.Error())
 		}
-
-		serviceProofRecord.CanSubmitResult = false
-		n.SaveServiceProve(serviceProofRecord)
 	} else if totalChallengedLength <= maxNumberOfSingleVerification {
-		teePuk, teeSign, bloomFilter, proof, result, err := n.onceBatchGenProofAndVerify(files, rndIndex, rnd)
+		names, us, mus, sigma, usig, err := n.calcSigma(files, rndIndex, rnd)
 		if err != nil {
 			n.Schal("err", err.Error())
 			return
 		}
-
-		n.SetServiceChallenging(false)
-
-		if len(proof) <= 0 {
+		if sigma == "" {
 			n.Schal("err", "proof is empty")
 			return
 		}
-
-		serviceProofRecord.Proof = proof
-		serviceProofRecord.Result = result
-		serviceProofRecord.BloomFilter = bloomFilter
-		serviceProofRecord.TeePublicKey = teePuk
-		serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
-		n.SaveServiceProve(serviceProofRecord)
-
-		err = n.submitServiceProof(proof, slip)
-		if err != nil {
-			n.Schal("err", err.Error())
-			serviceProofRecord.CanSubmitProof = false
-			n.SaveServiceProve(serviceProofRecord)
-			return
+		var serviceProof = make([]types.U8, len(sigma))
+		for i := 0; i < len(sigma); i++ {
+			serviceProof[i] = types.U8(sigma[i])
 		}
 
-		serviceProofRecord.CanSubmitProof = false
+		serviceProofRecord.Proof = serviceProof
 		n.SaveServiceProve(serviceProofRecord)
 
-		err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
+		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
 		if err != nil {
-			n.Schal("err", err.Error())
+			blockhash, err = n.submitServiceProof(serviceProof, slip)
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				serviceProofRecord.CanSubmitProof = false
+				n.SaveServiceProve(serviceProofRecord)
+			}
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
 		}
 
-		serviceProofRecord.CanSubmitResult = false
-		n.SaveServiceProve(serviceProofRecord)
+		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		if err == nil {
+			for {
+				latestBlock, err = n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+				if err != nil {
+					n.Schal("err", err.Error())
+					time.Sleep(time.Second * 6)
+					continue
+				}
+				if verifySlip < uint32(latestBlock.Block.Header.Number)+3 {
+					return
+				}
+				teePuk, teeSign, bloomFilter, result, err := n.onceBatchVerify(rndIndex, rnd, names, us, mus, usig, sigma)
+				if err != nil {
+					n.Schal("err", err.Error())
+					time.Sleep(time.Second * 6)
+					continue
+				}
+				blockhash, err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
+				if blockhash != "" {
+					n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+				}
+				if err != nil {
+					n.Schal("err", err.Error())
+				}
+				serviceProofRecord.Result = result
+				serviceProofRecord.BloomFilter = bloomFilter
+				serviceProofRecord.TeePublicKey = teePuk
+				serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
+				serviceProofRecord.CanSubmitResult = false
+				n.SaveServiceProve(serviceProofRecord)
+				return
+			}
+		}
 	} else {
-		teePuk, teeSign, bloomFilter, proof, err := n.batchGenProofAndVerify(files, rndIndex, rnd, calcBatchQuantity(totalChallengedLength))
+		teePuk, teeSign, bloomFilter, proof, err := n.batchGenProofAndVerify(files, rndIndex, rnd, calcBatchQuantity(totalChallengedLength), slip)
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("batchGenProofAndVerify err: %v", err))
 			return
@@ -189,24 +258,31 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
 		n.SaveServiceProve(serviceProofRecord)
 
-		err = n.submitServiceProof(proof, slip)
+		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
 		if err != nil {
-			n.Schal("err", err.Error())
-			serviceProofRecord.CanSubmitProof = false
-			n.SaveServiceProve(serviceProofRecord)
-			return
+			blockhash, err = n.submitServiceProof(proof, slip)
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				serviceProofRecord.CanSubmitProof = false
+				n.SaveServiceProve(serviceProofRecord)
+			}
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
 		}
 
-		serviceProofRecord.CanSubmitProof = false
-		n.SaveServiceProve(serviceProofRecord)
-
-		err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
-		if err != nil {
-			n.Schal("err", err.Error())
+		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		if err == nil {
+			blockhash, err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+				serviceProofRecord.CanSubmitProof = false
+				n.SaveServiceProve(serviceProofRecord)
+			}
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
 		}
-
-		serviceProofRecord.CanSubmitResult = false
-		n.SaveServiceProve(serviceProofRecord)
 	}
 }
 
@@ -214,7 +290,7 @@ func calcBatchQuantity(total uint64) uint32 {
 	return uint32(total/(total/maxNumberOfSingleVerification+1) + 1)
 }
 
-func (n *Node) submitServiceResult(result types.Bool, sign []byte, bloomFilter chain.BloomFilter, teePuk chain.WorkerPublicKey, verifySlip uint32) error {
+func (n *Node) submitServiceResult(result types.Bool, sign []byte, bloomFilter chain.BloomFilter, teePuk chain.WorkerPublicKey, verifySlip uint32) (string, error) {
 	var (
 		err       error
 		blockHash string
@@ -222,23 +298,24 @@ func (n *Node) submitServiceResult(result types.Bool, sign []byte, bloomFilter c
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if verifySlip < uint32(latestBlock.Block.Header.Number) {
-			return nil
+			return "", nil
 		}
 	}
 	for i := 0; i < 3; i++ {
 		blockHash, err = n.SubmitVerifyServiceResult(result, sign, bloomFilter, teePuk)
-		if err == nil && blockHash != "" {
-			n.Schal("info", fmt.Sprintf("submit service aggr proof result suc: %s", blockHash))
-			return nil
+		if blockHash != "" {
+			return blockHash, err
 		}
-		n.Schal("err", fmt.Sprintf("[SubmitServiceProofResult] hash: %s, err: %v", blockHash, err))
+		if err != nil {
+			n.Schal("err", fmt.Sprintf("submit service proof result: %v", err))
+		}
 		time.Sleep(time.Second * 6)
 		continue
 	}
-	return fmt.Errorf("submitServiceProof failed: %v", err)
+	return "", fmt.Errorf("submitServiceProof failed: %v", err)
 }
 
-func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
+func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) (string, error) {
 	var (
 		err       error
 		blockHash string
@@ -247,7 +324,7 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
-			return fmt.Errorf("challenge expired")
+			return "", fmt.Errorf("challenge expired")
 		}
 	}
 
@@ -255,7 +332,9 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
 		n.Schal("info", fmt.Sprintf("[start SubmitServiceProof] %v", time.Now()))
 		blockHash, err = n.SubmitServiceProof(serviceProof)
 		n.Schal("info", fmt.Sprintf("[end SubmitServiceProof] hash: %s err: %v", blockHash, err))
-
+		if blockHash != "" {
+			return blockHash, err
+		}
 		time.Sleep(chain.BlockInterval)
 
 		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
@@ -263,14 +342,14 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) error {
 			if err.Error() != chain.ERR_Empty {
 				n.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
 			}
-			return err
+			return blockHash, err
 		}
 
 		if challInfo.ProveInfo.ServiceProve.HasValue() {
-			return nil
+			return blockHash, nil
 		}
 	}
-	return fmt.Errorf("submitServiceProof failed: %v", err)
+	return blockHash, fmt.Errorf("submitServiceProof failed: %v", err)
 }
 
 func (n *Node) onceBatchGenProofAndVerify(files []challengedFile, randomIndexList []types.U32, randomList []chain.Random) (chain.WorkerPublicKey, []byte, chain.BloomFilter, []types.U8, bool, error) {
@@ -286,7 +365,7 @@ func (n *Node) onceBatchGenProofAndVerify(files []challengedFile, randomIndexLis
 
 	teePuk, teeSign, bloomFilter, result, err := n.onceBatchVerify(randomIndexList, randomList, names, us, mus, usig, sigma)
 	if err != nil {
-		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, []types.U8{}, false, err
+		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, serviceProof, false, err
 	}
 	return teePuk, teeSign, bloomFilter, serviceProof, result, nil
 }
@@ -406,7 +485,7 @@ func (n *Node) onceBatchVerify(randomIndexList []types.U32, randomList []chain.R
 		USigs:   usig,
 	}
 
-	batchVerifyResult, err := n.requestBatchVerify(requestBatchVerify)
+	batchVerifyResult, _, err := n.requestBatchVerify(requestBatchVerify, "", 0)
 	if err != nil {
 		n.Schal("err", fmt.Sprintf("[requestBatchVerify] %v", err))
 		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, false, err
@@ -452,7 +531,7 @@ func (n *Node) verifyEmpty(randomIndexList []types.U32, randomList []chain.Rando
 		USigs:   [][]byte{},
 	}
 
-	batchVerifyResult, err := n.requestBatchVerify(requestBatchVerify)
+	batchVerifyResult, _, err := n.requestBatchVerify(requestBatchVerify, "", 0)
 	if err != nil {
 		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, false, err
 	}
@@ -615,11 +694,14 @@ func (n *Node) calcChallengeFiles(challStart uint32) ([]challengedFile, uint64, 
 	return files, totalFiles, nil
 }
 
-func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []types.U32, randomList []chain.Random, number uint32) (chain.WorkerPublicKey, []byte, chain.BloomFilter, []types.U8, error) {
+func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []types.U32, randomList []chain.Random, number, slip uint32) (chain.WorkerPublicKey, []byte, chain.BloomFilter, []types.U8, error) {
 	var ok bool
+	var err error
 	var sigma string
+	var usedTee string
 	var sigmaOnChian string
 	var proveResponse GenProofResponse
+	var batchVerifyResponse *pb.ResponseBatchVerify
 	var names = make([]string, 0)
 	var us = make([]string, 0)
 	var mus = make([]string, 0)
@@ -701,7 +783,7 @@ func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []
 
 				n.Schal("info", fmt.Sprintf("names length: %d", len(names)))
 
-				batchVerifyResponse, err := n.requestBatchVerify(request)
+				batchVerifyResponse, usedTee, err = n.requestBatchVerify(request, usedTee, slip)
 				if err != nil {
 					return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 				}
@@ -741,7 +823,7 @@ func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []
 
 		n.Schal("info", fmt.Sprintf("names length: %d", len(names)))
 
-		batchVerifyResponse, err := n.requestBatchVerify(request)
+		batchVerifyResponse, usedTee, err = n.requestBatchVerify(request, usedTee, slip)
 		if err != nil {
 			return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 		}
@@ -767,7 +849,7 @@ func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []
 		Qslices:                    &qSlicePb,
 	}
 
-	aggregateSignatureResponse, err := n.requestAggregateSignature(request)
+	aggregateSignatureResponse, err := n.requestAggregateSignature(request, usedTee, slip)
 	if err != nil {
 		return chain.WorkerPublicKey{}, nil, chain.BloomFilter{}, nil, err
 	}
@@ -803,9 +885,38 @@ func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []
 	return teePuk, aggregateSignatureResponse.Signature, bloomFilterChain, serviceProof, nil
 }
 
-func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify) (*pb.ResponseBatchVerify, error) {
+func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify, tee string, slip uint32) (*pb.ResponseBatchVerify, string, error) {
 	var dialOptions []grpc.DialOption
-	tees := n.GetAllVerifierTeeEndpoint()
+
+	if tee != "" {
+		n.Schal("err", fmt.Sprintf("use tee: %s", tee))
+		if !strings.Contains(tee, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
+		for {
+			latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("GetBlockLatest: %v", err))
+				time.Sleep(time.Second * 6)
+				continue
+			}
+
+			if slip <= uint32(latestBlock.Block.Header.Number) {
+				return nil, "", errors.New("challenge expired, RequestBatchVerify failed")
+			}
+
+			batchVerifyResponse, err := com.RequestBatchVerify(tee, request, time.Minute*10, dialOptions, nil)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("RequestBatchVerify: %v", err))
+				time.Sleep(time.Second * 6)
+				continue
+			}
+			return batchVerifyResponse, tee, nil
+		}
+	}
+	var tees = n.GetAllVerifierTeeEndpoint()
 	for i := 0; i < len(tees); i++ {
 		if !strings.Contains(tees[i], "443") {
 			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
@@ -817,14 +928,37 @@ func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify) (*pb.ResponseB
 			n.Schal("err", fmt.Sprintf("RequestBatchVerify: %v", err))
 			continue
 		}
-		return batchVerifyResponse, nil
+		return batchVerifyResponse, tees[i], nil
 	}
 
-	return nil, errors.New("RequestBatchVerify failed")
+	return nil, "", errors.New("RequestBatchVerify failed")
 }
 
-func (n *Node) requestAggregateSignature(request *pb.RequestAggregateSignature) (*pb.ResponseAggregateSignature, error) {
+func (n *Node) requestAggregateSignature(request *pb.RequestAggregateSignature, usedTee string, slip uint32) (*pb.ResponseAggregateSignature, error) {
 	var dialOptions []grpc.DialOption
+	if usedTee != "" {
+		for {
+			latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("GetBlockLatest: %v", err))
+				time.Sleep(time.Second * 6)
+				continue
+			}
+
+			if slip <= uint32(latestBlock.Block.Header.Number) {
+				return nil, errors.New("challenge expired, requestAggregateSignature failed")
+			}
+
+			batchVerifyResponse, err := com.RequestAggregateSignature(usedTee, request, time.Minute*10, dialOptions, nil)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("RequestAggregateSignature: %v", err))
+				time.Sleep(time.Second * 6)
+				continue
+			}
+			return batchVerifyResponse, nil
+		}
+	}
+
 	tees := n.GetAllVerifierTeeEndpoint()
 	for i := 0; i < len(tees); i++ {
 		if !strings.Contains(tees[i], "443") {

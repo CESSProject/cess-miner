@@ -26,7 +26,6 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/confile"
 	out "github.com/CESSProject/cess-miner/pkg/fout"
-	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/CESSProject/cess_pois/acc"
 	"github.com/CESSProject/cess_pois/pois"
 	"github.com/gin-gonic/gin"
@@ -117,7 +116,7 @@ func (n *Node) Start() {
 
 	n.syncMinerStatus()
 
-	go n.CheckPois()
+	go n.CheckPois(int(n.ReadUseCpu()))
 	go n.TaskPeriod_15s()
 	go n.TaskPeriod_10m()
 	go n.TaskPeriod_1h()
@@ -265,7 +264,7 @@ func (n *Node) Reconnectrpc() {
 	n.SetCurrentRpcst(true)
 }
 
-func (n *Node) CheckPois() {
+func (n *Node) CheckPois(cpus int) {
 	n.SetCheckPois(true)
 	defer n.SetCheckPois(false)
 
@@ -291,19 +290,22 @@ func (n *Node) CheckPois() {
 	err := n.Prover.Recovery(*n.RsaKey, n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, cfg)
 	if err != nil {
 		if strings.Contains(err.Error(), "read element data") {
-			num := 2
-			m, err := utils.GetSysMemAvailable()
-			cpuNum := runtime.NumCPU()
-			if err == nil {
-				m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
-				if int(m) < cpuNum {
-					cpuNum = int(m)
-				}
-				if cpuNum > num {
-					num = cpuNum
-				}
+			num := 1
+			// m, err := utils.GetSysMemAvailable()
+			// cpuNum := runtime.NumCPU()
+			// if err == nil {
+			// 	m = m * 7 / 10 / (2 * 1024 * 1024 * 1024)
+			// 	if int(m) < cpuNum {
+			// 		cpuNum = int(m)
+			// 	}
+			// 	if cpuNum > num {
+			// 		num = cpuNum
+			// 	}
+			// }
+			if cpus > 1 {
+				num = cpus
 			}
-			out.Tip(fmt.Sprintf("Check and restore idle data, use %d cpus", num))
+			out.Tip(fmt.Sprintf("Check and restore idle data, used %d coroutines", num))
 			err = n.Prover.CheckAndRestoreIdleData(n.MinerPoisInfo.Front, n.MinerPoisInfo.Rear, num)
 			if err != nil {
 				out.Err(fmt.Sprintf("check and restore idle data: %v", err))
@@ -329,7 +331,7 @@ func exitHandle(exitCh chan os.Signal) {
 	for {
 		select {
 		case sig := <-exitCh:
-			panic(sig.String())
+			out.Tip(fmt.Sprintf("The program exits with the signal: %s", sig.String()))
 		}
 	}
 }
