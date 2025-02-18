@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-miner/configs"
 	"github.com/CESSProject/cess-miner/node/common"
+	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -51,23 +52,23 @@ func (n *Node) idleChallenge(
 		if idleProofRecord.Start != challStart {
 			os.Remove(n.GetIdleProve())
 			n.Del("info", n.GetIdleProve())
-			n.Delete([]byte(fmt.Sprintf("idle_chall_proof:%d", idleProofRecord.Start)))
-			n.Delete([]byte(fmt.Sprintf("idle_chall_result:%d", idleProofRecord.Start)))
+			n.Delete([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, idleProofRecord.Start)))
+			n.Delete([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, idleProofRecord.Start)))
 		} else {
-			_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)))
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 			if err != nil {
 				blockhash, err := n.submitIdleProof(idleProofRecord.IdleProof, slip)
 				if err != nil {
 					n.Ichal("err", err.Error())
 				}
 				if blockhash != "" {
-					n.Cache.Put([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)), []byte("true"))
+					n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)), []byte("true"))
 					idleProofRecord.CanSubmintResult = false
 					n.SaveIdleProve(idleProofRecord)
 				}
 			}
 
-			_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)))
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, challStart)))
 			if err != nil {
 				var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 				for i := 0; i < len(idleProofRecord.IdleProof); i++ {
@@ -93,7 +94,7 @@ func (n *Node) idleChallenge(
 					verifySlip,
 				)
 				if blockhash != "" {
-					n.Cache.Put([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)), []byte("true"))
+					n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, challStart)), []byte("true"))
 					idleProofRecord.CanSubmintResult = false
 					n.SaveIdleProve(idleProofRecord)
 				}
@@ -154,15 +155,20 @@ func (n *Node) idleChallenge(
 	blockhash := ""
 	if minerChallFront == minerChallRear {
 		idleProofRecord.IdleProof = []types.U8{}
-		blockhash, err = n.submitIdleProof([]types.U8{}, slip)
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
+			blockhash, err = n.submitIdleProof([]types.U8{}, slip)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[SubmitIdleProof] %v", err))
+			}
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)), []byte("true"))
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, challStart)), []byte("true"))
+				idleProofRecord.CanSubmintProof = false
+				idleProofRecord.CanSubmintResult = false
+			}
 		}
-		if blockhash != "" {
-			idleProofRecord.CanSubmintProof = false
-			idleProofRecord.CanSubmintResult = false
-			n.SaveIdleProve(idleProofRecord)
-		}
+		n.SaveIdleProve(idleProofRecord)
 		return
 	}
 	n.Ichal("info", fmt.Sprintf("[start] %v", time.Now()))
@@ -276,11 +282,11 @@ func (n *Node) idleChallenge(
 	idleProofRecord.IdleResult = result
 	idleProofRecord.TotalSignature = teeSignBytes
 	n.SaveIdleProve(idleProofRecord)
-	_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)))
+	_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 	if err != nil {
 		blockhash, err = n.submitIdleProof(idleProofChain, slip)
 		if blockhash != "" {
-			n.Cache.Put([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)), []byte("true"))
+			n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)), []byte("true"))
 			idleProofRecord.CanSubmintProof = false
 			n.SaveIdleProve(idleProofRecord)
 		}
@@ -290,7 +296,7 @@ func (n *Node) idleChallenge(
 	}
 
 	blockhash = ""
-	_, err = n.Cache.Get([]byte(fmt.Sprintf("idle_chall_proof:%d", challStart)))
+	_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 	if err == nil {
 		blockhash, err = n.submitIdleResult(
 			idleProofChain,
@@ -306,7 +312,7 @@ func (n *Node) idleChallenge(
 			n.Ichal("err", err.Error())
 		}
 		if blockhash != "" {
-			n.Cache.Put([]byte(fmt.Sprintf("idle_chall_result:%d", challStart)), []byte("true"))
+			n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, challStart)), []byte("true"))
 			idleProofRecord.CanSubmintResult = false
 			n.SaveIdleProve(idleProofRecord)
 		}
@@ -317,12 +323,11 @@ func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) (string, error
 	var (
 		err       error
 		blockHash string
-		challInfo chain.ChallengeInfo
 	)
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
-			return "", fmt.Errorf("challenge expired")
+			return "", fmt.Errorf("challenge expired: %d < %d", slip, latestBlock.Block.Header.Number)
 		}
 	}
 	for i := 0; i < 3; i++ {
@@ -333,20 +338,7 @@ func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) (string, error
 		if blockHash != "" {
 			return blockHash, err
 		}
-
-		time.Sleep(chain.BlockInterval)
-
-		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
-		if err != nil {
-			if err.Error() != chain.ERR_Empty {
-				n.Ichal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
-			}
-			return "", err
-		}
-
-		if challInfo.ProveInfo.IdleProve.HasValue() {
-			return blockHash, nil
-		}
+		time.Sleep(time.Second)
 	}
 	return blockHash, fmt.Errorf("submitIdleProof failed: %v", err)
 }
@@ -356,7 +348,7 @@ func (n *Node) submitIdleResult(totalProofHash []types.U8, front types.U64, rear
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if verifySlip < uint32(latestBlock.Block.Header.Number) {
-			return "", nil
+			return "", fmt.Errorf("challenge verify expired: %d < %d", verifySlip, latestBlock.Block.Header.Number)
 		}
 	}
 	for i := 0; i < 3; i++ {

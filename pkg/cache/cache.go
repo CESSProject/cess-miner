@@ -38,3 +38,10 @@ type Cache interface {
 	Writer
 	io.Closer
 }
+
+const (
+	Prefix_idle_chall_proof     = "idle_chall_proof:"
+	Prefix_idle_chall_result    = "idle_chall_result:"
+	Prefix_service_chall_proof  = "service_chall_proof:"
+	Prefix_service_chall_result = "service_chall_result:"
+)

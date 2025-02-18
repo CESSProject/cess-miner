@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-miner/configs"
+	"github.com/CESSProject/cess-miner/pkg/cache"
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
@@ -56,22 +57,22 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		if serviceProofRecord.Start != chlgStart {
 			os.Remove(n.GetServiceProve())
 			n.Del("info", n.GetServiceProve())
-			n.Delete([]byte(fmt.Sprintf("service_chall_proof:%d", serviceProofRecord.Start)))
-			n.Delete([]byte(fmt.Sprintf("service_chall_result:%d", serviceProofRecord.Start)))
+			n.Delete([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, serviceProofRecord.Start)))
+			n.Delete([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_result, serviceProofRecord.Start)))
 		} else {
-			_, err = n.Cache.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 			if err != nil {
 				blockhash, err = n.submitServiceProof(serviceProofRecord.Proof, slip)
 				if err != nil {
 					n.Schal("err", err.Error())
 				}
 				if blockhash != "" {
-					n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+					n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)), []byte("true"))
 					serviceProofRecord.CanSubmitProof = false
 					n.SaveServiceProve(serviceProofRecord)
 				}
 			}
-			_, err = n.Cache.Get([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)))
+			_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_result, chlgStart)))
 			if err != nil {
 				if serviceProofRecord.SignatureHex != "" {
 					teeSignBytes, err := hex.DecodeString(serviceProofRecord.SignatureHex)
@@ -83,7 +84,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 						n.Schal("err", err.Error())
 					}
 					if blockhash != "" {
-						n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+						n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_result, chlgStart)), []byte("true"))
 						serviceProofRecord.CanSubmitResult = false
 						n.SaveServiceProve(serviceProofRecord)
 					}
@@ -119,6 +120,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		if err != nil {
 			n.Schal("err", err.Error())
 		} else {
+			n.Schal("info", fmt.Sprintf("chall result is %v", result))
 			serviceProofRecord.Result = result
 			serviceProofRecord.BloomFilter = bloomFilter
 			serviceProofRecord.TeePublicKey = teePuk
@@ -129,17 +131,21 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		serviceProofRecord.Proof = []types.U8{}
 		n.SaveServiceProve(serviceProofRecord)
 
-		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 		if err != nil {
+			n.Schal("info", "will submit chall proof")
 			blockhash, err = n.submitServiceProof([]types.U8{}, slip)
 			if blockhash != "" {
-				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				n.Schal("info", fmt.Sprintf("submit chall proof hash: %s", blockhash))
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)), []byte("true"))
 				serviceProofRecord.CanSubmitProof = false
 				n.SaveServiceProve(serviceProofRecord)
 			}
 			if err != nil {
-				n.Schal("err", err.Error())
+				n.Schal("err", fmt.Sprintf("submitServiceProof err: %v", err))
 			}
+		} else {
+			n.Schal("info", "already submited chall proof")
 		}
 
 		if !verifySuc {
@@ -150,7 +156,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 					time.Sleep(time.Second * 6)
 					continue
 				}
-				if verifySlip < uint32(latestBlock.Block.Header.Number)+3 {
+				if verifySlip < uint32(latestBlock.Block.Header.Number) {
 					return
 				}
 				teePuk, teeSign, bloomFilter, result, err = n.verifyEmpty(rndIndex, rnd)
@@ -168,15 +174,17 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 				break
 			}
 		}
-
-		blockhash, err = n.submitServiceResult(types.Bool(result), teeSign, bloomFilter, teePuk, verifySlip)
-		if blockhash != "" {
-			n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
-			serviceProofRecord.CanSubmitProof = false
-			n.SaveServiceProve(serviceProofRecord)
-		}
-		if err != nil {
-			n.Schal("err", err.Error())
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
+		if err == nil {
+			blockhash, err = n.submitServiceResult(types.Bool(result), teeSign, bloomFilter, teePuk, verifySlip)
+			if blockhash != "" {
+				n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+				serviceProofRecord.CanSubmitProof = false
+				n.SaveServiceProve(serviceProofRecord)
+			}
+			if err != nil {
+				n.Schal("err", err.Error())
+			}
 		}
 	} else if totalChallengedLength <= maxNumberOfSingleVerification {
 		names, us, mus, sigma, usig, err := n.calcSigma(files, rndIndex, rnd)
@@ -196,11 +204,11 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		serviceProofRecord.Proof = serviceProof
 		n.SaveServiceProve(serviceProofRecord)
 
-		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 		if err != nil {
 			blockhash, err = n.submitServiceProof(serviceProof, slip)
 			if blockhash != "" {
-				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)), []byte("true"))
 				serviceProofRecord.CanSubmitProof = false
 				n.SaveServiceProve(serviceProofRecord)
 			}
@@ -209,7 +217,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 			}
 		}
 
-		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 		if err == nil {
 			for {
 				latestBlock, err = n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
@@ -229,7 +237,7 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 				}
 				blockhash, err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
 				if blockhash != "" {
-					n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+					n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_result, chlgStart)), []byte("true"))
 				}
 				if err != nil {
 					n.Schal("err", err.Error())
@@ -258,11 +266,11 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 		serviceProofRecord.SignatureHex = hex.EncodeToString(teeSign)
 		n.SaveServiceProve(serviceProofRecord)
 
-		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 		if err != nil {
 			blockhash, err = n.submitServiceProof(proof, slip)
 			if blockhash != "" {
-				n.Cache.Put([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)), []byte("true"))
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)), []byte("true"))
 				serviceProofRecord.CanSubmitProof = false
 				n.SaveServiceProve(serviceProofRecord)
 			}
@@ -271,11 +279,11 @@ func (n *Node) serviceChallenge(ch chan<- bool, rndIndex []types.U32, rnd []chai
 			}
 		}
 
-		_, err = n.Get([]byte(fmt.Sprintf("service_chall_proof:%d", chlgStart)))
+		_, err = n.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_proof, chlgStart)))
 		if err == nil {
 			blockhash, err = n.submitServiceResult(types.Bool(true), teeSign, bloomFilter, teePuk, verifySlip)
 			if blockhash != "" {
-				n.Cache.Put([]byte(fmt.Sprintf("service_chall_result:%d", chlgStart)), []byte("true"))
+				n.Cache.Put([]byte(fmt.Sprintf("%s%d", cache.Prefix_service_chall_result, chlgStart)), []byte("true"))
 				serviceProofRecord.CanSubmitProof = false
 				n.SaveServiceProve(serviceProofRecord)
 			}
@@ -309,7 +317,7 @@ func (n *Node) submitServiceResult(result types.Bool, sign []byte, bloomFilter c
 		if err != nil {
 			n.Schal("err", fmt.Sprintf("submit service proof result: %v", err))
 		}
-		time.Sleep(time.Second * 6)
+		time.Sleep(time.Second)
 		continue
 	}
 	return "", fmt.Errorf("submitServiceProof failed: %v", err)
@@ -319,12 +327,11 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) (string,
 	var (
 		err       error
 		blockHash string
-		challInfo chain.ChallengeInfo
 	)
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
-			return "", fmt.Errorf("challenge expired")
+			return "", fmt.Errorf("challenge expired: %d < %d", slip, latestBlock.Block.Header.Number)
 		}
 	}
 
@@ -335,19 +342,7 @@ func (n *Node) submitServiceProof(serviceProof []types.U8, slip uint32) (string,
 		if blockHash != "" {
 			return blockHash, err
 		}
-		time.Sleep(chain.BlockInterval)
-
-		_, challInfo, err = n.QueryChallengeSnapShot(n.GetSignatureAccPulickey(), -1)
-		if err != nil {
-			if err.Error() != chain.ERR_Empty {
-				n.Schal("err", fmt.Sprintf("[QueryChallengeInfo] %v", err))
-			}
-			return blockHash, err
-		}
-
-		if challInfo.ProveInfo.ServiceProve.HasValue() {
-			return blockHash, nil
-		}
+		time.Sleep(time.Second)
 	}
 	return blockHash, fmt.Errorf("submitServiceProof failed: %v", err)
 }

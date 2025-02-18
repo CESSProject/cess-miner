@@ -332,6 +332,7 @@ func exitHandle(exitCh chan os.Signal) {
 		select {
 		case sig := <-exitCh:
 			out.Tip(fmt.Sprintf("The program exits with the signal: %s", sig.String()))
+			os.Exit(0)
 		}
 	}
 }

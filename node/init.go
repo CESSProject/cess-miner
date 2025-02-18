@@ -78,7 +78,7 @@ func (n *Node) InitRunStatus(st types.Bytes, apiEndpoint string, t string, regis
 }
 
 func (n *Node) InitCache() {
-	cace, err := cache.NewCache(n.GetDbDir(), 0, 0, configs.NameSpaces)
+	cace, err := cache.NewCache(n.GetDbDir(), 0, 0)
 	if err != nil {
 		out.Err(fmt.Sprintf("[NewCache] %v", err))
 		os.Exit(1)

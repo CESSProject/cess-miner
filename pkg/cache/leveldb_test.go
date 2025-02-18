@@ -19,7 +19,7 @@ import (
 func TestNewCache(t *testing.T) {
 	dataDir := fmt.Sprintf("./%v", time.Now().Nanosecond())
 
-	cache, err := NewCache(dataDir, 0, 0, "test")
+	cache, err := NewCache(dataDir, 0, 0)
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dataDir)
