@@ -102,136 +102,138 @@ func (n *Node) Start() {
 	signal.Notify(exitCh, os.Interrupt, os.Kill, syscall.SIGTERM)
 	go exitHandle(exitCh)
 
+	// check pois
+	go n.CheckPois(int(n.ReadUseCpu()))
+
+	// sync self info
+	syncMinerStatusCh := make(chan bool, 1)
+	go n.syncMinerStatus(syncMinerStatusCh)
+
+	// sync tee info
+	syncTeeCh := make(chan bool, 1)
+	go n.SyncTeeInfo(syncTeeCh)
+
 	reportFileCh := make(chan bool, 1)
 	reportFileCh <- true
+
 	genIdleCh := make(chan bool, 1)
 	genIdleCh <- true
-	attestationIdleCh := make(chan bool, 1)
-	attestationIdleCh <- true
+
+	certIdleCh := make(chan bool, 1)
+	certIdleCh <- true
+
 	calcTagCh := make(chan bool, 1)
 	calcTagCh <- true
 
-	tick_57s := time.NewTicker(chain.BlockInterval * 57)
-	defer tick_57s.Stop()
-
-	n.syncMinerStatus()
-
-	go n.CheckPois(int(n.ReadUseCpu()))
-	go n.TaskPeriod_15s()
-	go n.TaskPeriod_10m()
-	go n.TaskPeriod_1h()
-
-	out.Ok("Service started successfully")
-
-	for {
-		select {
-		case <-tick_57s.C:
-			if n.GetState() == chain.MINER_STATE_EXIT ||
-				n.GetState() == chain.MINER_STATE_OFFLINE {
-				break
-			}
-
-			if len(reportFileCh) > 0 {
-				<-reportFileCh
-				go n.ReportFiles(reportFileCh)
-			}
-
-			if len(attestationIdleCh) > 0 {
-				<-attestationIdleCh
-				go n.CertIdle(attestationIdleCh)
-			}
-
-			if len(calcTagCh) > 0 {
-				<-calcTagCh
-				go n.CalcTag(calcTagCh)
-			}
-
-			if len(genIdleCh) > 0 && !n.GetIdleChallenging() && !n.GetServiceChallenging() {
-				<-genIdleCh
-				go n.GenIdle(genIdleCh)
-			}
-		default:
-			time.Sleep(time.Second)
-		}
-	}
-}
-
-func (n *Node) TaskPeriod_15s() {
-	n.Log("info", "start TaskPeriod_15s")
-	tick_15s := time.NewTicker(time.Second * 15)
-	defer tick_15s.Stop()
 	idleChallCh := make(chan bool, 1)
 	idleChallCh <- true
+
 	serviceChallCh := make(chan bool, 1)
 	serviceChallCh <- true
-	for {
-		select {
-		case <-tick_15s.C:
-			if n.GetState() == chain.MINER_STATE_EXIT ||
-				n.GetState() == chain.MINER_STATE_OFFLINE {
-				break
-			}
-			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go n.ChallengeMgt(idleChallCh, serviceChallCh)
-				time.Sleep(time.Second)
-			}
-		default:
-			time.Sleep(time.Second)
-		}
-	}
-}
 
-func (n *Node) TaskPeriod_10m() {
-	n.Log("info", "start TaskPeriod_10m")
-	tick_10m := time.NewTicker(time.Minute * 10)
-	defer tick_10m.Stop()
-	syncTeeCh := make(chan bool, 1)
 	replaceIdleCh := make(chan bool, 1)
 	replaceIdleCh <- true
 
-	go n.SyncTeeInfo(syncTeeCh)
+	restoreCh := make(chan bool, 1)
+	restoreCh <- true
+
+	tNow := time.Now().Unix()
+	tOld_12s := tNow
+	tOld_20s := tNow
+	tOld_30s := tNow
+	tOld_40s := tNow
+	tOld_50s := tNow
+	tOld_1m := tNow
+	tOld_3m := tNow
+	tOld_10m := tNow
+	tOld_1h := tNow
+
+	out.Ok("Service started successfully")
 	for {
-		select {
-		case <-tick_10m.C:
-			n.syncMinerStatus()
-			if n.GetState() == chain.MINER_STATE_EXIT ||
-				n.GetState() == chain.MINER_STATE_OFFLINE {
-				break
+		tNow = time.Now().Unix()
+
+		// 10s challenge
+		if tNow-tOld_12s >= 12 {
+			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
+				go n.ChallengeMgt(idleChallCh, serviceChallCh)
+				tOld_12s = tNow
 			}
-			if len(syncTeeCh) > 0 {
-				<-syncTeeCh
-				go n.SyncTeeInfo(syncTeeCh)
+		}
+
+		// 20s sync self info
+		if tNow-tOld_20s >= 20 {
+			if len(syncMinerStatusCh) > 0 {
+				<-syncMinerStatusCh
+				go n.syncMinerStatus(syncMinerStatusCh)
+				tOld_20s = tNow
 			}
+		}
+
+		// 30s report file
+		if tNow-tOld_30s >= 30 {
+			if len(reportFileCh) > 0 {
+				<-reportFileCh
+				go n.ReportFiles(reportFileCh)
+				tOld_30s = tNow
+			}
+		}
+
+		// 40s gen idle
+		if tNow-tOld_40s >= 40 {
+			if len(genIdleCh) > 0 {
+				if !n.GetIdleChallenging() && !n.GetServiceChallenging() {
+					<-genIdleCh
+					go n.GenIdle(genIdleCh)
+					tOld_40s = tNow
+				}
+			}
+		}
+
+		// 50s cert idle
+		if tNow-tOld_50s >= 50 {
+			if len(certIdleCh) > 0 {
+				<-certIdleCh
+				go n.CertIdle(certIdleCh)
+				tOld_50s = tNow
+			}
+		}
+
+		// 1m calc tag
+		if tNow-tOld_1m >= 60 {
+			if len(calcTagCh) > 0 {
+				<-calcTagCh
+				go n.CalcTag(calcTagCh)
+				tOld_1m = tNow
+			}
+		}
+
+		// 3m replace idle
+		if tNow-tOld_3m >= 180 {
 			if len(replaceIdleCh) > 0 {
 				<-replaceIdleCh
 				go n.ReplaceIdle(replaceIdleCh)
+				tOld_3m = tNow
 			}
-		default:
-			time.Sleep(time.Second)
 		}
-	}
-}
 
-func (n *Node) TaskPeriod_1h() {
-	n.Log("info", "start TaskPeriod_1h")
-	tick_1h := time.NewTicker(time.Hour)
-	defer tick_1h.Stop()
-	restoreCh := make(chan bool, 1)
-	restoreCh <- true
-	for {
-		select {
-		case <-tick_1h.C:
-			if n.GetState() == chain.MINER_STATE_EXIT ||
-				n.GetState() == chain.MINER_STATE_OFFLINE {
-				break
+		// 10m sync tee info
+		if tNow-tOld_10m >= 600 {
+			if len(syncTeeCh) > 0 {
+				<-syncTeeCh
+				go n.SyncTeeInfo(syncTeeCh)
+				tOld_10m = tNow
 			}
+		}
+
+		// 1h restore file
+		if tNow-tOld_1h >= 3600 {
 			if len(restoreCh) > 0 {
 				<-restoreCh
 				go n.RestoreFiles(restoreCh)
+				tOld_1h = tNow
 			}
-		default:
-			time.Sleep(time.Second)
 		}
+		time.Sleep(time.Millisecond * 100)
 	}
 }
 

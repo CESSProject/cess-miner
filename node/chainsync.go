@@ -68,6 +68,12 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	st := n.GetState()
+	if st != chain.MINER_STATE_POSITIVE && st != chain.MINER_STATE_FROZEN {
+		return
+	}
+
 	var dialOptions []grpc.DialOption
 	var chainPublickey = make([]byte, chain.WorkerPublicKeyLen)
 
@@ -158,12 +164,18 @@ func (n *Node) SyncTeeInfo(ch chan<- bool) {
 	}
 }
 
-func (n *Node) syncMinerStatus() {
+func (n *Node) syncMinerStatus(ch chan<- bool) {
 	defer func() {
+		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	st := n.GetState()
+	if st == chain.MINER_STATE_EXIT || st == chain.MINER_STATE_OFFLINE {
+		return
+	}
 
 	minerInfo, err := n.QueryMinerItems(n.GetSignatureAccPulickey(), -1)
 	if err != nil {

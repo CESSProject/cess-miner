@@ -121,15 +121,15 @@ func (n *Node) InitChainClient() {
 	n.InitChainclient(cli)
 	n.InitWorkspace(filepath.Join(n.ReadWorkspace(), n.GetSignatureAcc(), configs.Name))
 
-	err = n.InitExtrinsicsNameForMiner()
-	if err != nil {
-		out.Err("Please verify the RPC version and ensure it has been synchronized to the latest state.")
-		os.Exit(1)
-	}
-
 	err = checkRpcSynchronization(cli)
 	if err != nil {
 		out.Err("Failed to sync block: network error")
+		os.Exit(1)
+	}
+
+	err = n.InitExtrinsicsNameForMiner()
+	if err != nil {
+		out.Err("Please verify the RPC version and ensure it has been synchronized to the latest state.")
 		os.Exit(1)
 	}
 
@@ -400,7 +400,7 @@ func (n *Node) queryPodr2KeyFromTee() ([]byte, error) {
 		if err == nil {
 			continue
 		}
-		out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", pubkeyHex))
+		//out.Tip(fmt.Sprintf("Requesting podr2 public key from tee: %s", pubkeyHex))
 		for tryCount := uint8(0); tryCount <= 3; tryCount++ {
 			endpoint, err := n.QueryEndpoints(teelist[i].Pubkey, -1)
 			if err != nil {

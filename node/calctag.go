@@ -43,6 +43,11 @@ func (n *Node) CalcTag(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	if n.GetState() != chain.MINER_STATE_POSITIVE {
+		return
+	}
+
 	n.getAllFileDirs()
 }
 

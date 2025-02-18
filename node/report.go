@@ -27,6 +27,10 @@ func (n *Node) ReportFiles(ch chan<- bool) {
 		}
 	}()
 
+	if n.GetState() != chain.MINER_STATE_POSITIVE {
+		return
+	}
+
 	roothashs, err := utils.Dirs(n.GetReportDir())
 	if err != nil {
 		n.Report("err", fmt.Sprintf("[Dirs(TmpDir)] %v", err))

@@ -41,6 +41,10 @@ func (n *Node) RestoreFiles(ch chan bool) {
 		}
 	}()
 
+	if n.GetState() != chain.MINER_STATE_POSITIVE {
+		return
+	}
+
 	err := n.RestoreLocalFiles()
 	if err != nil {
 		n.Restore("err", err.Error())
