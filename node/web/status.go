@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/cess-miner/node/common"
 	"github.com/CESSProject/cess-miner/node/runstatus"
 	"github.com/CESSProject/cess-miner/node/workspace"
+	"github.com/CESSProject/cess-miner/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,10 +32,9 @@ func NewStatusHandler(rs runstatus.Runstatus, wspace workspace.Workspace) *Statu
 }
 
 func (s *StatusHandler) RegisterRoutes(server *gin.Engine) {
-	//filegroup := server.Group("/status")
 	server.GET("/status", s.getStatus)
 	server.GET("/file/:name", s.getfile)
-	server.GET("/file/size/:name", s.getfilesize)
+	server.GET("/file/list", s.getfilelist)
 }
 
 type StatusData struct {
@@ -107,54 +107,34 @@ func (s *StatusHandler) getStatus(c *gin.Context) {
 	})
 }
 
-func (s *StatusHandler) getfilesize(c *gin.Context) {
-	filename := c.Param("name")
-
-	switch filename {
-	case "idle_proof":
-		fstat, err := os.Stat(s.wspace.GetIdleProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		c.JSON(200, common.RespType{
-			Code: 200,
-			Msg:  common.OK,
-			Data: fstat.Size(),
-		})
-	case "service_proof":
-		fstat, err := os.Stat(s.wspace.GetServiceProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		c.JSON(200, common.RespType{
-			Code: 200,
-			Msg:  common.OK,
-			Data: fstat.Size(),
-		})
-	default:
-		c.JSON(200, common.RespType{
-			Code: 404,
-			Msg:  common.OK,
-			Data: "not found",
-		})
+func (s *StatusHandler) getfilelist(c *gin.Context) {
+	filetype, ok := c.GetQuery("path")
+	if !ok {
+		filetype = "/"
 	}
+
+	files, err := utils.DirFileDetail(filepath.Join(s.wspace.GetRootDir(), filetype), 0)
+	if err != nil {
+		c.JSON(200, common.RespType{
+			Code: 500,
+			Msg:  err.Error(),
+		})
+		return
+	}
+	c.JSON(200, common.RespType{
+		Code: 200,
+		Msg:  common.OK,
+		Data: files,
+	})
 }
 
 func (s *StatusHandler) getfile(c *gin.Context) {
-	filename := c.Param("name")
+	fp := c.Param("path")
 	headsize := 0
 	tailsize := 0
 	var err error
+
+	download, _ := c.GetQuery("download")
 	headsizestr, ok := c.GetQuery("head")
 	if ok {
 		headsize, err = strconv.Atoi(headsizestr)
@@ -180,850 +160,101 @@ func (s *StatusHandler) getfile(c *gin.Context) {
 		}
 	}
 
-	switch filename {
-	case "idle_proof":
-		fstat, err := os.Stat(s.wspace.GetIdleProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(s.wspace.GetIdleProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-
-	case "service_proof":
-		fstat, err := os.Stat(s.wspace.GetServiceProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(s.wspace.GetServiceProve())
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "ichal":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "ichal.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "ichal.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "schal":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "schal.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "schal.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "pnc":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "panic.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "panic.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "space":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "space.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "space.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "log":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "log.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "log.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "stag":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "stag.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "log.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	case "del":
-		fstat, err := os.Stat(filepath.Join(s.wspace.GetLogDir(), "delete.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		fd, err := os.Open(filepath.Join(s.wspace.GetLogDir(), "log.log"))
-		if err != nil {
-			c.JSON(200, common.RespType{
-				Code: 500,
-				Msg:  common.ERR_SystemErr,
-				Data: err.Error(),
-			})
-			return
-		}
-		defer fd.Close()
-
-		if headsize > 0 {
-			if headsize > int(fstat.Size()) {
-				headsize = int(fstat.Size())
-			}
-			buf := make([]byte, headsize)
-			n, err := fd.Read(buf)
-			if err != nil {
-				c.JSON(200, common.RespType{
-					Code: 500,
-					Msg:  common.ERR_SystemErr,
-					Data: err.Error(),
-				})
-				return
-			}
-			c.JSON(200, common.RespType{
-				Code: 200,
-				Msg:  fmt.Sprintf("size: %d", n),
-				Data: string(buf),
-			})
-			return
-		}
-
-		if tailsize > 0 {
-			if tailsize >= int(fstat.Size()) {
-				tailsize = int(fstat.Size())
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			} else {
-				_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				buf := make([]byte, tailsize)
-				n, err := fd.Read(buf)
-				if err != nil {
-					c.JSON(200, common.RespType{
-						Code: 500,
-						Msg:  common.ERR_SystemErr,
-						Data: err.Error(),
-					})
-					return
-				}
-				c.JSON(200, common.RespType{
-					Code: 200,
-					Msg:  fmt.Sprintf("size: %d", n),
-					Data: string(buf),
-				})
-				return
-			}
-		}
-
-		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
-		return
-	default:
+	fstat, err := os.Stat(filepath.Join(s.wspace.GetRootDir(), fp))
+	if err != nil {
 		c.JSON(200, common.RespType{
-			Code: 404,
-			Msg:  common.OK,
-			Data: "not found",
+			Code: 500,
+			Msg:  common.ERR_SystemErr,
+			Data: err.Error(),
 		})
+		return
 	}
+	fd, err := os.Open(filepath.Join(s.wspace.GetRootDir(), fp))
+	if err != nil {
+		c.JSON(200, common.RespType{
+			Code: 500,
+			Msg:  common.ERR_SystemErr,
+			Data: err.Error(),
+		})
+		return
+	}
+	defer fd.Close()
+
+	if headsize > 0 {
+		if headsize > int(fstat.Size()) {
+			headsize = int(fstat.Size())
+		}
+		buf := make([]byte, headsize)
+		n, err := fd.Read(buf)
+		if err != nil {
+			c.JSON(200, common.RespType{
+				Code: 500,
+				Msg:  common.ERR_SystemErr,
+				Data: err.Error(),
+			})
+			return
+		}
+		c.JSON(200, common.RespType{
+			Code: 200,
+			Msg:  fmt.Sprintf("size: %d", n),
+			Data: string(buf),
+		})
+		return
+	}
+
+	if tailsize > 0 {
+		if tailsize >= int(fstat.Size()) {
+			tailsize = int(fstat.Size())
+			buf := make([]byte, tailsize)
+			n, err := fd.Read(buf)
+			if err != nil {
+				c.JSON(200, common.RespType{
+					Code: 500,
+					Msg:  common.ERR_SystemErr,
+					Data: err.Error(),
+				})
+				return
+			}
+			c.JSON(200, common.RespType{
+				Code: 200,
+				Msg:  fmt.Sprintf("size: %d", n),
+				Data: string(buf),
+			})
+			return
+		} else {
+			_, err = fd.Seek(fstat.Size()-int64(tailsize), 0)
+			if err != nil {
+				c.JSON(200, common.RespType{
+					Code: 500,
+					Msg:  common.ERR_SystemErr,
+					Data: err.Error(),
+				})
+				return
+			}
+			buf := make([]byte, tailsize)
+			n, err := fd.Read(buf)
+			if err != nil {
+				c.JSON(200, common.RespType{
+					Code: 500,
+					Msg:  common.ERR_SystemErr,
+					Data: err.Error(),
+				})
+				return
+			}
+			c.JSON(200, common.RespType{
+				Code: 200,
+				Msg:  fmt.Sprintf("size: %d", n),
+				Data: string(buf),
+			})
+			return
+		}
+	}
+
+	if download != "" {
+		c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", fd, nil)
+	} else {
+		c.DataFromReader(http.StatusOK, fstat.Size(), "text/plain", fd, nil)
+	}
+	return
+
 }

@@ -932,6 +932,11 @@ func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify, tee string, sl
 func (n *Node) requestAggregateSignature(request *pb.RequestAggregateSignature, usedTee string, slip uint32) (*pb.ResponseAggregateSignature, error) {
 	var dialOptions []grpc.DialOption
 	if usedTee != "" {
+		if !strings.Contains(usedTee, "443") {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		} else {
+			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		}
 		for {
 			latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 			if err != nil {

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/rand"
 	"net"
 	"net/http"
@@ -22,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -32,6 +32,13 @@ type MountPathInfo struct {
 	Path  string
 	Total uint64
 	Free  uint64
+}
+
+type FileDetail struct {
+	Path    string
+	ModTime string
+	Size    int64
+	IsDir   bool
 }
 
 // Get the total size of all files in a directory and subdirectories
@@ -89,10 +96,34 @@ func DirFiles(path string, count uint32) ([]string, error) {
 	return files, nil
 }
 
-// Get a random integer in a specified range
-func RandomInRange(min, max int) int {
-	rand.Seed(time.Now().Unix())
-	return rand.Intn(max-min) + min
+// Get the total size of all files in a directory and subdirectories
+func DirFileDetail(path string, count uint32) ([]FileDetail, error) {
+	var fileDetails = make([]FileDetail, 0)
+	var fstat fs.FileInfo
+	result, err := filepath.Glob(filepath.Join(path, "*"))
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range result {
+		fstat, err = os.Stat(v)
+		if err != nil {
+			continue
+		}
+
+		fileDetails = append(fileDetails, FileDetail{
+			Path:    v,
+			ModTime: fstat.ModTime().Local().Format(time.DateTime),
+			Size:    fstat.Size(),
+			IsDir:   fstat.IsDir(),
+		})
+
+		if count > 0 {
+			if len(fileDetails) >= int(count) {
+				break
+			}
+		}
+	}
+	return fileDetails, nil
 }
 
 func GetDirFreeSpace(dir string) (uint64, error) {
@@ -180,55 +211,6 @@ func GetSysMemTotle() (uint64, error) {
 
 var GlobalTransport = &http.Transport{
 	DisableKeepAlives: true,
-}
-
-func QueryPeers(url string) ([]byte, error) {
-	if url == "" {
-		return nil, errors.New("invalid url")
-	}
-
-	if url[len(url)-1] != byte(47) {
-		url += "/"
-	}
-
-	req, err := http.NewRequest(http.MethodGet, url+"peers", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{}
-	client.Transport = GlobalTransport
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("failed")
-	}
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr) {
-	newArr = make([]multiaddr.Multiaddr, 0)
-	for i := 0; i < len(arr); i++ {
-		repeat := false
-		for j := i + 1; j < len(arr); j++ {
-			if arr[i].Equal(arr[j]) {
-				repeat = true
-				break
-			}
-		}
-		if !repeat {
-			newArr = append(newArr, arr[i])
-		}
-	}
-	return newArr
 }
 
 var ipRegex = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
