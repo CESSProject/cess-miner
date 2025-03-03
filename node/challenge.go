@@ -14,7 +14,7 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/utils"
 )
 
-func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan bool) {
+func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan bool, syncTeeCh chan bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
@@ -42,20 +42,25 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 	}
 
 	if len(idleChallTaskCh) > 0 {
-		n.Ichal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
+		n.Ichal("info", fmt.Sprintf("challenge start: %v slip: %d verify slip: %d latestBlock: %v", challenge.ChallengeElement.Start, challenge.ChallengeElement.IdleSlip, challenge.ChallengeElement.VerifySlip, latestBlock))
 	}
 
 	if len(serviceChallTaskCh) > 0 {
-		n.Schal("info", fmt.Sprintf("challenge start: %v latestBlock: %v", challenge.ChallengeElement.Start, latestBlock))
+		n.Schal("info", fmt.Sprintf("challenge start: %v slip: %d verify slip: %d latestBlock: %v", challenge.ChallengeElement.Start, challenge.ChallengeElement.ServiceSlip, challenge.ChallengeElement.VerifySlip, latestBlock))
 	}
 
 	if challenge.ProveInfo.IdleProve.HasValue() {
 		_, idleProve := challenge.ProveInfo.IdleProve.Unwrap()
 		if !idleProve.VerifyResult.HasValue() {
-			if uint32(challenge.ChallengeElement.VerifySlip) < latestBlock {
-				n.Ichal("err", fmt.Sprintf("idle data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
-			} else {
+			if uint32(challenge.ChallengeElement.VerifySlip) > latestBlock {
+				// 	n.Ichal("err", fmt.Sprintf("idle data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
+				// } else {
 				if len(idleChallTaskCh) > 0 {
+					if len(syncTeeCh) > 0 {
+						<-syncTeeCh
+						go n.SyncTeeInfo(syncTeeCh)
+					}
+
 					<-idleChallTaskCh
 					go n.idleChallenge(
 						idleChallTaskCh,
@@ -72,10 +77,15 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 			}
 		}
 	} else {
-		if uint32(challenge.ChallengeElement.IdleSlip) < latestBlock {
-			n.Ichal("err", fmt.Sprintf("idle data challenge has expired: %v < %v", uint32(challenge.ChallengeElement.IdleSlip), latestBlock))
-		} else {
+		if uint32(challenge.ChallengeElement.IdleSlip) > latestBlock {
+			// 	n.Ichal("err", fmt.Sprintf("idle data challenge has expired: %v < %v", uint32(challenge.ChallengeElement.IdleSlip), latestBlock))
+			// } else {
 			if len(idleChallTaskCh) > 0 {
+				if len(syncTeeCh) > 0 {
+					<-syncTeeCh
+					go n.SyncTeeInfo(syncTeeCh)
+				}
+
 				<-idleChallTaskCh
 				go n.idleChallenge(
 					idleChallTaskCh,
@@ -95,10 +105,15 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 	if challenge.ProveInfo.ServiceProve.HasValue() {
 		_, serviceProve := challenge.ProveInfo.ServiceProve.Unwrap()
 		if !serviceProve.VerifyResult.HasValue() {
-			if uint32(challenge.ChallengeElement.VerifySlip) < latestBlock {
-				n.Schal("err", fmt.Sprintf("service data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
-			} else {
+			if uint32(challenge.ChallengeElement.VerifySlip) > latestBlock {
+				// 	n.Schal("err", fmt.Sprintf("service data challenge verification expired: %v < %v", uint32(challenge.ChallengeElement.VerifySlip), latestBlock))
+				// } else {
 				if len(serviceChallTaskCh) > 0 {
+					if len(syncTeeCh) > 0 {
+						<-syncTeeCh
+						go n.SyncTeeInfo(syncTeeCh)
+					}
+
 					<-serviceChallTaskCh
 					go n.serviceChallenge(
 						serviceChallTaskCh,
@@ -112,10 +127,15 @@ func (n *Node) ChallengeMgt(idleChallTaskCh chan bool, serviceChallTaskCh chan b
 			}
 		}
 	} else {
-		if uint32(challenge.ChallengeElement.ServiceSlip) < latestBlock {
-			n.Schal("err", fmt.Sprintf("service challenge has expired: %v < %v", uint32(challenge.ChallengeElement.ServiceSlip), latestBlock))
-		} else {
+		if uint32(challenge.ChallengeElement.ServiceSlip) > latestBlock {
+			// 	n.Schal("err", fmt.Sprintf("service challenge has expired: %v < %v", uint32(challenge.ChallengeElement.ServiceSlip), latestBlock))
+			// } else {
 			if len(serviceChallTaskCh) > 0 {
+				if len(syncTeeCh) > 0 {
+					<-syncTeeCh
+					go n.SyncTeeInfo(syncTeeCh)
+				}
+
 				<-serviceChallTaskCh
 				go n.serviceChallenge(
 					serviceChallTaskCh,

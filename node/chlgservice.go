@@ -881,52 +881,43 @@ func (n *Node) batchGenProofAndVerify(files []challengedFile, randomIndexList []
 }
 
 func (n *Node) requestBatchVerify(request *pb.RequestBatchVerify, tee string, slip uint32) (*pb.ResponseBatchVerify, string, error) {
+	var err error
 	var dialOptions []grpc.DialOption
-
+	var latestBlock *types.SignedBlock
+	var tees []string
+	var batchVerifyResponse *pb.ResponseBatchVerify
 	if tee != "" {
-		n.Schal("err", fmt.Sprintf("use tee: %s", tee))
-		if !strings.Contains(tee, "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-		}
-		for {
-			latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("GetBlockLatest: %v", err))
-				time.Sleep(time.Second * 6)
-				continue
-			}
-
-			if slip <= uint32(latestBlock.Block.Header.Number) {
-				return nil, "", errors.New("challenge expired, RequestBatchVerify failed")
-			}
-
-			batchVerifyResponse, err := com.RequestBatchVerify(tee, request, time.Minute*10, dialOptions, nil)
-			if err != nil {
-				n.Schal("err", fmt.Sprintf("RequestBatchVerify: %v", err))
-				time.Sleep(time.Second * 6)
-				continue
-			}
-			return batchVerifyResponse, tee, nil
-		}
+		tees = append(tees, tee)
+	} else {
+		tees = n.GetAllVerifierTeeEndpoint()
 	}
-	var tees = n.GetAllVerifierTeeEndpoint()
-	for i := 0; i < len(tees); i++ {
-		if !strings.Contains(tees[i], "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
-		}
-		batchVerifyResponse, err := com.RequestBatchVerify(tees[i], request, time.Minute*10, dialOptions, nil)
+
+	for {
+		latestBlock, err = n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 		if err != nil {
-			n.Schal("err", fmt.Sprintf("RequestBatchVerify: %v", err))
+			n.Schal("err", fmt.Sprintf("GetBlockLatest: %v", err))
+			time.Sleep(time.Second * 10)
 			continue
 		}
-		return batchVerifyResponse, tees[i], nil
-	}
 
-	return nil, "", errors.New("RequestBatchVerify failed")
+		if slip <= uint32(latestBlock.Block.Header.Number) {
+			return nil, "", errors.New("challenge expired, RequestBatchVerify failed")
+		}
+		for i := 0; i < len(tees); i++ {
+			if !strings.Contains(tees[i], "443") {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			} else {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+			}
+			batchVerifyResponse, err = com.RequestBatchVerify(tees[i], request, time.Minute*10, dialOptions, nil)
+			if err != nil {
+				n.Schal("err", fmt.Sprintf("RequestBatchVerify: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			return batchVerifyResponse, tees[i], nil
+		}
+	}
 }
 
 func (n *Node) requestAggregateSignature(request *pb.RequestAggregateSignature, usedTee string, slip uint32) (*pb.ResponseAggregateSignature, error) {
@@ -989,7 +980,7 @@ func (n *Node) DownloadFragment(fid, fragment_hash, savepath string) error {
 	ossList, err := n.QueryAllOss(-1)
 	if err == nil {
 		for i := 0; i < len(ossList); i++ {
-			if string(ossList[i].Domain) == configs.DefaultGW1 || string(ossList[i].Domain) == configs.DefaultGW2 || string(ossList[i].Domain) == configs.DefaultGW3 {
+			if strings.Contains(string(ossList[i].Domain), "cess.network") {
 				continue
 			}
 			gwlist = append(gwlist, string(ossList[i].Domain))
@@ -1001,13 +992,14 @@ func (n *Node) DownloadFragment(fid, fragment_hash, savepath string) error {
 	if err != nil {
 		return fmt.Errorf("[SignedSR25519WithMnemonic] %v", err)
 	}
+	signstr := hex.EncodeToString(sig)
 	for i := 0; i < len(gwlist); i++ {
 		if strings.HasSuffix(gwlist[i], "/") {
 			url = fmt.Sprintf("%sfragment/download?fid=%s&fragment=%s", url, fid, fragment_hash)
 		} else {
 			url = fmt.Sprintf("%s/fragment/download?fid=%s&fragment=%s", url, fid, fragment_hash)
 		}
-		err = DownloadFragmentFromGW(url, savepath, n.GetSignatureAcc(), message, string(sig))
+		err = DownloadFragmentFromGW(url, savepath, n.GetSignatureAcc(), message, signstr)
 		if err != nil {
 			continue
 		}

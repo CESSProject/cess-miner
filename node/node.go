@@ -145,7 +145,7 @@ func (n *Node) Start() {
 	tOld_50s := tNow
 	tOld_1m := tNow
 	tOld_3m := tNow
-	tOld_10m := tNow
+	//tOld_10m := tNow
 	tOld_1h := tNow
 
 	out.Ok("Service started successfully")
@@ -155,7 +155,7 @@ func (n *Node) Start() {
 		// 10s challenge
 		if tNow-tOld_12s >= 12 {
 			if len(idleChallCh) > 0 || len(serviceChallCh) > 0 {
-				go n.ChallengeMgt(idleChallCh, serviceChallCh)
+				go n.ChallengeMgt(idleChallCh, serviceChallCh, syncTeeCh)
 				tOld_12s = tNow
 			}
 		}
@@ -217,13 +217,13 @@ func (n *Node) Start() {
 		}
 
 		// 10m sync tee info
-		if tNow-tOld_10m >= 600 {
-			if len(syncTeeCh) > 0 {
-				<-syncTeeCh
-				go n.SyncTeeInfo(syncTeeCh)
-				tOld_10m = tNow
-			}
-		}
+		// if tNow-tOld_10m >= 600 {
+		// 	if len(syncTeeCh) > 0 {
+		// 		<-syncTeeCh
+		// 		go n.SyncTeeInfo(syncTeeCh)
+		// 		tOld_10m = tNow
+		// 	}
+		// }
 
 		// 1h restore file
 		if tNow-tOld_1h >= 3600 {
