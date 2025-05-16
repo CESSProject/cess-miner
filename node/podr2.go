@@ -102,10 +102,8 @@ func (r *RSAKeyPair) VerifyAttest(name, u, phiHash, attest, customData string) (
 	return true, nil
 }
 
-func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Phi []string, Matrix [][]byte) <-chan GenProofResponse {
-	responseCh := make(chan GenProofResponse, 1)
+func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Phi []string, Matrix [][]byte) GenProofResponse {
 	var res GenProofResponse
-
 	//err := h.LoadField([]byte(Tag.T.Name))
 	//if err != nil {
 	//	res.StatueMsg.StatusCode = cess_pdp.ErrorInternal
@@ -160,9 +158,8 @@ func (keyPair RSAKeyPair) GenProof(QSlice []QElement, h HashSelf, Phi []string, 
 	res.Sigma = sigma.String()
 	res.StatueMsg.StatusCode = Success
 	res.StatueMsg.Msg = "Success"
-	responseCh <- res
 
-	return responseCh
+	return res
 }
 
 func (keyPair RSAKeyPair) AggrGenProof(QSlice []QElement, Tag []Tag) string {

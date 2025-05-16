@@ -129,7 +129,7 @@ func (s *StatusHandler) getfilelist(c *gin.Context) {
 }
 
 func (s *StatusHandler) getfile(c *gin.Context) {
-	fp := c.Param("path")
+	fp := c.Param("name")
 	headsize := 0
 	tailsize := 0
 	var err error

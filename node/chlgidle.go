@@ -22,7 +22,6 @@ import (
 	"github.com/CESSProject/cess-miner/pkg/com"
 	"github.com/CESSProject/cess-miner/pkg/com/pb"
 	"github.com/CESSProject/cess-miner/pkg/utils"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
@@ -70,6 +69,10 @@ func (n *Node) idleChallenge(
 
 			_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_result, challStart)))
 			if err != nil {
+				if len(idleProofRecord.TotalSignature) <= 0 {
+					return
+				}
+
 				var idleProve = make([]types.U8, len(idleProofRecord.IdleProof))
 				for i := 0; i < len(idleProofRecord.IdleProof); i++ {
 					idleProve[i] = types.U8(idleProofRecord.IdleProof[i])
@@ -112,6 +115,10 @@ func (n *Node) idleChallenge(
 	idleProofRecord.ChainRear = minerChallRear
 	idleProofRecord.CanSubmintProof = true
 	idleProofRecord.CanSubmintResult = true
+	idleProofRecord.IdleResult = false
+	idleProofRecord.TotalSignature = []byte{}
+	idleProofRecord.FileBlockProofInfo = nil
+	idleProofRecord.BlocksProof = nil
 
 	var acc = make([]byte, len(chain.Accumulator{}))
 	for i := 0; i < len(acc); i++ {
@@ -271,16 +278,7 @@ func (n *Node) idleChallenge(
 		idleProofChain[i] = types.U8(idleProof[i])
 	}
 
-	teeSignBytes, pkchain, result, err := n.verifyIdleProof(minerChallFront, minerChallRear, minerPoisInfo, idleProofRecord, acc, challRandom)
-	if err != nil {
-		n.Ichal("err", fmt.Sprintf("[verifyIdleProof] %v", err))
-		return
-	}
-
 	idleProofRecord.IdleProof = idleProofChain
-	idleProofRecord.AllocatedTeeWorkpuk = pkchain
-	idleProofRecord.IdleResult = result
-	idleProofRecord.TotalSignature = teeSignBytes
 	n.SaveIdleProve(idleProofRecord)
 	_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 	if err != nil {
@@ -295,9 +293,19 @@ func (n *Node) idleChallenge(
 		}
 	}
 
-	blockhash = ""
 	_, err = n.Cache.Get([]byte(fmt.Sprintf("%s%d", cache.Prefix_idle_chall_proof, challStart)))
 	if err == nil {
+		teeSignBytes, pkchain, result, err := n.verifyIdleProof(minerChallFront, minerChallRear, minerPoisInfo, idleProofRecord, acc, challRandom, verifySlip)
+		if err != nil {
+			n.Ichal("err", fmt.Sprintf("[verifyIdleProof] %v", err))
+			return
+		}
+
+		idleProofRecord.AllocatedTeeWorkpuk = pkchain
+		idleProofRecord.IdleResult = result
+		idleProofRecord.TotalSignature = teeSignBytes
+		n.SaveIdleProve(idleProofRecord)
+
 		blockhash, err = n.submitIdleResult(
 			idleProofChain,
 			types.U64(idleProofRecord.ChainFront),
@@ -327,32 +335,34 @@ func (n *Node) submitIdleProof(idleProof []types.U8, slip uint32) (string, error
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if slip < uint32(latestBlock.Block.Header.Number) {
+			time.Sleep(time.Second * 10)
 			return "", fmt.Errorf("challenge expired: %d < %d", slip, latestBlock.Block.Header.Number)
 		}
 	}
 	for i := 0; i < 3; i++ {
-		n.Ichal("info", fmt.Sprintf("[start sub] %v", time.Now()))
+		n.Ichal("info", fmt.Sprintf("[start SubmitIdleProof] %v", time.Now()))
 		blockHash, err = n.SubmitIdleProof(idleProof)
-		n.Ichal("info", fmt.Sprintf("[end sub] hash: %s err: %v", blockHash, err))
-
+		n.Ichal("info", fmt.Sprintf("[end SubmitIdleProof] hash: %s err: %v", blockHash, err))
 		if blockHash != "" {
 			return blockHash, err
 		}
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 6)
 	}
 	return blockHash, fmt.Errorf("submitIdleProof failed: %v", err)
 }
 
 func (n *Node) submitIdleResult(totalProofHash []types.U8, front types.U64, rear types.U64, accumulator chain.Accumulator, result types.Bool, sig types.Bytes, teePuk chain.WorkerPublicKey, verifySlip uint32) (string, error) {
-	blockhsh := ""
+	blockhash := ""
 	latestBlock, err := n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
 	if err == nil {
 		if verifySlip < uint32(latestBlock.Block.Header.Number) {
+			time.Sleep(time.Second * 10)
 			return "", fmt.Errorf("challenge verify expired: %d < %d", verifySlip, latestBlock.Block.Header.Number)
 		}
 	}
 	for i := 0; i < 3; i++ {
-		blockhsh, err = n.SubmitVerifyIdleResult(
+		n.Ichal("info", fmt.Sprintf("[start SubmitVerifyIdleResult] %v", time.Now()))
+		blockhash, err = n.SubmitVerifyIdleResult(
 			totalProofHash,
 			types.U64(front),
 			types.U64(rear),
@@ -361,11 +371,9 @@ func (n *Node) submitIdleResult(totalProofHash []types.U8, front types.U64, rear
 			sig,
 			teePuk,
 		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[SubmitIdleProofResult] hash: %s, err: %v", blockhsh, err))
-		}
-		if blockhsh != "" {
-			return blockhsh, err
+		n.Ichal("info", fmt.Sprintf("[end SubmitVerifyIdleResult] hash: %s err: %v", blockhash, err))
+		if blockhash != "" {
+			return blockhash, err
 		}
 		time.Sleep(time.Second * 6)
 	}
@@ -379,12 +387,17 @@ func (n *Node) verifyIdleProof(
 	idleProofRecord common.IdleProofInfo,
 	acc []byte,
 	challRandom []int64,
+	verifySlip uint32,
 ) (types.Bytes, chain.WorkerPublicKey, bool, error) {
+	var err error
 	var blockProofs []*pb.BlocksProof
 	var dialOptions []grpc.DialOption
 	var teeSig chain.TeeSig
 	var spaceProofVerifyTotal *pb.ResponseSpaceProofVerifyTotal
 	var pkchain chain.WorkerPublicKey
+
+	var latestBlock *types.SignedBlock
+
 	ctees := n.GetAllVerifierTeeEndpoint()
 	requestSpaceProofVerify := &pb.RequestSpaceProofVerify{
 		SpaceChals: idleProofRecord.ChallRandom,
@@ -399,70 +412,82 @@ func (n *Node) verifyIdleProof(
 		Acc:        acc,
 		SpaceChals: challRandom,
 	}
+	var pk []byte
+	var t = 0
+	for {
 
-	for t := 0; t < len(ctees); t++ {
-		n.Ichal("info", fmt.Sprintf("RequestSpaceProofVerifySingleBlock to tee: %s", ctees[t]))
-		pk, err := n.TeeRecorder.GetTeePubkeyByEndpoint(ctees[t])
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("GetTeePubkeyByEndpoint err: %v", err))
-			continue
-		}
-		pkchain, err = chain.BytesToWorkPublickey(pk)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("BytesToWorkPublickey err: %v", err))
-			continue
-		}
-		if !strings.Contains(ctees[t], "443") {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-		} else {
-			dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+		latestBlock, err = n.GetSubstrateAPI().RPC.Chain.GetBlockLatest()
+		if err == nil {
+			if verifySlip <= uint32(latestBlock.Block.Header.Number) {
+				time.Sleep(time.Second * 10)
+				return nil, chain.WorkerPublicKey{}, false, fmt.Errorf("challenge verify expired: %d < %d", verifySlip, latestBlock.Block.Header.Number)
+			}
 		}
 
-		blockProofs, err = verifyIdleSingleBlock(ctees[t], requestSpaceProofVerify, idleProofRecord.FileBlockProofInfo, dialOptions)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("verifyIdleSingleBlock err: %v", err))
-			continue
+		for t = 0; t < len(ctees); t++ {
+			n.Ichal("info", fmt.Sprintf("RequestSpaceProofVerifySingleBlock to tee: %s", ctees[t]))
+			pk, err = n.TeeRecorder.GetTeePubkeyByEndpoint(ctees[t])
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("GetTeePubkeyByEndpoint err: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			pkchain, err = chain.BytesToWorkPublickey(pk)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("BytesToWorkPublickey err: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if !strings.Contains(ctees[t], "443") {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+			} else {
+				dialOptions = []grpc.DialOption{grpc.WithTransportCredentials(configs.GetCert())}
+			}
+
+			blockProofs, err = verifyIdleSingleBlock(ctees[t], requestSpaceProofVerify, idleProofRecord.FileBlockProofInfo, dialOptions)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("verifyIdleSingleBlock err: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			idleProofRecord.BlocksProof = append(idleProofRecord.BlocksProof, blockProofs...)
+			n.SaveIdleProve(idleProofRecord)
+
+			n.Ichal("info", fmt.Sprintf("RequestVerifySpaceTotal to tee: %s", ctees[t]))
+
+			requestSpaceProofVerifyTotal.ProofList = blockProofs
+			spaceProofVerifyTotal, err = com.RequestVerifySpaceTotal(
+				ctees[t],
+				requestSpaceProofVerifyTotal,
+				time.Duration(time.Minute*10),
+				dialOptions,
+				nil,
+			)
+			if err != nil {
+				n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+
+			if len(spaceProofVerifyTotal.Signature) != chain.TeeSigLen {
+				n.Ichal("err", "invalid spaceProofVerifyTotal signature")
+				time.Sleep(time.Second * 10)
+				continue
+			}
+
+			n.Ichal("info", fmt.Sprintf("SpaceProofVerifyTotal result: %v", spaceProofVerifyTotal.IdleResult))
+
+			for i := 0; i < chain.TeeSigLen; i++ {
+				teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
+			}
+
+			var teeSignBytes = make(types.Bytes, len(teeSig))
+			for j := 0; j < len(teeSig); j++ {
+				teeSignBytes[j] = byte(teeSig[j])
+			}
+			return teeSignBytes, pkchain, spaceProofVerifyTotal.IdleResult, nil
 		}
-		idleProofRecord.BlocksProof = append(idleProofRecord.BlocksProof, blockProofs...)
-		n.SaveIdleProve(idleProofRecord)
-
-		n.Ichal("info", fmt.Sprintf("RequestVerifySpaceTotal to tee: %s", ctees[t]))
-
-		requestSpaceProofVerifyTotal.ProofList = blockProofs
-		spaceProofVerifyTotal, err = com.RequestVerifySpaceTotal(
-			ctees[t],
-			requestSpaceProofVerifyTotal,
-			time.Duration(time.Minute*10),
-			dialOptions,
-			nil,
-		)
-		if err != nil {
-			n.Ichal("err", fmt.Sprintf("[RequestVerifySpaceTotal] %v", err))
-			continue
-		}
-
-		if len(spaceProofVerifyTotal.Signature) != chain.TeeSigLen {
-			n.Ichal("err", "invalid spaceProofVerifyTotal signature")
-			continue
-		}
-
-		n.Ichal("info", fmt.Sprintf("SpaceProofVerifyTotal result: %v", spaceProofVerifyTotal.IdleResult))
-
-		for i := 0; i < chain.TeeSigLen; i++ {
-			teeSig[i] = types.U8(spaceProofVerifyTotal.Signature[i])
-		}
-
-		idleProofRecord.TotalSignature = spaceProofVerifyTotal.Signature
-		idleProofRecord.IdleResult = spaceProofVerifyTotal.IdleResult
-		idleProofRecord.AllocatedTeeWorkpuk = pkchain
-		n.SaveIdleProve(idleProofRecord)
-		var teeSignBytes = make(types.Bytes, len(teeSig))
-		for j := 0; j < len(teeSig); j++ {
-			teeSignBytes[j] = byte(teeSig[j])
-		}
-		return teeSignBytes, pkchain, spaceProofVerifyTotal.IdleResult, nil
 	}
-	return nil, chain.WorkerPublicKey{}, false, errors.New("verifyIdleProof failed")
 }
 
 func verifyIdleSingleBlock(teeEndpoint string, requestSpaceProofVerify *pb.RequestSpaceProofVerify, FileBlockProofInfo []common.FileBlockProofInfo, dialOptions []grpc.DialOption) ([]*pb.BlocksProof, error) {
